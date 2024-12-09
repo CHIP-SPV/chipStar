@@ -12,10 +12,10 @@
 #include <chrono>
 #include <filesystem>
 #include <sys/stat.h>
+#include "Tracer.hh"
+using namespace hip_intercept;
 
-// Define the global state
-std::vector<MemoryOperation> memory_operations;
-std::vector<KernelExecution> kernel_executions;
+std::unordered_map<void*, AllocationInfo> gpu_allocations;
 
 namespace {
 // Function pointer types
@@ -289,29 +289,19 @@ static std::string getKernelName(const void* function_address) {
     return ss.str();
 }
 
-struct AllocationInfo {
-    size_t size;
-    std::unique_ptr<char[]> shadow_copy;
-    
-    AllocationInfo(size_t s) : size(s), shadow_copy(new char[s]) {}
-};
-
-// Track GPU allocations: device_ptr -> AllocationInfo
-static std::unordered_map<void*, AllocationInfo> gpu_allocations;
-
 // Helper to find which allocation a pointer belongs to
 static std::pair<void*, AllocationInfo*> findContainingAllocation(void* ptr) {
     for (auto& [base_ptr, info] : gpu_allocations) {
         char* start = static_cast<char*>(base_ptr);
         char* end = start + info.size;
         if (ptr >= base_ptr && ptr < end) {
-            return {base_ptr, &info};
+            return std::make_pair(base_ptr, &info);
         }
     }
-    return {nullptr, nullptr};
+    return std::make_pair(nullptr, nullptr);
 }
 
-// Helper to create shadow copy of an allocation
+// Keep the static function definition
 static void createShadowCopy(void* base_ptr, AllocationInfo& info) {
     // Copy current GPU memory to shadow copy
     hipError_t err = get_real_hipMemcpy()(
@@ -342,7 +332,7 @@ static int getArgumentIndex(void* ptr, const std::vector<void*>& arg_ptrs) {
 }
 
 // Then the recordMemoryChanges function that uses it
-static void recordMemoryChanges(KernelExecution& exec) {
+static void recordMemoryChanges(hip_intercept::KernelExecution& exec) {
     for (const auto& [ptr, pre] : exec.pre_state) {
         const auto& post = exec.post_state[ptr];
         
@@ -371,33 +361,20 @@ static void recordMemoryChanges(KernelExecution& exec) {
     }
 }
 
-// Add this to the printKernelSummary function
-static void printMemoryOperations() {
-    std::cout << "\n=== Memory Operations Summary ===\n";
+// Add this function definition before it's used
+static size_t countKernelArgs(void** args) {
+    if (!args) return 0;
     
-    for (const auto& op : memory_operations) {
-        if (op.type == MemoryOpType::COPY) {
-            std::cout << "\nMemcpy: " << op.size << " bytes\n"
-                     << "  dst: " << op.dst << "\n"
-                     << "  src: " << op.src << "\n"
-                     << "  kind: " << memcpyKindToString(op.kind) << "\n";
-        } else {
-            std::cout << "\nMemset: " << op.size << " bytes\n"
-                     << "  dst: " << op.dst << "\n"
-                     << "  value: " << op.value << "\n";
-        }
-        
-        // Print first few values before/after
-        float* pre_vals = (float*)op.pre_state->data.get();
-        float* post_vals = (float*)op.post_state->data.get();
-        size_t num_floats = std::min(size_t(5), op.size / sizeof(float));
-        
-        std::cout << "  First " << num_floats << " values:\n";
-        for (size_t i = 0; i < num_floats; i++) {
-            std::cout << "    [" << i << "]: " << pre_vals[i] 
-                     << " -> " << post_vals[i] << "\n";
+    size_t count = 0;
+    while (args[count] != nullptr) {
+        count++;
+        // Safety check to prevent infinite loop
+        if (count > 100) {  // reasonable max number of kernel arguments
+            std::cerr << "Warning: Exceeded maximum expected kernel arguments\n";
+            break;
         }
     }
+    return count;
 }
 
 // Move the implementation functions here
@@ -406,8 +383,8 @@ static hipError_t hipMemcpy_impl(void *dst, const void *src, size_t sizeBytes, h
     std::cout << "hipMemcpy(dst=" << dst << ", src=" << src 
               << ", size=" << sizeBytes << ", kind=" << memcpyKindToString(kind) << ")\n";
     
-    MemoryOperation op;
-    op.type = MemoryOpType::COPY;
+    hip_intercept::MemoryOperation op;
+    op.type = hip_intercept::MemoryOpType::COPY;
     op.dst = dst;
     op.src = src;
     op.size = sizeBytes;
@@ -416,8 +393,8 @@ static hipError_t hipMemcpy_impl(void *dst, const void *src, size_t sizeBytes, h
     op.execution_order = op_count++;
     
     // Initialize pre_state and post_state
-    op.pre_state = std::make_shared<MemoryState>(sizeBytes);
-    op.post_state = std::make_shared<MemoryState>(sizeBytes);
+    op.pre_state = std::make_shared<hip_intercept::MemoryState>(sizeBytes);
+    op.post_state = std::make_shared<hip_intercept::MemoryState>(sizeBytes);
     
     // Capture pre-copy state if destination is GPU memory
     if (kind != hipMemcpyHostToHost) {
@@ -440,7 +417,8 @@ static hipError_t hipMemcpy_impl(void *dst, const void *src, size_t sizeBytes, h
         }
     }
     
-    memory_operations.push_back(std::move(op));
+    // Record operation using Tracer
+    Tracer::instance().recordMemoryOperation(op);
     return result;
 }
 
@@ -448,8 +426,8 @@ static hipError_t hipMemset_impl(void *dst, int value, size_t sizeBytes) {
     std::cout << "hipMemset(dst=" << dst << ", value=" << value 
               << ", size=" << sizeBytes << ")\n";
     
-    MemoryOperation op;
-    op.type = MemoryOpType::SET;
+    hip_intercept::MemoryOperation op;
+    op.type = hip_intercept::MemoryOpType::SET;
     op.dst = dst;
     op.size = sizeBytes;
     op.value = value;
@@ -457,8 +435,8 @@ static hipError_t hipMemset_impl(void *dst, int value, size_t sizeBytes) {
     op.execution_order = op_count++;
     
     // Initialize states
-    op.pre_state = std::make_shared<MemoryState>(sizeBytes);
-    op.post_state = std::make_shared<MemoryState>(sizeBytes);
+    op.pre_state = std::make_shared<hip_intercept::MemoryState>(sizeBytes);
+    op.post_state = std::make_shared<hip_intercept::MemoryState>(sizeBytes);
     
     // Capture pre-set state
     auto [base_ptr, info] = findContainingAllocation(dst);
@@ -476,128 +454,99 @@ static hipError_t hipMemset_impl(void *dst, int value, size_t sizeBytes) {
         memcpy(op.post_state->data.get(), info->shadow_copy.get(), sizeBytes);
     }
     
-    memory_operations.push_back(std::move(op));
+    // Record operation using Tracer
+    Tracer::instance().recordMemoryOperation(op);
     return result;
 }
 
-// Replace the printKernelSummary function
-static void __attribute__((destructor)) printKernelSummary() {
-    std::cout << "\n=== HIP API Execution Trace ===\n";
-    std::cout << "Found " << kernel_executions.size() << " kernel executions\n";
-    std::cout << "Found " << memory_operations.size() << " memory operations\n";
+// Modify hipLaunchKernel_impl to use Tracer directly:
+static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlocks,
+                                     dim3 dimBlocks, void **args, size_t sharedMemBytes,
+                                     hipStream_t stream) {
+    std::cout << "hipLaunchKernel(\n"
+              << "    function=" << function_address 
+              << "\n    numBlocks=" << dim3ToString(numBlocks)
+              << "\n    dimBlocks=" << dim3ToString(dimBlocks)
+              << "\n    sharedMem=" << sharedMemBytes
+              << "\n    stream=" << (void*)stream << "\n";
+              
+    // Get kernel name and print args using Tracer
+    std::string kernelName = getKernelName(function_address);
+    Tracer::instance().printKernelArgs(args, kernelName, function_address);
     
-    // Combine kernel executions and memory operations into a single timeline
-    struct TimelineEvent {
-        enum Type { KERNEL, MEMCPY, MEMSET } type;
-        uint64_t order;
-        const void* data;  // Pointer to KernelExecution or MemoryOperation
-        
-        TimelineEvent(Type t, uint64_t o, const void* d) 
-            : type(t), order(o), data(d) {}
-    };
-    
-    std::vector<TimelineEvent> timeline;
-    
-    // Add kernel executions to timeline
-    for (const auto& exec : kernel_executions) {
-        timeline.emplace_back(TimelineEvent::KERNEL, exec.execution_order, &exec);
-    }
-    
-    // Add memory operations to timeline
-    for (const auto& op : memory_operations) {
-        timeline.emplace_back(
-            op.type == MemoryOpType::COPY ? TimelineEvent::MEMCPY : TimelineEvent::MEMSET,
-            op.execution_order, 
-            &op
-        );
-    }
-    
-    // Sort by execution order
-    std::sort(timeline.begin(), timeline.end(),
-              [](const TimelineEvent& a, const TimelineEvent& b) {
-                  return a.order < b.order;
-              });
-    
-    // Print timeline
-    for (const auto& event : timeline) {
-        switch (event.type) {
-            case TimelineEvent::KERNEL: {
-                const auto& exec = *static_cast<const KernelExecution*>(event.data);
-                std::cout << "\nhipLaunchKernel(\n"
-                          << "    kernel: " << exec.kernel_name 
-                          << " at " << exec.function_address << "\n"
-                          << "    gridDim: " << dim3ToString(exec.grid_dim) << "\n"
-                          << "    blockDim: " << dim3ToString(exec.block_dim) << "\n"
-                          << "    sharedMem: " << exec.shared_mem << "\n"
-                          << "    stream: " << exec.stream << ")\n";
-                
-                // Print memory changes
-                for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
-                    std::cout << "  Memory changes for argument " << arg_idx << ":\n";
-                    size_t num_to_print = std::min<size_t>(10, changes.size());
-                    
-                    for (size_t i = 0; i < num_to_print; i++) {
-                        const auto& [element_index, values] = changes[i];
-                        const auto& [pre_val, post_val] = values;
-                        
-                        std::cout << "    arg" << arg_idx << " float* " 
-                                 << exec.arg_ptrs[arg_idx] << "[" << element_index << "] "
-                                 << "changed from " << pre_val 
-                                 << " to " << post_val << "\n";
-                    }
-                    
-                    if (changes.size() > 10) {
-                        std::cout << "    ... and " << (changes.size() - 10) 
-                                 << " more changes\n";
-                    }
-                }
-                break;
+    // Create execution record
+    hip_intercept::KernelExecution exec;
+    exec.function_address = (void*)function_address;
+    exec.kernel_name = kernelName;
+    exec.grid_dim = numBlocks;
+    exec.block_dim = dimBlocks;
+    exec.shared_mem = sharedMemBytes;
+    exec.stream = stream;
+    static uint64_t kernel_count = 0;
+    exec.execution_order = kernel_count++;
+
+    // Store argument pointers and capture pre-execution state
+    if (args) {
+        size_t num_args = countKernelArgs(args);
+        for (size_t i = 0; i < num_args; i++) {
+            if (!args[i]) continue;
+            
+            std::string arg_type = getArgTypeFromSignature(getKernelSignature(function_address), i);
+            bool is_vector = Tracer::instance().isVectorType(arg_type);
+            
+            void* arg_ptr = nullptr;
+            size_t arg_size = 0;
+            
+            if (is_vector) {
+                arg_ptr = args[i];
+                arg_size = 16;  // HIP_vector_type size
+            } else if (arg_type.find("*") != std::string::npos) {
+                arg_ptr = *(void**)args[i];
+                arg_size = sizeof(void*);
+            } else {
+                arg_ptr = args[i];
+                arg_size = 16;
             }
-            case TimelineEvent::MEMCPY: {
-                const auto& op = *static_cast<const MemoryOperation*>(event.data);
-                std::cout << "\nhipMemcpy(\n"
-                          << "    dst: " << op.dst << "\n"
-                          << "    src: " << op.src << "\n"
-                          << "    size: " << op.size << " bytes\n"
-                          << "    kind: " << memcpyKindToString(op.kind) << ")\n";
-                
-                // Print first few values that changed
-                std::cout << "  Memory changes:\n";
-                float* pre_vals = (float*)op.pre_state->data.get();
-                float* post_vals = (float*)op.post_state->data.get();
-                size_t num_floats = std::min(size_t(5), op.size / sizeof(float));
-                
-                for (size_t i = 0; i < num_floats; i++) {
-                    std::cout << "    [" << i << "]: " << pre_vals[i] 
-                             << " -> " << post_vals[i] << "\n";
+            
+            exec.arg_ptrs.push_back(arg_ptr);
+            exec.arg_sizes.push_back(arg_size);
+            
+            if (!is_vector && arg_type.find("*") != std::string::npos) {
+                auto [base_ptr, info] = findContainingAllocation(arg_ptr);
+                if (base_ptr && info) {
+                    createShadowCopy(base_ptr, *info);
+                    exec.pre_state.emplace(base_ptr, 
+                        hip_intercept::MemoryState(info->shadow_copy.get(), info->size));
                 }
-                break;
-            }
-            case TimelineEvent::MEMSET: {
-                const auto& op = *static_cast<const MemoryOperation*>(event.data);
-                std::cout << "\nhipMemset(\n"
-                          << "    dst: " << op.dst << "\n"
-                          << "    value: " << op.value << "\n"
-                          << "    size: " << op.size << " bytes)\n";
-                
-                // Print first few values that changed
-                std::cout << "  Memory changes:\n";
-                float* pre_vals = (float*)op.pre_state->data.get();
-                float* post_vals = (float*)op.post_state->data.get();
-                size_t num_floats = std::min(size_t(5), op.size / sizeof(float));
-                
-                for (size_t i = 0; i < num_floats; i++) {
-                    std::cout << "    [" << i << "]: " << pre_vals[i] 
-                             << " -> " << post_vals[i] << "\n";
-                }
-                break;
             }
         }
     }
+
+    // Launch kernel
+    hipError_t result = get_real_hipLaunchKernel()(function_address, numBlocks, 
+                                                  dimBlocks, args, sharedMemBytes, stream);
+    get_real_hipDeviceSynchronize()();
+    
+    // Capture post-execution state
+    for (const auto& [ptr, pre_state] : exec.pre_state) {
+        auto [base_ptr, info] = findContainingAllocation(ptr);
+        if (base_ptr && info) {
+            createShadowCopy(base_ptr, *info);
+            exec.post_state.emplace(ptr, 
+                hip_intercept::MemoryState(info->shadow_copy.get(), info->size));
+        }
+    }
+
+    recordMemoryChanges(exec);
+    
+    // Record kernel execution using Tracer
+    Tracer::instance().recordKernelLaunch(exec);
+    
+    return result;
 }
 
 // Helper to extract argument type from kernel signature
-static std::string getArgTypeFromSignature(const std::string& signature, size_t arg_index) {
+std::string getArgTypeFromSignature(const std::string& signature, size_t arg_index) {
     size_t start = signature.find('(');
     size_t end = signature.find(')');
     if (start == std::string::npos || end == std::string::npos) {
@@ -648,15 +597,6 @@ static std::string getArgTypeFromSignature(const std::string& signature, size_t 
     }
     
     return "";
-}
-
-// Helper to count number of arguments
-static size_t countKernelArgs(void** args) {
-    if (!args) return 0;
-    
-    // For VecAdd kernel, we expect exactly 4 arguments
-    // This is a temporary fix - ideally we would parse this from the kernel signature
-    return 4;
 }
 
 // First define KernelArgInfo
@@ -733,436 +673,6 @@ static void registerKernelIfNeeded(const std::string& kernel_name, const std::st
             registerKernelArg(kernel_name, arg_index++, is_vector, size);
         }
     }
-}
-
-// Add these structures for binary trace file
-struct TraceHeader {
-    uint32_t magic;  // Magic number to identify file format
-    uint32_t version;  // Version number
-    static const uint32_t MAGIC = 0x48495054; // "HIPT"
-    static const uint32_t VERSION = 1;
-};
-
-struct TraceEvent {
-    enum Type : uint32_t {
-        KERNEL_LAUNCH = 1,
-        MEMORY_COPY = 2,
-        MEMORY_SET = 3
-    } type;
-    
-    uint64_t timestamp;
-    uint32_t size;  // Size of the event-specific data that follows
-};
-
-// Structure to represent timeline events for replay
-struct TimelineEvent {
-    enum Type {
-        KERNEL,
-        MEMCPY,
-        MEMSET
-    } type;
-    
-    uint64_t order;
-    std::vector<char> data;  // Store the actual data, not just a pointer
-    std::shared_ptr<KernelExecution> kernel_exec;  // Keep kernel execution data alive
-    
-    TimelineEvent(Type t, uint64_t o, const void* d, size_t size) 
-        : type(t), order(o), data(size) {
-        memcpy(data.data(), d, size);
-    }
-};
-
-// Add these serialization helper functions
-struct SerializedKernelExecution {
-    void* function_address;
-    char kernel_name[256];  // Fixed size buffer for the name
-    dim3 grid_dim;
-    dim3 block_dim;
-    size_t shared_mem;
-    hipStream_t stream;
-    uint64_t execution_order;
-    uint32_t num_changes;  // Number of memory changes
-    uint32_t num_args;     // Number of arguments
-    // Followed by arg_ptrs data in the file
-    // Then followed by changes data
-};
-
-struct SerializedMemoryChange {
-    int arg_idx;
-    size_t element_index;
-    float pre_val;
-    float post_val;
-};
-
-// Class to manage the trace file
-class TraceFile {
-public:
-    TraceFile(const std::string& path) : path_(path) {
-        if (path.empty()) {
-            // Skip tracing for this process
-            return;
-        }
-        
-        trace_file_.open(path, std::ios::binary);
-        if (!trace_file_) {
-            std::cerr << "Failed to open trace file for writing" << std::endl;
-            return;
-        }
-        std::cout << "Trace file opened successfully: " << path << std::endl;
-        TraceHeader header{TraceHeader::MAGIC, TraceHeader::VERSION};
-        trace_file_.write(reinterpret_cast<char*>(&header), sizeof(header));
-    }
-
-    ~TraceFile() {
-        if (trace_file_.is_open()) {
-            trace_file_.close();
-        }
-        // Read and process the trace file
-        readAndProcessTrace();
-    }
-
-    void writeEvent(TraceEvent::Type type, const void* data, size_t data_size) {
-        if (!trace_file_) return;
-        
-        TraceEvent event;
-        event.type = type;
-        event.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
-        event.size = data_size;
-        
-        trace_file_.write(reinterpret_cast<char*>(&event), sizeof(event));
-        
-        // Use specialized serialization for kernel executions
-        if (type == TraceEvent::KERNEL_LAUNCH) {
-            writeKernelExecution(*static_cast<const KernelExecution*>(data));
-        } else {
-            trace_file_.write(reinterpret_cast<const char*>(data), data_size);
-        }
-    }
-
-    void readAndProcessTrace() {
-        std::ifstream in(path_, std::ios::binary);
-        if (!in) {
-            std::cerr << "Failed to open trace file for reading" << std::endl;
-            return;
-        }
-        
-        // Read header
-        TraceHeader header;
-        in.read(reinterpret_cast<char*>(&header), sizeof(header));
-        if (header.magic != TraceHeader::MAGIC || header.version != TraceHeader::VERSION) {
-            std::cerr << "Invalid trace file format" << std::endl;
-            return;
-        }
-        
-        std::vector<TimelineEvent> timeline;
-        
-        // Read events
-        while (in.good()) {
-            TraceEvent event;
-            in.read(reinterpret_cast<char*>(&event), sizeof(event));
-            if (!in.good()) break;
-            
-            if (event.type == TraceEvent::KERNEL_LAUNCH) {
-                SerializedKernelExecution serialized;
-                in.read(reinterpret_cast<char*>(&serialized), sizeof(serialized));
-                
-                // Create a new KernelExecution with only the serialized data
-                auto exec = std::make_shared<KernelExecution>();
-                exec->function_address = serialized.function_address;
-                exec->kernel_name = serialized.kernel_name;
-                exec->grid_dim = serialized.grid_dim;
-                exec->block_dim = serialized.block_dim;
-                exec->shared_mem = serialized.shared_mem;
-                exec->stream = serialized.stream;
-                exec->execution_order = serialized.execution_order;
-                
-                // Read arg_ptrs
-                for (uint32_t i = 0; i < serialized.num_args; i++) {
-                    void* ptr;
-                    in.read(reinterpret_cast<char*>(&ptr), sizeof(void*));
-                    exec->arg_ptrs.push_back(ptr);
-                }
-                
-                // Read changes
-                for (uint32_t i = 0; i < serialized.num_changes; i++) {
-                    SerializedMemoryChange mem_change;
-                    in.read(reinterpret_cast<char*>(&mem_change), sizeof(mem_change));
-                    
-                    exec->changes_by_arg[mem_change.arg_idx].push_back({
-                        mem_change.element_index,
-                        {mem_change.pre_val, mem_change.post_val}
-                    });
-                }
-                
-                // Store the shared_ptr in the timeline
-                timeline.emplace_back(TimelineEvent::KERNEL, exec->execution_order, exec.get(), sizeof(*exec));
-                timeline.back().kernel_exec = exec;  // Keep the shared_ptr alive
-            }
-            // ... handle other event types ...
-        }
-        
-        // Print timeline
-        std::cout << "\n=== HIP API Execution Trace ===\n";
-        std::cout << "Found " << timeline.size() << " events\n";
-        
-        for (const auto& event : timeline) {
-            switch (event.type) {
-                case TimelineEvent::KERNEL: {
-                    const auto& exec = *event.kernel_exec;
-                    std::cout << "\nhipLaunchKernel(\n"
-                             << "    kernel: " << exec.kernel_name 
-                             << " at " << exec.function_address << "\n"
-                             << "    gridDim: " << dim3ToString(exec.grid_dim) << "\n"
-                             << "    blockDim: " << dim3ToString(exec.block_dim) << "\n"
-                             << "    sharedMem: " << exec.shared_mem << "\n"
-                             << "    stream: " << exec.stream << ")\n";
-                    
-                    // Print memory changes
-                    for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
-                        std::cout << "  Memory changes for argument " << arg_idx << ":\n";
-                        size_t num_to_print = std::min<size_t>(10, changes.size());
-                        
-                        for (size_t i = 0; i < num_to_print; i++) {
-                            const auto& [element_index, values] = changes[i];
-                            const auto& [pre_val, post_val] = values;
-                            
-                            std::cout << "    arg" << arg_idx << " float* " 
-                                     << exec.arg_ptrs[arg_idx] << "[" << element_index << "] "
-                                     << "changed from " << pre_val 
-                                     << " to " << post_val << "\n";
-                        }
-                        
-                        if (changes.size() > 10) {
-                            std::cout << "    ... and " << (changes.size() - 10) 
-                                     << " more changes\n";
-                        }
-                    }
-                    break;
-                }
-                // ... handle other event types ...
-            }
-        }
-    }
-
-    void writeKernelExecution(const KernelExecution& exec) {
-        SerializedKernelExecution serialized;
-        serialized.function_address = exec.function_address;
-        strncpy(serialized.kernel_name, exec.kernel_name.c_str(), sizeof(serialized.kernel_name) - 1);
-        serialized.kernel_name[sizeof(serialized.kernel_name) - 1] = '\0';
-        serialized.grid_dim = exec.grid_dim;
-        serialized.block_dim = exec.block_dim;
-        serialized.shared_mem = exec.shared_mem;
-        serialized.stream = exec.stream;
-        serialized.execution_order = exec.execution_order;
-        
-        // Count total changes
-        uint32_t total_changes = 0;
-        for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
-            total_changes += changes.size();
-        }
-        serialized.num_changes = total_changes;
-        serialized.num_args = exec.arg_ptrs.size();
-        
-        // Write the main structure
-        trace_file_.write(reinterpret_cast<const char*>(&serialized), sizeof(serialized));
-        
-        // Write arg_ptrs
-        for (void* ptr : exec.arg_ptrs) {
-            trace_file_.write(reinterpret_cast<const char*>(&ptr), sizeof(void*));
-        }
-        
-        // Write all changes
-        for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
-            for (const auto& change : changes) {
-                SerializedMemoryChange mem_change;
-                mem_change.arg_idx = arg_idx;
-                mem_change.element_index = change.first;
-                mem_change.pre_val = change.second.first;
-                mem_change.post_val = change.second.second;
-                trace_file_.write(reinterpret_cast<const char*>(&mem_change), sizeof(mem_change));
-            }
-        }
-    }
-
-private:
-    std::ofstream trace_file_;
-    std::string path_;  // Store the path for reading later
-};
-
-std::string getTraceFilePath() {
-    static int traceId = 0;
-    const char* home = getenv("HOME");
-    if (!home) {
-        home = "/tmp";
-    }
-
-    // Get the binary name from /proc/self/exe
-    char selfPath[PATH_MAX];
-    ssize_t len = readlink("/proc/self/exe", selfPath, sizeof(selfPath) - 1);
-    if (len == -1) {
-        return std::string(home) + "/hipTracer/unknown-" + std::to_string(traceId++) + ".trace";
-    }
-    selfPath[len] = '\0';
-    
-    // Extract just the binary name from the full path
-    std::string binaryName = std::string(selfPath);
-    size_t lastSlash = binaryName.find_last_of('/');
-    if (lastSlash != std::string::npos) {
-        binaryName = binaryName.substr(lastSlash + 1);
-    }
-
-    // Skip system utilities and only trace actual HIP programs
-    static const std::vector<std::string> ignore_list = {
-        "grep", "dash", "nm", "x86_64-linux-gnu-nm",
-        "ld", "as", "objdump", "readelf", "addr2line"
-    };
-    
-    for (const auto& ignored : ignore_list) {
-        if (binaryName.find(ignored) != std::string::npos) {
-            return "";  // Return empty string to skip tracing for these programs
-        }
-    }
-
-    // Create the hipTracer directory if it doesn't exist
-    std::string tracerDir = std::string(home) + "/hipTracer";
-    mkdir(tracerDir.c_str(), 0755);
-
-    // Find the next available trace ID
-    std::string basePath = tracerDir + "/" + binaryName + "-";
-    while (access((basePath + std::to_string(traceId) + ".trace").c_str(), F_OK) != -1) {
-        traceId++;
-    }
-
-    return basePath + std::to_string(traceId++) + ".trace";
-}
-
-// Global instance of TraceFile with dynamic path
-static TraceFile trace_file(getTraceFilePath());
-
-// Modify hipLaunchKernel_impl to write to trace instead of storing in memory
-static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlocks,
-                                     dim3 dimBlocks, void **args, size_t sharedMemBytes,
-                                     hipStream_t stream) {
-    std::cout << "hipLaunchKernel(\n"
-              << "    function=" << function_address 
-              << "\n    numBlocks=" << dim3ToString(numBlocks)
-              << "\n    dimBlocks=" << dim3ToString(dimBlocks)
-              << "\n    sharedMem=" << sharedMemBytes
-              << "\n    stream=" << (void*)stream << "\n";
-              
-    // Print kernel arguments with types
-    std::string kernelName = getKernelName(function_address);
-    std::string signature = getKernelSignature(function_address);
-    registerKernelIfNeeded(kernelName, signature);
-    printKernelArgs(args, kernelName, function_address);
-    
-    // Create execution record
-    KernelExecution exec;
-    exec.function_address = (void*)function_address;
-    exec.kernel_name = kernelName;
-    exec.grid_dim = numBlocks;
-    exec.block_dim = dimBlocks;
-    exec.shared_mem = sharedMemBytes;
-    exec.stream = stream;
-    static uint64_t kernel_count = 0;
-    exec.execution_order = kernel_count++;
-
-    // Get kernel name and look up kernel info
-    auto kernel_it = kernel_registry.find(kernelName);
-    bool have_kernel_info = (kernel_it != kernel_registry.end());
-
-    // Store argument pointers for later analysis
-    if (args) {
-        std::string signature = getKernelSignature(function_address);
-        size_t num_args = countKernelArgs(args);
-        
-        std::cout << "\nProcessing " << num_args << " kernel arguments\n";
-        std::cout << "Kernel signature: " << signature << "\n";
-        
-        for (size_t i = 0; i < num_args; i++) {
-            std::cout << "\nProcessing argument " << i << ":\n";
-            
-            if (!args[i]) {
-                std::cout << "  Argument is nullptr, skipping\n";
-                continue;
-            }
-            
-            // Get argument type
-            std::string arg_type = getArgTypeFromSignature(signature, i);
-            std::cout << "  Argument type: '" << arg_type << "'\n";
-            
-            // Check if this is a vector type
-            bool is_vector = isVectorType(arg_type);
-            std::cout << "  Is vector type: " << (is_vector ? "yes" : "no") << "\n";
-            
-            void* arg_ptr = nullptr;
-            size_t arg_size = 0;
-            
-            try {
-                std::cout << "  Raw argument address: " << args[i] << "\n";
-                
-                if (is_vector) {
-                    // For vector types, use the argument directly
-                    arg_ptr = args[i];
-                    arg_size = 16;  // HIP_vector_type<float,2> is 16 bytes
-                    std::cout << "  Vector argument of size " << arg_size << "\n";
-                } else if (arg_type.find("*") != std::string::npos) {
-                    // For pointer types, dereference to get the actual pointer
-                    arg_ptr = *(void**)args[i];
-                    arg_size = sizeof(void*);
-                    std::cout << "  Pointer argument pointing to " << arg_ptr << "\n";
-                } else {
-                    // For scalar types, use directly
-                    arg_ptr = args[i];
-                    arg_size = 16;  // HIP_vector_type is passed by value
-                    std::cout << "  Scalar argument of size " << arg_size << "\n";
-                }
-                
-                std::cout << "  Adding argument to execution record\n";
-                exec.arg_ptrs.push_back(arg_ptr);
-                exec.arg_sizes.push_back(arg_size);
-                
-                // Only track GPU memory for pointer types
-                if (!is_vector && arg_type.find("*") != std::string::npos) {
-                    std::cout << "  Checking for GPU memory allocation\n";
-                    auto [base_ptr, info] = findContainingAllocation(arg_ptr);
-                    if (base_ptr && info) {
-                        std::cout << "  Found GPU allocation at " << base_ptr 
-                                 << " of size " << info->size << "\n";
-                        createShadowCopy(base_ptr, *info);
-                        exec.pre_state.emplace(base_ptr, 
-                            MemoryState(info->shadow_copy.get(), info->size));
-                    }
-                }
-                
-            } catch (...) {
-                std::cerr << "  Failed to process argument " << i << std::endl;
-                continue;
-            }
-        }
-    }
-
-    // Rest of the function remains the same...
-    hipError_t result = get_real_hipLaunchKernel()(function_address, numBlocks, 
-                                                  dimBlocks, args, sharedMemBytes, stream);
-    get_real_hipDeviceSynchronize()();
-    
-    // Record post-execution state and changes...
-    for (const auto& [ptr, pre_state] : exec.pre_state) {
-        auto [base_ptr, info] = findContainingAllocation(ptr);
-        if (base_ptr && info) {
-            createShadowCopy(base_ptr, *info);
-            exec.post_state.emplace(ptr, 
-                MemoryState(info->shadow_copy.get(), info->size));
-        }
-    }
-
-    recordMemoryChanges(exec);
-    
-    // Write to trace file instead of storing in memory
-    trace_file.writeEvent(TraceEvent::KERNEL_LAUNCH, &exec, sizeof(exec));
-    
-    return result;
 }
 
 } // namespace
