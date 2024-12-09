@@ -17,6 +17,9 @@ ValueDifference Comparator::compareMemoryChanges(
     const std::vector<MemoryChange>& changes1,
     const std::vector<MemoryChange>& changes2) {
     
+    std::cout << "  Comparing memory changes: " 
+              << changes1.size() << " vs " << changes2.size() << " changes" << std::endl;
+    
     ValueDifference diff;
     diff.matches = true;
     
@@ -25,16 +28,29 @@ ValueDifference Comparator::compareMemoryChanges(
     for (const auto& change : changes2) indices2.insert(change.element_index);
     
     // Find missing indices
+    std::cout << "  Finding missing indices..." << std::endl;
     std::set_difference(indices1.begin(), indices1.end(),
                        indices2.begin(), indices2.end(),
                        std::back_inserter(diff.missing_indices));
     
     // Compare values for common indices
+    std::cout << "  Comparing values for common indices..." << std::endl;
+    size_t progress = 0;
+    const size_t total = changes1.size();
+    
     for (const auto& change1 : changes1) {
-        auto it = std::find_if(changes2.begin(), changes2.end(),
-            [&](const MemoryChange& c) { return c.element_index == change1.element_index; });
+        if (progress % 10000 == 0) { // Print progress every 10000 elements
+            std::cout << "    Progress: " << progress << "/" << total << "\r" << std::flush;
+        }
+        progress++;
         
-        if (it != changes2.end()) {
+        // Use a more efficient way to find matching elements
+        auto it = std::lower_bound(changes2.begin(), changes2.end(), change1,
+            [](const MemoryChange& a, const MemoryChange& b) {
+                return a.element_index < b.element_index;
+            });
+        
+        if (it != changes2.end() && it->element_index == change1.element_index) {
             if (!compareFloats(change1.pre_value, it->pre_value)) {
                 diff.matches = false;
                 diff.pre_value_mismatches.push_back({
@@ -53,6 +69,7 @@ ValueDifference Comparator::compareMemoryChanges(
             }
         }
     }
+    std::cout << std::endl;
     
     return diff;
 }
@@ -60,6 +77,8 @@ ValueDifference Comparator::compareMemoryChanges(
 KernelComparisonResult Comparator::compareKernelExecutions(
     const KernelExecution& exec1,
     const KernelExecution& exec2) {
+    
+    std::cout << "Comparing kernel: " << exec1.kernel_name << std::endl;
     
     KernelComparisonResult result;
     result.matches = true;
@@ -120,6 +139,10 @@ KernelComparisonResult Comparator::compareKernelExecutions(
 }
 
 ComparisonResult Comparator::compare(const Trace& trace1, const Trace& trace2) {
+    std::cout << "\nStarting trace comparison..." << std::endl;
+    std::cout << "Trace 1 has " << trace1.kernel_executions.size() << " kernel executions" << std::endl;
+    std::cout << "Trace 2 has " << trace2.kernel_executions.size() << " kernel executions" << std::endl;
+    
     ComparisonResult result;
     result.traces_match = true;
     result.first_divergence_point = SIZE_MAX;
@@ -129,6 +152,8 @@ ComparisonResult Comparator::compare(const Trace& trace1, const Trace& trace2) {
                                  trace2.kernel_executions.size());
     
     for (size_t i = 0; i < min_kernels; ++i) {
+        std::cout << "\nProcessing kernel execution " << i + 1 << " of " << min_kernels << std::endl;
+        
         auto kernel_result = compareKernelExecutions(
             trace1.kernel_executions[i],
             trace2.kernel_executions[i]
@@ -153,6 +178,8 @@ ComparisonResult Comparator::compare(const Trace& trace1, const Trace& trace2) {
     }
 
     // Compare memory operations
+    std::cout << "\nComparing memory operations..." << std::endl;
+    
     if (trace1.memory_operations.size() != trace2.memory_operations.size()) {
         result.traces_match = false;
         result.error_message += "Different number of memory operations: " +
@@ -165,6 +192,10 @@ ComparisonResult Comparator::compare(const Trace& trace1, const Trace& trace2) {
                                  trace2.memory_operations.size());
     
     for (size_t i = 0; i < min_mem_ops; ++i) {
+        if (i % 100 == 0) { // Print progress every 100 operations
+            std::cout << "Processing memory operation " << i + 1 << " of " << min_mem_ops << "\r" << std::flush;
+        }
+        
         const auto& op1 = trace1.memory_operations[i];
         const auto& op2 = trace2.memory_operations[i];
         
@@ -201,6 +232,7 @@ ComparisonResult Comparator::compare(const Trace& trace1, const Trace& trace2) {
                 " differs in post-state\n";
         }
     }
+    std::cout << std::endl; // Add newline after memory operations progress
 
     return result;
 }
@@ -215,52 +247,74 @@ void Comparator::printComparisonResult(const ComparisonResult& result) {
     }
     
     std::cout << "Traces differ.\n";
+    
+    // Print memory operation differences first
     if (!result.error_message.empty()) {
-        std::cout << "Error: " << result.error_message << "\n";
+        std::cout << "\nMemory Operation Differences:\n"
+                  << "----------------------------\n"
+                  << result.error_message;
     }
     
+    // Print kernel execution differences
     if (result.first_divergence_point != SIZE_MAX) {
-        std::cout << "First divergence at kernel execution "
-                  << result.first_divergence_point << "\n\n";
+        std::cout << "\nKernel Execution Differences:\n"
+                  << "---------------------------\n"
+                  << "First divergence at kernel execution "
+                  << result.first_divergence_point << "\n";
     }
     
     for (size_t i = 0; i < result.kernel_results.size(); ++i) {
         const auto& kr = result.kernel_results[i];
         if (!kr.matches) {
-            std::cout << "Kernel " << i << " (" << kr.kernel_name << ") differences:\n";
+            std::cout << "\nKernel " << i << " (" << kr.kernel_name << "):\n";
             
-            for (const auto& diff : kr.differences) {
-                std::cout << "  - " << diff << "\n";
+            // Print kernel configuration differences
+            if (!kr.differences.empty()) {
+                std::cout << "  Configuration differences:\n";
+                for (const auto& diff : kr.differences) {
+                    std::cout << "    - " << diff << "\n";
+                }
             }
             
+            // Print argument differences
             for (const auto& [arg_idx, diff] : kr.value_differences) {
-                std::cout << "  Argument " << arg_idx << ":\n";
+                std::cout << "\n  Argument " << arg_idx << ":\n";
+                
+                // Pre-execution state
+                std::cout << "    Pre-execution state:\n";
+                if (!diff.pre_value_mismatches.empty()) {
+                    std::cout << "      " << diff.pre_value_mismatches.size() 
+                             << " values differ\n";
+                    std::cout << "      First 3 differences:\n";
+                    for (size_t j = 0; j < std::min(size_t(3), diff.pre_value_mismatches.size()); j++) {
+                        const auto& m = diff.pre_value_mismatches[j];
+                        std::cout << "        Index " << m.index << ": "
+                                 << m.value1 << " vs " << m.value2 << "\n";
+                    }
+                } else {
+                    std::cout << "      Matches\n";
+                }
+                
+                // Post-execution state
+                std::cout << "    Post-execution state:\n";
+                if (!diff.post_value_mismatches.empty()) {
+                    std::cout << "      " << diff.post_value_mismatches.size() 
+                             << " values differ\n";
+                    std::cout << "      First 3 differences:\n";
+                    for (size_t j = 0; j < std::min(size_t(3), diff.post_value_mismatches.size()); j++) {
+                        const auto& m = diff.post_value_mismatches[j];
+                        std::cout << "        Index " << m.index << ": "
+                                 << m.value1 << " vs " << m.value2 << "\n";
+                    }
+                } else {
+                    std::cout << "      Matches\n";
+                }
                 
                 if (!diff.missing_indices.empty()) {
-                    std::cout << "    Missing indices: ";
-                    for (auto idx : diff.missing_indices) {
-                        std::cout << idx << " ";
-                    }
-                    std::cout << "\n";
-                }
-                
-                if (!diff.pre_value_mismatches.empty()) {
-                    std::cout << "    Pre-execution mismatches:\n";
-                    for (const auto& m : diff.pre_value_mismatches) {
-                        std::cout << "      Index " << m.index << ": "
-                                 << m.value1 << " vs " << m.value2 << "\n";
-                    }
-                }
-                
-                if (!diff.post_value_mismatches.empty()) {
-                    std::cout << "    Post-execution mismatches:\n";
-                    for (const auto& m : diff.post_value_mismatches) {
-                        std::cout << "      Index " << m.index << ": "
-                                 << m.value1 << " vs " << m.value2 << "\n";
-                    }
+                    std::cout << "    Missing " << diff.missing_indices.size() 
+                             << " indices in second trace\n";
                 }
             }
-            std::cout << "\n";
         }
     }
 }
