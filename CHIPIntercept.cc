@@ -34,6 +34,10 @@
 #include <cstring>  // For memcpy
 #include <algorithm>  // for std::sort, std::min
 #include <utility>   // for std::pair
+#include <cxxabi.h>
+#include <regex>
+#include <unistd.h>  // For readlink
+#include <linux/limits.h>  // For PATH_MAX
 
 // At the top level (outside any namespace)
 struct MemoryState {
@@ -228,32 +232,102 @@ static std::string getArgTypes() {
   return ss.str();
 }
 
+// Helper to demangle C++ names
+static std::string demangle(const char* name) {
+    int status;
+    std::unique_ptr<char, void(*)(void*)> demangled(
+        abi::__cxa_demangle(name, nullptr, nullptr, &status),
+        std::free
+    );
+    return status == 0 ? demangled.get() : name;
+}
+
+// Helper to extract kernel signature from binary
+static std::string getKernelSignature(const void* function_address) {
+    // Get the current executable's path from /proc
+    char exe_path[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
+    if (len == -1) {
+        std::cerr << "Failed to read /proc/self/exe: " << strerror(errno) << std::endl;
+        return "";
+    }
+    exe_path[len] = '\0';
+    
+    // Use nm to get symbol information from the executable
+    std::string cmd = "nm -C " + std::string(exe_path) + " | grep __device_stub_";
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        std::cerr << "Failed to run nm command: " << strerror(errno) << std::endl;
+        return "";
+    }
+    
+    char buffer[1024];
+    std::string result;
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        result += buffer;
+    }
+    int status = pclose(pipe);
+    if (status == -1) {
+        std::cerr << "Failed to close pipe: " << strerror(errno) << std::endl;
+    }
+    
+    // Parse the nm output to extract function signature
+    std::regex signature_regex(R"(__device_stub_([^\(]+)\((.*?)\))");
+    std::smatch matches;
+    if (std::regex_search(result, matches, signature_regex)) {
+        return matches[1].str() + "(" + matches[2].str() + ")";
+    }
+    
+    std::cerr << "No kernel signature found in binary " << exe_path << std::endl;
+    return "";
+}
+
 // Helper to print kernel arguments
-static void printKernelArgs(void** args, const std::string& kernelName) {
-    // Extract function signature from kernel name
-    if (kernelName.find("MatrixMul") != std::string::npos) {
-        // Known signature: (float const*, float const*, float*, unsigned int, unsigned int, unsigned int)
-        float const* A = *(float const**)args[0];
-        float const* B = *(float const**)args[1];
-        float* C = *(float**)args[2];
-        unsigned int M = *(unsigned int*)args[3];
-        unsigned int N = *(unsigned int*)args[4];
-        unsigned int K = *(unsigned int*)args[5];
-        
-        std::cout << "    args:\n"
-                  << "      A: float const* = " << (void*)A << "\n"
-                  << "      B: float const* = " << (void*)B << "\n"
-                  << "      C: float* = " << (void*)C << "\n"
-                  << "      M: unsigned int = " << M << "\n"
-                  << "      N: unsigned int = " << N << "\n"
-                  << "      K: unsigned int = " << K << "\n";
-    } else {
-        // For unknown kernels, print raw arg pointers
-        std::cout << "    raw args:\n";
-        for (int i = 0; args[i] != nullptr; i++) {
-            std::cout << "      arg[" << i << "]: <unknown_type> = " 
-                     << args[i] << " -> " << *(void**)args[i] << "\n";
+static void printKernelArgs(void** args, const std::string& kernelName, const void* function_address) {
+    std::string signature = getKernelSignature(function_address);
+    std::cout << "    kernel signature: " << signature << "\n";
+    
+    if (!args) {
+        std::cout << "    args: nullptr\n";
+        return;
+    }
+    
+    // Parse signature to get argument types
+    std::vector<std::string> argTypes;
+    size_t start = signature.find('(');
+    size_t end = signature.find(')');
+    if (start != std::string::npos && end != std::string::npos) {
+        std::string argsStr = signature.substr(start + 1, end - start - 1);
+        std::stringstream ss(argsStr);
+        std::string type;
+        while (std::getline(ss, type, ',')) {
+            // Trim whitespace
+            type.erase(0, type.find_first_not_of(" "));
+            type.erase(type.find_last_not_of(" ") + 1);
+            argTypes.push_back(type);
         }
+    }
+    
+    std::cout << "    args:\n";
+    for (size_t i = 0; i < argTypes.size(); i++) {
+        std::cout << "      arg[" << i << "]: " << argTypes[i] << " = ";
+        
+        // Handle different argument types
+        if (argTypes[i].find("*") != std::string::npos) {
+            // Pointer type
+            void* ptr = *(void**)args[i];
+            std::cout << ptr;
+        } else if (argTypes[i].find("int") != std::string::npos) {
+            // Integer type
+            std::cout << *(int*)args[i];
+        } else if (argTypes[i].find("float") != std::string::npos) {
+            // Float type
+            std::cout << *(float*)args[i];
+        } else {
+            // Unknown type - show raw pointer
+            std::cout << args[i];
+        }
+        std::cout << "\n";
     }
 }
 
@@ -576,6 +650,79 @@ static void __attribute__((destructor)) printKernelSummary() {
     }
 }
 
+// Update the hipLaunchKernel implementation to use the new printKernelArgs
+static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlocks,
+                                     dim3 dimBlocks, void **args, size_t sharedMemBytes,
+                                     hipStream_t stream) {
+    std::cout << "hipLaunchKernel(\n"
+              << "    function=" << function_address 
+              << "\n    numBlocks=" << dim3ToString(numBlocks)
+              << "\n    dimBlocks=" << dim3ToString(dimBlocks)
+              << "\n    sharedMem=" << sharedMemBytes
+              << "\n    stream=" << (void*)stream << "\n";
+              
+    // Print kernel arguments with types
+    std::string kernelName = getKernelName(function_address);
+    printKernelArgs(args, kernelName, function_address);
+    
+    // Create execution record
+    KernelExecution exec;
+    exec.function_address = (void*)function_address;
+    exec.kernel_name = kernelName;
+    exec.grid_dim = numBlocks;
+    exec.block_dim = dimBlocks;
+    exec.shared_mem = sharedMemBytes;
+    exec.stream = stream;
+    static uint64_t kernel_count = 0;
+    exec.execution_order = kernel_count++;
+
+    // Store argument pointers for later analysis
+    if (args) {
+        // For MatrixMul kernel, we know first 3 args are pointers
+        for (int i = 0; i < 3; i++) {
+            if (!args[i]) continue;
+            void* arg_ptr = *(void**)args[i];
+            if (!arg_ptr) continue;
+            exec.arg_ptrs.push_back(arg_ptr);
+            
+            // Try to find if this points to GPU memory
+            auto [base_ptr, info] = findContainingAllocation(arg_ptr);
+            if (base_ptr && info) {
+                // Create shadow copy first
+                createShadowCopy(base_ptr, *info);
+                // Then record pre-execution state using the shadow copy
+                exec.pre_state.emplace(base_ptr, 
+                    MemoryState(info->shadow_copy.get(), info->size));
+            }
+        }
+    }
+
+    // Launch the kernel
+    hipError_t result = get_real_hipLaunchKernel()(function_address, numBlocks, 
+                                                  dimBlocks, args, sharedMemBytes, stream);
+
+    // Synchronize to ensure kernel completion
+    get_real_hipDeviceSynchronize()();
+
+    // Record post-execution state
+    for (const auto& [ptr, pre_state] : exec.pre_state) {
+        auto [base_ptr, info] = findContainingAllocation(ptr);
+        if (base_ptr && info) {
+            createShadowCopy(base_ptr, *info);
+            exec.post_state.emplace(ptr, 
+                MemoryState(info->shadow_copy.get(), info->size));
+        }
+    }
+
+    // Record changes
+    recordMemoryChanges(exec);
+
+    // Store the execution record
+    kernel_executions.push_back(std::move(exec));
+
+    return result;
+}
+
 } // namespace
 
 extern "C" {
@@ -598,79 +745,7 @@ hipError_t hipMalloc(void **ptr, size_t size) {
 hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
                           dim3 dimBlocks, void **args, size_t sharedMemBytes,
                           hipStream_t stream) {
-    std::cout << "hipLaunchKernel(\n"
-              << "    function=" << function_address 
-              << "\n    numBlocks=" << dim3ToString(numBlocks)
-              << "\n    dimBlocks=" << dim3ToString(dimBlocks)
-              << "\n    sharedMem=" << sharedMemBytes
-              << "\n    stream=" << (void*)stream << "\n";
-    
-    KernelExecution exec;
-    exec.function_address = (void*)function_address;
-    exec.kernel_name = getKernelName(function_address);
-    exec.grid_dim = numBlocks;
-    exec.block_dim = dimBlocks;
-    exec.shared_mem = sharedMemBytes;
-    exec.stream = stream;
-    static uint64_t kernel_count = 0;
-    exec.execution_order = kernel_count++;
-    
-    // Clear any previous state
-    exec.pre_state.clear();
-    exec.post_state.clear();
-    exec.changes.clear();
-    exec.arg_ptrs.clear();
-    
-    // Create shadow copies of GPU memory before kernel execution
-    if (args) {
-        // First 3 args are pointers (float* or float const*)
-        for (int i = 0; i < 3; i++) {
-            if (!args[i]) continue;
-            
-            void* arg_ptr = *(void**)args[i];
-            if (!arg_ptr) continue;
-            
-            exec.arg_ptrs.push_back(arg_ptr);  // Store argument pointer
-            
-            // Try to find if this points to GPU memory
-            auto [base_ptr, info] = findContainingAllocation(arg_ptr);
-            if (base_ptr && info) {
-                // Create shadow copy first
-                createShadowCopy(base_ptr, *info);
-                // Then record pre-execution state using the shadow copy
-                exec.pre_state.emplace(base_ptr, 
-                    MemoryState(info->shadow_copy.get(), info->size));
-                
-                std::cout << "Created shadow copy for GPU memory at " 
-                          << base_ptr << " referenced by arg " << i << std::endl;
-            }
-        }
-    }
-    
-    // Launch the kernel
-    hipError_t result = get_real_hipLaunchKernel()(function_address, numBlocks, 
-                                                  dimBlocks, args, sharedMemBytes, stream);
-    
-    // Synchronize and capture post-execution state
-    get_real_hipDeviceSynchronize()();
-    
-    // Record post-execution state
-    for (const auto& [ptr, pre_state] : exec.pre_state) {
-        auto [base_ptr, info] = findContainingAllocation(ptr);
-        if (base_ptr && info) {
-            createShadowCopy(base_ptr, *info);
-            exec.post_state.emplace(ptr, 
-                MemoryState(info->shadow_copy.get(), info->size));
-        }
-    }
-    
-    // Record changes
-    recordMemoryChanges(exec);
-    
-    // Store the execution record
-    kernel_executions.push_back(std::move(exec));
-    
-    return result;
+    return hipLaunchKernel_impl(function_address, numBlocks, dimBlocks, args, sharedMemBytes, stream);
 }
 
 hipError_t hipDeviceSynchronize(void) {
