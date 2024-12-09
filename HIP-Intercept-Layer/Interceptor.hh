@@ -34,8 +34,6 @@ public:
 extern std::unordered_map<void*, AllocationInfo> gpu_allocations;
 
 // Helper function declarations
-std::string getKernelSignature(const void* function_address);
-std::string getKernelName(const void* function_address);
 size_t countKernelArgs(void** args);
 std::string getArgTypeFromSignature(const std::string& signature, size_t arg_index);
 std::pair<void*, AllocationInfo*> findContainingAllocation(void* ptr);

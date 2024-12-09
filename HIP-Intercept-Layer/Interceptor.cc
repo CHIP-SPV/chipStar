@@ -277,18 +277,6 @@ static void printKernelArgs(void** args, const std::string& kernelName, const vo
     }
 }
 
-// Add this helper function to get kernel name from function address
-static std::string getKernelName(const void* function_address) {
-    Dl_info info;
-    if (dladdr(function_address, &info) && info.dli_sname) {
-        return info.dli_sname;
-    }
-    // If we can't get the name, return the address as hex
-    std::stringstream ss;
-    ss << "kernel_" << std::hex << (uintptr_t)function_address;
-    return ss.str();
-}
-
 // Helper to find which allocation a pointer belongs to
 static std::pair<void*, AllocationInfo*> findContainingAllocation(void* ptr) {
     for (auto& [base_ptr, info] : gpu_allocations) {
@@ -525,7 +513,7 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
               << "\n    stream=" << (void*)stream << "\n";
               
     // Get kernel name and print args using Tracer
-    std::string kernelName = getKernelName(function_address);
+    std::string kernelName = hip_intercept::getKernelName(function_address);
     Tracer::instance().printKernelArgs(args, kernelName, function_address);
     
     // Create execution record
