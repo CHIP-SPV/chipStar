@@ -650,7 +650,44 @@ static void __attribute__((destructor)) printKernelSummary() {
     }
 }
 
-// Update the hipLaunchKernel implementation to use the new printKernelArgs
+// Helper to extract argument type from kernel signature
+static std::string getArgTypeFromSignature(const std::string& signature, size_t arg_index) {
+    size_t start = signature.find('(');
+    size_t end = signature.find(')');
+    if (start == std::string::npos || end == std::string::npos) {
+        return "";
+    }
+    
+    std::string args_str = signature.substr(start + 1, end - start - 1);
+    std::stringstream ss(args_str);
+    std::string arg_type;
+    size_t current_index = 0;
+    
+    while (std::getline(ss, arg_type, ',')) {
+        // Trim whitespace
+        arg_type.erase(0, arg_type.find_first_not_of(" "));
+        arg_type.erase(arg_type.find_last_not_of(" ") + 1);
+        
+        if (current_index == arg_index) {
+            return arg_type;
+        }
+        current_index++;
+    }
+    
+    return "";
+}
+
+// Helper to count number of arguments
+static size_t countKernelArgs(void** args) {
+    if (!args) return 0;
+    size_t count = 0;
+    while (args[count] != nullptr) {
+        count++;
+    }
+    return count;
+}
+
+// Update the hipLaunchKernel_impl function
 static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlocks,
                                      dim3 dimBlocks, void **args, size_t sharedMemBytes,
                                      hipStream_t stream) {
@@ -678,11 +715,32 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
 
     // Store argument pointers for later analysis
     if (args) {
-        // For MatrixMul kernel, we know first 3 args are pointers
-        for (int i = 0; i < 3; i++) {
+        // Get number of arguments from the kernel signature
+        std::string signature = getKernelSignature(function_address);
+        size_t num_args = countKernelArgs(args);
+        
+        // Process each argument
+        for (size_t i = 0; i < num_args; i++) {
             if (!args[i]) continue;
-            void* arg_ptr = *(void**)args[i];
+            
+            // Check if this argument is a pointer type
+            std::string arg_type = getArgTypeFromSignature(signature, i);
+            if (arg_type.find("*") == std::string::npos) {
+                // Not a pointer type, skip
+                continue;
+            }
+            
+            // Safely dereference pointer argument
+            void* arg_ptr = nullptr;
+            try {
+                arg_ptr = *(void**)args[i];
+            } catch (...) {
+                std::cerr << "Warning: Failed to dereference argument " << i << std::endl;
+                continue;
+            }
+            
             if (!arg_ptr) continue;
+            
             exec.arg_ptrs.push_back(arg_ptr);
             
             // Try to find if this points to GPU memory
@@ -697,14 +755,12 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
         }
     }
 
-    // Launch the kernel
+    // Rest of the function remains the same...
     hipError_t result = get_real_hipLaunchKernel()(function_address, numBlocks, 
                                                   dimBlocks, args, sharedMemBytes, stream);
-
-    // Synchronize to ensure kernel completion
     get_real_hipDeviceSynchronize()();
-
-    // Record post-execution state
+    
+    // Record post-execution state and changes...
     for (const auto& [ptr, pre_state] : exec.pre_state) {
         auto [base_ptr, info] = findContainingAllocation(ptr);
         if (base_ptr && info) {
@@ -714,12 +770,8 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
         }
     }
 
-    // Record changes
     recordMemoryChanges(exec);
-
-    // Store the execution record
     kernel_executions.push_back(std::move(exec));
-
     return result;
 }
 
