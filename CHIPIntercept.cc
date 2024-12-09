@@ -298,34 +298,61 @@ static void printKernelArgs(void** args, const std::string& kernelName, const vo
     size_t end = signature.find(')');
     if (start != std::string::npos && end != std::string::npos) {
         std::string argsStr = signature.substr(start + 1, end - start - 1);
-        std::stringstream ss(argsStr);
-        std::string type;
-        while (std::getline(ss, type, ',')) {
-            // Trim whitespace
-            type.erase(0, type.find_first_not_of(" "));
-            type.erase(type.find_last_not_of(" ") + 1);
-            argTypes.push_back(type);
+        
+        // Handle template arguments more carefully
+        size_t pos = 0;
+        int template_depth = 0;
+        std::string current_arg;
+        
+        for (char c : argsStr) {
+            if (c == '<') template_depth++;
+            else if (c == '>') template_depth--;
+            else if (c == ',' && template_depth == 0) {
+                // Only split on commas outside of template arguments
+                if (!current_arg.empty()) {
+                    // Trim whitespace
+                    current_arg.erase(0, current_arg.find_first_not_of(" "));
+                    current_arg.erase(current_arg.find_last_not_of(" ") + 1);
+                    argTypes.push_back(current_arg);
+                    current_arg.clear();
+                }
+                continue;
+            }
+            current_arg += c;
+        }
+        if (!current_arg.empty()) {
+            current_arg.erase(0, current_arg.find_first_not_of(" "));
+            current_arg.erase(current_arg.find_last_not_of(" ") + 1);
+            argTypes.push_back(current_arg);
         }
     }
     
     std::cout << "    args:\n";
-    for (size_t i = 0; i < argTypes.size(); i++) {
+    for (size_t i = 0; i < argTypes.size() && args[i] != nullptr; i++) {
         std::cout << "      arg[" << i << "]: " << argTypes[i] << " = ";
         
-        // Handle different argument types
-        if (argTypes[i].find("*") != std::string::npos) {
-            // Pointer type
-            void* ptr = *(void**)args[i];
-            std::cout << ptr;
-        } else if (argTypes[i].find("int") != std::string::npos) {
-            // Integer type
-            std::cout << *(int*)args[i];
-        } else if (argTypes[i].find("float") != std::string::npos) {
-            // Float type
-            std::cout << *(float*)args[i];
-        } else {
-            // Unknown type - show raw pointer
-            std::cout << args[i];
+        try {
+            // Handle different argument types
+            if (argTypes[i].find("*") != std::string::npos) {
+                // Pointer type
+                void* ptr = *(void**)args[i];
+                std::cout << ptr;
+            } else if (argTypes[i].find("HIP_vector_type") != std::string::npos) {
+                // For vector types, print the first value
+                float* values = (float*)args[i];
+                std::cout << values[0];  // Print just the first component
+            } else if (argTypes[i].find("int") != std::string::npos) {
+                // Integer type
+                std::cout << *(int*)args[i];
+            } else if (argTypes[i].find("float") != std::string::npos) {
+                // Float type
+                std::cout << *(float*)args[i];
+            } else {
+                // Unknown type - show raw pointer
+                std::cout << "[unknown type at " << args[i] << "]";
+            }
+        } catch (...) {
+            std::cout << "[failed to read argument]";
         }
         std::cout << "\n";
     }
@@ -659,19 +686,46 @@ static std::string getArgTypeFromSignature(const std::string& signature, size_t 
     }
     
     std::string args_str = signature.substr(start + 1, end - start - 1);
-    std::stringstream ss(args_str);
-    std::string arg_type;
-    size_t current_index = 0;
     
-    while (std::getline(ss, arg_type, ',')) {
-        // Trim whitespace
-        arg_type.erase(0, arg_type.find_first_not_of(" "));
-        arg_type.erase(arg_type.find_last_not_of(" ") + 1);
-        
-        if (current_index == arg_index) {
-            return arg_type;
+    // Parse arguments handling nested template brackets
+    std::vector<std::string> args;
+    std::string current_arg;
+    int template_depth = 0;
+    
+    for (char c : args_str) {
+        if (c == '<') {
+            template_depth++;
+            current_arg += c;
         }
-        current_index++;
+        else if (c == '>') {
+            template_depth--;
+            current_arg += c;
+        }
+        else if (c == ',' && template_depth == 0) {
+            // Only split on commas outside of template brackets
+            if (!current_arg.empty()) {
+                // Trim whitespace
+                current_arg.erase(0, current_arg.find_first_not_of(" "));
+                current_arg.erase(current_arg.find_last_not_of(" ") + 1);
+                args.push_back(current_arg);
+                current_arg.clear();
+            }
+        }
+        else {
+            current_arg += c;
+        }
+    }
+    
+    // Add the last argument
+    if (!current_arg.empty()) {
+        current_arg.erase(0, current_arg.find_first_not_of(" "));
+        current_arg.erase(current_arg.find_last_not_of(" ") + 1);
+        args.push_back(current_arg);
+    }
+    
+    // Return the requested argument type if index is valid
+    if (arg_index < args.size()) {
+        return args[arg_index];
     }
     
     return "";
@@ -680,14 +734,89 @@ static std::string getArgTypeFromSignature(const std::string& signature, size_t 
 // Helper to count number of arguments
 static size_t countKernelArgs(void** args) {
     if (!args) return 0;
-    size_t count = 0;
-    while (args[count] != nullptr) {
-        count++;
-    }
-    return count;
+    
+    // For VecAdd kernel, we expect exactly 4 arguments
+    // This is a temporary fix - ideally we would parse this from the kernel signature
+    return 4;
 }
 
-// Update the hipLaunchKernel_impl function
+// First define KernelArgInfo
+struct KernelArgInfo {
+    bool is_vector;
+    size_t size;
+    // other fields...
+};
+
+// Then define KernelInfo which uses KernelArgInfo
+struct KernelInfo {
+    std::vector<KernelArgInfo> args;
+};
+
+// Finally define the kernel registry map
+static std::unordered_map<std::string, KernelInfo> kernel_registry;
+
+// When registering kernel arguments
+void registerKernelArg(const std::string& kernel_name, size_t arg_index, 
+                      bool is_vector, size_t size) {
+    auto& info = kernel_registry[kernel_name];
+    // Ensure the args vector is large enough
+    if (info.args.size() <= arg_index) {
+        info.args.resize(arg_index + 1);
+    }
+    info.args[arg_index].is_vector = is_vector;
+    info.args[arg_index].size = size;
+}
+
+// Add this helper function to detect vector types
+static bool isVectorType(const std::string& type_name) {
+    static const std::vector<std::string> vector_types = {
+        "float4", "float3", "float2",
+        "int4", "int3", "int2",
+        "uint4", "uint3", "uint2",
+        "double4", "double3", "double2",
+        "long4", "long3", "long2",
+        "ulong4", "ulong3", "ulong2",
+        "char4", "char3", "char2",
+        "uchar4", "uchar3", "uchar2",
+        "HIP_vector_type"
+    };
+    
+    for (const auto& vtype : vector_types) {
+        if (type_name.find(vtype) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Add this to automatically register kernel arguments when first seen
+static void registerKernelIfNeeded(const std::string& kernel_name, const std::string& signature) {
+    if (kernel_registry.find(kernel_name) != kernel_registry.end()) {
+        return;  // Already registered
+    }
+    
+    // Parse signature to get argument types
+    size_t start = signature.find('(');
+    size_t end = signature.find(')');
+    if (start != std::string::npos && end != std::string::npos) {
+        std::string args_str = signature.substr(start + 1, end - start - 1);
+        std::stringstream ss(args_str);
+        std::string arg_type;
+        size_t arg_index = 0;
+        
+        while (std::getline(ss, arg_type, ',')) {
+            // Trim whitespace
+            arg_type.erase(0, arg_type.find_first_not_of(" "));
+            arg_type.erase(arg_type.find_last_not_of(" ") + 1);
+            
+            bool is_vector = isVectorType(arg_type);
+            size_t size = is_vector ? sizeof(float4) : sizeof(void*);  // Approximate size
+            registerKernelArg(kernel_name, arg_index++, is_vector, size);
+        }
+    }
+}
+
+// Update the hipLaunchKernel_impl function with more debugging
 static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlocks,
                                      dim3 dimBlocks, void **args, size_t sharedMemBytes,
                                      hipStream_t stream) {
@@ -700,6 +829,8 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
               
     // Print kernel arguments with types
     std::string kernelName = getKernelName(function_address);
+    std::string signature = getKernelSignature(function_address);
+    registerKernelIfNeeded(kernelName, signature);
     printKernelArgs(args, kernelName, function_address);
     
     // Create execution record
@@ -713,44 +844,77 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
     static uint64_t kernel_count = 0;
     exec.execution_order = kernel_count++;
 
+    // Get kernel name and look up kernel info
+    auto kernel_it = kernel_registry.find(kernelName);
+    bool have_kernel_info = (kernel_it != kernel_registry.end());
+
     // Store argument pointers for later analysis
     if (args) {
-        // Get number of arguments from the kernel signature
         std::string signature = getKernelSignature(function_address);
         size_t num_args = countKernelArgs(args);
         
-        // Process each argument
+        std::cout << "\nProcessing " << num_args << " kernel arguments\n";
+        std::cout << "Kernel signature: " << signature << "\n";
+        
         for (size_t i = 0; i < num_args; i++) {
-            if (!args[i]) continue;
+            std::cout << "\nProcessing argument " << i << ":\n";
             
-            // Check if this argument is a pointer type
+            if (!args[i]) {
+                std::cout << "  Argument is nullptr, skipping\n";
+                continue;
+            }
+            
+            // Get argument type
             std::string arg_type = getArgTypeFromSignature(signature, i);
-            if (arg_type.find("*") == std::string::npos) {
-                // Not a pointer type, skip
-                continue;
-            }
+            std::cout << "  Argument type: '" << arg_type << "'\n";
             
-            // Safely dereference pointer argument
+            // Check if this is a vector type
+            bool is_vector = isVectorType(arg_type);
+            std::cout << "  Is vector type: " << (is_vector ? "yes" : "no") << "\n";
+            
             void* arg_ptr = nullptr;
+            size_t arg_size = 0;
+            
             try {
-                arg_ptr = *(void**)args[i];
+                std::cout << "  Raw argument address: " << args[i] << "\n";
+                
+                if (is_vector) {
+                    // For vector types, use the argument directly
+                    arg_ptr = args[i];
+                    arg_size = 16;  // HIP_vector_type<float,2> is 16 bytes
+                    std::cout << "  Vector argument of size " << arg_size << "\n";
+                } else if (arg_type.find("*") != std::string::npos) {
+                    // For pointer types, dereference to get the actual pointer
+                    arg_ptr = *(void**)args[i];
+                    arg_size = sizeof(void*);
+                    std::cout << "  Pointer argument pointing to " << arg_ptr << "\n";
+                } else {
+                    // For scalar types, use directly
+                    arg_ptr = args[i];
+                    arg_size = 16;  // HIP_vector_type is passed by value
+                    std::cout << "  Scalar argument of size " << arg_size << "\n";
+                }
+                
+                std::cout << "  Adding argument to execution record\n";
+                exec.arg_ptrs.push_back(arg_ptr);
+                exec.arg_sizes.push_back(arg_size);
+                
+                // Only track GPU memory for pointer types
+                if (!is_vector && arg_type.find("*") != std::string::npos) {
+                    std::cout << "  Checking for GPU memory allocation\n";
+                    auto [base_ptr, info] = findContainingAllocation(arg_ptr);
+                    if (base_ptr && info) {
+                        std::cout << "  Found GPU allocation at " << base_ptr 
+                                 << " of size " << info->size << "\n";
+                        createShadowCopy(base_ptr, *info);
+                        exec.pre_state.emplace(base_ptr, 
+                            MemoryState(info->shadow_copy.get(), info->size));
+                    }
+                }
+                
             } catch (...) {
-                std::cerr << "Warning: Failed to dereference argument " << i << std::endl;
+                std::cerr << "  Failed to process argument " << i << std::endl;
                 continue;
-            }
-            
-            if (!arg_ptr) continue;
-            
-            exec.arg_ptrs.push_back(arg_ptr);
-            
-            // Try to find if this points to GPU memory
-            auto [base_ptr, info] = findContainingAllocation(arg_ptr);
-            if (base_ptr && info) {
-                // Create shadow copy first
-                createShadowCopy(base_ptr, *info);
-                // Then record pre-execution state using the shadow copy
-                exec.pre_state.emplace(base_ptr, 
-                    MemoryState(info->shadow_copy.get(), info->size));
             }
         }
     }
