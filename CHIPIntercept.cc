@@ -31,6 +31,7 @@
 #include <map>
 #include <unordered_map>
 #include <memory>
+#include <cstring>  // For memcpy
 
 namespace {
 // Function pointer types
@@ -309,6 +310,73 @@ static void createShadowCopy(void* base_ptr, AllocationInfo& info) {
     }
 }
 
+// Add these new structures at the top of the anonymous namespace after the includes
+struct MemoryState {
+    std::unique_ptr<char[]> data;
+    size_t size;
+    
+    MemoryState(size_t s) : data(new char[s]), size(s) {}
+    MemoryState(const char* src, size_t s) : data(new char[s]), size(s) {
+        memcpy(data.get(), src, s);
+    }
+    
+    // Add default constructor required by std::map
+    MemoryState() : size(0) {}
+};
+
+struct KernelExecution {
+    void* function_address;
+    std::string kernel_name;
+    std::map<void*, MemoryState> pre_state;
+    std::map<void*, MemoryState> post_state;
+    std::vector<std::pair<void*, size_t>> changes;
+};
+
+// Track all kernel executions
+static std::vector<KernelExecution> kernel_executions;
+
+// Add this helper function
+static void recordMemoryChanges(KernelExecution& exec) {
+    for (const auto& [ptr, pre] : exec.pre_state) {
+        const auto& post = exec.post_state[ptr];
+        
+        // Compare pre and post states
+        for (size_t i = 0; i < pre.size; i += sizeof(float)) {
+            float* pre_val = (float*)(pre.data.get() + i);
+            float* post_val = (float*)(post.data.get() + i);
+            
+            if (*pre_val != *post_val) {
+                exec.changes.push_back({(char*)ptr + i, i});
+            }
+        }
+    }
+}
+
+// Add this function to print the summary when the program exits
+static void __attribute__((destructor)) printKernelSummary() {
+    std::cout << "\n=== Kernel Execution Summary ===\n";
+    
+    for (const auto& exec : kernel_executions) {
+        std::cout << "\nKernel: " << exec.kernel_name 
+                  << " at " << exec.function_address << "\n";
+        
+        // Print up to 100 memory changes for this kernel
+        size_t printed = 0;
+        for (const auto& [ptr, offset] : exec.changes) {
+            if (printed >= 100) break;
+            
+            float pre_val = *(float*)(exec.pre_state.at((char*)ptr - offset).data.get() + offset);
+            float post_val = *(float*)(exec.post_state.at((char*)ptr - offset).data.get() + offset);
+            
+            std::cout << "  Address " << ptr 
+                     << " changed from " << pre_val 
+                     << " to " << post_val << "\n";
+            
+            printed++;
+        }
+    }
+}
+
 extern "C" {
 
 hipError_t hipGetDeviceProperties(hipDeviceProp_t* props, int deviceId) {
@@ -344,45 +412,57 @@ hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
               << "\n    sharedMem=" << sharedMemBytes
               << "\n    stream=" << (void*)stream << "\n";
     
-    // Create shadow copies of GPU memory before kernel execution
-    std::vector<std::pair<void*, AllocationInfo*>> affected_allocations;
+    KernelExecution exec;
+    exec.function_address = (void*)function_address;
+    exec.kernel_name = "MatrixMul"; // You might want to make this more dynamic
     
-    // For MatrixMul kernel, we know the argument types
+    // Create shadow copies of GPU memory before kernel execution
     if (args) {
         // First 3 args are pointers (float* or float const*)
         for (int i = 0; i < 3; i++) {
-            if (!args[i]) {
-                std::cerr << "Warning: Null argument pointer at index " << i << std::endl;
-                continue;
-            }
+            if (!args[i]) continue;
             
             void* arg_ptr = *(void**)args[i];
-            if (!arg_ptr) {
-                continue;  // Skip null pointers
-            }
+            if (!arg_ptr) continue;
             
             // Try to find if this points to GPU memory
             auto [base_ptr, info] = findContainingAllocation(arg_ptr);
             if (base_ptr && info) {
-                affected_allocations.emplace_back(base_ptr, info);
+                // Record pre-execution state
+                exec.pre_state.emplace(base_ptr, 
+                    MemoryState(info->shadow_copy.get(), info->size));
+                
                 createShadowCopy(base_ptr, *info);
                 std::cout << "Created shadow copy for GPU memory at " 
                          << base_ptr << " referenced by arg " << i << std::endl;
             }
         }
-        
-        // Next 3 args are unsigned ints - we don't need to track these
-        // args[3] = M
-        // args[4] = N
-        // args[5] = K
     }
     
-    // Print the kernel arguments
-    printKernelArgs(args, "MatrixMul");
-    std::cout << ")\n";
+    // Launch the kernel
+    hipError_t result = get_real_hipLaunchKernel()(function_address, numBlocks, 
+                                                  dimBlocks, args, sharedMemBytes, stream);
     
-    return get_real_hipLaunchKernel()(function_address, numBlocks, dimBlocks, args,
-                                     sharedMemBytes, stream);
+    // Synchronize and capture post-execution state
+    get_real_hipDeviceSynchronize()();
+    
+    // Record post-execution state
+    for (const auto& [ptr, pre_state] : exec.pre_state) {
+        auto [base_ptr, info] = findContainingAllocation(ptr);
+        if (base_ptr && info) {
+            createShadowCopy(base_ptr, *info);
+            exec.post_state.emplace(ptr, 
+                MemoryState(info->shadow_copy.get(), info->size));
+        }
+    }
+    
+    // Record changes
+    recordMemoryChanges(exec);
+    
+    // Store the execution record
+    kernel_executions.push_back(std::move(exec));
+    
+    return result;
 }
 
 hipError_t hipDeviceSynchronize(void) {
