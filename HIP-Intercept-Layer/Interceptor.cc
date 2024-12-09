@@ -40,6 +40,10 @@
 #include <linux/limits.h>  // For PATH_MAX
 #include <fstream>
 #include <chrono>
+#include <ctime>
+#include <filesystem>
+#include <cstdlib>
+#include <sys/stat.h>
 
 // At the top level (outside any namespace)
 struct MemoryState {
@@ -880,12 +884,17 @@ struct SerializedMemoryChange {
 class TraceFile {
 public:
     TraceFile(const std::string& path) : path_(path) {
+        if (path.empty()) {
+            // Skip tracing for this process
+            return;
+        }
+        
         trace_file_.open(path, std::ios::binary);
         if (!trace_file_) {
             std::cerr << "Failed to open trace file for writing" << std::endl;
             return;
         }
-        std::cout << "Trace file opened successfully" << std::endl;
+        std::cout << "Trace file opened successfully: " << path << std::endl;
         TraceHeader header{TraceHeader::MAGIC, TraceHeader::VERSION};
         trace_file_.write(reinterpret_cast<char*>(&header), sizeof(header));
     }
@@ -1053,8 +1062,55 @@ private:
     std::string path_;  // Store the path for reading later
 };
 
-// Global instance of TraceFile
-static TraceFile trace_file("/space/pvelesko/testing.trace");
+std::string getTraceFilePath() {
+    static int traceId = 0;
+    const char* home = getenv("HOME");
+    if (!home) {
+        home = "/tmp";
+    }
+
+    // Get the binary name from /proc/self/exe
+    char selfPath[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", selfPath, sizeof(selfPath) - 1);
+    if (len == -1) {
+        return std::string(home) + "/hipTracer/unknown-" + std::to_string(traceId++) + ".trace";
+    }
+    selfPath[len] = '\0';
+    
+    // Extract just the binary name from the full path
+    std::string binaryName = std::string(selfPath);
+    size_t lastSlash = binaryName.find_last_of('/');
+    if (lastSlash != std::string::npos) {
+        binaryName = binaryName.substr(lastSlash + 1);
+    }
+
+    // Skip system utilities and only trace actual HIP programs
+    static const std::vector<std::string> ignore_list = {
+        "grep", "dash", "nm", "x86_64-linux-gnu-nm",
+        "ld", "as", "objdump", "readelf", "addr2line"
+    };
+    
+    for (const auto& ignored : ignore_list) {
+        if (binaryName.find(ignored) != std::string::npos) {
+            return "";  // Return empty string to skip tracing for these programs
+        }
+    }
+
+    // Create the hipTracer directory if it doesn't exist
+    std::string tracerDir = std::string(home) + "/hipTracer";
+    mkdir(tracerDir.c_str(), 0755);
+
+    // Find the next available trace ID
+    std::string basePath = tracerDir + "/" + binaryName + "-";
+    while (access((basePath + std::to_string(traceId) + ".trace").c_str(), F_OK) != -1) {
+        traceId++;
+    }
+
+    return basePath + std::to_string(traceId++) + ".trace";
+}
+
+// Global instance of TraceFile with dynamic path
+static TraceFile trace_file(getTraceFilePath());
 
 // Modify hipLaunchKernel_impl to write to trace instead of storing in memory
 static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlocks,
