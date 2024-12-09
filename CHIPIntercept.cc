@@ -32,8 +32,10 @@
 #include <unordered_map>
 #include <memory>
 #include <cstring>  // For memcpy
+#include <algorithm>  // for std::sort, std::min
+#include <utility>   // for std::pair
 
-// Move these structures and variables outside the anonymous namespace
+// At the top level (outside any namespace)
 struct MemoryState {
     std::unique_ptr<char[]> data;
     size_t size;
@@ -61,10 +63,36 @@ struct KernelExecution {
     std::vector<std::pair<void*, size_t>> changes;
     std::vector<void*> arg_ptrs;
     std::vector<size_t> arg_sizes;
+    
+    // Add this to store changes grouped by argument
+    std::map<int, std::vector<std::pair<size_t, std::pair<float, float>>>> changes_by_arg;
 };
 
 // Track all kernel executions
 static std::vector<KernelExecution> kernel_executions;
+
+// Add this after the KernelExecution struct
+enum class MemoryOpType {
+    COPY,
+    SET
+};
+
+struct MemoryOperation {
+    MemoryOpType type;
+    void* dst;
+    const void* src;  // Only used for COPY
+    size_t size;
+    int value;        // Only used for SET
+    hipMemcpyKind kind;  // Only used for COPY
+    uint64_t execution_order;
+    
+    // Memory state before/after operation
+    std::shared_ptr<MemoryState> pre_state;
+    std::shared_ptr<MemoryState> post_state;
+};
+
+// Track all memory operations
+static std::vector<MemoryOperation> memory_operations;
 
 namespace {
 // Function pointer types
@@ -83,6 +111,7 @@ typedef hipError_t (*hipFree_fn)(void*);
 typedef hipError_t (*hipGetLastError_fn)(void);
 typedef const char* (*hipGetErrorString_fn)(hipError_t);
 typedef hipError_t (*hipLaunchKernelGGL_fn)(const void*, dim3, dim3, size_t, hipStream_t, ...);
+typedef hipError_t (*hipMemset_fn)(void*, int, size_t);
 
 // Get the real function pointers
 void* getOriginalFunction(const char* name) {
@@ -187,6 +216,11 @@ hipGetErrorString_fn get_real_hipGetErrorString() {
 
 hipLaunchKernelGGL_fn get_real_hipLaunchKernelGGL() {
     static auto fn = (hipLaunchKernelGGL_fn)getOriginalFunction("hipLaunchKernelGGL");
+    return fn;
+}
+
+hipMemset_fn get_real_hipMemset() {
+    static auto fn = (hipMemset_fn)getOriginalFunction("hipMemset");
     return fn;
 }
 
@@ -400,6 +434,9 @@ static void recordMemoryChanges(KernelExecution& exec) {
             // Record all values for output arguments
             for (size_t i = 0; i < pre.size; i += sizeof(float)) {
                 exec.changes.push_back({(char*)ptr + i, i});
+                float* pre_val = (float*)(pre.data.get() + i);
+                float* post_val = (float*)(post.data.get() + i);
+                exec.changes_by_arg[arg_idx].push_back({i/sizeof(float), {*pre_val, *post_val}});
             }
         } else {
             // For input arguments, only record actual changes
@@ -409,58 +446,239 @@ static void recordMemoryChanges(KernelExecution& exec) {
                 
                 if (*pre_val != *post_val) {
                     exec.changes.push_back({(char*)ptr + i, i});
+                    exec.changes_by_arg[arg_idx].push_back({i/sizeof(float), {*pre_val, *post_val}});
                 }
             }
         }
     }
 }
 
-// Replace the printKernelSummary function
-static void __attribute__((destructor)) printKernelSummary() {
-    std::cout << "\n=== Kernel Execution Summary ===\n";
+// Add this to the printKernelSummary function
+static void printMemoryOperations() {
+    std::cout << "\n=== Memory Operations Summary ===\n";
     
-    for (const auto& exec : kernel_executions) {
-        std::cout << "\nKernel: " << exec.kernel_name 
-                  << " at " << exec.function_address << "\n";
-        
-        // Track changes per argument
-        std::map<int, std::vector<std::pair<size_t, std::pair<float, float>>>> changes_by_arg;
-        
-        // Group changes by argument
-        for (const auto& [ptr, offset] : exec.changes) {
-            void* base_ptr = (char*)ptr - offset;
-            float pre_val = *(float*)(exec.pre_state.at(base_ptr).data.get() + offset);
-            float post_val = *(float*)(exec.post_state.at(base_ptr).data.get() + offset);
-            
-            int arg_idx = getArgumentIndex(base_ptr, exec.arg_ptrs);
-            if (arg_idx >= 0) {
-                size_t element_index = offset / sizeof(float);
-                changes_by_arg[arg_idx].push_back({element_index, {pre_val, post_val}});
-            }
+    for (const auto& op : memory_operations) {
+        if (op.type == MemoryOpType::COPY) {
+            std::cout << "\nMemcpy: " << op.size << " bytes\n"
+                     << "  dst: " << op.dst << "\n"
+                     << "  src: " << op.src << "\n"
+                     << "  kind: " << memcpyKindToString(op.kind) << "\n";
+        } else {
+            std::cout << "\nMemset: " << op.size << " bytes\n"
+                     << "  dst: " << op.dst << "\n"
+                     << "  value: " << op.value << "\n";
         }
         
-        // Print up to 10 changes for each argument
-        for (const auto& [arg_idx, changes] : changes_by_arg) {
-            std::cout << "\n  Changes for argument " << arg_idx << ":\n";
-            size_t num_to_print = std::min(size_t(10), changes.size());
-            
-            for (size_t i = 0; i < num_to_print; i++) {
-                const auto& [element_index, values] = changes[i];
-                const auto& [pre_val, post_val] = values;
+        // Print first few values before/after
+        float* pre_vals = (float*)op.pre_state->data.get();
+        float* post_vals = (float*)op.post_state->data.get();
+        size_t num_floats = std::min(size_t(5), op.size / sizeof(float));
+        
+        std::cout << "  First " << num_floats << " values:\n";
+        for (size_t i = 0; i < num_floats; i++) {
+            std::cout << "    [" << i << "]: " << pre_vals[i] 
+                     << " -> " << post_vals[i] << "\n";
+        }
+    }
+}
+
+// Move the implementation functions here
+static hipError_t hipMemcpy_impl(void *dst, const void *src, size_t sizeBytes, hipMemcpyKind kind) {
+    std::cout << "\n=== INTERCEPTED hipMemcpy ===\n";
+    std::cout << "hipMemcpy(dst=" << dst << ", src=" << src 
+              << ", size=" << sizeBytes << ", kind=" << memcpyKindToString(kind) << ")\n";
+    
+    MemoryOperation op;
+    op.type = MemoryOpType::COPY;
+    op.dst = dst;
+    op.src = src;
+    op.size = sizeBytes;
+    op.kind = kind;
+    static uint64_t op_count = 0;
+    op.execution_order = op_count++;
+    
+    // Initialize pre_state and post_state
+    op.pre_state = std::make_shared<MemoryState>(sizeBytes);
+    op.post_state = std::make_shared<MemoryState>(sizeBytes);
+    
+    // Capture pre-copy state if destination is GPU memory
+    if (kind != hipMemcpyHostToHost) {
+        auto [base_ptr, info] = findContainingAllocation(dst);
+        if (base_ptr && info) {
+            createShadowCopy(base_ptr, *info);
+            memcpy(op.pre_state->data.get(), info->shadow_copy.get(), sizeBytes);
+        }
+    }
+    
+    // Perform the copy
+    hipError_t result = get_real_hipMemcpy()(dst, src, sizeBytes, kind);
+    
+    // Capture post-copy state
+    if (kind != hipMemcpyHostToHost) {
+        auto [base_ptr, info] = findContainingAllocation(dst);
+        if (base_ptr && info) {
+            createShadowCopy(base_ptr, *info);
+            memcpy(op.post_state->data.get(), info->shadow_copy.get(), sizeBytes);
+        }
+    }
+    
+    memory_operations.push_back(std::move(op));
+    return result;
+}
+
+static hipError_t hipMemset_impl(void *dst, int value, size_t sizeBytes) {
+    std::cout << "hipMemset(dst=" << dst << ", value=" << value 
+              << ", size=" << sizeBytes << ")\n";
+    
+    MemoryOperation op;
+    op.type = MemoryOpType::SET;
+    op.dst = dst;
+    op.size = sizeBytes;
+    op.value = value;
+    static uint64_t op_count = 0;
+    op.execution_order = op_count++;
+    
+    // Initialize states
+    op.pre_state = std::make_shared<MemoryState>(sizeBytes);
+    op.post_state = std::make_shared<MemoryState>(sizeBytes);
+    
+    // Capture pre-set state
+    auto [base_ptr, info] = findContainingAllocation(dst);
+    if (base_ptr && info) {
+        createShadowCopy(base_ptr, *info);
+        memcpy(op.pre_state->data.get(), info->shadow_copy.get(), sizeBytes);
+    }
+    
+    // Perform the memset
+    hipError_t result = get_real_hipMemset()(dst, value, sizeBytes);
+    
+    // Capture post-set state
+    if (base_ptr && info) {
+        createShadowCopy(base_ptr, *info);
+        memcpy(op.post_state->data.get(), info->shadow_copy.get(), sizeBytes);
+    }
+    
+    memory_operations.push_back(std::move(op));
+    return result;
+}
+
+// Replace the printKernelSummary function
+static void __attribute__((destructor)) printKernelSummary() {
+    std::cout << "\n=== HIP API Execution Trace ===\n";
+    std::cout << "Found " << kernel_executions.size() << " kernel executions\n";
+    std::cout << "Found " << memory_operations.size() << " memory operations\n";
+    
+    // Combine kernel executions and memory operations into a single timeline
+    struct TimelineEvent {
+        enum Type { KERNEL, MEMCPY, MEMSET } type;
+        uint64_t order;
+        const void* data;  // Pointer to KernelExecution or MemoryOperation
+        
+        TimelineEvent(Type t, uint64_t o, const void* d) 
+            : type(t), order(o), data(d) {}
+    };
+    
+    std::vector<TimelineEvent> timeline;
+    
+    // Add kernel executions to timeline
+    for (const auto& exec : kernel_executions) {
+        timeline.emplace_back(TimelineEvent::KERNEL, exec.execution_order, &exec);
+    }
+    
+    // Add memory operations to timeline
+    for (const auto& op : memory_operations) {
+        timeline.emplace_back(
+            op.type == MemoryOpType::COPY ? TimelineEvent::MEMCPY : TimelineEvent::MEMSET,
+            op.execution_order, 
+            &op
+        );
+    }
+    
+    // Sort by execution order
+    std::sort(timeline.begin(), timeline.end(),
+              [](const TimelineEvent& a, const TimelineEvent& b) {
+                  return a.order < b.order;
+              });
+    
+    // Print timeline
+    for (const auto& event : timeline) {
+        switch (event.type) {
+            case TimelineEvent::KERNEL: {
+                const auto& exec = *static_cast<const KernelExecution*>(event.data);
+                std::cout << "\nhipLaunchKernel(\n"
+                          << "    kernel: " << exec.kernel_name 
+                          << " at " << exec.function_address << "\n"
+                          << "    gridDim: " << dim3ToString(exec.grid_dim) << "\n"
+                          << "    blockDim: " << dim3ToString(exec.block_dim) << "\n"
+                          << "    sharedMem: " << exec.shared_mem << "\n"
+                          << "    stream: " << exec.stream << ")\n";
                 
-                std::cout << "    arg" << arg_idx << " float* " 
-                         << exec.arg_ptrs[arg_idx] << "[" << element_index << "] "
-                         << "changed from " << pre_val 
-                         << " to " << post_val << "\n";
+                // Print memory changes
+                for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
+                    std::cout << "  Memory changes for argument " << arg_idx << ":\n";
+                    size_t num_to_print = std::min(size_t(10), changes.size());
+                    
+                    for (size_t i = 0; i < num_to_print; i++) {
+                        const auto& [element_index, values] = changes[i];
+                        const auto& [pre_val, post_val] = values;
+                        
+                        std::cout << "    arg" << arg_idx << " float* " 
+                                 << exec.arg_ptrs[arg_idx] << "[" << element_index << "] "
+                                 << "changed from " << pre_val 
+                                 << " to " << post_val << "\n";
+                    }
+                    
+                    if (changes.size() > 10) {
+                        std::cout << "    ... and " << (changes.size() - 10) 
+                                 << " more changes\n";
+                    }
+                }
+                break;
             }
-            
-            if (changes.size() > 10) {
-                std::cout << "    ... and " << (changes.size() - 10) 
-                         << " more changes\n";
+            case TimelineEvent::MEMCPY: {
+                const auto& op = *static_cast<const MemoryOperation*>(event.data);
+                std::cout << "\nhipMemcpy(\n"
+                          << "    dst: " << op.dst << "\n"
+                          << "    src: " << op.src << "\n"
+                          << "    size: " << op.size << " bytes\n"
+                          << "    kind: " << memcpyKindToString(op.kind) << ")\n";
+                
+                // Print first few values that changed
+                std::cout << "  Memory changes:\n";
+                float* pre_vals = (float*)op.pre_state->data.get();
+                float* post_vals = (float*)op.post_state->data.get();
+                size_t num_floats = std::min(size_t(5), op.size / sizeof(float));
+                
+                for (size_t i = 0; i < num_floats; i++) {
+                    std::cout << "    [" << i << "]: " << pre_vals[i] 
+                             << " -> " << post_vals[i] << "\n";
+                }
+                break;
+            }
+            case TimelineEvent::MEMSET: {
+                const auto& op = *static_cast<const MemoryOperation*>(event.data);
+                std::cout << "\nhipMemset(\n"
+                          << "    dst: " << op.dst << "\n"
+                          << "    value: " << op.value << "\n"
+                          << "    size: " << op.size << " bytes)\n";
+                
+                // Print first few values that changed
+                std::cout << "  Memory changes:\n";
+                float* pre_vals = (float*)op.pre_state->data.get();
+                float* post_vals = (float*)op.post_state->data.get();
+                size_t num_floats = std::min(size_t(5), op.size / sizeof(float));
+                
+                for (size_t i = 0; i < num_floats; i++) {
+                    std::cout << "    [" << i << "]: " << pre_vals[i] 
+                             << " -> " << post_vals[i] << "\n";
+                }
+                break;
             }
         }
     }
 }
+
+} // namespace
 
 extern "C" {
 
@@ -481,10 +699,6 @@ hipError_t hipMalloc(void **ptr, size_t size) {
     }
     
     return result;
-}
-
-hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes, hipMemcpyKind kind) {
-    return get_real_hipMemcpy()(dst, src, sizeBytes, kind);
 }
 
 hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
@@ -613,5 +827,14 @@ const char* hipGetErrorString(hipError_t error) {
     return get_real_hipGetErrorString()(error);
 }
 
+__attribute__((visibility("default")))
+hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes, hipMemcpyKind kind) {
+    return hipMemcpy_impl(dst, src, sizeBytes, kind);
+}
+
+__attribute__((visibility("default")))
+hipError_t hipMemset(void *dst, int value, size_t sizeBytes) {
+    return hipMemset_impl(dst, value, sizeBytes);
+}
+
 } // extern "C"
-} // namespace
