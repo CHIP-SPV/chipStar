@@ -617,7 +617,7 @@ static void __attribute__((destructor)) printKernelSummary() {
                 // Print memory changes
                 for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
                     std::cout << "  Memory changes for argument " << arg_idx << ":\n";
-                    size_t num_to_print = std::min(size_t(10), changes.size());
+                    size_t num_to_print = std::min<size_t>(10, changes.size());
                     
                     for (size_t i = 0; i < num_to_print; i++) {
                         const auto& [element_index, values] = changes[i];
@@ -837,10 +837,49 @@ struct TraceEvent {
     uint32_t size;  // Size of the event-specific data that follows
 };
 
+// Structure to represent timeline events for replay
+struct TimelineEvent {
+    enum Type {
+        KERNEL,
+        MEMCPY,
+        MEMSET
+    } type;
+    
+    uint64_t order;
+    std::vector<char> data;  // Store the actual data, not just a pointer
+    std::shared_ptr<KernelExecution> kernel_exec;  // Keep kernel execution data alive
+    
+    TimelineEvent(Type t, uint64_t o, const void* d, size_t size) 
+        : type(t), order(o), data(size) {
+        memcpy(data.data(), d, size);
+    }
+};
+
+// Add these serialization helper functions
+struct SerializedKernelExecution {
+    void* function_address;
+    char kernel_name[256];  // Fixed size buffer for the name
+    dim3 grid_dim;
+    dim3 block_dim;
+    size_t shared_mem;
+    hipStream_t stream;
+    uint64_t execution_order;
+    uint32_t num_changes;  // Number of memory changes
+    
+    // Followed by changes data in the file
+};
+
+struct SerializedMemoryChange {
+    int arg_idx;
+    size_t element_index;
+    float pre_val;
+    float post_val;
+};
+
 // Class to manage the trace file
 class TraceFile {
 public:
-    TraceFile(const std::string& path) {
+    TraceFile(const std::string& path) : path_(path) {
         trace_file_.open(path, std::ios::binary);
         if (!trace_file_) {
             std::cerr << "Failed to open trace file for writing" << std::endl;
@@ -855,6 +894,8 @@ public:
         if (trace_file_.is_open()) {
             trace_file_.close();
         }
+        // Read and process the trace file
+        readAndProcessTrace();
     }
 
     void writeEvent(TraceEvent::Type type, const void* data, size_t data_size) {
@@ -866,11 +907,150 @@ public:
         event.size = data_size;
         
         trace_file_.write(reinterpret_cast<char*>(&event), sizeof(event));
-        trace_file_.write(reinterpret_cast<const char*>(data), data_size);
+        
+        // Use specialized serialization for kernel executions
+        if (type == TraceEvent::KERNEL_LAUNCH) {
+            writeKernelExecution(*static_cast<const KernelExecution*>(data));
+        } else {
+            trace_file_.write(reinterpret_cast<const char*>(data), data_size);
+        }
+    }
+
+    void readAndProcessTrace() {
+        std::ifstream in(path_, std::ios::binary);
+        if (!in) {
+            std::cerr << "Failed to open trace file for reading" << std::endl;
+            return;
+        }
+        
+        // Read header
+        TraceHeader header;
+        in.read(reinterpret_cast<char*>(&header), sizeof(header));
+        if (header.magic != TraceHeader::MAGIC || header.version != TraceHeader::VERSION) {
+            std::cerr << "Invalid trace file format" << std::endl;
+            return;
+        }
+        
+        std::vector<TimelineEvent> timeline;
+        
+        // Read events
+        while (in.good()) {
+            TraceEvent event;
+            in.read(reinterpret_cast<char*>(&event), sizeof(event));
+            if (!in.good()) break;
+            
+            if (event.type == TraceEvent::KERNEL_LAUNCH) {
+                SerializedKernelExecution serialized;
+                in.read(reinterpret_cast<char*>(&serialized), sizeof(serialized));
+                
+                // Create a new KernelExecution with only the serialized data
+                auto exec = std::make_shared<KernelExecution>();
+                exec->function_address = serialized.function_address;
+                exec->kernel_name = serialized.kernel_name;
+                exec->grid_dim = serialized.grid_dim;
+                exec->block_dim = serialized.block_dim;
+                exec->shared_mem = serialized.shared_mem;
+                exec->stream = serialized.stream;
+                exec->execution_order = serialized.execution_order;
+                
+                // Read changes
+                for (uint32_t i = 0; i < serialized.num_changes; i++) {
+                    SerializedMemoryChange mem_change;
+                    in.read(reinterpret_cast<char*>(&mem_change), sizeof(mem_change));
+                    
+                    exec->changes_by_arg[mem_change.arg_idx].push_back({
+                        mem_change.element_index,
+                        {mem_change.pre_val, mem_change.post_val}
+                    });
+                }
+                
+                // Store the shared_ptr in the timeline
+                timeline.emplace_back(TimelineEvent::KERNEL, exec->execution_order, exec.get(), sizeof(*exec));
+                timeline.back().kernel_exec = exec;  // Keep the shared_ptr alive
+            }
+            // ... handle other event types ...
+        }
+        
+        // Print timeline
+        std::cout << "\n=== HIP API Execution Trace ===\n";
+        std::cout << "Found " << timeline.size() << " events\n";
+        
+        for (const auto& event : timeline) {
+            switch (event.type) {
+                case TimelineEvent::KERNEL: {
+                    const auto& exec = *event.kernel_exec;
+                    std::cout << "\nhipLaunchKernel(\n"
+                             << "    kernel: " << exec.kernel_name 
+                             << " at " << exec.function_address << "\n"
+                             << "    gridDim: " << dim3ToString(exec.grid_dim) << "\n"
+                             << "    blockDim: " << dim3ToString(exec.block_dim) << "\n"
+                             << "    sharedMem: " << exec.shared_mem << "\n"
+                             << "    stream: " << exec.stream << ")\n";
+                    
+                    // Print memory changes
+                    for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
+                        std::cout << "  Memory changes for argument " << arg_idx << ":\n";
+                        size_t num_to_print = std::min<size_t>(10, changes.size());
+                        
+                        for (size_t i = 0; i < num_to_print; i++) {
+                            const auto& [element_index, values] = changes[i];
+                            const auto& [pre_val, post_val] = values;
+                            
+                            std::cout << "    arg" << arg_idx << " float* " 
+                                     << exec.arg_ptrs[arg_idx] << "[" << element_index << "] "
+                                     << "changed from " << pre_val 
+                                     << " to " << post_val << "\n";
+                        }
+                        
+                        if (changes.size() > 10) {
+                            std::cout << "    ... and " << (changes.size() - 10) 
+                                     << " more changes\n";
+                        }
+                    }
+                    break;
+                }
+                // ... handle other event types ...
+            }
+        }
+    }
+
+    void writeKernelExecution(const KernelExecution& exec) {
+        SerializedKernelExecution serialized;
+        serialized.function_address = exec.function_address;
+        strncpy(serialized.kernel_name, exec.kernel_name.c_str(), sizeof(serialized.kernel_name) - 1);
+        serialized.kernel_name[sizeof(serialized.kernel_name) - 1] = '\0';
+        serialized.grid_dim = exec.grid_dim;
+        serialized.block_dim = exec.block_dim;
+        serialized.shared_mem = exec.shared_mem;
+        serialized.stream = exec.stream;
+        serialized.execution_order = exec.execution_order;
+        
+        // Count total changes
+        uint32_t total_changes = 0;
+        for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
+            total_changes += changes.size();
+        }
+        serialized.num_changes = total_changes;
+        
+        // Write the main structure
+        trace_file_.write(reinterpret_cast<const char*>(&serialized), sizeof(serialized));
+        
+        // Write all changes
+        for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
+            for (const auto& change : changes) {
+                SerializedMemoryChange mem_change;
+                mem_change.arg_idx = arg_idx;
+                mem_change.element_index = change.first;
+                mem_change.pre_val = change.second.first;
+                mem_change.post_val = change.second.second;
+                trace_file_.write(reinterpret_cast<const char*>(&mem_change), sizeof(mem_change));
+            }
+        }
     }
 
 private:
     std::ofstream trace_file_;
+    std::string path_;  // Store the path for reading later
 };
 
 // Global instance of TraceFile
