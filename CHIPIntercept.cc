@@ -330,6 +330,7 @@ struct KernelExecution {
     std::map<void*, MemoryState> pre_state;
     std::map<void*, MemoryState> post_state;
     std::vector<std::pair<void*, size_t>> changes;
+    std::vector<void*> arg_ptrs;
 };
 
 // Track all kernel executions
@@ -352,7 +353,15 @@ static void recordMemoryChanges(KernelExecution& exec) {
     }
 }
 
-// Add this function to print the summary when the program exits
+// Add this helper function near the other helpers
+static int getArgumentIndex(void* ptr, const std::vector<void*>& arg_ptrs) {
+    for (size_t i = 0; i < arg_ptrs.size(); i++) {
+        if (arg_ptrs[i] == ptr) return i;
+    }
+    return -1;
+}
+
+// Replace the printKernelSummary function
 static void __attribute__((destructor)) printKernelSummary() {
     std::cout << "\n=== Kernel Execution Summary ===\n";
     
@@ -360,19 +369,41 @@ static void __attribute__((destructor)) printKernelSummary() {
         std::cout << "\nKernel: " << exec.kernel_name 
                   << " at " << exec.function_address << "\n";
         
-        // Print up to 100 memory changes for this kernel
-        size_t printed = 0;
+        // Track changes per argument
+        std::map<int, std::vector<std::pair<size_t, std::pair<float, float>>>> changes_by_arg;
+        
+        // Group changes by argument
         for (const auto& [ptr, offset] : exec.changes) {
-            if (printed >= 100) break;
+            void* base_ptr = (char*)ptr - offset;
+            float pre_val = *(float*)(exec.pre_state.at(base_ptr).data.get() + offset);
+            float post_val = *(float*)(exec.post_state.at(base_ptr).data.get() + offset);
             
-            float pre_val = *(float*)(exec.pre_state.at((char*)ptr - offset).data.get() + offset);
-            float post_val = *(float*)(exec.post_state.at((char*)ptr - offset).data.get() + offset);
+            int arg_idx = getArgumentIndex(base_ptr, exec.arg_ptrs);
+            if (arg_idx >= 0) {
+                size_t element_index = offset / sizeof(float);
+                changes_by_arg[arg_idx].push_back({element_index, {pre_val, post_val}});
+            }
+        }
+        
+        // Print up to 10 changes for each argument
+        for (const auto& [arg_idx, changes] : changes_by_arg) {
+            std::cout << "\n  Changes for argument " << arg_idx << ":\n";
+            size_t num_to_print = std::min(size_t(10), changes.size());
             
-            std::cout << "  Address " << ptr 
-                     << " changed from " << pre_val 
-                     << " to " << post_val << "\n";
+            for (size_t i = 0; i < num_to_print; i++) {
+                const auto& [element_index, values] = changes[i];
+                const auto& [pre_val, post_val] = values;
+                
+                std::cout << "    arg" << arg_idx << " float* " 
+                         << exec.arg_ptrs[arg_idx] << "[" << element_index << "] "
+                         << "changed from " << pre_val 
+                         << " to " << post_val << "\n";
+            }
             
-            printed++;
+            if (changes.size() > 10) {
+                std::cout << "    ... and " << (changes.size() - 10) 
+                         << " more changes\n";
+            }
         }
     }
 }
@@ -436,6 +467,15 @@ hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
                 std::cout << "Created shadow copy for GPU memory at " 
                          << base_ptr << " referenced by arg " << i << std::endl;
             }
+        }
+    }
+    
+    // Store the first 3 pointer arguments
+    if (args) {
+        for (int i = 0; i < 3; i++) {
+            if (!args[i]) continue;
+            void* arg_ptr = *(void**)args[i];
+            exec.arg_ptrs.push_back(arg_ptr);
         }
     }
     
