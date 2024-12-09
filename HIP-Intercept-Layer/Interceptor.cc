@@ -869,8 +869,9 @@ struct SerializedKernelExecution {
     hipStream_t stream;
     uint64_t execution_order;
     uint32_t num_changes;  // Number of memory changes
-    
-    // Followed by changes data in the file
+    uint32_t num_args;     // Number of arguments
+    // Followed by arg_ptrs data in the file
+    // Then followed by changes data
 };
 
 struct SerializedMemoryChange {
@@ -962,6 +963,13 @@ public:
                 exec->stream = serialized.stream;
                 exec->execution_order = serialized.execution_order;
                 
+                // Read arg_ptrs
+                for (uint32_t i = 0; i < serialized.num_args; i++) {
+                    void* ptr;
+                    in.read(reinterpret_cast<char*>(&ptr), sizeof(void*));
+                    exec->arg_ptrs.push_back(ptr);
+                }
+                
                 // Read changes
                 for (uint32_t i = 0; i < serialized.num_changes; i++) {
                     SerializedMemoryChange mem_change;
@@ -1040,9 +1048,15 @@ public:
             total_changes += changes.size();
         }
         serialized.num_changes = total_changes;
+        serialized.num_args = exec.arg_ptrs.size();
         
         // Write the main structure
         trace_file_.write(reinterpret_cast<const char*>(&serialized), sizeof(serialized));
+        
+        // Write arg_ptrs
+        for (void* ptr : exec.arg_ptrs) {
+            trace_file_.write(reinterpret_cast<const char*>(&ptr), sizeof(void*));
+        }
         
         // Write all changes
         for (const auto& [arg_idx, changes] : exec.changes_by_arg) {
