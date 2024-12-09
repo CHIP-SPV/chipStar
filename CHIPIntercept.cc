@@ -28,6 +28,9 @@
 #include <vector>
 #include <dlfcn.h>
 #include <link.h>
+#include <map>
+#include <unordered_map>
+#include <memory>
 
 namespace {
 // Function pointer types
@@ -217,103 +220,217 @@ static std::string getArgTypes() {
   return ss.str();
 }
 
+// Helper to print kernel arguments
+static void printKernelArgs(void** args, const std::string& kernelName) {
+    // Extract function signature from kernel name
+    if (kernelName.find("MatrixMul") != std::string::npos) {
+        // Known signature: (float const*, float const*, float*, unsigned int, unsigned int, unsigned int)
+        float const* A = *(float const**)args[0];
+        float const* B = *(float const**)args[1];
+        float* C = *(float**)args[2];
+        unsigned int M = *(unsigned int*)args[3];
+        unsigned int N = *(unsigned int*)args[4];
+        unsigned int K = *(unsigned int*)args[5];
+        
+        std::cout << "    args:\n"
+                  << "      A: float const* = " << (void*)A << "\n"
+                  << "      B: float const* = " << (void*)B << "\n"
+                  << "      C: float* = " << (void*)C << "\n"
+                  << "      M: unsigned int = " << M << "\n"
+                  << "      N: unsigned int = " << N << "\n"
+                  << "      K: unsigned int = " << K << "\n";
+    } else {
+        // For unknown kernels, print raw arg pointers
+        std::cout << "    raw args:\n";
+        for (int i = 0; args[i] != nullptr; i++) {
+            std::cout << "      arg[" << i << "]: <unknown_type> = " 
+                     << args[i] << " -> " << *(void**)args[i] << "\n";
+        }
+    }
+}
+
 // Template function needs to be outside both namespace and extern "C"
 template <typename F, typename... Args>
 hipError_t hipLaunchKernelGGL_impl(F func, dim3 gridDim, dim3 blockDim, 
                                   size_t sharedMem, hipStream_t stream,
                                   Args... args) {
-  std::cout << "hipLaunchKernelGGL(\n"
-            << "    func=" << (void*)func << "\n"
-            << "    gridDim=" << dim3ToString(gridDim) << "\n"
-            << "    blockDim=" << dim3ToString(blockDim) << "\n"
-            << "    sharedMem=" << sharedMem << "\n"
-            << "    stream=" << (void*)stream << "\n"
-            << "    arg_types=" << getArgTypes<Args...>() << ")\n";
+    std::cout << "hipLaunchKernelGGL(\n"
+              << "    func=" << (void*)func << "\n"
+              << "    gridDim=" << dim3ToString(gridDim) << "\n"
+              << "    blockDim=" << dim3ToString(blockDim) << "\n"
+              << "    sharedMem=" << sharedMem << "\n"
+              << "    stream=" << (void*)stream << "\n"
+              << "    arg_types=" << getArgTypes<Args...>() << "\n";
 
-  return get_real_hipLaunchKernelGGL()(func, gridDim, blockDim, sharedMem, stream,
-                           std::forward<Args>(args)...);
+    // Print argument values using proper fold expression
+    int argIndex = 0;
+    ((std::cout << "    arg[" << argIndex++ << "]=" << (void*)&args << "\n"), ...);
+              
+    std::cout << ")\n";
+
+    return get_real_hipLaunchKernelGGL()(func, gridDim, blockDim, sharedMem, stream,
+                                        std::forward<Args>(args)...);
+}
+
+struct AllocationInfo {
+    size_t size;
+    std::unique_ptr<char[]> shadow_copy;
+    
+    AllocationInfo(size_t s) : size(s), shadow_copy(new char[s]) {}
+};
+
+// Track GPU allocations: device_ptr -> AllocationInfo
+static std::unordered_map<void*, AllocationInfo> gpu_allocations;
+
+// Helper to find which allocation a pointer belongs to
+static std::pair<void*, AllocationInfo*> findContainingAllocation(void* ptr) {
+    for (auto& [base_ptr, info] : gpu_allocations) {
+        char* start = static_cast<char*>(base_ptr);
+        char* end = start + info.size;
+        if (ptr >= base_ptr && ptr < end) {
+            return {base_ptr, &info};
+        }
+    }
+    return {nullptr, nullptr};
+}
+
+// Helper to create shadow copy of an allocation
+static void createShadowCopy(void* base_ptr, AllocationInfo& info) {
+    // Copy current GPU memory to shadow copy
+    hipError_t err = get_real_hipMemcpy()(
+        info.shadow_copy.get(), 
+        base_ptr,
+        info.size,
+        hipMemcpyDeviceToHost);
+    
+    if (err != hipSuccess) {
+        std::cerr << "Failed to create shadow copy for allocation at " 
+                  << base_ptr << " of size " << info.size << std::endl;
+    }
 }
 
 extern "C" {
 
 hipError_t hipGetDeviceProperties(hipDeviceProp_t* props, int deviceId) {
-    std::cout << "hipGetDeviceProperties(props=" << (void*)props << ", deviceId=" << deviceId << ")\n";
     return get_real_hipGetDeviceProperties()(props, deviceId);
 }
 
 hipError_t hipMalloc(void **ptr, size_t size) {
     std::cout << "hipMalloc(ptr=" << (void*)ptr << ", size=" << size << ")\n";
-    return get_real_hipMalloc()(ptr, size);
+    
+    hipError_t result = get_real_hipMalloc()(ptr, size);
+    
+    if (result == hipSuccess && ptr && *ptr) {
+        // Track the allocation
+        gpu_allocations.emplace(*ptr, AllocationInfo(size));
+        std::cout << "Tracking GPU allocation at " << *ptr 
+                  << " of size " << size << std::endl;
+    }
+    
+    return result;
 }
 
 hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes, hipMemcpyKind kind) {
-    std::cout << "hipMemcpy(dst=" << dst << ", src=" << src 
-              << ", sizeBytes=" << sizeBytes 
-              << ", kind=" << memcpyKindToString(kind) << ")\n";
     return get_real_hipMemcpy()(dst, src, sizeBytes, kind);
 }
 
 hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
                           dim3 dimBlocks, void **args, size_t sharedMemBytes,
                           hipStream_t stream) {
-  std::cout << "hipLaunchKernel(function=" << function_address 
-            << ", numBlocks=" << dim3ToString(numBlocks)
-            << ", dimBlocks=" << dim3ToString(dimBlocks)
-            << ", args=" << (void*)args 
-            << ", sharedMem=" << sharedMemBytes
-            << ", stream=" << (void*)stream << ")\n";
-  return get_real_hipLaunchKernel()(function_address, numBlocks, dimBlocks, args, 
-                        sharedMemBytes, stream);
+    std::cout << "hipLaunchKernel(\n"
+              << "    function=" << function_address 
+              << "\n    numBlocks=" << dim3ToString(numBlocks)
+              << "\n    dimBlocks=" << dim3ToString(dimBlocks)
+              << "\n    sharedMem=" << sharedMemBytes
+              << "\n    stream=" << (void*)stream << "\n";
+    
+    // Create shadow copies of GPU memory before kernel execution
+    std::vector<std::pair<void*, AllocationInfo*>> affected_allocations;
+    
+    // For MatrixMul kernel, we know the argument types
+    if (args) {
+        // First 3 args are pointers (float* or float const*)
+        for (int i = 0; i < 3; i++) {
+            if (!args[i]) {
+                std::cerr << "Warning: Null argument pointer at index " << i << std::endl;
+                continue;
+            }
+            
+            void* arg_ptr = *(void**)args[i];
+            if (!arg_ptr) {
+                continue;  // Skip null pointers
+            }
+            
+            // Try to find if this points to GPU memory
+            auto [base_ptr, info] = findContainingAllocation(arg_ptr);
+            if (base_ptr && info) {
+                affected_allocations.emplace_back(base_ptr, info);
+                createShadowCopy(base_ptr, *info);
+                std::cout << "Created shadow copy for GPU memory at " 
+                         << base_ptr << " referenced by arg " << i << std::endl;
+            }
+        }
+        
+        // Next 3 args are unsigned ints - we don't need to track these
+        // args[3] = M
+        // args[4] = N
+        // args[5] = K
+    }
+    
+    // Print the kernel arguments
+    printKernelArgs(args, "MatrixMul");
+    std::cout << ")\n";
+    
+    return get_real_hipLaunchKernel()(function_address, numBlocks, dimBlocks, args,
+                                     sharedMemBytes, stream);
 }
 
 hipError_t hipDeviceSynchronize(void) {
-  std::cout << "hipDeviceSynchronize()\n";
-  return get_real_hipDeviceSynchronize()();
+    return get_real_hipDeviceSynchronize()();
 }
 
 hipError_t hipGetDevice(int *deviceId) {
-  std::cout << "hipGetDevice(deviceId=" << (void*)deviceId << ")\n";
-  return get_real_hipGetDevice()(deviceId);
+    return get_real_hipGetDevice()(deviceId);
 }
 
 hipError_t hipSetDevice(int deviceId) {
-  std::cout << "hipSetDevice(deviceId=" << deviceId << ")\n";
-  return get_real_hipSetDevice()(deviceId);
+    return get_real_hipSetDevice()(deviceId);
 }
 
 hipError_t hipEventCreate(hipEvent_t* event) {
-  std::cout << "hipEventCreate(event=" << (void*)event << ")\n";
-  return get_real_hipEventCreate()(event);
+    return get_real_hipEventCreate()(event);
 }
 
 hipError_t hipEventDestroy(hipEvent_t event) {
-  std::cout << "hipEventDestroy(event=" << (void*)event << ")\n";
-  return get_real_hipEventDestroy()(event);
+    return get_real_hipEventDestroy()(event);
 }
 
 hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
-  std::cout << "hipEventRecord(event=" << (void*)event << ", stream=" << (void*)stream << ")\n";
-  return get_real_hipEventRecord()(event, stream);
+    return get_real_hipEventRecord()(event, stream);
 }
 
 hipError_t hipEventElapsedTime(float* ms, hipEvent_t start, hipEvent_t stop) {
-  std::cout << "hipEventElapsedTime(ms=" << (void*)ms << ", start=" << (void*)start << ", stop=" << (void*)stop << ")\n";
-  return get_real_hipEventElapsedTime()(ms, start, stop);
+    return get_real_hipEventElapsedTime()(ms, start, stop);
 }
 
 hipError_t hipFree(void* ptr) {
-  std::cout << "hipFree(ptr=" << ptr << ")\n";
-  return get_real_hipFree()(ptr);
+    if (ptr) {
+        auto it = gpu_allocations.find(ptr);
+        if (it != gpu_allocations.end()) {
+            std::cout << "Removing tracked GPU allocation at " << ptr 
+                     << " of size " << it->second.size << std::endl;
+            gpu_allocations.erase(it);
+        }
+    }
+    return get_real_hipFree()(ptr);
 }
 
 hipError_t hipGetLastError(void) {
-  std::cout << "hipGetLastError()\n";
-  return get_real_hipGetLastError()();
+    return get_real_hipGetLastError()();
 }
 
 const char* hipGetErrorString(hipError_t error) {
-  std::cout << "hipGetErrorString(error=" << (int)error << ")\n";
-  return get_real_hipGetErrorString()(error);
+    return get_real_hipGetErrorString()(error);
 }
 
 } // extern "C"
