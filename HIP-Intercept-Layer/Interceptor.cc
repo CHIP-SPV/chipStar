@@ -1,108 +1,21 @@
-/*
- * Copyright (c) 2021-24 chipStar developers
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
-#define __HIP_PLATFORM_SPIRV__
-#include "hip/hip_runtime_api.h"
+#include "Interceptor.hh"
 #include <sstream>
 #include <iostream>
-#include <string>
-#include <vector>
 #include <dlfcn.h>
 #include <link.h>
-#include <map>
 #include <unordered_map>
-#include <memory>
-#include <cstring>  // For memcpy
-#include <algorithm>  // for std::sort, std::min
-#include <utility>   // for std::pair
+#include <algorithm>
 #include <cxxabi.h>
 #include <regex>
-#include <unistd.h>  // For readlink
-#include <linux/limits.h>  // For PATH_MAX
-#include <fstream>
+#include <unistd.h>
+#include <linux/limits.h>
 #include <chrono>
-#include <ctime>
 #include <filesystem>
-#include <cstdlib>
 #include <sys/stat.h>
 
-// At the top level (outside any namespace)
-struct MemoryState {
-    std::unique_ptr<char[]> data;
-    size_t size;
-    
-    MemoryState(size_t s) : data(new char[s]), size(s) {}
-    MemoryState(const char* src, size_t s) : data(new char[s]), size(s) {
-        memcpy(data.get(), src, s);
-    }
-    
-    // Add default constructor required by std::map
-    MemoryState() : size(0) {}
-};
-
-struct KernelExecution {
-    void* function_address;
-    std::string kernel_name;
-    dim3 grid_dim;
-    dim3 block_dim;
-    size_t shared_mem;
-    hipStream_t stream;
-    uint64_t execution_order;
-    
-    std::map<void*, MemoryState> pre_state;
-    std::map<void*, MemoryState> post_state;
-    std::vector<std::pair<void*, size_t>> changes;
-    std::vector<void*> arg_ptrs;
-    std::vector<size_t> arg_sizes;
-    
-    // Add this to store changes grouped by argument
-    std::map<int, std::vector<std::pair<size_t, std::pair<float, float>>>> changes_by_arg;
-};
-
-// Track all kernel executions
-static std::vector<KernelExecution> kernel_executions;
-
-// Add this after the KernelExecution struct
-enum class MemoryOpType {
-    COPY,
-    SET
-};
-
-struct MemoryOperation {
-    MemoryOpType type;
-    void* dst;
-    const void* src;  // Only used for COPY
-    size_t size;
-    int value;        // Only used for SET
-    hipMemcpyKind kind;  // Only used for COPY
-    uint64_t execution_order;
-    
-    // Memory state before/after operation
-    std::shared_ptr<MemoryState> pre_state;
-    std::shared_ptr<MemoryState> post_state;
-};
-
-// Track all memory operations
-static std::vector<MemoryOperation> memory_operations;
+// Define the global state
+std::vector<MemoryOperation> memory_operations;
+std::vector<KernelExecution> kernel_executions;
 
 namespace {
 // Function pointer types
