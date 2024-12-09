@@ -85,6 +85,11 @@ struct KernelInfo {
     std::vector<KernelArgInfo> args;
 };
 
+struct Trace {
+    std::vector<KernelExecution> kernel_executions;
+    std::vector<MemoryOperation> memory_operations;
+};
+
 class Tracer {
 public:
     static Tracer& instance();
@@ -105,6 +110,8 @@ public:
     void printKernelArgs(void** args, const std::string& kernelName, 
                         const void* function_address);
     
+    static Trace loadTrace(const std::string& path);
+    
 private:
     Tracer(); // Private constructor for singleton
     ~Tracer();
@@ -123,6 +130,9 @@ private:
     static constexpr uint32_t TRACE_VERSION = 1;
     
     std::unordered_map<std::string, KernelInfo> kernel_registry_;
+    
+    static KernelExecution readKernelExecution(std::ifstream& file);
+    static MemoryOperation readMemoryOperation(std::ifstream& file);
 };
 
 } // namespace hip_intercept

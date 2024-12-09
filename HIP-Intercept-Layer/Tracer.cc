@@ -9,6 +9,7 @@
 #include <link.h>
 #include <algorithm>
 #include <regex>
+#include <fstream>
 
 namespace hip_intercept {
 
@@ -48,6 +49,11 @@ void Tracer::initializeTraceFile() {
         std::cerr << "Failed to open trace file: " << trace_path_ << std::endl;
         return;
     }
+    
+    // Add this more visible message
+    std::cout << "\n=== HIP Trace File ===\n"
+              << "Writing trace to: " << trace_path_ << "\n"
+              << "===================\n\n";
     
     // Write header
     struct {
@@ -208,6 +214,7 @@ std::string Tracer::getTraceFilePath() const {
     
     // Create tracer directory
     std::string tracer_dir = std::string(home) + "/hipTracer";
+    std::cout << "Creating tracer directory: " << tracer_dir << std::endl;
     mkdir(tracer_dir.c_str(), 0755);
     
     // Find next available trace ID
@@ -216,7 +223,9 @@ std::string Tracer::getTraceFilePath() const {
         trace_id++;
     }
     
-    return base_path + std::to_string(trace_id++) + ".trace";
+    auto trace_path = base_path + std::to_string(trace_id++) + ".trace";
+    std::cout << "Trace file path: " << trace_path << std::endl;
+    return trace_path;
 }
 
 void Tracer::flush() {
@@ -412,6 +421,152 @@ void Tracer::printKernelArgs(void** args, const std::string& kernelName,
         }
         std::cout << "\n";
     }
+}
+
+Trace Tracer::loadTrace(const std::string& path) {
+    Trace trace;
+    std::ifstream file(path, std::ios::binary);
+    
+    if (!file) {
+        throw std::runtime_error("Failed to open trace file: " + path);
+    }
+    
+    // Read and verify header
+    struct {
+        uint32_t magic;
+        uint32_t version;
+    } header;
+    
+    file.read(reinterpret_cast<char*>(&header), sizeof(header));
+    if (header.magic != TRACE_MAGIC) {
+        throw std::runtime_error("Invalid trace file format: incorrect magic number");
+    }
+    if (header.version != TRACE_VERSION) {
+        throw std::runtime_error("Unsupported trace file version");
+    }
+    
+    // Read events until end of file
+    while (file.good() && !file.eof()) {
+        struct {
+            uint32_t type;
+            uint64_t timestamp;
+            uint32_t size;
+        } event_header;
+        
+        if (!file.read(reinterpret_cast<char*>(&event_header), sizeof(event_header))) {
+            break;  // End of file or error
+        }
+        
+        switch (event_header.type) {
+            case 1: // Kernel execution
+                trace.kernel_executions.push_back(readKernelExecution(file));
+                break;
+            case 2: // Memory operation
+                trace.memory_operations.push_back(readMemoryOperation(file));
+                break;
+            default:
+                throw std::runtime_error("Unknown event type in trace file");
+        }
+    }
+    
+    return trace;
+}
+
+KernelExecution Tracer::readKernelExecution(std::ifstream& file) {
+    KernelExecution exec;
+    
+    struct {
+        void* function_address;
+        uint32_t name_length;
+        dim3 grid_dim;
+        dim3 block_dim;
+        size_t shared_mem;
+        hipStream_t stream;
+        uint64_t execution_order;
+        uint32_t num_args;
+        uint32_t num_changes;
+    } kernel_data;
+    
+    file.read(reinterpret_cast<char*>(&kernel_data), sizeof(kernel_data));
+    
+    // Read kernel name
+    std::vector<char> name_buffer(kernel_data.name_length + 1);
+    file.read(name_buffer.data(), kernel_data.name_length);
+    name_buffer[kernel_data.name_length] = '\0';
+    
+    exec.function_address = kernel_data.function_address;
+    exec.kernel_name = name_buffer.data();
+    exec.grid_dim = kernel_data.grid_dim;
+    exec.block_dim = kernel_data.block_dim;
+    exec.shared_mem = kernel_data.shared_mem;
+    exec.stream = kernel_data.stream;
+    exec.execution_order = kernel_data.execution_order;
+    
+    // Read argument pointers
+    for (uint32_t i = 0; i < kernel_data.num_args; i++) {
+        void* arg_ptr;
+        file.read(reinterpret_cast<char*>(&arg_ptr), sizeof(void*));
+        exec.arg_ptrs.push_back(arg_ptr);
+    }
+    
+    // Read memory changes
+    for (uint32_t i = 0; i < kernel_data.num_changes; i++) {
+        struct {
+            int arg_idx;
+            size_t element_index;
+            float pre_val;
+            float post_val;
+        } change_data;
+        
+        file.read(reinterpret_cast<char*>(&change_data), sizeof(change_data));
+        auto& changes = exec.changes_by_arg[change_data.arg_idx];
+        changes.push_back(std::make_pair(
+            change_data.element_index,
+            std::make_pair(change_data.pre_val, change_data.post_val)
+        ));
+    }
+    
+    return exec;
+}
+
+MemoryOperation Tracer::readMemoryOperation(std::ifstream& file) {
+    MemoryOperation op;
+    
+    struct {
+        MemoryOpType type;
+        void* dst;
+        const void* src;
+        size_t size;
+        int value;
+        hipMemcpyKind kind;
+        uint64_t execution_order;
+        size_t pre_state_size;
+        size_t post_state_size;
+    } mem_op_data;
+    
+    file.read(reinterpret_cast<char*>(&mem_op_data), sizeof(mem_op_data));
+    
+    op.type = mem_op_data.type;
+    op.dst = mem_op_data.dst;
+    op.src = mem_op_data.src;
+    op.size = mem_op_data.size;
+    op.value = mem_op_data.value;
+    op.kind = mem_op_data.kind;
+    op.execution_order = mem_op_data.execution_order;
+    
+    // Read pre-state if exists
+    if (mem_op_data.pre_state_size > 0) {
+        op.pre_state = std::make_shared<MemoryState>(mem_op_data.pre_state_size);
+        file.read(op.pre_state->data.get(), mem_op_data.pre_state_size);
+    }
+    
+    // Read post-state if exists
+    if (mem_op_data.post_state_size > 0) {
+        op.post_state = std::make_shared<MemoryState>(mem_op_data.post_state_size);
+        file.read(op.post_state->data.get(), mem_op_data.post_state_size);
+    }
+    
+    return op;
 }
 
 } // namespace hip_intercept

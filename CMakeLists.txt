@@ -865,7 +865,14 @@ include(cmake/docker.cmake)
 add_subdirectory(host_math_funcs)
 target_link_libraries(CHIP PUBLIC ocml_host_math_funcs)
 
-add_library(HIPIntercept SHARED HIP-Intercept-Layer/Interceptor.cc HIP-Intercept-Layer/Tracer.cc)
-target_link_libraries(HIPIntercept CHIP)
+add_library(HIPTracer SHARED HIP-Intercept-Layer/Tracer.cc)
+target_include_directories(HIPTracer PUBLIC ${CMAKE_BINARY_DIR}/include)
+target_include_directories(HIPTracer PUBLIC ${CMAKE_SOURCE_DIR}/src)
+
+add_library(HIPIntercept SHARED HIP-Intercept-Layer/Interceptor.cc)
+target_link_libraries(HIPIntercept CHIP HIPTracer)
 target_include_directories(HIPIntercept PUBLIC ${CMAKE_BINARY_DIR}/include)
 target_include_directories(HIPIntercept PUBLIC ${CMAKE_SOURCE_DIR}/src)
+
+add_executable(HipInterceptCompare HIP-Intercept-Layer/Comparator.cc )
+target_link_libraries(HipInterceptCompare HIPTracer)

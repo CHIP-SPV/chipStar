@@ -459,6 +459,60 @@ static hipError_t hipMemset_impl(void *dst, int value, size_t sizeBytes) {
     return result;
 }
 
+// Remove the 'static' keyword since this is implementing the forward-declared function
+std::string getArgTypeFromSignature(const std::string& signature, size_t arg_index) {
+    size_t start = signature.find('(');
+    size_t end = signature.find(')');
+    if (start == std::string::npos || end == std::string::npos) {
+        return "";
+    }
+    
+    std::string args_str = signature.substr(start + 1, end - start - 1);
+    
+    // Parse arguments handling nested template brackets
+    std::vector<std::string> args;
+    std::string current_arg;
+    int template_depth = 0;
+    
+    for (char c : args_str) {
+        if (c == '<') {
+            template_depth++;
+            current_arg += c;
+        }
+        else if (c == '>') {
+            template_depth--;
+            current_arg += c;
+        }
+        else if (c == ',' && template_depth == 0) {
+            // Only split on commas outside of template brackets
+            if (!current_arg.empty()) {
+                // Trim whitespace
+                current_arg.erase(0, current_arg.find_first_not_of(" "));
+                current_arg.erase(current_arg.find_last_not_of(" ") + 1);
+                args.push_back(current_arg);
+                current_arg.clear();
+            }
+        }
+        else {
+            current_arg += c;
+        }
+    }
+    
+    // Add the last argument
+    if (!current_arg.empty()) {
+        current_arg.erase(0, current_arg.find_first_not_of(" "));
+        current_arg.erase(current_arg.find_last_not_of(" ") + 1);
+        args.push_back(current_arg);
+    }
+    
+    // Return the requested argument type if index is valid
+    if (arg_index < args.size()) {
+        return args[arg_index];
+    }
+    
+    return "";
+}
+
 // Modify hipLaunchKernel_impl to use Tracer directly:
 static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlocks,
                                      dim3 dimBlocks, void **args, size_t sharedMemBytes,
@@ -543,60 +597,6 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
     Tracer::instance().recordKernelLaunch(exec);
     
     return result;
-}
-
-// Helper to extract argument type from kernel signature
-std::string getArgTypeFromSignature(const std::string& signature, size_t arg_index) {
-    size_t start = signature.find('(');
-    size_t end = signature.find(')');
-    if (start == std::string::npos || end == std::string::npos) {
-        return "";
-    }
-    
-    std::string args_str = signature.substr(start + 1, end - start - 1);
-    
-    // Parse arguments handling nested template brackets
-    std::vector<std::string> args;
-    std::string current_arg;
-    int template_depth = 0;
-    
-    for (char c : args_str) {
-        if (c == '<') {
-            template_depth++;
-            current_arg += c;
-        }
-        else if (c == '>') {
-            template_depth--;
-            current_arg += c;
-        }
-        else if (c == ',' && template_depth == 0) {
-            // Only split on commas outside of template brackets
-            if (!current_arg.empty()) {
-                // Trim whitespace
-                current_arg.erase(0, current_arg.find_first_not_of(" "));
-                current_arg.erase(current_arg.find_last_not_of(" ") + 1);
-                args.push_back(current_arg);
-                current_arg.clear();
-            }
-        }
-        else {
-            current_arg += c;
-        }
-    }
-    
-    // Add the last argument
-    if (!current_arg.empty()) {
-        current_arg.erase(0, current_arg.find_first_not_of(" "));
-        current_arg.erase(current_arg.find_last_not_of(" ") + 1);
-        args.push_back(current_arg);
-    }
-    
-    // Return the requested argument type if index is valid
-    if (arg_index < args.size()) {
-        return args[arg_index];
-    }
-    
-    return "";
 }
 
 // First define KernelArgInfo
