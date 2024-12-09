@@ -33,6 +33,39 @@
 #include <memory>
 #include <cstring>  // For memcpy
 
+// Move these structures and variables outside the anonymous namespace
+struct MemoryState {
+    std::unique_ptr<char[]> data;
+    size_t size;
+    
+    MemoryState(size_t s) : data(new char[s]), size(s) {}
+    MemoryState(const char* src, size_t s) : data(new char[s]), size(s) {
+        memcpy(data.get(), src, s);
+    }
+    
+    // Add default constructor required by std::map
+    MemoryState() : size(0) {}
+};
+
+struct KernelExecution {
+    void* function_address;
+    std::string kernel_name;
+    dim3 grid_dim;
+    dim3 block_dim;
+    size_t shared_mem;
+    hipStream_t stream;
+    uint64_t execution_order;
+    
+    std::map<void*, MemoryState> pre_state;
+    std::map<void*, MemoryState> post_state;
+    std::vector<std::pair<void*, size_t>> changes;
+    std::vector<void*> arg_ptrs;
+    std::vector<size_t> arg_sizes;
+};
+
+// Track all kernel executions
+static std::vector<KernelExecution> kernel_executions;
+
 namespace {
 // Function pointer types
 typedef hipError_t (*hipGetDeviceProperties_fn)(hipDeviceProp_t*, int);
@@ -250,7 +283,19 @@ static void printKernelArgs(void** args, const std::string& kernelName) {
     }
 }
 
-// Template function needs to be outside both namespace and extern "C"
+// Add this helper function to get kernel name from function address
+static std::string getKernelName(const void* function_address) {
+    Dl_info info;
+    if (dladdr(function_address, &info) && info.dli_sname) {
+        return info.dli_sname;
+    }
+    // If we can't get the name, return the address as hex
+    std::stringstream ss;
+    ss << "kernel_" << std::hex << (uintptr_t)function_address;
+    return ss.str();
+}
+
+// Template function that uses KernelExecution
 template <typename F, typename... Args>
 hipError_t hipLaunchKernelGGL_impl(F func, dim3 gridDim, dim3 blockDim, 
                                   size_t sharedMem, hipStream_t stream,
@@ -263,14 +308,33 @@ hipError_t hipLaunchKernelGGL_impl(F func, dim3 gridDim, dim3 blockDim,
               << "    stream=" << (void*)stream << "\n"
               << "    arg_types=" << getArgTypes<Args...>() << "\n";
 
-    // Print argument values using proper fold expression
-    int argIndex = 0;
-    ((std::cout << "    arg[" << argIndex++ << "]=" << (void*)&args << "\n"), ...);
-              
-    std::cout << ")\n";
+    // Create execution record
+    KernelExecution exec;
+    exec.function_address = (void*)func;
+    exec.kernel_name = getKernelName(func);
+    exec.grid_dim = gridDim;
+    exec.block_dim = blockDim;
+    exec.shared_mem = sharedMem;
+    exec.stream = stream;
+    static uint64_t kernel_count = 0;
+    exec.execution_order = kernel_count++;
 
-    return get_real_hipLaunchKernelGGL()(func, gridDim, blockDim, sharedMem, stream,
-                                        std::forward<Args>(args)...);
+    // Store pre-execution state
+    // Note: This is trickier with variadic templates, we'll need to handle pointer args
+    // TODO: Add logic to track pointer arguments
+
+    // Launch kernel
+    hipError_t result = get_real_hipLaunchKernelGGL()(func, gridDim, blockDim, 
+                                                     sharedMem, stream,
+                                                     std::forward<Args>(args)...);
+
+    // Store post-execution state and record changes
+    // TODO: Add post-execution tracking
+
+    // Store the execution record
+    kernel_executions.push_back(std::move(exec));
+
+    return result;
 }
 
 struct AllocationInfo {
@@ -316,32 +380,6 @@ static void createShadowCopy(void* base_ptr, AllocationInfo& info) {
     }
 }
 
-// Add these new structures at the top of the anonymous namespace after the includes
-struct MemoryState {
-    std::unique_ptr<char[]> data;
-    size_t size;
-    
-    MemoryState(size_t s) : data(new char[s]), size(s) {}
-    MemoryState(const char* src, size_t s) : data(new char[s]), size(s) {
-        memcpy(data.get(), src, s);
-    }
-    
-    // Add default constructor required by std::map
-    MemoryState() : size(0) {}
-};
-
-struct KernelExecution {
-    void* function_address;
-    std::string kernel_name;
-    std::map<void*, MemoryState> pre_state;
-    std::map<void*, MemoryState> post_state;
-    std::vector<std::pair<void*, size_t>> changes;
-    std::vector<void*> arg_ptrs;
-};
-
-// Track all kernel executions
-static std::vector<KernelExecution> kernel_executions;
-
 // Move this helper function declaration to the top with other helper functions
 // Add before recordMemoryChanges
 static int getArgumentIndex(void* ptr, const std::vector<void*>& arg_ptrs) {
@@ -356,21 +394,22 @@ static void recordMemoryChanges(KernelExecution& exec) {
     for (const auto& [ptr, pre] : exec.pre_state) {
         const auto& post = exec.post_state[ptr];
         
-        // Compare pre and post states
-        for (size_t i = 0; i < pre.size; i += sizeof(float)) {
-            float* pre_val = (float*)(pre.data.get() + i);
-            float* post_val = (float*)(post.data.get() + i);
-            
-            // Only record if values actually changed
-            if (*pre_val != *post_val) {
-                // Double check this isn't just comparing against uninitialized memory
-                if (*pre_val == 0.0f && *post_val != 0.0f) {
-                    // This might be a real change or just initial data
-                    // Print for debugging
-                    //std::cout << "Found change at " << ptr << "[" << i/sizeof(float) 
-                              //<< "]: " << *pre_val << " -> " << *post_val << "\n";
-                }
+        // For output arguments (arg2 in MatrixMul), record all values
+        int arg_idx = getArgumentIndex(ptr, exec.arg_ptrs);
+        if (arg_idx == 2) {  // Output matrix C
+            // Record all values for output arguments
+            for (size_t i = 0; i < pre.size; i += sizeof(float)) {
                 exec.changes.push_back({(char*)ptr + i, i});
+            }
+        } else {
+            // For input arguments, only record actual changes
+            for (size_t i = 0; i < pre.size; i += sizeof(float)) {
+                float* pre_val = (float*)(pre.data.get() + i);
+                float* post_val = (float*)(post.data.get() + i);
+                
+                if (*pre_val != *post_val) {
+                    exec.changes.push_back({(char*)ptr + i, i});
+                }
             }
         }
     }
@@ -460,7 +499,19 @@ hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
     
     KernelExecution exec;
     exec.function_address = (void*)function_address;
-    exec.kernel_name = "MatrixMul"; // You might want to make this more dynamic
+    exec.kernel_name = getKernelName(function_address);
+    exec.grid_dim = numBlocks;
+    exec.block_dim = dimBlocks;
+    exec.shared_mem = sharedMemBytes;
+    exec.stream = stream;
+    static uint64_t kernel_count = 0;
+    exec.execution_order = kernel_count++;
+    
+    // Clear any previous state
+    exec.pre_state.clear();
+    exec.post_state.clear();
+    exec.changes.clear();
+    exec.arg_ptrs.clear();
     
     // Create shadow copies of GPU memory before kernel execution
     if (args) {
@@ -470,6 +521,8 @@ hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
             
             void* arg_ptr = *(void**)args[i];
             if (!arg_ptr) continue;
+            
+            exec.arg_ptrs.push_back(arg_ptr);  // Store argument pointer
             
             // Try to find if this points to GPU memory
             auto [base_ptr, info] = findContainingAllocation(arg_ptr);
@@ -483,15 +536,6 @@ hipError_t hipLaunchKernel(const void *function_address, dim3 numBlocks,
                 std::cout << "Created shadow copy for GPU memory at " 
                           << base_ptr << " referenced by arg " << i << std::endl;
             }
-        }
-    }
-    
-    // Store the first 3 pointer arguments
-    if (args) {
-        for (int i = 0; i < 3; i++) {
-            if (!args[i]) continue;
-            void* arg_ptr = *(void**)args[i];
-            exec.arg_ptrs.push_back(arg_ptr);
         }
     }
     
