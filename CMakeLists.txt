@@ -864,3 +864,8 @@ include(cmake/docker.cmake)
 
 add_subdirectory(host_math_funcs)
 target_link_libraries(CHIP PUBLIC ocml_host_math_funcs)
+
+add_library(CHIPIntercept SHARED CHIPIntercept.cc)
+target_link_libraries(CHIPIntercept CHIP)
+target_include_directories(CHIPIntercept PUBLIC ${CMAKE_BINARY_DIR}/include)
+target_include_directories(CHIPIntercept PUBLIC ${CMAKE_SOURCE_DIR}/src)
