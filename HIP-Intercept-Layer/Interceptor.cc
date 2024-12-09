@@ -38,6 +38,8 @@
 #include <regex>
 #include <unistd.h>  // For readlink
 #include <linux/limits.h>  // For PATH_MAX
+#include <fstream>
+#include <chrono>
 
 // At the top level (outside any namespace)
 struct MemoryState {
@@ -816,7 +818,65 @@ static void registerKernelIfNeeded(const std::string& kernel_name, const std::st
     }
 }
 
-// Update the hipLaunchKernel_impl function with more debugging
+// Add these structures for binary trace file
+struct TraceHeader {
+    uint32_t magic;  // Magic number to identify file format
+    uint32_t version;  // Version number
+    static const uint32_t MAGIC = 0x48495054; // "HIPT"
+    static const uint32_t VERSION = 1;
+};
+
+struct TraceEvent {
+    enum Type : uint32_t {
+        KERNEL_LAUNCH = 1,
+        MEMORY_COPY = 2,
+        MEMORY_SET = 3
+    } type;
+    
+    uint64_t timestamp;
+    uint32_t size;  // Size of the event-specific data that follows
+};
+
+// Class to manage the trace file
+class TraceFile {
+public:
+    TraceFile(const std::string& path) {
+        trace_file_.open(path, std::ios::binary);
+        if (!trace_file_) {
+            std::cerr << "Failed to open trace file for writing" << std::endl;
+            return;
+        }
+        std::cout << "Trace file opened successfully" << std::endl;
+        TraceHeader header{TraceHeader::MAGIC, TraceHeader::VERSION};
+        trace_file_.write(reinterpret_cast<char*>(&header), sizeof(header));
+    }
+
+    ~TraceFile() {
+        if (trace_file_.is_open()) {
+            trace_file_.close();
+        }
+    }
+
+    void writeEvent(TraceEvent::Type type, const void* data, size_t data_size) {
+        if (!trace_file_) return;
+        
+        TraceEvent event;
+        event.type = type;
+        event.timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        event.size = data_size;
+        
+        trace_file_.write(reinterpret_cast<char*>(&event), sizeof(event));
+        trace_file_.write(reinterpret_cast<const char*>(data), data_size);
+    }
+
+private:
+    std::ofstream trace_file_;
+};
+
+// Global instance of TraceFile
+static TraceFile trace_file("/space/pvelesko/testing.trace");
+
+// Modify hipLaunchKernel_impl to write to trace instead of storing in memory
 static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlocks,
                                      dim3 dimBlocks, void **args, size_t sharedMemBytes,
                                      hipStream_t stream) {
@@ -935,7 +995,10 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
     }
 
     recordMemoryChanges(exec);
-    kernel_executions.push_back(std::move(exec));
+    
+    // Write to trace file instead of storing in memory
+    trace_file.writeEvent(TraceEvent::KERNEL_LAUNCH, &exec, sizeof(exec));
+    
     return result;
 }
 
