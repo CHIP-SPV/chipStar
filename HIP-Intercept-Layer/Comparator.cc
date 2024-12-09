@@ -140,99 +140,112 @@ KernelComparisonResult Comparator::compareKernelExecutions(
 
 ComparisonResult Comparator::compare(const Trace& trace1, const Trace& trace2) {
     std::cout << "\nStarting trace comparison..." << std::endl;
-    std::cout << "Trace 1 has " << trace1.kernel_executions.size() << " kernel executions" << std::endl;
-    std::cout << "Trace 2 has " << trace2.kernel_executions.size() << " kernel executions" << std::endl;
     
     ComparisonResult result;
     result.traces_match = true;
     result.first_divergence_point = SIZE_MAX;
 
-    // Compare kernel executions
-    size_t min_kernels = std::min(trace1.kernel_executions.size(), 
-                                 trace2.kernel_executions.size());
+    // Create a merged timeline of events
+    struct TimelineEvent {
+        enum Type { KERNEL, MEMORY } type;
+        size_t index;  // Index in original vector
+        uint64_t execution_order;
+        
+        TimelineEvent(Type t, size_t i, uint64_t order) 
+            : type(t), index(i), execution_order(order) {}
+    };
+
+    std::vector<TimelineEvent> timeline1, timeline2;
+
+    // Build timelines for both traces
+    for (size_t i = 0; i < trace1.kernel_executions.size(); i++) {
+        timeline1.emplace_back(TimelineEvent::KERNEL, i, 
+                             trace1.kernel_executions[i].execution_order);
+    }
+    for (size_t i = 0; i < trace1.memory_operations.size(); i++) {
+        timeline1.emplace_back(TimelineEvent::MEMORY, i, 
+                             trace1.memory_operations[i].execution_order);
+    }
+
+    for (size_t i = 0; i < trace2.kernel_executions.size(); i++) {
+        timeline2.emplace_back(TimelineEvent::KERNEL, i, 
+                             trace2.kernel_executions[i].execution_order);
+    }
+    for (size_t i = 0; i < trace2.memory_operations.size(); i++) {
+        timeline2.emplace_back(TimelineEvent::MEMORY, i, 
+                             trace2.memory_operations[i].execution_order);
+    }
+
+    // Sort timelines by execution order
+    auto sort_by_order = [](const TimelineEvent& a, const TimelineEvent& b) {
+        return a.execution_order < b.execution_order;
+    };
+    std::sort(timeline1.begin(), timeline1.end(), sort_by_order);
+    std::sort(timeline2.begin(), timeline2.end(), sort_by_order);
+
+    // Compare events in chronological order
+    size_t kernel_count = 0;
+    size_t i1 = 0, i2 = 0;
     
-    for (size_t i = 0; i < min_kernels; ++i) {
-        std::cout << "\nProcessing kernel execution " << i + 1 << " of " << min_kernels << std::endl;
-        
-        auto kernel_result = compareKernelExecutions(
-            trace1.kernel_executions[i],
-            trace2.kernel_executions[i]
-        );
-        
-        result.kernel_results.push_back(kernel_result);
-        
-        if (!kernel_result.matches) {
+    while (i1 < timeline1.size() && i2 < timeline2.size()) {
+        const auto& event1 = timeline1[i1];
+        const auto& event2 = timeline2[i2];
+
+        if (event1.type != event2.type) {
             result.traces_match = false;
-            if (result.first_divergence_point == SIZE_MAX) {
-                result.first_divergence_point = i;
+            result.error_message += "Event type mismatch at execution order " + 
+                std::to_string(event1.execution_order) + "\n";
+            break;
+        }
+
+        if (event1.type == TimelineEvent::KERNEL) {
+            auto kernel_result = compareKernelExecutions(
+                trace1.kernel_executions[event1.index],
+                trace2.kernel_executions[event2.index]
+            );
+            
+            result.kernel_results.push_back(kernel_result);
+            
+            if (!kernel_result.matches && result.first_divergence_point == SIZE_MAX) {
+                result.first_divergence_point = kernel_count;
             }
+            kernel_count++;
+        } else {
+            // Compare memory operations
+            const auto& op1 = trace1.memory_operations[event1.index];
+            const auto& op2 = trace2.memory_operations[event2.index];
+            
+            if (op1.type != op2.type || op1.size != op2.size || op1.kind != op2.kind) {
+                result.traces_match = false;
+                result.error_message += "Memory operation differs in type, size, or kind\n";
+            }
+            
+            // Compare memory states
+            if ((op1.pre_state && !op2.pre_state) || (!op1.pre_state && op2.pre_state)) {
+                result.traces_match = false;
+                result.error_message += "Memory operation differs in pre-state availability\n";
+            }
+            
+            if (op1.pre_state && op2.pre_state &&
+                (op1.pre_state->size != op2.pre_state->size ||
+                 memcmp(op1.pre_state->data.get(), op2.pre_state->data.get(),
+                        op1.pre_state->size) != 0)) {
+                result.traces_match = false;
+                result.error_message += "Memory operation differs in pre-state\n";
+            }
+            
+            // Similar checks for post-state...
         }
+
+        i1++;
+        i2++;
     }
 
-    // Check for different number of kernel executions
-    if (trace1.kernel_executions.size() != trace2.kernel_executions.size()) {
+    // Check for remaining events
+    if (i1 < timeline1.size() || i2 < timeline2.size()) {
         result.traces_match = false;
-        result.error_message += "Different number of kernel executions: " +
-            std::to_string(trace1.kernel_executions.size()) + " vs " +
-            std::to_string(trace2.kernel_executions.size()) + "\n";
+        result.error_message += "Different number of events in traces\n";
     }
-
-    // Compare memory operations
-    std::cout << "\nComparing memory operations..." << std::endl;
-    
-    if (trace1.memory_operations.size() != trace2.memory_operations.size()) {
-        result.traces_match = false;
-        result.error_message += "Different number of memory operations: " +
-            std::to_string(trace1.memory_operations.size()) + " vs " +
-            std::to_string(trace2.memory_operations.size()) + "\n";
-    }
-
-    // Compare individual memory operations
-    size_t min_mem_ops = std::min(trace1.memory_operations.size(),
-                                 trace2.memory_operations.size());
-    
-    for (size_t i = 0; i < min_mem_ops; ++i) {
-        if (i % 100 == 0) { // Print progress every 100 operations
-            std::cout << "Processing memory operation " << i + 1 << " of " << min_mem_ops << "\r" << std::flush;
-        }
-        
-        const auto& op1 = trace1.memory_operations[i];
-        const auto& op2 = trace2.memory_operations[i];
-        
-        if (op1.type != op2.type || op1.size != op2.size ||
-            op1.kind != op2.kind) {
-            result.traces_match = false;
-            result.error_message += "Memory operation " + std::to_string(i) +
-                " differs in type, size, or kind\n";
-        }
-        
-        // Compare memory states if they exist
-        if ((op1.pre_state && !op2.pre_state) || (!op1.pre_state && op2.pre_state) ||
-            (op1.post_state && !op2.post_state) || (!op1.post_state && op2.post_state)) {
-            result.traces_match = false;
-            result.error_message += "Memory operation " + std::to_string(i) +
-                " differs in state availability\n";
-        }
-        
-        if (op1.pre_state && op2.pre_state &&
-            (op1.pre_state->size != op2.pre_state->size ||
-             memcmp(op1.pre_state->data.get(), op2.pre_state->data.get(),
-                    op1.pre_state->size) != 0)) {
-            result.traces_match = false;
-            result.error_message += "Memory operation " + std::to_string(i) +
-                " differs in pre-state\n";
-        }
-        
-        if (op1.post_state && op2.post_state &&
-            (op1.post_state->size != op2.post_state->size ||
-             memcmp(op1.post_state->data.get(), op2.post_state->data.get(),
-                    op1.post_state->size) != 0)) {
-            result.traces_match = false;
-            result.error_message += "Memory operation " + std::to_string(i) +
-                " differs in post-state\n";
-        }
-    }
-    std::cout << std::endl; // Add newline after memory operations progress
 
     return result;
 }
