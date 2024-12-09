@@ -96,21 +96,11 @@ static std::vector<MemoryOperation> memory_operations;
 
 namespace {
 // Function pointer types
-typedef hipError_t (*hipGetDeviceProperties_fn)(hipDeviceProp_t*, int);
 typedef hipError_t (*hipMalloc_fn)(void**, size_t);
 typedef hipError_t (*hipMemcpy_fn)(void*, const void*, size_t, hipMemcpyKind);
 typedef hipError_t (*hipLaunchKernel_fn)(const void*, dim3, dim3, void**, size_t, hipStream_t);
 typedef hipError_t (*hipDeviceSynchronize_fn)(void);
-typedef hipError_t (*hipGetDevice_fn)(int*);
-typedef hipError_t (*hipSetDevice_fn)(int);
-typedef hipError_t (*hipEventCreate_fn)(hipEvent_t*);
-typedef hipError_t (*hipEventDestroy_fn)(hipEvent_t);
-typedef hipError_t (*hipEventRecord_fn)(hipEvent_t, hipStream_t);
-typedef hipError_t (*hipEventElapsedTime_fn)(float*, hipEvent_t, hipEvent_t);
 typedef hipError_t (*hipFree_fn)(void*);
-typedef hipError_t (*hipGetLastError_fn)(void);
-typedef const char* (*hipGetErrorString_fn)(hipError_t);
-typedef hipError_t (*hipLaunchKernelGGL_fn)(const void*, dim3, dim3, size_t, hipStream_t, ...);
 typedef hipError_t (*hipMemset_fn)(void*, int, size_t);
 
 // Get the real function pointers
@@ -144,11 +134,6 @@ void* getOriginalFunction(const char* name) {
 }
 
 // Lazy function pointer getters
-hipGetDeviceProperties_fn get_real_hipGetDeviceProperties() {
-    static auto fn = (hipGetDeviceProperties_fn)dlsym(RTLD_NEXT, "hipGetDevicePropertiesR0600");
-    return fn;
-}
-
 hipMalloc_fn get_real_hipMalloc() {
     static auto fn = (hipMalloc_fn)getOriginalFunction("hipMalloc");
     return fn;
@@ -169,53 +154,8 @@ hipDeviceSynchronize_fn get_real_hipDeviceSynchronize() {
     return fn;
 }
 
-hipGetDevice_fn get_real_hipGetDevice() {
-    static auto fn = (hipGetDevice_fn)getOriginalFunction("hipGetDevice");
-    return fn;
-}
-
-hipSetDevice_fn get_real_hipSetDevice() {
-    static auto fn = (hipSetDevice_fn)getOriginalFunction("hipSetDevice");
-    return fn;
-}
-
-hipEventCreate_fn get_real_hipEventCreate() {
-    static auto fn = (hipEventCreate_fn)dlsym(RTLD_NEXT, "hipEventCreate");
-    return fn;
-}
-
-hipEventDestroy_fn get_real_hipEventDestroy() {
-    static auto fn = (hipEventDestroy_fn)getOriginalFunction("hipEventDestroy");
-    return fn;
-}
-
-hipEventRecord_fn get_real_hipEventRecord() {
-    static auto fn = (hipEventRecord_fn)getOriginalFunction("hipEventRecord");
-    return fn;
-}
-
-hipEventElapsedTime_fn get_real_hipEventElapsedTime() {
-    static auto fn = (hipEventElapsedTime_fn)getOriginalFunction("hipEventElapsedTime");
-    return fn;
-}
-
 hipFree_fn get_real_hipFree() {
     static auto fn = (hipFree_fn)getOriginalFunction("hipFree");
-    return fn;
-}
-
-hipGetLastError_fn get_real_hipGetLastError() {
-    static auto fn = (hipGetLastError_fn)getOriginalFunction("hipGetLastError");
-    return fn;
-}
-
-hipGetErrorString_fn get_real_hipGetErrorString() {
-    static auto fn = (hipGetErrorString_fn)getOriginalFunction("hipGetErrorString");
-    return fn;
-}
-
-hipLaunchKernelGGL_fn get_real_hipLaunchKernelGGL() {
-    static auto fn = (hipLaunchKernelGGL_fn)getOriginalFunction("hipLaunchKernelGGL");
     return fn;
 }
 
@@ -327,48 +267,6 @@ static std::string getKernelName(const void* function_address) {
     std::stringstream ss;
     ss << "kernel_" << std::hex << (uintptr_t)function_address;
     return ss.str();
-}
-
-// Template function that uses KernelExecution
-template <typename F, typename... Args>
-hipError_t hipLaunchKernelGGL_impl(F func, dim3 gridDim, dim3 blockDim, 
-                                  size_t sharedMem, hipStream_t stream,
-                                  Args... args) {
-    std::cout << "hipLaunchKernelGGL(\n"
-              << "    func=" << (void*)func << "\n"
-              << "    gridDim=" << dim3ToString(gridDim) << "\n"
-              << "    blockDim=" << dim3ToString(blockDim) << "\n"
-              << "    sharedMem=" << sharedMem << "\n"
-              << "    stream=" << (void*)stream << "\n"
-              << "    arg_types=" << getArgTypes<Args...>() << "\n";
-
-    // Create execution record
-    KernelExecution exec;
-    exec.function_address = (void*)func;
-    exec.kernel_name = getKernelName(func);
-    exec.grid_dim = gridDim;
-    exec.block_dim = blockDim;
-    exec.shared_mem = sharedMem;
-    exec.stream = stream;
-    static uint64_t kernel_count = 0;
-    exec.execution_order = kernel_count++;
-
-    // Store pre-execution state
-    // Note: This is trickier with variadic templates, we'll need to handle pointer args
-    // TODO: Add logic to track pointer arguments
-
-    // Launch kernel
-    hipError_t result = get_real_hipLaunchKernelGGL()(func, gridDim, blockDim, 
-                                                     sharedMem, stream,
-                                                     std::forward<Args>(args)...);
-
-    // Store post-execution state and record changes
-    // TODO: Add post-execution tracking
-
-    // Store the execution record
-    kernel_executions.push_back(std::move(exec));
-
-    return result;
 }
 
 struct AllocationInfo {
@@ -682,10 +580,6 @@ static void __attribute__((destructor)) printKernelSummary() {
 
 extern "C" {
 
-hipError_t hipGetDeviceProperties(hipDeviceProp_t* props, int deviceId) {
-    return get_real_hipGetDeviceProperties()(props, deviceId);
-}
-
 hipError_t hipMalloc(void **ptr, size_t size) {
     std::cout << "hipMalloc(ptr=" << (void*)ptr << ", size=" << size << ")\n";
     
@@ -783,30 +677,6 @@ hipError_t hipDeviceSynchronize(void) {
     return get_real_hipDeviceSynchronize()();
 }
 
-hipError_t hipGetDevice(int *deviceId) {
-    return get_real_hipGetDevice()(deviceId);
-}
-
-hipError_t hipSetDevice(int deviceId) {
-    return get_real_hipSetDevice()(deviceId);
-}
-
-hipError_t hipEventCreate(hipEvent_t* event) {
-    return get_real_hipEventCreate()(event);
-}
-
-hipError_t hipEventDestroy(hipEvent_t event) {
-    return get_real_hipEventDestroy()(event);
-}
-
-hipError_t hipEventRecord(hipEvent_t event, hipStream_t stream) {
-    return get_real_hipEventRecord()(event, stream);
-}
-
-hipError_t hipEventElapsedTime(float* ms, hipEvent_t start, hipEvent_t stop) {
-    return get_real_hipEventElapsedTime()(ms, start, stop);
-}
-
 hipError_t hipFree(void* ptr) {
     if (ptr) {
         auto it = gpu_allocations.find(ptr);
@@ -817,14 +687,6 @@ hipError_t hipFree(void* ptr) {
         }
     }
     return get_real_hipFree()(ptr);
-}
-
-hipError_t hipGetLastError(void) {
-    return get_real_hipGetLastError()();
-}
-
-const char* hipGetErrorString(hipError_t error) {
-    return get_real_hipGetErrorString()(error);
 }
 
 __attribute__((visibility("default")))
