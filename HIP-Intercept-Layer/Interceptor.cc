@@ -1,5 +1,6 @@
 #include "Interceptor.hh"
 #include "Tracer.hh"
+#include <cxxabi.h>
 using namespace hip_intercept;
 
 std::unordered_map<void*, AllocationInfo> gpu_allocations;
@@ -369,6 +370,22 @@ static void registerKernelIfNeeded(const std::string& kernel_name, const std::st
     }
 }
 
+std::string demangle(const std::string& mangled_name) {
+    int status;
+    char* demangled = abi::__cxa_demangle(mangled_name.c_str(), nullptr, nullptr, &status);
+    
+    std::string result;
+    if (status == 0 && demangled) {
+        result = demangled;
+        free(demangled);
+    } else {
+        result = mangled_name;  // Return original if demangling fails
+    }
+    
+    std::cout << "Demangled " << mangled_name << " to " << result << std::endl;
+    return result;
+}
+
 } // namespace
 
 extern "C" {
@@ -434,12 +451,25 @@ hipError_t hipModuleLaunchKernel(hipFunction_t f, unsigned int gridDimX,
               << "\n    sharedMem=" << sharedMemBytes
               << "\n    stream=" << stream << "\n";
 
+    // Get kernel name and signature from demangled name
+    std::string kernel_name = rtc_kernel_names[f];
+    std::string kernel_signature = demangle(kernel_name);
+    if(kernel_name.compare(kernel_signature) == 0) {
+        std::cout << "Kernel name and signature are the same, unable to get signature" << std::endl;
+        std::abort();
+    }
+    
+    if (kernel_signature.empty()) {
+        std::cout << "Failed to get signature for kernel " << kernel_name << std::endl;
+        std::abort();
+    }
+    
+    std::cout << "Using kernel signature: " << kernel_signature << std::endl;
+    
     // Create execution record
     hip_intercept::KernelExecution exec;
     exec.function_address = f;
-    exec.kernel_name = rtc_kernel_names.count(f) ? 
-        rtc_kernel_names[f] : "unknown_rtc_kernel";
-    std::cout << "Kernel name: " << exec.kernel_name << std::endl;
+    exec.kernel_name = kernel_name;
     exec.grid_dim = {gridDimX, gridDimY, gridDimZ};
     exec.block_dim = {blockDimX, blockDimY, blockDimZ};
     exec.shared_mem = sharedMemBytes;
@@ -452,8 +482,8 @@ hipError_t hipModuleLaunchKernel(hipFunction_t f, unsigned int gridDimX,
         size_t num_args = countKernelArgs(kernelParams);
         for (size_t i = 0; i < num_args; i++) {
             if (!kernelParams[i]) continue;
-        
-            std::string arg_type = getArgTypeFromSignature(getKernelSignature(f), i);
+            
+            std::string arg_type = getArgTypeFromSignature(kernel_signature, i);
             bool is_vector = isVectorType(arg_type);
             
             void* arg_ptr = nullptr;
