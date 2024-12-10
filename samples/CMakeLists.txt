@@ -131,6 +131,7 @@ set(SAMPLES
     ccompat
     hipComplex
     hipHostMallocSample
+    hipRtc
 )
 
 if (NOT "${DETECTED_ARCHITECTURE}" STREQUAL "riscv64")
