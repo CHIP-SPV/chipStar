@@ -1,10 +1,7 @@
 #ifndef HIP_INTERCEPT_LAYER_INTERCEPTOR_HH
 #define HIP_INTERCEPT_LAYER_INTERCEPTOR_HH
 
-#define __HIP_PLATFORM_SPIRV__
-#include "hip/hip_runtime_api.h"
 #include "Tracer.hh"
-
 #include <vector>
 #include <map>
 #include <memory>
@@ -13,6 +10,19 @@
 #include <utility>
 #include <cstring>
 #include <unordered_map>
+#include "Util.hh"
+#include <sstream>
+#include <iostream>
+#include <dlfcn.h>
+#include <link.h>
+#include <unordered_map>
+#include <algorithm>
+#include <regex>
+#include <unistd.h>
+#include <linux/limits.h>
+#include <chrono>
+#include <filesystem>
+#include <sys/stat.h>
 
 // Forward declarations
 struct dim3;
@@ -34,8 +44,6 @@ public:
 extern std::unordered_map<void*, AllocationInfo> gpu_allocations;
 
 // Helper function declarations
-size_t countKernelArgs(void** args);
-std::string getArgTypeFromSignature(const std::string& signature, size_t arg_index);
 std::pair<void*, AllocationInfo*> findContainingAllocation(void* ptr);
 
 // External C interface declarations

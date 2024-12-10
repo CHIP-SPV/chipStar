@@ -1,22 +1,26 @@
 #ifndef HIP_INTERCEPT_LAYER_TRACER_HH
 #define HIP_INTERCEPT_LAYER_TRACER_HH
 
+#include "Util.hh"
+
 #include <string>
 #include <fstream>
 #include <memory>
 #include <vector>
 #include <map>
-
-#define __HIP_PLATFORM_SPIRV__
-#include "hip/hip_runtime_api.h"
-
-#include <cxxabi.h> // For demangling
-#include <regex>
 #include <sstream>
 #include <unordered_map>
-
-// Forward declarations
-struct dim3;
+#include <iostream>
+#include <filesystem>
+#include <chrono>
+#include <unistd.h>
+#include <linux/limits.h>
+#include <sys/stat.h>
+#include <dlfcn.h>
+#include <link.h>
+#include <algorithm>
+#include <regex>
+#include <fstream>
 
 namespace hip_intercept {
 
@@ -67,24 +71,6 @@ struct MemoryOperation {
     std::shared_ptr<MemoryState> post_state;
 };
 
-// Add helper functions declarations
-std::string dim3ToString(const dim3& d);
-const char* memcpyKindToString(hipMemcpyKind kind);
-std::string devicePropsToString(const hipDeviceProp_t* props);
-std::string demangle(const char* name);
-std::string getKernelSignature(const void* function_address);
-std::string getKernelName(const void* function_address);
-
-// Add kernel argument tracking
-struct KernelArgInfo {
-    bool is_vector;
-    size_t size;
-};
-
-struct KernelInfo {
-    std::vector<KernelArgInfo> args;
-};
-
 struct Trace {
     std::vector<KernelExecution> kernel_executions;
     std::vector<MemoryOperation> memory_operations;
@@ -106,10 +92,6 @@ public:
     
     void registerKernelArg(const std::string& kernel_name, size_t arg_index, 
                           bool is_vector, size_t size);
-    bool isVectorType(const std::string& type_name) const;
-    void printKernelArgs(void** args, const std::string& kernelName, 
-                        const void* function_address);
-    
     static Trace loadTrace(const std::string& path);
     
 private:
