@@ -128,21 +128,21 @@ void printKernelArgs(void** args, const std::string& kernelName, const void* fun
 
 // Get kernel object file
 std::string getKernelObjectFile(const void* function_address) {
-    std::cout << "\nSearching for kernel object file containing address " 
-              << function_address << std::endl;
+    //std::cout << "\nSearching for kernel object file containing address " 
+    //          << function_address << std::endl;
               
     std::queue<std::string> files_to_check;
     std::set<std::string> checked_files;
     
     // Start with /proc/self/exe
     files_to_check.push("/proc/self/exe");
-    std::cout << "Starting search with /proc/self/exe" << std::endl;
+    //std::cout << "Starting search with /proc/self/exe" << std::endl;
     
     // Helper function to get dependencies using ldd
     auto getDependencies = [](const std::string& path) {
         std::vector<std::string> deps;
         std::string cmd = "ldd " + path;
-        std::cout << "Running: " << cmd << std::endl;
+        //std::cout << "Running: " << cmd << std::endl;
         
         std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
         if (!pipe) {
@@ -171,7 +171,7 @@ std::string getKernelObjectFile(const void* function_address) {
     
     // Helper function to check if address is in file
     auto isAddressInFile = [](const std::string& path, const void* addr) {
-        std::cout << "Checking if address " << addr << " is in " << path << std::endl;
+        //std::cout << "Checking if address " << addr << " is in " << path << std::endl;
         
         struct CallbackData {
             const void* target_addr;
@@ -187,18 +187,18 @@ std::string getKernelObjectFile(const void* function_address) {
             const void* target_addr = params->target_addr;
             
             std::string lib_path = info->dlpi_name[0] ? info->dlpi_name : "/proc/self/exe";
-            std::cout << "Checking segments in " << lib_path
-                      << " at base address " << (void*)info->dlpi_addr << std::endl;
+            //std::cout << "Checking segments in " << lib_path
+            //          << " at base address " << (void*)info->dlpi_addr << std::endl;
             
             for (int j = 0; j < info->dlpi_phnum; j++) {
                 const ElfW(Phdr)* phdr = &info->dlpi_phdr[j];
                 if (phdr->p_type == PT_LOAD) {
                     void* start = (void*)(info->dlpi_addr + phdr->p_vaddr);
                     void* end = (void*)((char*)start + phdr->p_memsz);
-                    std::cout << "  Segment " << j << ": " << start << " - " << end << std::endl;
+                    //std::cout << "  Segment " << j << ": " << start << " - " << end << std::endl;
                     
                     if (target_addr >= start && target_addr < end) {
-                        std::cout << "  Found address in this segment!" << std::endl;
+                        //std::cout << "  Found address in this segment!" << std::endl;
                         params->found = true;
                         params->found_path = lib_path;
                         return 1;  // Stop iteration
@@ -211,7 +211,7 @@ std::string getKernelObjectFile(const void* function_address) {
         dl_iterate_phdr(callback, &data);
         
         if (!data.found) {
-            std::cout << "Address not found in " << path << std::endl;
+            //std::cout << "Address not found in " << path << std::endl;
             return std::make_pair(false, std::string());
         }
         
@@ -223,35 +223,36 @@ std::string getKernelObjectFile(const void* function_address) {
         files_to_check.pop();
         
         if (checked_files.count(current_file)) {
-            std::cout << "Already checked " << current_file << ", skipping" << std::endl;
+            //std::cout << "Already checked " << current_file << ", skipping" << std::endl;
             continue;
         }
         
-        std::cout << "\nChecking file: " << current_file << std::endl;
+        //std::cout << "\nChecking file: " << current_file << std::endl;
         checked_files.insert(current_file);
         
         // Check if the function_address is in this file
         auto [found, actual_path] = isAddressInFile(current_file, function_address);
         if (found) {
-            std::cout << "Found kernel in " << actual_path << "!" << std::endl;
+            //std::cout << "Found kernel in " << actual_path << "!" << std::endl;
             return actual_path;
         }
         
         // Add dependencies to queue
-        std::cout << "Getting dependencies for " << current_file << std::endl;
+        //std::cout << "Getting dependencies for " << current_file << std::endl;
         for (const auto& dep : getDependencies(current_file)) {
             if (!checked_files.count(dep)) {
-                std::cout << "Adding to queue: " << dep << std::endl;
+                //std::cout << "Adding to queue: " << dep << std::endl;
                 files_to_check.push(dep);
             } else {
-                std::cout << "Already checked dependency: " << dep << std::endl;
+                //std::cout << "Already checked dependency: " << dep << std::endl;
             }
         }
     }
-    
-    std::cout << "Searched all files but did not find kernel address " 
-              << function_address << std::endl;
-    return "unknown";
+    std::cerr << "Searched the following files for kernel address " << function_address << std::endl;
+    for (const auto& file : checked_files) {
+        std::cerr << "  " << file << std::endl;
+    }
+    std::abort();
 }
 
 
@@ -282,12 +283,14 @@ std::string getKernelSignature(const void* function_address) {
     if (status == -1) {
         std::cerr << "Failed to close pipe: " << strerror(errno) << std::endl;
     }
-    
+    std::cout << "nm output: " << result << std::endl;
     // Parse the nm output to extract function signature
     std::regex signature_regex(R"(__device_stub_([^\(]+)\((.*?)\))");
     std::smatch matches;
     if (std::regex_search(result, matches, signature_regex)) {
-        return matches[1].str() + "(" + matches[2].str() + ")";
+        auto signature = matches[1].str() + "(" + matches[2].str() + ")";
+        std::cout << "Kernel signature: " << signature << std::endl;
+        return signature;
     }
     
     std::cerr << "No kernel signature found in binary " << object_file << std::endl;
