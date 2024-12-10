@@ -319,12 +319,39 @@ static bool isVectorType(const std::string& type_name) {
 
 std::string getKernelName(const void* function_address) {
     Dl_info info;
-    if (dladdr(function_address, &info) && info.dli_sname) {
-        return info.dli_sname;
+    if (dladdr(function_address, &info)) {
+        // Add debug logging
+        std::cout << "dladdr results:\n"
+                  << "  fname: " << (info.dli_fname ? info.dli_fname : "null") << "\n"
+                  << "  sname: " << (info.dli_sname ? info.dli_sname : "null") << "\n"
+                  << "  fbase: " << info.dli_fbase << "\n"
+                  << "  saddr: " << info.dli_saddr << std::endl;
+                  
+        if (info.dli_sname) {
+            // Try to demangle the symbol name if it exists
+            std::string demangled = demangle(info.dli_sname);
+            if (demangled != info.dli_sname) {
+                return demangled;
+            }
+            return info.dli_sname;
+        }
+        
+        // If we have the filename but no symbol name, try to extract from signature
+        if (info.dli_fname) {
+            std::string signature = getKernelSignature(function_address);
+            if (!signature.empty()) {
+                // Extract just the function name from the signature
+                size_t start = 0;
+                size_t end = signature.find('(');
+                if (end != std::string::npos) {
+                    return signature.substr(start, end);
+                }
+            }
+        }
+    } else {
+        std::cerr << "dladdr failed: " << dlerror() << std::endl;
     }
-    std::stringstream ss;
-    ss << "kernel_" << std::hex << (uintptr_t)function_address;
-    return ss.str();
+    std::abort();
 }
 
 #endif // HIP_INTERCEPT_LAYER_UTIL_HH
