@@ -28,6 +28,7 @@ typedef hipError_t (*hipModuleLaunchKernel_fn)(hipFunction_t, unsigned int,
                                               unsigned int, unsigned int,
                                               unsigned int, unsigned int,
                                               hipStream_t, void**, void**);
+typedef hipError_t (*hipModuleGetFunction_fn)(hipFunction_t*, hipModule_t, const char*);
 
 // Get the real function pointers
 void* getOriginalFunction(const char* name) {
@@ -92,6 +93,11 @@ hipMemset_fn get_real_hipMemset() {
 
 hipModuleLaunchKernel_fn get_real_hipModuleLaunchKernel() {
     static auto fn = (hipModuleLaunchKernel_fn)getOriginalFunction("hipModuleLaunchKernel");
+    return fn;
+}
+
+hipModuleGetFunction_fn get_real_hipModuleGetFunction() {
+    static auto fn = (hipModuleGetFunction_fn)getOriginalFunction("hipModuleGetFunction");
     return fn;
 }
 
@@ -245,6 +251,7 @@ static hipError_t hipLaunchKernel_impl(const void *function_address, dim3 numBlo
               
     // Get kernel name and print args using Tracer
     std::string kernelName = getKernelName(function_address);
+    std::cout << "Kernel name: " << kernelName << std::endl;
     printKernelArgs(args, kernelName, function_address);
     
     // Create execution record
@@ -360,6 +367,9 @@ static void registerKernelIfNeeded(const std::string& kernel_name, const std::st
     }
 }
 
+// Add a map to store function names for RTC kernels
+static std::unordered_map<hipFunction_t, std::string> rtc_kernel_names;
+
 } // namespace
 
 extern "C" {
@@ -428,7 +438,9 @@ hipError_t hipModuleLaunchKernel(hipFunction_t f, unsigned int gridDimX,
     // Create execution record
     hip_intercept::KernelExecution exec;
     exec.function_address = f;
-    exec.kernel_name = getKernelName(f);
+    exec.kernel_name = rtc_kernel_names.count(f) ? 
+        rtc_kernel_names[f] : "unknown_rtc_kernel";
+    std::cout << "Kernel name: " << exec.kernel_name << std::endl;
     exec.grid_dim = {gridDimX, gridDimY, gridDimZ};
     exec.block_dim = {blockDimX, blockDimY, blockDimZ};
     exec.shared_mem = sharedMemBytes;
@@ -494,6 +506,24 @@ hipError_t hipModuleLaunchKernel(hipFunction_t f, unsigned int gridDimX,
     
     // Record kernel execution using Tracer
     Tracer::instance().recordKernelLaunch(exec);
+    
+    return result;
+}
+
+hipError_t hipModuleGetFunction(hipFunction_t* function, hipModule_t module, const char* kname) {
+    std::cout << "\n=== INTERCEPTED hipModuleGetFunction ===\n";
+    std::cout << "hipModuleGetFunction(function=" << function 
+              << ", module=" << module 
+              << ", kname=" << kname << ")\n";
+              
+    hipError_t result = get_real_hipModuleGetFunction()(function, module, kname);
+    
+    if (result == hipSuccess && function && *function) {
+        // Store the kernel name for this function handle
+        rtc_kernel_names[*function] = kname;
+        std::cout << "Stored RTC kernel name '" << kname 
+                  << "' for function handle " << *function << std::endl;
+    }
     
     return result;
 }

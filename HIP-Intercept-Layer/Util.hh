@@ -321,11 +321,11 @@ std::string getKernelName(const void* function_address) {
     Dl_info info;
     if (dladdr(function_address, &info)) {
         // Add debug logging
-        std::cout << "dladdr results:\n"
-                  << "  fname: " << (info.dli_fname ? info.dli_fname : "null") << "\n"
-                  << "  sname: " << (info.dli_sname ? info.dli_sname : "null") << "\n"
-                  << "  fbase: " << info.dli_fbase << "\n"
-                  << "  saddr: " << info.dli_saddr << std::endl;
+        //std::cout << "dladdr results:\n"
+        //          << "  fname: " << (info.dli_fname ? info.dli_fname : "null") << "\n"
+        //          << "  sname: " << (info.dli_sname ? info.dli_sname : "null") << "\n"
+        //          << "  fbase: " << info.dli_fbase << "\n"
+        //          << "  saddr: " << info.dli_saddr << std::endl;
                   
         if (info.dli_sname) {
             // Try to demangle the symbol name if it exists
