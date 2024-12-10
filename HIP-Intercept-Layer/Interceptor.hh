@@ -56,6 +56,12 @@ extern "C" {
     hipError_t hipFree(void* ptr);
     hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes, hipMemcpyKind kind);
     hipError_t hipMemset(void *dst, int value, size_t sizeBytes);
+    hipError_t hipModuleLaunchKernel(hipFunction_t f, unsigned int gridDimX,
+                                    unsigned int gridDimY, unsigned int gridDimZ,
+                                    unsigned int blockDimX, unsigned int blockDimY,
+                                    unsigned int blockDimZ, unsigned int sharedMemBytes,
+                                    hipStream_t stream, void** kernelParams,
+                                    void** extra);
 }
 
 #endif // HIP_INTERCEPT_LAYER_INTERCEPTOR_HH

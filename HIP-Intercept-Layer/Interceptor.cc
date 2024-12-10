@@ -90,6 +90,11 @@ hipMemset_fn get_real_hipMemset() {
     return fn;
 }
 
+hipModuleLaunchKernel_fn get_real_hipModuleLaunchKernel() {
+    static auto fn = (hipModuleLaunchKernel_fn)getOriginalFunction("hipModuleLaunchKernel");
+    return fn;
+}
+
 // Helper to find which allocation a pointer belongs to
 static void createShadowCopy(void* base_ptr, AllocationInfo& info) {
     // Copy current GPU memory to shadow copy
@@ -404,6 +409,93 @@ hipError_t hipMemcpy(void *dst, const void *src, size_t sizeBytes, hipMemcpyKind
 __attribute__((visibility("default")))
 hipError_t hipMemset(void *dst, int value, size_t sizeBytes) {
     return hipMemset_impl(dst, value, sizeBytes);
+}
+
+hipError_t hipModuleLaunchKernel(hipFunction_t f, unsigned int gridDimX,
+                                unsigned int gridDimY, unsigned int gridDimZ,
+                                unsigned int blockDimX, unsigned int blockDimY,
+                                unsigned int blockDimZ, unsigned int sharedMemBytes,
+                                hipStream_t stream, void** kernelParams,
+                                void** extra) {
+    std::cout << "\n=== INTERCEPTED hipModuleLaunchKernel ===\n";
+    std::cout << "hipModuleLaunchKernel(\n"
+              << "    function=" << f
+              << "\n    gridDim={" << gridDimX << "," << gridDimY << "," << gridDimZ << "}"
+              << "\n    blockDim={" << blockDimX << "," << blockDimY << "," << blockDimZ << "}"
+              << "\n    sharedMem=" << sharedMemBytes
+              << "\n    stream=" << stream << "\n";
+
+    // Create execution record
+    hip_intercept::KernelExecution exec;
+    exec.function_address = f;
+    exec.kernel_name = getKernelName(f);
+    exec.grid_dim = {gridDimX, gridDimY, gridDimZ};
+    exec.block_dim = {blockDimX, blockDimY, blockDimZ};
+    exec.shared_mem = sharedMemBytes;
+    exec.stream = stream;
+    static uint64_t kernel_count = 0;
+    exec.execution_order = kernel_count++;
+
+    // Store argument pointers and capture pre-execution state
+    if (kernelParams) {
+        size_t num_args = countKernelArgs(kernelParams);
+        for (size_t i = 0; i < num_args; i++) {
+            if (!kernelParams[i]) continue;
+        
+            std::string arg_type = "float*"; //getArgTypeFromSignature(getKernelSignature(f), i);
+            bool is_vector = isVectorType(arg_type);
+            
+            void* arg_ptr = nullptr;
+            size_t arg_size = 0;
+            
+            if (is_vector) {
+                arg_ptr = kernelParams[i];
+                arg_size = 16;  // HIP_vector_type size
+            } else if (arg_type.find("*") != std::string::npos) {
+                arg_ptr = *(void**)kernelParams[i];
+                arg_size = sizeof(void*);
+            } else {
+                arg_ptr = kernelParams[i];
+                arg_size = 16;
+            }
+            
+            exec.arg_ptrs.push_back(arg_ptr);
+            exec.arg_sizes.push_back(arg_size);
+            
+            if (!is_vector && arg_type.find("*") != std::string::npos) {
+                auto [base_ptr, info] = findContainingAllocation(arg_ptr);
+                if (base_ptr && info) {
+                    createShadowCopy(base_ptr, *info);
+                    exec.pre_state.emplace(base_ptr, 
+                        hip_intercept::MemoryState(info->shadow_copy.get(), info->size));
+                }
+            }
+        }
+    }
+
+    // Launch kernel
+    hipError_t result = get_real_hipModuleLaunchKernel()(f, gridDimX, gridDimY, gridDimZ,
+                                                        blockDimX, blockDimY, blockDimZ,
+                                                        sharedMemBytes, stream,
+                                                        kernelParams, extra);
+    get_real_hipDeviceSynchronize()();
+    
+    // Capture post-execution state
+    for (const auto& [ptr, pre_state] : exec.pre_state) {
+        auto [base_ptr, info] = findContainingAllocation(ptr);
+        if (base_ptr && info) {
+            createShadowCopy(base_ptr, *info);
+            exec.post_state.emplace(ptr, 
+                hip_intercept::MemoryState(info->shadow_copy.get(), info->size));
+        }
+    }
+
+    recordMemoryChanges(exec);
+    
+    // Record kernel execution using Tracer
+    Tracer::instance().recordKernelLaunch(exec);
+    
+    return result;
 }
 
 } // extern "C"
