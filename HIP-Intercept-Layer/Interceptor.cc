@@ -3,6 +3,8 @@
 using namespace hip_intercept;
 
 std::unordered_map<void*, AllocationInfo> gpu_allocations;
+// Map to store function names for RTC kernels
+static std::unordered_map<hipFunction_t, std::string> rtc_kernel_names;
 
 std::pair<void*, AllocationInfo*> findContainingAllocation(void* ptr) {
     for (auto& [base_ptr, info] : gpu_allocations) {
@@ -366,9 +368,6 @@ static void registerKernelIfNeeded(const std::string& kernel_name, const std::st
         }
     }
 }
-
-// Add a map to store function names for RTC kernels
-static std::unordered_map<hipFunction_t, std::string> rtc_kernel_names;
 
 } // namespace
 
