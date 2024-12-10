@@ -111,6 +111,7 @@ int main() {
     int threadsPerBlock = 256;
     int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
 
+    // First kernel launch (existing code with config array)
     struct {
         float* a;
         float* b;
@@ -130,6 +131,17 @@ int main() {
                                    nullptr,                // stream
                                    nullptr,                // kernel params
                                    config));               // extra params
+
+    // Second kernel launch using direct parameter passing
+    int N_value = N;  // Create a local variable to take its address
+    void* kernelArgs[] = {&d_a, &d_b, &d_c, &N_value};
+    CHECK_HIP(hipModuleLaunchKernel(kernel,
+                                   blocksPerGrid, 1, 1,    // grid dims
+                                   threadsPerBlock, 1, 1,  // block dims
+                                   0,                      // shared mem
+                                   nullptr,                // stream
+                                   kernelArgs,             // kernel params
+                                   nullptr));              // extra params is nullptr when using direct params
 
     // Copy result back to host
     CHECK_HIP(hipMemcpy(h_c, d_c, size, hipMemcpyDeviceToHost));
