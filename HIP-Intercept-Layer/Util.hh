@@ -18,6 +18,13 @@
 #include <linux/limits.h>
 #include <regex>
 #include <memory>
+#include <queue>
+#include <set>
+#include <fstream>
+#include <sstream>
+#include <cstdio>
+#include <memory>
+#include <link.h>
 
 
 //Forward declarations
@@ -119,19 +126,147 @@ void printKernelArgs(void** args, const std::string& kernelName, const void* fun
     }
 }
 
+// Get kernel object file
+std::string getKernelObjectFile(const void* function_address) {
+    std::cout << "\nSearching for kernel object file containing address " 
+              << function_address << std::endl;
+              
+    std::queue<std::string> files_to_check;
+    std::set<std::string> checked_files;
+    
+    // Start with /proc/self/exe
+    files_to_check.push("/proc/self/exe");
+    std::cout << "Starting search with /proc/self/exe" << std::endl;
+    
+    // Helper function to get dependencies using ldd
+    auto getDependencies = [](const std::string& path) {
+        std::vector<std::string> deps;
+        std::string cmd = "ldd " + path;
+        std::cout << "Running: " << cmd << std::endl;
+        
+        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (!pipe) {
+            std::cerr << "Failed to run ldd: " << strerror(errno) << std::endl;
+            return deps;
+        }
+        
+        char buffer[512];
+        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+            std::string line(buffer);
+            // Look for => in ldd output
+            size_t arrow_pos = line.find("=>");
+            if (arrow_pos != std::string::npos) {
+                // Extract path after =>
+                size_t path_start = line.find('/', arrow_pos);
+                size_t path_end = line.find(" (", arrow_pos);
+                if (path_start != std::string::npos && path_end != std::string::npos) {
+                    std::string dep = line.substr(path_start, path_end - path_start);
+                    deps.push_back(dep);
+                    std::cout << "Found dependency: " << dep << std::endl;
+                }
+            }
+        }
+        return deps;
+    };
+    
+    // Helper function to check if address is in file
+    auto isAddressInFile = [](const std::string& path, const void* addr) {
+        std::cout << "Checking if address " << addr << " is in " << path << std::endl;
+        
+        struct CallbackData {
+            const void* target_addr;
+            bool found;
+            std::string found_path;
+        };
+        
+        CallbackData data = {addr, false, ""};
+        
+        // Callback for dl_iterate_phdr
+        auto callback = [](struct dl_phdr_info* info, size_t size, void* data) {
+            auto params = static_cast<CallbackData*>(data);
+            const void* target_addr = params->target_addr;
+            
+            std::string lib_path = info->dlpi_name[0] ? info->dlpi_name : "/proc/self/exe";
+            std::cout << "Checking segments in " << lib_path
+                      << " at base address " << (void*)info->dlpi_addr << std::endl;
+            
+            for (int j = 0; j < info->dlpi_phnum; j++) {
+                const ElfW(Phdr)* phdr = &info->dlpi_phdr[j];
+                if (phdr->p_type == PT_LOAD) {
+                    void* start = (void*)(info->dlpi_addr + phdr->p_vaddr);
+                    void* end = (void*)((char*)start + phdr->p_memsz);
+                    std::cout << "  Segment " << j << ": " << start << " - " << end << std::endl;
+                    
+                    if (target_addr >= start && target_addr < end) {
+                        std::cout << "  Found address in this segment!" << std::endl;
+                        params->found = true;
+                        params->found_path = lib_path;
+                        return 1;  // Stop iteration
+                    }
+                }
+            }
+            return 0;  // Continue iteration
+        };
+        
+        dl_iterate_phdr(callback, &data);
+        
+        if (!data.found) {
+            std::cout << "Address not found in " << path << std::endl;
+            return std::make_pair(false, std::string());
+        }
+        
+        return std::make_pair(true, data.found_path);
+    };
+    
+    while (!files_to_check.empty()) {
+        std::string current_file = files_to_check.front();
+        files_to_check.pop();
+        
+        if (checked_files.count(current_file)) {
+            std::cout << "Already checked " << current_file << ", skipping" << std::endl;
+            continue;
+        }
+        
+        std::cout << "\nChecking file: " << current_file << std::endl;
+        checked_files.insert(current_file);
+        
+        // Check if the function_address is in this file
+        auto [found, actual_path] = isAddressInFile(current_file, function_address);
+        if (found) {
+            std::cout << "Found kernel in " << actual_path << "!" << std::endl;
+            return actual_path;
+        }
+        
+        // Add dependencies to queue
+        std::cout << "Getting dependencies for " << current_file << std::endl;
+        for (const auto& dep : getDependencies(current_file)) {
+            if (!checked_files.count(dep)) {
+                std::cout << "Adding to queue: " << dep << std::endl;
+                files_to_check.push(dep);
+            } else {
+                std::cout << "Already checked dependency: " << dep << std::endl;
+            }
+        }
+    }
+    
+    std::cout << "Searched all files but did not find kernel address " 
+              << function_address << std::endl;
+    return "unknown";
+}
+
+
 // Helper to extract kernel signature from binary
 std::string getKernelSignature(const void* function_address) {
-    // Get the current executable's path from /proc
-    char exe_path[PATH_MAX];
-    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
-    if (len == -1) {
-        std::cerr << "Failed to read /proc/self/exe: " << strerror(errno) << std::endl;
+    // Get the object file containing this kernel
+    std::string object_file = getKernelObjectFile(function_address);
+    if (object_file == "unknown") {
+        std::cerr << "Failed to find object file containing kernel at " 
+                  << function_address << std::endl;
         return "";
     }
-    exe_path[len] = '\0';
     
-    // Use nm to get symbol information from the executable
-    std::string cmd = "nm -C " + std::string(exe_path) + " | grep __device_stub_";
+    // Use nm to get symbol information from the object file
+    std::string cmd = "nm -C " + object_file + " | grep __device_stub_";
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
         std::cerr << "Failed to run nm command: " << strerror(errno) << std::endl;
@@ -155,7 +290,7 @@ std::string getKernelSignature(const void* function_address) {
         return matches[1].str() + "(" + matches[2].str() + ")";
     }
     
-    std::cerr << "No kernel signature found in binary " << exe_path << std::endl;
+    std::cerr << "No kernel signature found in binary " << object_file << std::endl;
     return "";
 }
 
@@ -318,39 +453,30 @@ static bool isVectorType(const std::string& type_name) {
 }
 
 std::string getKernelName(const void* function_address) {
-    Dl_info info;
-    if (dladdr(function_address, &info)) {
-        // Add debug logging
-        //std::cout << "dladdr results:\n"
-        //          << "  fname: " << (info.dli_fname ? info.dli_fname : "null") << "\n"
-        //          << "  sname: " << (info.dli_sname ? info.dli_sname : "null") << "\n"
-        //          << "  fbase: " << info.dli_fbase << "\n"
-        //          << "  saddr: " << info.dli_saddr << std::endl;
-                  
-        if (info.dli_sname) {
-            // Try to demangle the symbol name if it exists
-            std::string demangled = demangle(info.dli_sname);
-            if (demangled != info.dli_sname) {
-                return demangled;
-            }
-            return info.dli_sname;
-        }
-        
-        // If we have the filename but no symbol name, try to extract from signature
-        if (info.dli_fname) {
-            std::string signature = getKernelSignature(function_address);
-            if (!signature.empty()) {
-                // Extract just the function name from the signature
-                size_t start = 0;
-                size_t end = signature.find('(');
-                if (end != std::string::npos) {
-                    return signature.substr(start, end);
-                }
-            }
-        }
-    } else {
-        std::cerr << "dladdr failed: " << dlerror() << std::endl;
+    // First find which object file contains this kernel
+    auto object_file = getKernelObjectFile(function_address);
+    std::cout << "Kernel object file: " << object_file << std::endl;
+    
+    if (object_file == "unknown") {
+        std::cerr << "Could not find object file containing kernel at " 
+                  << function_address << std::endl;
+        std::abort();
     }
+    
+    // If dladdr failed or didn't give us a symbol name, 
+    // try to get it from the kernel signature
+    std::string signature = getKernelSignature(function_address);
+    if (!signature.empty()) {
+        size_t end = signature.find('(');
+        if (end != std::string::npos) {
+            return signature.substr(0, end);
+        }
+    }
+    
+    // If we get here, we've failed to get the name through any method
+    std::cerr << "Failed to get kernel name for address " << function_address 
+              << " in file " << object_file << std::endl;
+    
     std::abort();
 }
 

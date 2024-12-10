@@ -453,7 +453,7 @@ hipError_t hipModuleLaunchKernel(hipFunction_t f, unsigned int gridDimX,
         for (size_t i = 0; i < num_args; i++) {
             if (!kernelParams[i]) continue;
         
-            std::string arg_type = "float*"; //getArgTypeFromSignature(getKernelSignature(f), i);
+            std::string arg_type = getArgTypeFromSignature(getKernelSignature(f), i);
             bool is_vector = isVectorType(arg_type);
             
             void* arg_ptr = nullptr;
