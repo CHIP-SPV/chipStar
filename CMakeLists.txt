@@ -870,7 +870,7 @@ target_include_directories(HIPTracer PUBLIC ${CMAKE_BINARY_DIR}/include)
 target_include_directories(HIPTracer PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 add_library(HIPIntercept SHARED HIP-Intercept-Layer/Interceptor.cc)
-target_link_libraries(HIPIntercept CHIP HIPTracer)
+target_link_libraries(HIPIntercept HIPTracer)
 target_include_directories(HIPIntercept PUBLIC ${CMAKE_BINARY_DIR}/include)
 target_include_directories(HIPIntercept PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
