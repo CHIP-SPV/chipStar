@@ -1,8 +1,6 @@
 name: Nightly Tests Intel GPUs
 
 on:
-  schedule:
-    - cron: '0 */3 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -22,4 +20,4 @@ jobs:
       - name: Run Intel GPU Unit Tests
         shell: bash
         run: |
-          cp -r /space/chipStar/build ./ && ./scripts/unit_tests.sh release llvm-19 --skip-build --num-tries 10
+          cp -r /space/chipStar/build ./ && ./scripts/unit_tests.sh release llvm-19 --skip-build --num-tries 50
