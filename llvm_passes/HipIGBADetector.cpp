@@ -61,7 +61,8 @@ static bool hasPotentialIGBAs(Module &M) {
 }
 
 static bool detectIGBAs(Module &M) {
-  constexpr auto *MagicVarName = "__chip_module_has_no_IGBAs";
+  return false;
+  // constexpr auto *MagicVarName = "__chip_module_has_no_IGBAs";
 
   if (M.getGlobalVariable(MagicVarName))
     return false; // Bail out: the module has already been processed.

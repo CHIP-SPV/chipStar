@@ -244,8 +244,8 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
   // If we have determined that the module does not have indirect
   // global memory accesses (IGBAs; see HipIGBADetectorPass), we may
   // skip the annotation.
-  if (ModInfo.HasNoIGBAs)
-    return nullptr;
+  // if (ModInfo.HasNoIGBAs)
+  //   return nullptr;
 
   cl_kernel_exec_info PtrListName;
   switch (Ctx.getAllocStrategy()) {
@@ -279,10 +279,10 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
 
     // TODO: Optimization. Don't call this function again if we know the
     //       AnnotationList hasn't changed since the last call.
-    clStatus = clSetKernelExecInfo(KernelAPIHandle, PtrListName,
-                                   AnnotationList.size() * sizeof(void *),
-                                   AnnotationList.data());
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
+    // clStatus = clSetKernelExecInfo(KernelAPIHandle, PtrListName,
+    //                                AnnotationList.size() * sizeof(void *),
+    //                                AnnotationList.data());
+    // CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelExecInfo);
 
     if (Ctx.getAllocStrategy() == AllocationStrategy::IntelUSM) {
       cl_bool param = CL_TRUE;

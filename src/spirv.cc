@@ -539,7 +539,7 @@ class SPIRVmodule {
   // global buffer accesses (IGBA) in any kernel. This is told by a
   // magic variable created by HipIGBADetectorPass. Defaults to false
   // in case the variable is not found.
-  bool HasNoIGBAs_ = false;
+  // bool HasNoIGBAs_ = false;
 
   bool MemModelCL_;
   bool KernelCapab_;
@@ -610,7 +610,7 @@ public:
     }
     KernelInfoMap_.clear();
 
-    ModuleInfo.HasNoIGBAs = HasNoIGBAs_;
+    // ModuleInfo.HasNoIGBAs = HasNoIGBAs_;
 
     return true;
   }
@@ -756,12 +756,12 @@ private:
         }
 
         // A magic variable created by HipIGBADetector.cpp.
-        if (Name == "__chip_module_has_no_IGBAs") {
-          // Get initializer operand.
-          auto *Init = getInstruction(Inst->getWord(4));
-          // Init is known to be 8-bit unsigned constant.
-          HasNoIGBAs_ = Init->getWord(3);
-        }
+        // if (Name == "__chip_module_has_no_IGBAs") {
+        //   // Get initializer operand.
+        //   auto *Init = getInstruction(Inst->getWord(4));
+        //   // Init is known to be 8-bit unsigned constant.
+        //   HasNoIGBAs_ = Init->getWord(3);
+        // }
       }
 
       NumWords -= Inst->size();
@@ -982,9 +982,9 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
       // expressed as global-scope variables. This is accommodation
       // for mesa/rusticl that does not support them yet. Also, the
       // variables are essentially dead code for the driver.
-      if (LinkName == "__chip_module_has_no_IGBAs" ||
-          startsWith(LinkName, "__chip_spilled_args_"))
-        InstructionsToErase.insert(Insn.getWord(1));
+      // if (LinkName == "__chip_module_has_no_IGBAs" ||
+      //     startsWith(LinkName, "__chip_spilled_args_"))
+      //   InstructionsToErase.insert(Insn.getWord(1));
     }
   }
 

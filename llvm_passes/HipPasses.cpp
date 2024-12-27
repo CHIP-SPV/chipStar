@@ -28,7 +28,7 @@
 #include "HipSanityChecks.h"
 #include "HipLowerSwitch.h"
 #include "HipLowerMemset.h"
-#include "HipIGBADetector.h"
+// #include "HipIGBADetector.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -158,7 +158,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)));
   MPM.addPass(HipFixOpenCLMDPass());
 
-  MPM.addPass(HipIGBADetectorPass());
+  // MPM.addPass(HipIGBADetectorPass());
 }
 
 #if LLVM_VERSION_MAJOR < 14

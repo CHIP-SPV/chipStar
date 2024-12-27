@@ -48,7 +48,7 @@ struct SPVModuleInfo {
 
   /// Set to true if the module is known not to have indirect global
   /// buffer accesses (IGBA) in any kernel.
-  bool HasNoIGBAs = false;
+  // bool HasNoIGBAs = false;
 };
 
 // Processing done before analysis.
