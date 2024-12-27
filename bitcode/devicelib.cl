@@ -527,6 +527,26 @@ EXPORT double __chip_sincos_f64(double x, DEFAULT_AS double *cos) {
 // local_barrier
 EXPORT void __chip_syncthreads() { barrier(CLK_LOCAL_MEM_FENCE); }
 
+EXPORT int __chip_syncthreads_count(int predicate) {
+  // Get thread info
+  int lid = get_local_id(0);
+  int sub_group_size = get_sub_group_size();
+  int sub_group_id = lid / sub_group_size;
+  int local_size = get_local_size(0);
+    
+  // First sum within each sub-group
+  int sub_group_sum = sub_group_reduce_add(predicate);
+    
+  // Only first thread in each sub-group participates in final sum
+  int my_contribution = (lid % sub_group_size == 0) ? sub_group_sum : 0;
+    
+  // Sum up all sub-group sums using work-group reduction
+  int total = work_group_reduce_add(my_contribution);
+
+  // All threads get the same result
+  return total;
+}
+
 // local_fence
 EXPORT void __chip_threadfence_block() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 

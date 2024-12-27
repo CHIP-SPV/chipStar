@@ -508,8 +508,8 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.clockRate =
       1000 * ClDevice->getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>();
 
-  HipDeviceProps_.multiProcessorCount =
-      ClDevice->getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
+  HipDeviceProps_.multiProcessorCount = 60;
+
   HipDeviceProps_.l2CacheSize =
       ClDevice->getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>();
 
@@ -524,7 +524,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   // Try to check that we support the default warp size.
   std::vector<uint> Sg = ClDevice->getInfo<CL_DEVICE_SUB_GROUP_SIZES_INTEL>();
   if (std::find(Sg.begin(), Sg.end(), CHIP_DEFAULT_WARP_SIZE) == Sg.end()) {
-    logWarn(
+    logWarn(  
         "The device might not support subgroup size {}, warp-size sensitive "
         "kernels might not work correctly.",
         CHIP_DEFAULT_WARP_SIZE);
@@ -1350,6 +1350,15 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
   LOCK(ContextMtx); // CHIPContextOpenCL::MemManager_
 
   Retval = MemManager_.allocate(Size, Alignment, MemType);
+  
+  // Initialize memory with 0xbebebebe pattern using the default queue
+  if (Retval) {
+    uint32_t Pattern = 0xbebebebe;
+    auto Queue = Backend->getActiveDevice()->getDefaultQueue();
+    Queue->memFillAsync(Retval, Size, &Pattern, sizeof(Pattern));
+    Queue->finish(); // Ensure initialization is complete before returning
+  }
+  
   return Retval;
 }
 
