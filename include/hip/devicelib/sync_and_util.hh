@@ -93,9 +93,9 @@ extern "C++" inline __device__ int __syncthreads_or(int predicate) {
   return __chip_group_any(!!predicate);
 }
 
+extern "C" __device__ int __chip_syncthreads_count(int predicate); // Custom
 extern "C++" inline __device__ int __syncthreads_count(int predicate) {
-  __chip_syncthreads();
-  return __chip_group_ballot(!!predicate);
+  return __chip_syncthreads_count(predicate < 0 ? -predicate : predicate);
 }
 
 extern "C++" inline __device__ void __threadfence_block() {
