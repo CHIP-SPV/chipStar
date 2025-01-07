@@ -380,9 +380,11 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
         // Skip the original format string arg and recreate it.
         OrigCallArgI++;
 
+        std::string toAdd;
+        std::vector<Value *> Args;
+
         for (auto FmtStr : FmtSpecPieces) {
           unsigned FormatSpecCount = NumFormatSpecs(FmtStr);
-          std::vector<Value *> Args;
 
           // TODO: handle a (compile time known) null ptr format string arg and
           // return -1 like CUDA does.
@@ -403,32 +405,59 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
                 continue; // empty str arg to a %s, no output needed
               // We could copy the arg to constant space, printf it
               // directly. No format string needed.
+              toAdd += FmtStr;
               Args.push_back(ConstantSpaceCStr);
-              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
-            } else if (ASSUME_PRINTF_SUPPORTS_GLOBAL_STRING_ARGS) {
-              if (IsEmpty)
-                continue;
-              // Create a constant space format string for %s.
-              Args.push_back(getOrCreateStrLiteralArg("%s", B));
-              // ...and then assume the data arg can point to a generic
-              // address space string (eventually residing in global AS).
-              Args.push_back(OrigArg);
-              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
             } else {
-              Args.push_back(OrigArg);
-              CallInst::Create(getOrCreatePrintStringF(), Args, "", &OrigCall);
+              if (!toAdd.empty()) {
+                Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
+                toAdd.clear();
+                CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+                Args.clear();
+              }
+              if (ASSUME_PRINTF_SUPPORTS_GLOBAL_STRING_ARGS) {
+                if (IsEmpty)
+                  continue;
+                // Create a constant space format string for %s.
+                Args.push_back(getOrCreateStrLiteralArg("%s", B));
+                // ...and then assume the data arg can point to a generic
+                // address space string (eventually residing in global AS).
+                Args.push_back(OrigArg);
+                CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+              } else {
+                Args.push_back(OrigArg);
+                CallInst::Create(getOrCreatePrintStringF(), Args, "",
+                                 &OrigCall);
+              }
             }
             continue;
           }
 
           // Handle as a normal printf() call.
-          Args.push_back(getOrCreateStrLiteralArg(FmtStr, B));
+          toAdd += FmtStr;
           while (FormatSpecCount--) {
             assert(OrigCallArgI != OrigCallArgs.end());
             Value *OrigArg = *OrigCallArgI++;
+
+            if (FPExtInst *fpext = dyn_cast<FPExtInst>(OrigArg)) {
+              // Get the original float value
+              Value *floatVal = fpext->getOperand(0);
+
+              // Verify the types - make sure we're going from float to double
+              Type *srcTy = floatVal->getType();
+              Type *destTy = fpext->getType();
+
+              if ((srcTy->isFloatTy() || srcTy->is16bitFPTy()) && destTy->isDoubleTy()) {
+                OrigArg = floatVal;
+              }
+            }
             Args.push_back(OrigArg);
           }
+        }
+        if (!toAdd.empty()) {
+          Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
+          toAdd.clear();
           CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+          Args.clear();
         }
 
         // Instead of returning the success/failure from the OpenCL printf(),
