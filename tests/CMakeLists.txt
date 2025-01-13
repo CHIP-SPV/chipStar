@@ -20,6 +20,7 @@ add_subdirectory(hiprtc)
 add_subdirectory(post-install)
 add_subdirectory(runtime)
 add_subdirectory(libraries)
+add_subdirectory(hipamd-vs-chipStar)
 
 add_test(
   NAME hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind
