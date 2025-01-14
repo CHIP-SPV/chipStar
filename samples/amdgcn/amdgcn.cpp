@@ -53,7 +53,8 @@ int main() {
     // Verify results
     std::cout << "Results:\n";
     for (int i = 0; i < num_threads; i++) {
-        int expected = (i % 32 == 31) ? (i - 31) : (i + 1);  // Wrap around within each wavefront
+        int lane = i % 32;       // Lane ID within the wavefront
+        int expected = (lane == 31) ? 0 : (lane + 1);  // Each wavefront gets values 1-31 followed by 0
         std::cout << "Thread " << i << ": got " << h_output[i] 
                   << ", expected " << expected 
                   << (h_output[i] == expected ? " ✓" : " ✗") << "\n";
