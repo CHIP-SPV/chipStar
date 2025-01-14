@@ -1,3 +1,4 @@
+#define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
 #include <iostream>
 #include <fstream>
@@ -12,6 +13,36 @@ private:
     cl_platform_id platform;
     cl_device_id device;
     cl_context context;
+    
+    enum class SPIRVFileType {
+        Binary,
+        Assembly,
+        Unknown
+    };
+    
+    SPIRVFileType getSPIRVFileType(const std::string& filename) {
+        std::string cmd = "file " + filename;
+        FILE* pipe = popen(cmd.c_str(), "r");
+        if (!pipe) {
+            throw std::runtime_error("Failed to execute file command");
+        }
+        
+        char buffer[128];
+        std::string result;
+        while (!feof(pipe)) {
+            if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                result += buffer;
+            }
+        }
+        pclose(pipe);
+        
+        if (result.find("SPIR-V binary") != std::string::npos) {
+            return SPIRVFileType::Binary;
+        } else if (result.find("ASCII text") != std::string::npos) {
+            return SPIRVFileType::Assembly;
+        }
+        return SPIRVFileType::Unknown;
+    }
     
     std::vector<char> readBinaryFile(const std::string& filename) {
         std::ifstream file(filename, std::ios::binary | std::ios::ate);
@@ -54,7 +85,24 @@ public:
     
     void compileSPVFile(const std::string& spvPath) {
         try {
-            std::vector<char> spirvBinary = readBinaryFile(spvPath);
+            auto fileType = getSPIRVFileType(spvPath);
+            if (fileType == SPIRVFileType::Unknown) {
+                throw std::runtime_error("Input file is neither a SPIR-V binary nor SPIR-V assembly");
+            }
+            
+            std::vector<char> spirvBinary;
+            if (fileType == SPIRVFileType::Assembly) {
+                // For assembly files, we need to first assemble them using spirv-as
+                std::string outputPath = spvPath + ".spv";
+                std::string cmd = "spirv-as " + spvPath + " -o " + outputPath;
+                if (system(cmd.c_str()) != 0) {
+                    throw std::runtime_error("Failed to assemble SPIR-V assembly file");
+                }
+                spirvBinary = readBinaryFile(outputPath);
+                fs::remove(outputPath); // Clean up temporary binary
+            } else {
+                spirvBinary = readBinaryFile(spvPath);
+            }
             
             cl_int error;
             const unsigned char* binary = reinterpret_cast<const unsigned char*>(spirvBinary.data());
@@ -114,10 +162,10 @@ public:
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cout << "Usage: " << argv[0] << " <spv_file(s) or directory>" << std::endl;
+        std::cout << "Usage: " << argv[0] << " <file(s) or directory>" << std::endl;
         std::cout << "Examples:" << std::endl;
         std::cout << "  " << argv[0] << " kernel.spv" << std::endl;
-        std::cout << "  " << argv[0] << " ./*.spv" << std::endl;
+        std::cout << "  " << argv[0] << " kernel.txt" << std::endl;
         std::cout << "  " << argv[0] << " /path/to/directory" << std::endl;
         return 1;
     }
@@ -131,17 +179,12 @@ int main(int argc, char* argv[]) {
             if (fs::is_directory(path)) {
                 // Handle directory
                 for (const auto& entry : fs::recursive_directory_iterator(path)) {
-                    if (entry.path().extension() == ".spv") {
+                    if (fs::is_regular_file(entry.path())) {
                         compiler.compileSPVFile(entry.path().string());
                     }
                 }
             } else if (fs::is_regular_file(path)) {
-                // Handle single file
-                if (fs::path(path).extension() == ".spv") {
-                    compiler.compileSPVFile(path);
-                } else {
-                    std::cerr << "Warning: Skipping non-SPV file: " << path << std::endl;
-                }
+                compiler.compileSPVFile(path);
             } else {
                 std::cerr << "Warning: Path not found or invalid: " << path << std::endl;
             }
