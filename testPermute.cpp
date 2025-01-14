@@ -14,51 +14,56 @@
     } while(0)
 
 // The OpenCL C kernel source.
-// We store each work-item's data in a local memory array, then read
-// from the "offset" lane within the same sub-group/wave.
 static const char* kernelSource = R"CLC(
-__kernel void emulate_bpermute(__global const int* inData,
-                               __global int* outData,
-                               int offset)
-{
-    // Local memory for up to 256 threads in a work-group:
-    __local int lmem[256];
-
+// Emulate __builtin_amdgcn_ds_bpermute
+int __builtin_amdgcn_ds_bpermute_emulated(__local int* lmem, int byte_offset, int src_data) {
+    // Write source data to local memory at this thread's position
     int lid = get_local_id(0);
-    int groupSize = get_local_size(0);
-
-    // Write each thread's data to local memory
-    lmem[lid] = inData[get_global_id(0)];
+    lmem[lid] = src_data;
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    // Sub-group/wave size. For demonstration, we just assume groupSize is our wave size.
-    int laneId = lid;  
-    int targetLane = (laneId + offset) & (groupSize - 1);
+    // Convert byte offset to lane index (divide by 4 since we're dealing with ints)
+    int target_lane = (byte_offset >> 2) & 63;  // 63 is wavefront size - 1
+    
+    // Read from the target lane
+    return lmem[target_lane];
+}
 
-    // Compute the index in local memory
-    // If you had multiple sub-groups, you'd do subGroupId * subGroupSize + targetLane.
-    // We'll assume just one sub-group or groupSize == wavefront.
-    int finalIdx = targetLane;
+__kernel void ocl_permute(__global const int* inData,
+                         __global int* outData)
+{
+    // Local memory for the wavefront (64 threads)
+    __local int lmem[64];
 
-    // Read from local memory
-    int val = lmem[finalIdx];
-
-    // Write result to global
-    outData[get_global_id(0)] = val;
+    int lid = get_local_id(0);
+    
+    // Load input data
+    int src_data = inData[get_global_id(0)];
+    
+    // Calculate byte offset (same as in HIP version)
+    int lane = lid & 63;
+    int byte_offset = lane * 4;  // Each int is 4 bytes
+    
+    // Call our emulated version
+    int result = __builtin_amdgcn_ds_bpermute_emulated(lmem, byte_offset, src_data);
+    
+    // Write result
+    outData[get_global_id(0)] = result;
 }
 )CLC";
 
 // HIP kernel using __builtin_amdgcn_ds_bpermute
-__global__ void hip_bpermute(const int* inData, int* outData, int offset) {
+__global__ void hip_bpermute(const int* inData, int* outData) {
     int tid = threadIdx.x;
-    int lane = tid & 63; // Assuming wave size of 64
-    int target_lane = (lane + offset) & 63;
+    int lane = tid & 63;  // Get lane ID within wavefront
     
-    // Convert input data to the required format for ds_bpermute
+    // Load the value this thread will share
     int src_data = inData[tid];
-    int src_lane = target_lane << 2; // Multiply by 4 as ds_bpermute expects byte offset
     
-    // Call the builtin
+    // The byte offset is lane * 4 (each int is 4 bytes)
+    int src_lane = lane * 4;
+    
+    // Call the builtin with byte offset and source data
     int result = __builtin_amdgcn_ds_bpermute(src_lane, src_data);
     outData[tid] = result;
 }
@@ -73,7 +78,7 @@ int main() {
     std::vector<int> inData(globalSize);
     for (int i = 0; i < static_cast<int>(globalSize); ++i) {
         // Fill with some pattern
-        inData[i] = 1000000000 + i; // e.g., 1000000000 + i
+        inData[i] = 1000000000 + i;
     }
 
     // Arrays for results
@@ -90,7 +95,6 @@ int main() {
         return 1;
     }
 
-    // Pick the first platform and device (adjust to your preference)
     cl::Platform platform = platforms[0];
     std::vector<cl::Device> devices;
     platform.getDevices(CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_CPU, &devices);
@@ -100,11 +104,9 @@ int main() {
     }
     cl::Device device = devices[0];
 
-    // Create a context and command queue
     cl::Context context(device);
     cl::CommandQueue queue(context, device);
 
-    // Build the program from source
     cl::Program::Sources sources;
     sources.push_back({kernelSource, strlen(kernelSource)});
     cl::Program program(context, sources);
@@ -112,44 +114,28 @@ int main() {
     try {
         program.build({device});
     } catch (...) {
-        // Print build errors
         std::string buildLog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
         std::cerr << "Error building: " << buildLog << "\n";
         return 1;
     }
 
-    // Create the kernel
-    cl::Kernel kernel(program, "emulate_bpermute");
+    cl::Kernel kernel(program, "ocl_permute");
 
-    // ---------------------------------------------------------
-    // Create device buffers
-    // ---------------------------------------------------------
     cl::Buffer bufIn(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                      sizeof(int) * inData.size(), inData.data());
 
     cl::Buffer bufOut(context, CL_MEM_WRITE_ONLY,
                       sizeof(int) * outDataOpenCL.size());
 
-    // ---------------------------------------------------------
-    // Set kernel arguments
-    // ---------------------------------------------------------
-    int offset = 3; // Example offset
     kernel.setArg(0, bufIn); 
     kernel.setArg(1, bufOut);
-    kernel.setArg(2, offset);
 
-    // ---------------------------------------------------------
-    // Enqueue kernel
-    // ---------------------------------------------------------
     queue.enqueueNDRangeKernel(kernel,
                                cl::NullRange,
                                cl::NDRange(globalSize),
                                cl::NDRange(localSize));
     queue.finish();
 
-    // ---------------------------------------------------------
-    // Read results back
-    // ---------------------------------------------------------
     queue.enqueueReadBuffer(bufOut, CL_TRUE, 0,
                             sizeof(int) * outDataOpenCL.size(),
                             outDataOpenCL.data());
@@ -167,7 +153,7 @@ int main() {
                        dim3(1), 
                        dim3(globalSize), 
                        0, 0,
-                       d_inData, d_outData, offset);
+                       d_inData, d_outData);
     HIP_CHECK(hipGetLastError());
     HIP_CHECK(hipDeviceSynchronize());
     
