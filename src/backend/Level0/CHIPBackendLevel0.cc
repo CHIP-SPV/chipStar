@@ -2543,6 +2543,7 @@ static void appendDeviceLibrarySources(
   // OpGroupNonUniformBallot instructions seems to compile and work
   // despite not having ZE_extension_subgroups.
   AppendSource(chipstar::ballot_native);
+  AppendSource(chipstar::bpermute);
 
   assert(SrcSizes.size() == Sources.size() &&
          Sources.size() == BuildFlags.size());

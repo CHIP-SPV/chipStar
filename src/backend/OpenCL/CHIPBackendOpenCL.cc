@@ -913,6 +913,8 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   if (ChipDev.hasBallot())
     AppendSource(chipstar::ballot_native);
 
+  AppendSource(chipstar::bpermute);
+
   // No fall-back implementation for ballot - let linker raise an error.
 }
 

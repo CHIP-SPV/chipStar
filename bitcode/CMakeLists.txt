@@ -198,6 +198,19 @@ function(embed_spirv_in_cpp
   )
 endfunction()
 
+# Function to embed pre-existing SPIR-V binary into C++ array
+function(embed_existing_spirv_in_cpp
+    ARRAY_NAME SPIRV_BINARY_PATH OUTPUT_SOURCE OUTPUT_HEADER)
+  add_custom_command(
+    OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
+    DEPENDS "${SPIRV_BINARY_PATH}"
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
+    ${ARRAY_NAME} ${SPIRV_BINARY_PATH} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
+    COMMENT "Generating embedded SPIR-V binary from ${SPIRV_BINARY_PATH}"
+    VERBATIM
+  )
+endfunction()
+
 foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2)
   embed_spirv_in_cpp(
     ${SOURCE}
@@ -223,6 +236,19 @@ foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_3)
   list(APPEND RTDEVLIB_HEADERS
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.h")
 endforeach()
+
+# Embed pre-existing SPIR-V binaries
+set(BPERMUTE_SPIR_BINARY "${CMAKE_CURRENT_SOURCE_DIR}/bpermute.spv")
+embed_existing_spirv_in_cpp(
+  bpermute
+  "${BPERMUTE_SPIR_BINARY}"
+  "${CMAKE_CURRENT_BINARY_DIR}/bpermute.cc"
+  "${CMAKE_CURRENT_BINARY_DIR}/bpermute.h"
+)
+
+# Need to include the generated files in the build
+list(APPEND RTDEVLIB_SOURCES_v1_3 "${CMAKE_CURRENT_BINARY_DIR}/bpermute.cc")
+list(APPEND RTDEVLIB_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/bpermute.h")
 
 # Generate header that declares all the arrays of the embedded SPIR-V binaries.
 set(RTDEVLIB_HEADER "rtdevlib-modules.h")
