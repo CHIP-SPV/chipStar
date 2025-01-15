@@ -1342,17 +1342,4 @@ EXPORT void __builtin_amdgcn_fence(int scope, const char* order) {
   // Other scopes map to no-op
 }
 
-EXPORT int __builtin_amdgcn_ds_bpermute(/*__local int* lmem,*/ int byte_offset, int src_data) {
-    // Write source data to local memory at this thread's position
-    int lid = get_local_id(0);
-    extern __local int* lmem;
-    lmem[lid] = src_data;
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    // Convert byte offset to lane index (divide by 4 since we're dealing with ints)
-    int target_lane = (byte_offset >> 2) & 63;  // 63 is wavefront size - 1
-    
-    // Read from the target lane
-    return lmem[target_lane];
-}
 

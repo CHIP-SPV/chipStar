@@ -31,6 +31,11 @@
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
+extern "C" __device__ int bpermute(int byte_offset, int src_data);
+extern "C++" inline __device__ int __builtin_amdgcn_ds_bpermute(int byte_offset, int src_data) {
+  return bpermute(byte_offset, src_data);
+}
+
 extern "C++" __device__  uint64_t __chip_ballot(int predicate); // Custom
 extern "C++" inline __device__ uint64_t __ballot(int predicate) {
   return __chip_ballot(predicate);
