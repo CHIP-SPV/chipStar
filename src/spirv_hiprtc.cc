@@ -38,6 +38,7 @@ struct CompileOptions {
 };
 
 static bool saveTemps() {
+  // TODO: move to CHIPDriver
   if (auto *Value = std::getenv("CHIP_RTC_SAVE_TEMPS"))
     return std::string_view(Value) == "1";
   return false;
