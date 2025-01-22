@@ -42,74 +42,243 @@ unsigned HipPromoteIntsPass::getPromotedBitWidth(unsigned Original) {
   return 64;
 }
 
-PreservedAnalyses HipPromoteIntsPass::run(Module &M, ModuleAnalysisManager &AM) {
-  bool Changed = false;
-  
-  for (Function &F : M) {
-    LLVM_DEBUG(dbgs() << "[HipPromoteInts] Analyzing function: " << F.getName() << "\n");
+// Add this new structure to track replacements
+struct Replacement {
+    Instruction* Old;
+    Value* New;
+    Replacement(Instruction* O, Value* N) : Old(O), New(N) {}
+};
+
+void processInstruction(Instruction *I, Type *OldTy, Type *PromotedTy, std::string Indent,
+                       SmallVectorImpl<Replacement> &Replacements,
+                       SmallDenseMap<Value*, Value*> &PromotedValues) {
+    IRBuilder<> Builder(I);
     
-    for (BasicBlock &BB : F) {
-      // Use a vector to store instructions that need modification
-      std::vector<Instruction*> WorkList;
-      for (Instruction &I : BB) {
-        WorkList.push_back(&I);
-      }
-      
-      // Process the worklist safely outside the BB iteration
-      for (Instruction *I : WorkList) {
-        if (auto *IntTy = dyn_cast<IntegerType>(I->getType())) {
-          if (!isStandardBitWidth(IntTy->getBitWidth())) {
-            LLVM_DEBUG(dbgs() << "[HipPromoteInts] Found non-standard type in result: " << *I << "\n");
+    // Helper to get or create promoted version of a value
+    auto getPromotedValue = [&](Value* V) -> Value* {
+        // First check if we already promoted this value
+        if (PromotedValues.count(V))
+            return PromotedValues[V];
+        
+        // If it's already the right type, return it
+        if (V->getType() == PromotedTy)
+            return V;
             
-            unsigned NextStdSize = getPromotedBitWidth(IntTy->getBitWidth());
-            Type *PromotedType = Type::getIntNTy(M.getContext(), NextStdSize);
-            
-            LLVM_DEBUG(dbgs() << "[HipPromoteInts] Promoting from i" << IntTy->getBitWidth() 
-                      << " to i" << NextStdSize << "\n");
-            
-            // Update the instruction type
-            I->mutateType(PromotedType);
-            
-            // Special handling for trunc instructions where source and dest are same size
-            if (isa<TruncInst>(I)) {
-              auto *Trunc = cast<TruncInst>(I);
-              Value *Src = Trunc->getOperand(0);
-              if (auto *SrcIntTy = dyn_cast<IntegerType>(Src->getType())) {
-                if (SrcIntTy->getBitWidth() == NextStdSize) {
-                  LLVM_DEBUG(dbgs() << "[HipPromoteInts] Found trunc with matching source size: " << *Trunc << "\n");
-                  LLVM_DEBUG(dbgs() << "[HipPromoteInts] Source operand: " << *Src << "\n");
-                  // When source and dest types are the same, just use the source directly
-                  Trunc->replaceAllUsesWith(Src);
-                  Trunc->eraseFromParent();
-                  Changed = true;
-                  continue;
-                }
-              }
-            }
-            
-            // Update operands if needed
-            if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
-              Value *LHS = BinOp->getOperand(0);
-              Value *RHS = BinOp->getOperand(1);
-              
-              IRBuilder<> Builder(I);
-              if (LHS->getType() != PromotedType) {
-                LHS = Builder.CreateZExtOrTrunc(LHS, PromotedType);
-                BinOp->setOperand(0, LHS);
-              }
-              if (RHS->getType() != PromotedType) {
-                RHS = Builder.CreateZExtOrTrunc(RHS, PromotedType);
-                BinOp->setOperand(1, RHS);
-              }
-            }
-            
-            LLVM_DEBUG(dbgs() << "[HipPromoteInts] Instruction after promotion: " << *I << "\n");
-            Changed = true;
-          }
+        // If it's the old type, promote it
+        if (V->getType() == OldTy) {
+            auto NewV = Builder.CreateZExt(V, PromotedTy);
+            PromotedValues[V] = NewV;
+            return NewV;
         }
-      }
+        
+        // Otherwise return original value
+        return V;
+    };
+
+    if (isa<PHINode>(I)) {
+        PHINode* Phi = cast<PHINode>(I);
+        PHINode* NewPhi = PHINode::Create(Phi->getType(), Phi->getNumIncomingValues(), "", Phi);
+        
+        // Copy all incoming values and blocks
+        for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
+            Value* IncomingValue = Phi->getIncomingValue(i);
+            BasicBlock* IncomingBlock = Phi->getIncomingBlock(i);
+            
+            // If the incoming value is from our promotion chain, use the promoted value
+            Value* NewIncomingValue = PromotedValues.count(IncomingValue) ? 
+                                    PromotedValues[IncomingValue] : IncomingValue;
+                                    
+            if (NewIncomingValue->getType() != Phi->getType())
+                NewIncomingValue = Builder.CreateTrunc(NewIncomingValue, Phi->getType());
+                
+            NewPhi->addIncoming(NewIncomingValue, IncomingBlock);
+        }
+        
+        errs() << Indent << "  " << *I << "    ============> " << *NewPhi << "\n";
+        PromotedValues[I] = NewPhi;
+        Replacements.push_back(Replacement(I, NewPhi));
     }
-  }
-  
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
-} 
+    else if (isa<ZExtInst>(I)) {
+        ZExtInst* ZExtI = cast<ZExtInst>(I);
+        Value* SrcOp = ZExtI->getOperand(0);
+        
+        // If we're extending from our old type to our promoted type,
+        // just use the promoted value directly
+        if (SrcOp->getType() == OldTy && ZExtI->getDestTy() == PromotedTy) {
+            Value* PromotedSrc = PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
+            errs() << Indent << "  " << *I << "    ============> Using promoted: " << *PromotedSrc << "\n";
+            PromotedValues[I] = PromotedSrc;
+            Replacements.push_back(Replacement(I, PromotedSrc));
+        } else {
+            // Otherwise handle as normal
+            Value* PromotedSrc = PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
+            if (PromotedSrc->getType() != PromotedTy) {
+                PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
+            }
+            PromotedValues[I] = PromotedSrc;
+            Replacements.push_back(Replacement(I, PromotedSrc));
+            errs() << Indent << "  " << *I << "    ============> " << *PromotedSrc << "\n";
+        }
+    }
+    else if (isa<TruncInst>(I)) {
+        TruncInst* TruncI = cast<TruncInst>(I);
+        Value* SrcOp = TruncI->getOperand(0);
+        Value* PromotedSrc = PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
+        
+        // Verify the source is actually of our promoted type
+        if (PromotedSrc->getType() != PromotedTy) {
+            PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
+        }
+        
+        // Create a new trunc for external users
+        Value* NewTrunc = Builder.CreateTrunc(PromotedSrc, TruncI->getType());
+        errs() << Indent << "  " << *I << "    ============> " << *NewTrunc << "\n";
+        
+        // Store both the promoted and truncated versions
+        PromotedValues[I] = PromotedSrc;  // Use promoted version in our chain
+        Replacements.push_back(Replacement(I, NewTrunc));  // Replace old instruction with new trunc for external users
+    }
+    else if (isa<BinaryOperator>(I)) {
+        BinaryOperator* BinOp = cast<BinaryOperator>(I);
+        bool NeedsPromotion = (BinOp->getType() == OldTy);
+        
+        Value* LHS = getPromotedValue(BinOp->getOperand(0));
+        Value* RHS = getPromotedValue(BinOp->getOperand(1));
+        
+        Value* NewInst;
+        if (NeedsPromotion) {
+            // Create operation in promoted type
+            NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
+        } else {
+            // For operations that should stay in original type
+            if (LHS->getType() != BinOp->getType())
+                LHS = Builder.CreateTrunc(LHS, BinOp->getType());
+            if (RHS->getType() != BinOp->getType())
+                RHS = Builder.CreateTrunc(RHS, BinOp->getType());
+            NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
+        }
+        
+        errs() << Indent << "  " << *I << "    ============> " << *NewInst << "\n";
+        PromotedValues[I] = NewInst;
+        Replacements.push_back(Replacement(I, NewInst));
+    }
+    else if (isa<CallInst>(I)) {
+        CallInst* Call = cast<CallInst>(I);
+        // Create a new call with the same operands, but use promoted values where available
+        SmallVector<Value*, 8> NewArgs;
+        for (unsigned i = 0; i < Call->arg_size(); ++i) {
+            Value* Arg = Call->getArgOperand(i);
+            Value* NewArg = PromotedValues.count(Arg) ? PromotedValues[Arg] : Arg;
+            
+            // If the argument needs to match the original type, truncate it
+            if (NewArg->getType() != Call->getArgOperand(i)->getType())
+                NewArg = Builder.CreateTrunc(NewArg, Call->getArgOperand(i)->getType());
+                
+            NewArgs.push_back(NewArg);
+        }
+        
+        CallInst* NewCall = CallInst::Create(Call->getFunctionType(),
+                                           Call->getCalledOperand(),
+                                           NewArgs,
+                                           Call->getName(),
+                                           Call);
+        NewCall->setCallingConv(Call->getCallingConv());
+        NewCall->setAttributes(Call->getAttributes());
+        
+        errs() << Indent << "  " << *I << "    ============> " << *NewCall << "\n";
+        PromotedValues[I] = NewCall;
+        Replacements.push_back(Replacement(I, NewCall));
+    }
+    else {
+        errs() << Indent << " Skipping: " << *I << "\n";
+    }
+}
+
+bool promoteChainPrint(Instruction *OldI, Type *OldTy, Type *PromotedTy,
+                      SmallPtrSetImpl<Instruction*> &Visited,
+                      SmallVectorImpl<Replacement> &Replacements,
+                      SmallDenseMap<Value*, Value*> &PromotedValues,
+                      unsigned Depth = 0) {
+    // If we've already processed this instruction, just return
+    if (!Visited.insert(OldI).second) {
+        // If we have a promoted value for this instruction, use it
+        if (PromotedValues.count(OldI)) {
+            errs() << std::string(Depth * 2, ' ') << "Already processed: " << *OldI << "\n";
+            return true;
+        }
+        return false;
+    }
+
+    std::string Indent(Depth * 2, ' ');
+    
+    // Process instruction
+    processInstruction(OldI, OldTy, PromotedTy, Indent, Replacements, PromotedValues);
+
+    // Recursively process all users
+    for (User *U : OldI->users()) {
+        if (auto *UI = dyn_cast<Instruction>(U)) {
+            promoteChainPrint(UI, OldTy, PromotedTy, Visited, Replacements, PromotedValues, Depth + 1);
+        }
+    }
+
+    return true;
+}
+
+PreservedAnalyses HipPromoteIntsPass::run(Module &M, ModuleAnalysisManager &AM) {
+    bool Changed = false;
+    SmallPtrSet<Instruction*, 32> GlobalVisited;  // Track all visited instructions across chains
+    
+    for (Function &F : M) {
+        SmallVector<Instruction*, 16> WorkList;
+        
+        // First collect all instructions we need to promote
+        for (BasicBlock &BB : F) {
+            for (Instruction &I : BB) {
+                if (auto *IntTy = dyn_cast<IntegerType>(I.getType())) {
+                    if (!isStandardBitWidth(IntTy->getBitWidth())) {
+                        WorkList.push_back(&I);
+                    }
+                }
+            }
+        }
+        
+        // Process the worklist
+        for (Instruction *I : WorkList) {
+            // Skip if we've already processed this instruction as part of another chain
+            if (GlobalVisited.count(I))
+                continue;
+                
+            if (auto *IntTy = dyn_cast<IntegerType>(I->getType())) {
+                if (!isStandardBitWidth(IntTy->getBitWidth())) {
+                    Type *PromotedType = Type::getInt64Ty(M.getContext());
+                    
+                    SmallVector<Replacement, 16> Replacements;
+                    SmallDenseMap<Value*, Value*> PromotedValues;
+                    
+                    // Use GlobalVisited instead of creating a new set
+                    promoteChainPrint(I, IntTy, PromotedType, GlobalVisited, 
+                                    Replacements, PromotedValues, 0);
+                    
+                    // Update uses and cleanup as before
+                    for (const auto &R : Replacements) {
+                        for (auto &U : R.Old->uses()) {
+                            User *User = U.getUser();
+                            if (!GlobalVisited.count(cast<Instruction>(User))) {
+                                U.set(R.New);
+                            }
+                        }
+                    }
+                    
+                    for (auto It = Replacements.rbegin(); It != Replacements.rend(); ++It) {
+                        It->Old->eraseFromParent();
+                    }
+                    
+                    Changed = true;
+                }
+            }
+        }
+    }
+    
+    return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+}
+
