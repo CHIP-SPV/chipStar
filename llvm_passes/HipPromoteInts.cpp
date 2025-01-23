@@ -64,22 +64,30 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, std:
     
     /// Helper to get or create promoted version of a value
     auto getPromotedValue = [&](Value* V) -> Value* {
+        errs() << Indent << "    getPromotedValue for: " << *V << "\n";
+        
         // First check if we already promoted this value
-        if (PromotedValues.count(V))
+        if (PromotedValues.count(V)) {
+            errs() << Indent << "      Found existing promotion: " << *PromotedValues[V] << "\n";
             return PromotedValues[V];
+        }
         
         // If it's already the right type, return it
-        if (V->getType() == PromotedTy)
+        if (V->getType() == PromotedTy) {
+            errs() << Indent << "      Already correct type: " << *V << "\n";
             return V;
+        }
             
         // If it's the non-standard type, promote it
         if (V->getType() == NonStdType) {
             auto NewV = Builder.CreateZExt(V, PromotedTy);
             PromotedValues[V] = NewV;
+            errs() << Indent << "      Promoting non-standard type: " << *V << " to " << *NewV << "\n";
             return NewV;
         }
         
         // Otherwise return original value
+        errs() << Indent << "      Using original value: " << *V << "\n";
         return V;
     };
 
