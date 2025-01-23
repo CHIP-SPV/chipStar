@@ -203,7 +203,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, std:
         Replacements.push_back(Replacement(I, NewCall));
     }
     else {
-        errs() << Indent << " Skipping: " << *I << "\n";
+        assert(false && "HipPromoteIntsPass: Unhandled instruction type");
     }
 }
 
