@@ -207,7 +207,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, std:
     }
 }
 
-bool promoteChainPrint(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
+bool promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
                       SmallPtrSetImpl<Instruction*> &Visited,
                       SmallVectorImpl<Replacement> &Replacements,
                       SmallDenseMap<Value*, Value*> &PromotedValues,
@@ -230,7 +230,7 @@ bool promoteChainPrint(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
     // Recursively process all users
     for (User *U : OldI->users()) {
         if (auto *UI = dyn_cast<Instruction>(U)) {
-            promoteChainPrint(UI, NonStdType, PromotedTy, Visited, Replacements, PromotedValues, Depth + 1);
+            promoteChain(UI, NonStdType, PromotedTy, Visited, Replacements, PromotedValues, Depth + 1);
         }
     }
 
@@ -270,7 +270,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M, ModuleAnalysisManager &AM) 
                     SmallDenseMap<Value*, Value*> PromotedValues;
                     
                     // Use GlobalVisited instead of creating a new set
-                    promoteChainPrint(I, IntTy, PromotedType, GlobalVisited, 
+                    promoteChain(I, IntTy, PromotedType, GlobalVisited, 
                                     Replacements, PromotedValues, 0);
                     
                     // Update uses and cleanup as before
