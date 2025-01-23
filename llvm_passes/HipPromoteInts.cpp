@@ -32,7 +32,8 @@
 using namespace llvm;
 
 bool HipPromoteIntsPass::isStandardBitWidth(unsigned BitWidth) {
-  return BitWidth == 1 || BitWidth == 8 || BitWidth == 16 || BitWidth == 32 || BitWidth == 64;
+  // TODO: 128 is not a standard bit width, will handle later as it's more complex than simply promoting
+  return BitWidth == 1 || BitWidth == 8 || BitWidth == 16 || BitWidth == 32 || BitWidth == 64 || BitWidth == 128;
 }
 
 unsigned HipPromoteIntsPass::getPromotedBitWidth(unsigned Original) {
@@ -250,7 +251,8 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M, ModuleAnalysisManager &AM) 
                 
             if (auto *IntTy = dyn_cast<IntegerType>(I->getType())) {
                 if (!isStandardBitWidth(IntTy->getBitWidth())) {
-                    Type *PromotedType = Type::getInt64Ty(M.getContext());
+                    unsigned PromotedBitWidth = getPromotedBitWidth(IntTy->getBitWidth());
+                    Type *PromotedType = Type::getIntNTy(M.getContext(), PromotedBitWidth);
                     
                     SmallVector<Replacement, 16> Replacements;
                     SmallDenseMap<Value*, Value*> PromotedValues;
