@@ -15,6 +15,9 @@ public:
   
   // Check if the given bit width is a standard size (8, 16, 32, 64)
   static bool isStandardBitWidth(unsigned BitWidth);
+
+  // Get the promoted type for a given type
+  static Type* getPromotedType(Type* TypeToPromote);
 };
 
 } // namespace llvm
