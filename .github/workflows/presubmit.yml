@@ -8,7 +8,7 @@ on:
 
 jobs:
   pre_job:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
@@ -25,7 +25,7 @@ jobs:
     needs: pre_job
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     name: Build and cache spirv-tools
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -63,7 +63,7 @@ jobs:
     needs: [pre_job, spirv-tools]
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     name: Build and cache llvm-${{ matrix.llvm-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         llvm-version: [15, 16, 17]
@@ -122,7 +122,7 @@ jobs:
     needs: [pre_job, llvm, spirv-tools]
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     name: Build and cache pocl ${{ matrix.pocl-version }} (llvm-${{ matrix.llvm-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         pocl-version: [4, 5]
@@ -193,7 +193,7 @@ jobs:
     needs: [pre_job, llvm, spirv-tools, pocl]
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     name: Build and test chipStar on ${{ matrix.backend }} ${{matrix.pocl-version }} (llvm-${{ matrix.llvm-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' || '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' }}
     strategy:
