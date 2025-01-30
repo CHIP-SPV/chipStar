@@ -184,27 +184,30 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, std:
         Replacements.push_back(Replacement(I, NewInst));
     }
     else if (isa<CallInst>(I)) {
-        CallInst* Call = cast<CallInst>(I);
+        CallInst* OldCall = cast<CallInst>(I);
         // Create a new call with the same operands, but use promoted values where available
         SmallVector<Value*, 8> NewArgs;
-        for (unsigned i = 0; i < Call->arg_size(); ++i) {
-            Value* Arg = Call->getArgOperand(i);
-            Value* NewArg = PromotedValues.count(Arg) ? PromotedValues[Arg] : Arg;
+        for (unsigned i = 0; i < OldCall->arg_size(); ++i) {
+            Value* OldArg = OldCall->getArgOperand(i);
+            Value* NewArg = PromotedValues.count(OldArg) ? PromotedValues[OldArg] : OldArg;
             
-            // If the argument needs to match the original type, truncate it
-            if (NewArg->getType() != Call->getArgOperand(i)->getType())
-                NewArg = Builder.CreateTrunc(NewArg, Call->getArgOperand(i)->getType());
+            // if the function expects a non-standard type, abort for now.
+            // TODO: if this assert is hit, we need to handle this case in the future
+            // by promoting the function arguments as well.
+            if (OldArg->getType() != NewArg->getType())
+                assert(false && "HipPromoteIntsPass: Function expects non-standard type");
                 
             NewArgs.push_back(NewArg);
         }
         
-        CallInst* NewCall = CallInst::Create(Call->getFunctionType(),
-                                           Call->getCalledOperand(),
+        CallInst* NewCall = CallInst::Create(OldCall->getFunctionType(),
+                                           OldCall->getCalledOperand(),
                                            NewArgs,
-                                           Call->getName(),
-                                           Call);
-        NewCall->setCallingConv(Call->getCallingConv());
-        NewCall->setAttributes(Call->getAttributes());
+                                           OldCall->getName(),
+                                           OldCall);
+        NewCall->setCallingConv(OldCall->getCallingConv());
+        NewCall->setAttributes(OldCall->getAttributes());
+        
         
         errs() << Indent << "  " << *I << "    ============> " << *NewCall << "\n";
         PromotedValues[I] = NewCall;
