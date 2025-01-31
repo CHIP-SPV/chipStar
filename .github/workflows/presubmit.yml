@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        llvm-version: [15, 16, 17]
+        llvm-version: [16, 17, 18]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -125,11 +125,15 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        pocl-version: [4, 5]
-        llvm-version: [15, 16, 17]
+        pocl-version: [4, 5, 6]
+        llvm-version: [16, 17, 18]
         exclude:
           - pocl-version: 4
             llvm-version: 17
+          - pocl-version: 4
+            llvm-version: 18
+          - pocl-version: 5
+            llvm-version: 18
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -198,8 +202,8 @@ jobs:
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' || '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' }}
     strategy:
       matrix:
-        pocl-version: [4, 5]
-        llvm-version: [15, 16, 17]
+        pocl-version: [4, 5, 6]
+        llvm-version: [16, 17, 18]
         backend: [pocl, intel]
         exclude:
           - backend: pocl
@@ -209,6 +213,8 @@ jobs:
             pocl-version: 4
           - backend: intel
             pocl-version: 5
+          - backend: intel
+            pocl-version: 6
       fail-fast: false
     steps:
       - name: Set OPENCL_ENV for intel
@@ -274,7 +280,7 @@ jobs:
       - name: Test OpenCL
         run: ${{ env.OPENCL_ENV }} POCL_KERNEL_CACHE=0 CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
         working-directory: build
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: build-and-check-${{ matrix.backend }}-llvm-${{ matrix.llvm-version }}
