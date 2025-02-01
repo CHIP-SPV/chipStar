@@ -209,6 +209,12 @@ jobs:
           - backend: pocl
             pocl-version: 4
             llvm-version: 17
+          - backend: pocl
+            pocl-version: 4
+            llvm-version: 18
+          - backend: pocl
+            pocl-version: 5
+            llvm-version: 18
           - backend: intel
             pocl-version: 4
           - backend: intel
