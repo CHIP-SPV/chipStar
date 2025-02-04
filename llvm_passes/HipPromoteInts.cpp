@@ -64,17 +64,17 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
     
     /// Helper to get or create promoted version of a value
     auto getPromotedValue = [&](Value* V) -> Value* {
-        errs() << Indent << "    getPromotedValue for: " << *V << "\n";
+        LLVM_DEBUG(dbgs() << Indent << "    getPromotedValue for: " << *V << "\n");
         
         // First check if we already promoted this value
         if (PromotedValues.count(V)) {
-            errs() << Indent << "      Found existing promotion: " << *PromotedValues[V] << "\n";
+            LLVM_DEBUG(dbgs() << Indent << "      Found existing promotion: " << *PromotedValues[V] << "\n");
             return PromotedValues[V];
         }
         
         // If it's already the right type, return it
         if (V->getType() == PromotedTy) {
-            errs() << Indent << "      Already correct type: " << *V << "\n";
+            LLVM_DEBUG(dbgs() << Indent << "      Already correct type: " << *V << "\n");
             return V;
         }
             
@@ -82,12 +82,12 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
         if (V->getType() == NonStdType) {
             auto NewV = Builder.CreateZExt(V, PromotedTy);
             PromotedValues[V] = NewV;
-            errs() << Indent << "      Promoting non-standard type: " << *V << " to " << *NewV << "\n";
+            LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type: " << *V << " to " << *NewV << "\n");
             return NewV;
         }
         
         // Otherwise return original value
-        errs() << Indent << "      Using original value: " << *V << "\n";
+        LLVM_DEBUG(dbgs() << Indent << "      Using original value: " << *V << "\n");
         return V;
     };
 
@@ -114,7 +114,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
             NewPhi->addIncoming(NewIncomingValue, IncomingBlock);
         }
         
-        errs() << Indent << "  " << *I << "    ============> " << *NewPhi << "\n";
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> " << *NewPhi << "\n");
         PromotedValues[Phi] = NewPhi;
         Phi->replaceAllUsesWith(NewPhi);
         Replacements.push_back(Replacement(I, NewPhi));
@@ -127,7 +127,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
         // just use the promoted value directly
         if (SrcOp->getType() == NonStdType && ZExtI->getDestTy() == PromotedTy) {
             Value* PromotedSrc = PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
-            errs() << Indent << "  " << *I << "    ============> Using promoted: " << *PromotedSrc << "\n";
+            LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> Using promoted: " << *PromotedSrc << "\n");
             PromotedValues[I] = PromotedSrc;
             Replacements.push_back(Replacement(I, PromotedSrc));
         } else {
@@ -138,7 +138,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
             }
             PromotedValues[I] = PromotedSrc;
             Replacements.push_back(Replacement(I, PromotedSrc));
-            errs() << Indent << "  " << *I << "    ============> " << *PromotedSrc << "\n";
+            LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> " << *PromotedSrc << "\n");
         }
     }
     else if (isa<TruncInst>(I)) {
@@ -153,7 +153,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
         
         // Create a new trunc for external users
         Value* NewTrunc = Builder.CreateTrunc(PromotedSrc, TruncI->getType());
-        errs() << Indent << "  " << *I << "    ============> " << *NewTrunc << "\n";
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> " << *NewTrunc << "\n");
         
         // Store both the promoted and truncated versions
         PromotedValues[I] = PromotedSrc;  // Use promoted version in our chain
@@ -179,7 +179,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
             NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
         }
         
-        errs() << Indent << "  " << *I << "    ============> " << *NewInst << "\n";
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> " << *NewInst << "\n");
         PromotedValues[I] = NewInst;
         Replacements.push_back(Replacement(I, NewInst));
     }
@@ -209,7 +209,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
         NewCall->setAttributes(OldCall->getAttributes());
         
         
-        errs() << Indent << "  " << *I << "    ============> " << *NewCall << "\n";
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> " << *NewCall << "\n");
         PromotedValues[I] = NewCall;
         Replacements.push_back(Replacement(I, NewCall));
     }
@@ -227,7 +227,7 @@ static void promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
     if (!Visited.insert(OldI).second) {
         // If we have a promoted value for this instruction, use it
         if (PromotedValues.count(OldI)) {
-            errs() << std::string(Depth * 2, ' ') << "Already processed: " << *OldI << "\n";
+            LLVM_DEBUG(dbgs() << std::string(Depth * 2, ' ') << "Already processed: " << *OldI << "\n");
             return true;
         }
         return false;
