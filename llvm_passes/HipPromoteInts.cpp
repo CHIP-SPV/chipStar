@@ -218,7 +218,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, cons
     }
 }
 
-bool promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
+static void promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
                       SmallPtrSetImpl<Instruction*> &Visited,
                       SmallVectorImpl<Replacement> &Replacements,
                       SmallDenseMap<Value*, Value*> &PromotedValues,
