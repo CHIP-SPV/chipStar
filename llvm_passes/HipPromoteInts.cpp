@@ -11,6 +11,35 @@
  * During optimization of loops, LLVM generates non-standard integer types
  * such as i33 or i56
  * 
+ * Algorithm Overview:
+ * ------------------
+ * The pass uses a two-phase approach to handle non-standard integer types:
+ * 
+ * 1. Construction Phase:
+ *    - When encountering a non-standard integer type (e.g., i33), the pass first creates
+ *      a chain of replacement instructions that will eventually replace the original ones
+ *    - During this phase, intermediate instructions may temporarily use non-standard types
+ *      This is necessary because LLVM requires type consistency when building instruction chains
+ *    - The pass maintains a map (PromotedValues) tracking both the original and promoted versions
+ *      of values to ensure consistent promotion throughout the chain
+ *    - Intermediate zext instructions are created to establish a valid def-use chain, ensuring
+ *      instructions get visited and processed later by promoteChain().
+ * 
+ * 2. Replacement Phase:
+ *    - After constructing all necessary instructions, the pass performs the actual replacements
+ *    - All non-standard integer types are promoted to their next larger standard size
+ *      (e.g., i33 -> i64)
+ *    - The original instructions are replaced with their promoted versions
+ *    - The intermediate zext instructions are cleaned up as part of the replacement process
+ * 
+ * This two-phase approach is necessary because:
+ * 1. LLVM requires type consistency when building instructions
+ * 2. We can't modify instructions in place while building their replacements
+ * 3. We need to ensure all uses of a value are properly promoted before replacement
+ * 
+ * Initial implementation of this pass used mutateType() which is dangerous and likely to break code.
+ * 
+ * Example kernel that generates non-standard types:
  * __global__ void testWarpCalc(int* debug) {
     int tid = threadIdx.x;
     int bid = blockIdx.x;
