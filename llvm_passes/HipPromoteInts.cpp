@@ -57,7 +57,7 @@ struct Replacement {
     Replacement(Instruction* O, Value* N) : Old(O), New(N) {}
 };
 
-void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, std::string Indent,
+void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy, const std::string &Indent,
                        SmallVectorImpl<Replacement> &Replacements,
                        SmallDenseMap<Value*, Value*> &PromotedValues) {
     IRBuilder<> Builder(I);
