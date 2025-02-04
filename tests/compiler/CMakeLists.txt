@@ -44,6 +44,36 @@ function(add_hipcc_test MAIN_SOURCE)
     
 endfunction()
 
+function(add_hipcc_test_run MAIN_SOURCE)
+  set(oneValueArgs TEST_NAME)
+  set(multiValueArgs HIPCC_OPTIONS)
+  cmake_parse_arguments(TESTOPT
+    "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  if(TESTOPT_TEST_NAME)
+    set(TEST_NAME ${TESTOPT_TEST_NAME})
+  else()
+    get_filename_component(MAIN_NAME ${MAIN_SOURCE} NAME_WLE)
+    set(TEST_NAME "hipcc-${MAIN_NAME}")
+  endif()
+
+  # Build and run as a single test
+  set(EXEC_PATH ${CMAKE_CURRENT_BINARY_DIR}/${TEST_NAME})
+  add_test(NAME "${TEST_NAME}-build"
+    COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
+    ${TESTOPT_HIPCC_OPTIONS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/${MAIN_SOURCE} -o ${EXEC_PATH})
+
+  add_test(NAME "${TEST_NAME}-run"
+    COMMAND ${EXEC_PATH})
+  
+  # Only run if build succeeds, and check for PASSED output
+  set_tests_properties("${TEST_NAME}-run" PROPERTIES
+    PASS_REGULAR_EXPRESSION "PASSED"
+    DEPENDS "${TEST_NAME}-build")
+    
+endfunction()
+
 # add_shell_test(<script-file>)
 function(add_shell_test SCRIPT)
   get_filename_component(TEST_NAME ${SCRIPT} NAME_WLE)
@@ -119,8 +149,7 @@ add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
-add_hipcc_test(TestHipccInvalidBitWidth.cpp HIPCC_OPTIONS -O2)
-
+add_hipcc_test_run(TestHipccInvalidBitWidth.cpp HIPCC_OPTIONS -O2)
 # Check __FAST_MATH__ is set for -ffast-math and preprocessor guards
 # using it are not hiding errors.
 add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)

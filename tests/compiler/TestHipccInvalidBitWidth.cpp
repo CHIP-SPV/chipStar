@@ -12,8 +12,21 @@ __global__ void testWarpCalc(int* debug) {
         result += i * globalIdx;
     }
     
-    // Store using atomic operation
     atomicExch(&debug[globalIdx], result);
+}
+
+void testWarpCalcCPU(int* result, int gridSize, int blockSize) {
+    int numThreads = gridSize * blockSize;
+    for(int bid = 0; bid < gridSize; bid++) {
+        for(int tid = 0; tid < blockSize; tid++) {
+            int globalIdx = bid * blockSize + tid;
+            int cpuResult = 0;
+            for(int i = 0; i < tid + 1; i++) {
+                cpuResult += i * globalIdx;
+            }
+            result[globalIdx] = cpuResult;
+        }
+    }
 }
 
 int main() {
@@ -21,39 +34,48 @@ int main() {
     const int blockSize = 64;
     const int numThreads = gridSize * blockSize;
 
-    // Allocate pinned memory
     int* h_debug;
     hipHostMalloc(&h_debug, numThreads * sizeof(int));
     memset(h_debug, 0, numThreads * sizeof(int));
 
-    // Allocate device memory
     int* d_debug;
     hipMalloc(&d_debug, numThreads * sizeof(int));
     hipMemset(d_debug, 0, numThreads * sizeof(int));
+
+    int* cpu_results = (int*)malloc(numThreads * sizeof(int));
+    memset(cpu_results, 0, numThreads * sizeof(int));
 
     dim3 grid(gridSize);
     dim3 block(blockSize);
     
     printf("Launching kernel with grid=%d, block=%d\n\n", gridSize, blockSize);
     
-    // Use triple angle bracket syntax
     testWarpCalc<<<grid, block>>>(d_debug);
     hipDeviceSynchronize();
     
-    // Copy results back
     hipMemcpy(h_debug, d_debug, numThreads * sizeof(int), hipMemcpyDeviceToHost);
+
+    testWarpCalcCPU(cpu_results, gridSize, blockSize);
     
-    printf("Results for first few threads:\n");
-    printf("GlobalIdx\tValue\n");
-    
-    // Print first few entries
+    bool passed = true;
     for (int i = 0; i < 8; i++) {
-        printf("%d\t\t%d\n", i, h_debug[i]);
+        bool match = (h_debug[i] == cpu_results[i]);
+        if (!match) passed = false;
     }
 
-    // Cleanup
+    // Check all results
+    for (int i = 8; i < numThreads; i++) {
+        if (h_debug[i] != cpu_results[i]) {
+            passed = false;
+            break;
+        }
+    }
+
+    printf(passed ? "PASSED" : "FAILED");
+
     hipHostFree(h_debug);
     hipFree(d_debug);
+    free(cpu_results);
     
-    return 0;
+    return passed ? 0 : 1;
 } 
