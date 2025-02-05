@@ -8,7 +8,7 @@
 
 /**
  * This pass promotes integer types to the next standard bit width.
- * During optimization of loops, LLVM generates non-standard integer types
+ * During optimization of loops, LLVM generates non-standard integer types 
  * such as i33 or i56
  *
  * Algorithm Overview:
@@ -17,54 +17,50 @@
  *
  * 1. Construction Phase:
  *    - When encountering a non-standard integer type (e.g., i33), the pass
-first creates
- *      a chain of replacement instructions that will eventually replace the
-original ones
+ *      first creates a chain of replacement instructions that will eventually 
+ *      replace the original ones
  *    - During this phase, intermediate instructions may temporarily use
-non-standard types
- *      This is necessary because LLVM requires type consistency when building
-instruction chains
+ *      non-standard types. This is necessary because LLVM requires type 
+ *      consistency when building instruction chains
  *    - The pass maintains a map (PromotedValues) tracking both the original and
-promoted versions
- *      of values to ensure consistent promotion throughout the chain
+ *      promoted versions of values to ensure consistent promotion throughout the
+ *      chain
  *    - Intermediate zext instructions are created to establish a valid def-use
-chain, ensuring
- *      instructions get visited and processed later by promoteChain().
+ *      chain, ensuring instructions get visited and processed later by
+ *      promoteChain()
  *
  * 2. Replacement Phase:
  *    - After constructing all necessary instructions, the pass performs the
-actual replacements
+ *      actual replacements
  *    - All non-standard integer types are promoted to their next larger
-standard size
- *      (e.g., i33 -> i64)
+ *      standard size (e.g., i33 -> i64)
  *    - The original instructions are replaced with their promoted versions
- *    - The intermediate zext instructions are cleaned up as part of the
-replacement process
+ *    - The intermediate zext instructions are cleaned up as part of the 
+ *      replacement process
  *
  * This two-phase approach is necessary because:
  * 1. LLVM requires type consistency when building instructions
  * 2. We can't modify instructions in place while building their replacements
- * 3. We need to ensure all uses of a value are properly promoted before
-replacement
+ * 3. We need to ensure all uses of a value are properly promoted before replacement
  *
  * Initial implementation of this pass used mutateType() which is dangerous and
-likely to break code.
+ * likely to break code.
  *
  * Example kernel that generates non-standard types:
  * __global__ void testWarpCalc(int* debug) {
-    int tid = threadIdx.x;
-    int bid = blockIdx.x;
-    int globalIdx = bid * blockDim.x + tid;
-
-    // Optimizations on this loop will generate i33 types.
-    int result = 0;
-    for(int i = 0; i < tid + 1; i++) {
-        result += i * globalIdx;
-    }
-
-    // Store using atomic operation
-    atomicExch(&debug[globalIdx], result);
-}
+ *   int tid = threadIdx.x;
+ *   int bid = blockIdx.x;
+ *   int globalIdx = bid * blockDim.x + tid;
+ *
+ *   // Optimizations on this loop will generate i33 types.
+ *   int result = 0;
+ *   for(int i = 0; i < tid + 1; i++) {
+ *     result += i * globalIdx;
+ *   }
+ *
+ *   // Store using atomic operation
+ *   atomicExch(&debug[globalIdx], result);
+ * }
  *
  * https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/2823
  */
@@ -161,9 +157,8 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                                     : IncomingValue;
 
       // If the incoming value isn't promoted yet, promote it now
-      if (NewIncomingValue->getType() != PromotedType) {
+      if (NewIncomingValue->getType() != PromotedType)
         NewIncomingValue = Builder.CreateZExt(NewIncomingValue, PromotedType);
-      }
 
       NewPhi->addIncoming(NewIncomingValue, IncomingBlock);
     }
@@ -206,9 +201,8 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
         PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
 
     // Verify the source is actually of our promoted type
-    if (PromotedSrc->getType() != PromotedTy) {
+    if (PromotedSrc->getType() != PromotedTy)
       PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
-    }
 
     // Create a new trunc for external users
     Value *NewTrunc = Builder.CreateTrunc(PromotedSrc, TruncI->getType());
@@ -287,11 +281,9 @@ static void promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
   // If we've already processed this instruction, just return
   if (!Visited.insert(OldI).second) {
     // If we have a promoted value for this instruction, use it
-    if (PromotedValues.count(OldI)) {
+    if (PromotedValues.count(OldI))
       LLVM_DEBUG(dbgs() << std::string(Depth * 2, ' ')
                         << "Already processed: " << *OldI << "\n");
-      return;
-    }
     return;
   }
 
@@ -302,12 +294,10 @@ static void promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
                      PromotedValues);
 
   // Recursively process all users
-  for (User *U : OldI->users()) {
-    if (auto *UI = dyn_cast<Instruction>(U)) {
+  for (User *U : OldI->users())
+    if (auto *UI = dyn_cast<Instruction>(U))
       promoteChain(UI, NonStdType, PromotedTy, Visited, Replacements,
                    PromotedValues, Depth + 1);
-    }
-  }
 
   return;
 }
@@ -322,15 +312,11 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
     SmallVector<Instruction *, 16> WorkList;
 
     // First collect all instructions we need to promote
-    for (BasicBlock &BB : F) {
-      for (Instruction &I : BB) {
-        if (auto *IntTy = dyn_cast<IntegerType>(I.getType())) {
-          if (!isStandardBitWidth(IntTy->getBitWidth())) {
+    for (BasicBlock &BB : F)
+      for (Instruction &I : BB)
+        if (auto *IntTy = dyn_cast<IntegerType>(I.getType()))
+          if (!isStandardBitWidth(IntTy->getBitWidth()))
             WorkList.push_back(&I);
-          }
-        }
-      }
-    }
 
     // Process the worklist
     for (Instruction *I : WorkList) {
@@ -356,16 +342,14 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
           for (const auto &R : Replacements) {
             for (auto &U : R.Old->uses()) {
               User *User = U.getUser();
-              if (!GlobalVisited.count(cast<Instruction>(User))) {
+              if (!GlobalVisited.count(cast<Instruction>(User)))
                 U.set(R.New);
-              }
             }
           }
 
           for (auto It = Replacements.rbegin(); It != Replacements.rend();
-               ++It) {
+               ++It)
             It->Old->eraseFromParent();
-          }
 
           Changed = true;
         }
