@@ -29,6 +29,7 @@
 #include "HipLowerSwitch.h"
 #include "HipLowerMemset.h"
 #include "HipIGBADetector.h"
+#include "HipPromoteInts.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -98,6 +99,9 @@ public:
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipSanityChecksPass());
+
+  // Fix InvalidBitWidth errors due to non-standard integer types
+  MPM.addPass(HipPromoteIntsPass());
 
   /// For extracting name expression to lowered name expressions (hiprtc).
   MPM.addPass(HipEmitLoweredNamesPass());
