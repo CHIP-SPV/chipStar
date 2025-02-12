@@ -305,14 +305,25 @@ extern "C++" inline __device__ long int lround(double x) {
   return ::__chip_lround_f64(x);
 }
 
-extern "C++" __device__ double max(const double a, const float b); // OpenCL
-extern "C++" __device__ double max(const float a, const double b); // OpenCL
 extern "C++" __device__ double max(const double a, const double b); // OpenCL
-extern "C++" __device__ double min(const double a, const float b); // OpenCL
-extern "C++" __device__ double min(const float a, const double b); // OpenCL
-extern "C++" __device__ double min(const double a, const double b); // OpenCL
-extern "C++" __device__ double modf(double x, double *iptr); // OpenCL
+static inline __device__ double max(const double a, const float b) {
+    return max(a, (double)b);
+}
 
+static inline __device__ double max(const float a, const double b) {
+    return max((double)a, b);
+}
+
+extern "C++" __device__ double min(const double a, const double b); // OpenCL
+static inline __device__ double min(const double a, const float b) {
+    return min(a, (double)b);
+}
+
+static inline __device__ double min(const float a, const double b) {
+    return min((double)a, b);
+}
+
+extern "C++" __device__ double modf(double x, double *iptr); // OpenCL
 
 extern "C++" __device__ double nan(ulong nancode); // OpenCL
 extern "C++" inline __device__ double nan(const char *tagp) {
