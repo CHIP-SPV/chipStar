@@ -21,8 +21,8 @@ struct __half2_raw {
 #if defined(__cplusplus)
     struct __half;
 
-    __half __float2half(float);
-    float __half2float(__half);
+    __device__ __host__ __half __float2half(float);
+    __device__ __host__ float __half2float(__half);
 
     // BEGIN STRUCT __HALF
     struct __half {
@@ -30,35 +30,35 @@ struct __half2_raw {
         unsigned short __x;
     public:
         // CREATORS
-        __half() = default;
-        __half(const __half_raw& x) : __x{x.x} {}
+        __device__ __host__ __half() = default;
+        __device__ __host__ __half(const __half_raw& x) : __x{x.x} {}
         #if !defined(__HIP_NO_HALF_CONVERSIONS__)
-            __half(float x) : __x{__float2half(x).__x} {}
-            __half(double x) : __x{__float2half(x).__x} {}
+            __device__ __host__ __half(float x) : __x{__float2half(x).__x} {}
+            __device__ __host__ __half(double x) : __x{__float2half(x).__x} {}
         #endif
-        __half(const __half&) = default;
-        __half(__half&&) = default;
-        ~__half() = default;
+        __device__ __host__ __half(const __half&) = default;
+        __device__ __host__ __half(__half&&) = default;
+        __device__ __host__ ~__half() = default;
 
         // MANIPULATORS
-        __half& operator=(const __half&) = default;
-        __half& operator=(__half&&) = default;
-        __half& operator=(const __half_raw& x) { __x = x.x; return *this; }
+        __device__ __host__ __half& operator=(const __half&) = default;
+        __device__ __host__ __half& operator=(__half&&) = default;
+        __device__ __host__ __half& operator=(const __half_raw& x) { __x = x.x; return *this; }
         #if !defined(__HIP_NO_HALF_CONVERSIONS__)
-            __half& operator=(float x)
+            __device__ __host__ __half& operator=(float x)
             {
                 __x = __float2half(x).__x;
                 return *this;
             }
-            __half& operator=(double x)
+            __device__ __host__ __half& operator=(double x)
             {
                 return *this = static_cast<float>(x);
             }
         #endif
 
         // ACCESSORS
-        operator float() const { return __half2float(*this); }
-        operator __half_raw() const { return __half_raw{__x}; }
+        __device__ __host__ operator float() const { return __half2float(*this); }
+        __device__ __host__ operator __half_raw() const { return __half_raw{__x}; }
     };
     // END STRUCT __HALF
 
@@ -69,21 +69,21 @@ struct __half2_raw {
         __half y;
 
         // CREATORS
-        __half2() = default;
-        __half2(const __half2_raw& ix)
+        __device__ __host__ __half2() = default;
+        __device__ __host__ __half2(const __half2_raw& ix)
             :
             x{reinterpret_cast<const __half&>(ix.x)},
             y{reinterpret_cast<const __half&>(ix.y)}
         {}
-        __half2(const __half& ix, const __half& iy) : x{ix}, y{iy} {}
-        __half2(const __half2&) = default;
-        __half2(__half2&&) = default;
-        ~__half2() = default;
+        __device__ __host__ __half2(const __half& ix, const __half& iy) : x{ix}, y{iy} {}
+        __device__ __host__ __half2(const __half2&) = default;
+        __device__ __host__ __half2(__half2&&) = default;
+        __device__ __host__ ~__half2() = default;
 
         // MANIPULATORS
-        __half2& operator=(const __half2&) = default;
-        __half2& operator=(__half2&&) = default;
-        __half2& operator=(const __half2_raw& ix)
+        __device__ __host__ __half2& operator=(const __half2&) = default;
+        __device__ __host__ __half2& operator=(__half2&&) = default;
+        __device__ __host__ __half2& operator=(const __half2_raw& ix)
         {
             x = reinterpret_cast<const __half_raw&>(ix.x);
             y = reinterpret_cast<const __half_raw&>(ix.y);
@@ -91,7 +91,7 @@ struct __half2_raw {
         }
 
         // ACCESSORS
-        operator __half2_raw() const
+        __device__ __host__ operator __half2_raw() const
         {
             return __half2_raw{
                 reinterpret_cast<const unsigned short&>(x),
@@ -100,7 +100,7 @@ struct __half2_raw {
     };
     // END STRUCT __HALF2
 
-    inline
+    __device__ __host__ inline
     unsigned short __internal_float2half(
         float flt, unsigned int& sgn, unsigned int& rem)
     {
@@ -141,22 +141,12 @@ struct __half2_raw {
         return static_cast<unsigned short>(sgn | (mantissa >> shift));
     }
 
-    inline
-    __half __float2half(float x)
-    {
-        __half_raw r;
-        unsigned int sgn{};
-        unsigned int rem{};
-        r.x = __internal_float2half(x, sgn, rem);
-        if (rem > 0x80000000U || (rem == 0x80000000U && (r.x & 0x1))) ++r.x;
 
-        return r;
-    }
 
-    inline
+    __device__ __host__ inline
     __half __float2half_rn(float x) { return __float2half(x); }
 
-    inline
+    __device__ __host__ inline
     __half __float2half_rz(float x)
     {
         __half_raw r;
@@ -167,7 +157,7 @@ struct __half2_raw {
         return r;
     }
 
-    inline
+    __device__ __host__ inline
     __half __float2half_rd(float x)
     {
         __half_raw r;
@@ -179,7 +169,7 @@ struct __half2_raw {
         return r;
     }
 
-    inline
+    __device__ __host__ inline
     __half __float2half_ru(float x)
     {
         __half_raw r;
@@ -191,19 +181,19 @@ struct __half2_raw {
         return r;
     }
 
-    inline
+    __device__ __host__ inline
     __half2 __float2half2_rn(float x)
     {
         return __half2{__float2half_rn(x), __float2half_rn(x)};
     }
 
-    inline
+    __device__ __host__ inline
     __half2 __floats2half2_rn(float x, float y)
     {
         return __half2{__float2half_rn(x), __float2half_rn(y)};
     }
 
-    inline
+    __device__ __host__ inline
     float __internal_half2float(unsigned short x)
     {
         unsigned int sign = ((x >> 15) & 1);
@@ -234,19 +224,19 @@ struct __half2_raw {
         return f;
     }
 
-    inline
+    __device__ __host__ inline
     float __half2float(__half x)
     {
         return __internal_half2float(static_cast<__half_raw>(x).x);
     }
 
-    inline
+    __device__ __host__ inline
     float __low2float(__half2 x)
     {
         return __internal_half2float(static_cast<__half2_raw>(x).x);
     }
 
-    inline
+    __device__ __host__ inline
     float __high2float(__half2 x)
     {
         return __internal_half2float(static_cast<__half2_raw>(x).y);
