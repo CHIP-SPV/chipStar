@@ -1054,3 +1054,252 @@ EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 #include "c_to_opencl.def"
 #undef UNARY_FN
 #undef BINARY_FN
+
+
+typedef unsigned long __chip_obfuscated_ptr_t;
+
+union double_uint2 {
+    double d;
+    uint2 u2;
+};
+
+EXPORT double __chip_atomic_max_f64(__chip_obfuscated_ptr_t address, double val) {
+  volatile global double *gi = to_global((DEFAULT_AS double *)address);
+  if (gi) {
+    double old = *gi;
+    double assumed;
+    do {
+      assumed = old;
+      if (val > assumed) {
+        union double_uint2 old_u, assumed_u, val_u;
+        old_u.d = old;
+        assumed_u.d = assumed;
+        val_u.d = val;
+        
+        uint2 temp;
+        temp.x = atomic_cmpxchg((volatile global uint *)gi,
+                               assumed_u.u2.x,
+                               val_u.u2.x);
+        temp.y = atomic_cmpxchg((volatile global uint *)((global uint *)gi + 1),
+                               assumed_u.u2.y,
+                               val_u.u2.y);
+        
+        union double_uint2 result;
+        result.u2 = temp;
+        old = result.d;
+      } else {
+        break;
+      }
+    } while (assumed != old);
+    return old;
+  }
+  volatile local double *li = to_local((DEFAULT_AS double *)address);
+  if (li) {
+    double old = *li;
+    double assumed;
+    do {
+      assumed = old;
+      if (val > assumed) {
+        union double_uint2 old_u, assumed_u, val_u;
+        old_u.d = old;
+        assumed_u.d = assumed;
+        val_u.d = val;
+        
+        uint2 temp;
+        temp.x = atomic_cmpxchg((volatile local uint *)li,
+                               assumed_u.u2.x,
+                               val_u.u2.x);
+        temp.y = atomic_cmpxchg((volatile local uint *)((local uint *)li + 1),
+                               assumed_u.u2.y,
+                               val_u.u2.y);
+        
+        union double_uint2 result;
+        result.u2 = temp;
+        old = result.d;
+      } else {
+        break;
+      }
+    } while (assumed != old);
+    return old;
+  }
+  return 0;
+}
+
+EXPORT double __chip_atomic_min_f64(__chip_obfuscated_ptr_t address, double val) {
+  volatile global double *gi = to_global((DEFAULT_AS double *)address);
+  if (gi) {
+    double old = *gi;
+    double assumed;
+    do {
+      assumed = old;
+      if (val < assumed) {
+        union double_uint2 old_u, assumed_u, val_u;
+        old_u.d = old;
+        assumed_u.d = assumed;
+        val_u.d = val;
+        
+        uint2 temp;
+        temp.x = atomic_cmpxchg((volatile global uint *)gi,
+                               assumed_u.u2.x,
+                               val_u.u2.x);
+        temp.y = atomic_cmpxchg((volatile global uint *)((global uint *)gi + 1),
+                               assumed_u.u2.y,
+                               val_u.u2.y);
+        
+        union double_uint2 result;
+        result.u2 = temp;
+        old = result.d;
+      } else {
+        break;
+      }
+    } while (assumed != old);
+    return old;
+  }
+  volatile local double *li = to_local((DEFAULT_AS double *)address);
+  if (li) {
+    double old = *li;
+    double assumed;
+    do {
+      assumed = old;
+      if (val < assumed) {
+        union double_uint2 old_u, assumed_u, val_u;
+        old_u.d = old;
+        assumed_u.d = assumed;
+        val_u.d = val;
+        
+        uint2 temp;
+        temp.x = atomic_cmpxchg((volatile local uint *)li,
+                               assumed_u.u2.x,
+                               val_u.u2.x);
+        temp.y = atomic_cmpxchg((volatile local uint *)((local uint *)li + 1),
+                               assumed_u.u2.y,
+                               val_u.u2.y);
+        
+        union double_uint2 result;
+        result.u2 = temp;
+        old = result.d;
+      } else {
+        break;
+      }
+    } while (assumed != old);
+    return old;
+  }
+  return 0;
+}
+
+// Helper union for float-uint conversion
+union float_uint {
+    float f;
+    uint u;
+};
+
+// Atomic max for float
+EXPORT float __chip_atomic_max_f32(__chip_obfuscated_ptr_t address, float val) {
+  volatile global float *gi = to_global((DEFAULT_AS float *)address);
+  if (gi) {
+    float old = *gi;
+    float assumed;
+    do {
+      assumed = old;
+      if (val > assumed) {
+        union float_uint old_u, assumed_u, val_u;
+        old_u.f = old;
+        assumed_u.f = assumed;
+        val_u.f = val;
+        
+        uint temp = atomic_cmpxchg((volatile global uint *)gi,
+                                 assumed_u.u,
+                                 val_u.u);
+        
+        union float_uint result;
+        result.u = temp;
+        old = result.f;
+      } else {
+        break;
+      }
+    } while (assumed != old);
+    return old;
+  }
+  volatile local float *li = to_local((DEFAULT_AS float *)address);
+  if (li) {
+    float old = *li;
+    float assumed;
+    do {
+      assumed = old;
+      if (val > assumed) {
+        union float_uint old_u, assumed_u, val_u;
+        old_u.f = old;
+        assumed_u.f = assumed;
+        val_u.f = val;
+        
+        uint temp = atomic_cmpxchg((volatile local uint *)li,
+                                 assumed_u.u,
+                                 val_u.u);
+        
+        union float_uint result;
+        result.u = temp;
+        old = result.f;
+      } else {
+        break;
+      }
+    } while (assumed != old);
+    return old;
+  }
+  return 0;
+}
+
+// Atomic min for float
+EXPORT float __chip_atomic_min_f32(__chip_obfuscated_ptr_t address, float val) {
+  volatile global float *gi = to_global((DEFAULT_AS float *)address);
+  if (gi) {
+    float old = *gi;
+    float assumed;
+    do {
+      assumed = old;
+      if (val < assumed) {
+        union float_uint old_u, assumed_u, val_u;
+        old_u.f = old;
+        assumed_u.f = assumed;
+        val_u.f = val;
+        
+        uint temp = atomic_cmpxchg((volatile global uint *)gi,
+                                 assumed_u.u,
+                                 val_u.u);
+        
+        union float_uint result;
+        result.u = temp;
+        old = result.f;
+      } else {
+        break;
+      }
+    } while (assumed != old);
+    return old;
+  }
+  volatile local float *li = to_local((DEFAULT_AS float *)address);
+  if (li) {
+    float old = *li;
+    float assumed;
+    do {
+      assumed = old;
+      if (val < assumed) {
+        union float_uint old_u, assumed_u, val_u;
+        old_u.f = old;
+        assumed_u.f = assumed;
+        val_u.f = val;
+        
+        uint temp = atomic_cmpxchg((volatile local uint *)li,
+                                 assumed_u.u,
+                                 val_u.u);
+        
+        union float_uint result;
+        result.u = temp;
+        old = result.f;
+      } else {
+        break;
+      }
+    } while (assumed != old);
+    return old;
+  }
+  return 0;
+}
+

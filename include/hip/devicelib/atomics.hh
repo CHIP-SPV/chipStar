@@ -450,4 +450,20 @@ extern "C++" inline __device__ void atomicAddNoRet(float *address, float val) {
   (void)__chip_atomic_add_f32(__chip_obfuscate_ptr(address), val);
 }
 
+extern "C" __device__ float __chip_atomic_min_f32(__chip_obfuscated_ptr_t address, float val);
+extern "C" __device__ double __chip_atomic_min_f64(__chip_obfuscated_ptr_t address, double val);
+extern "C" __device__ float __chip_atomic_max_f32(__chip_obfuscated_ptr_t address, float val);
+
+extern "C++" inline __device__ float atomicMin(float *address, float val) {
+  return __chip_atomic_min_f32(__chip_obfuscate_ptr(address), val);
+}
+
+extern "C++" inline __device__ double atomicMin(double *address, double val) {
+  return __chip_atomic_min_f64(__chip_obfuscate_ptr(address), val);
+}
+
+extern "C++" inline __device__ float atomicMax(float *address, float val) {
+  return __chip_atomic_max_f32(__chip_obfuscate_ptr(address), val);
+}
+
 #endif // HIP_INLUDE_DEVICELIB_ATOMICS
