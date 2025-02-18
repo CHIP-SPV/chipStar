@@ -1612,8 +1612,8 @@ hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size,
   mapHostAlloc(Dst);
 
   ChipEvent->Msg = "memCopy";
-    this->finish();
-    return hipSuccess;
+  this->finish();
+  return hipSuccess;
 }
 void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size,
                                    hipMemcpyKind Kind) {
