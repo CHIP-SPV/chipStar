@@ -1524,3 +1524,67 @@ EXPORT double __chip_ull2double_ru(unsigned long long int x) {
 EXPORT double __chip_ull2double_rz(unsigned long long int x) {
     return (double)x;
 }
+
+EXPORT int __chip_float2int_rd(float x) {
+    return (int)floor(x);  // Round down
+}
+
+EXPORT int __chip_float2int_rn(float x) {
+    return (int)rint(x);  // Round to nearest even
+}
+
+EXPORT int __chip_float2int_ru(float x) {
+    return (int)ceil(x);  // Round up
+}
+
+EXPORT int __chip_float2int_rz(float x) {
+    return (int)trunc(x);  // Round toward zero
+}
+
+EXPORT long long int __chip_float2ll_rd(float x) {
+    return (long long int)floor(x);  // Round down
+}
+
+EXPORT long long int __chip_float2ll_rn(float x) {
+    return (long long int)rint(x);  // Round to nearest even
+}
+
+EXPORT long long int __chip_float2ll_ru(float x) {
+    return (long long int)ceil(x);  // Round up
+}
+
+EXPORT long long int __chip_float2ll_rz(float x) {
+    return (long long int)trunc(x);  // Round toward zero
+}
+
+EXPORT unsigned int __chip_float2uint_rd(float x) {
+    return (unsigned int)max(0.0f, floor(x));  // Round down, clamp to 0
+}
+
+EXPORT unsigned int __chip_float2uint_rn(float x) {
+    return (unsigned int)max(0.0f, rint(x));  // Round to nearest even, clamp to 0
+}
+
+EXPORT unsigned int __chip_float2uint_ru(float x) {
+    return (unsigned int)max(0.0f, ceil(x));  // Round up, clamp to 0
+}
+
+EXPORT unsigned int __chip_float2uint_rz(float x) {
+    return (unsigned int)max(0.0f, trunc(x));  // Round toward zero, clamp to 0
+}
+
+EXPORT unsigned long long int __chip_float2ull_rd(float x) {
+    return (unsigned long long int)max(0.0f, floor(x));  // Round down, clamp to 0
+}
+
+EXPORT unsigned long long int __chip_float2ull_rn(float x) {
+    return (unsigned long long int)max(0.0f, rint(x));  // Round to nearest even, clamp to 0
+}
+
+EXPORT unsigned long long int __chip_float2ull_ru(float x) {
+    return (unsigned long long int)max(0.0f, ceil(x));  // Round up, clamp to 0
+}
+
+EXPORT unsigned long long int __chip_float2ull_rz(float x) {
+    return (unsigned long long int)max(0.0f, trunc(x));  // Round toward zero, clamp to 0
+}
