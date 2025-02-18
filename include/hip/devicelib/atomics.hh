@@ -51,7 +51,6 @@ extern "C++" inline __device__ unsigned int atomicAdd(unsigned int *address,
 extern "C" __device__ unsigned long __chip_atomic_add_l(unsigned long *address,
                                                         unsigned long val);
 
-#ifdef CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
 // At least rocPRIM tests call the unsigned long variant although it's not
 // listed in the user manual. Annoyingly, size_t is typically defined as
 // unsigned long.
@@ -60,7 +59,6 @@ extern "C++" inline __device__ unsigned long atomicAdd(unsigned long *address,
                                                        unsigned long val) {
   return __chip_atomic_add_l(address, val);
 }
-#endif
 
 // FIXME: We should check that unsigned long long is 64bits for the host.
 extern "C" __device__ unsigned long long

@@ -96,10 +96,6 @@ add_hip_runtime_test(TestMemFunctions.hip)
 add_hip_runtime_test(TestAlignAttrRuntime.hip)
 
 add_hip_runtime_test(TestBitInsert.hip)
-# Imports __bitinsert_*.
-target_compile_definitions(TestBitInsert
-  PRIVATE CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE)
-
 add_hip_runtime_test(TestBallot.hip)
 
 add_hip_runtime_test(TestNegativeHasNoIGBAs1.hip)
