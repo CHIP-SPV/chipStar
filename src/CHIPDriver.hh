@@ -34,15 +34,15 @@
  */
 #ifndef CHIP_DRIVER_H
 #define CHIP_DRIVER_H
+#include <atomic>
 #include <iostream>
 #include <mutex>
-#include <atomic>
 
 /// Prevent more than one HIP API call from executing at the same time
 extern std::mutex ApiMtx;
 
-#include "Utils.hh"
 #include "CHIPException.hh"
+#include "Utils.hh"
 #include "chipStarConfig.hh"
 
 // // Forward Declares
@@ -230,6 +230,7 @@ private:
   int DeviceIdx_ = 0;
   BackendType Backend_{BackendType::OpenCL};
   bool DumpSpirv_ = false;
+  bool SaveTemps_ = false;
   bool SkipUninit_ = false;
   bool LazyJit_ = true;
   std::string JitFlags_ = "";
@@ -252,6 +253,7 @@ public:
   int getDeviceIdx() const { return DeviceIdx_; }
   BackendType getBackend() const { return Backend_; }
   bool getDumpSpirv() const { return DumpSpirv_; }
+  bool getSaveTemps() const { return SaveTemps_; }
   bool getSkipUninit() const { return SkipUninit_; }
   const std::string &getJitFlags() const { return JitFlags_; }
   const std::string &getJitFlagsOverride() const { return JitFlagsOverride_; }
@@ -289,10 +291,10 @@ private:
                                                         : SkipUninit_;
     LazyJit_ =
         readEnvVar("CHIP_LAZY_JIT", value) ? parseBoolean(value) : LazyJit_;
-    JitFlags_ =
-        readEnvVar("CHIP_JIT_FLAGS", value, false) ? value : JitFlags_;
-    JitFlagsOverride_ =
-        readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value, false) ? value : JitFlagsOverride_;
+    JitFlags_ = readEnvVar("CHIP_JIT_FLAGS", value, false) ? value : JitFlags_;
+    JitFlagsOverride_ = readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value, false)
+                            ? value
+                            : JitFlagsOverride_;
     L0CollectEventsTimeout_ =
         readEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", value)
             ? parseInt(value)
@@ -348,6 +350,7 @@ private:
     logInfo("CHIP_DEVICE={}", DeviceIdx_);
     logInfo("CHIP_BE={}", Backend_.str());
     logInfo("CHIP_DUMP_SPIRV={}", DumpSpirv_ ? "on" : "off");
+    logInfo("CHIP_RTC_SAVE_TEMPS={}", SaveTemps_ ? "on" : "off");
     logInfo("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlagsOverride_);
     logInfo("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
     logInfo("CHIP_L0_EVENT_TIMEOUT={}", L0EventTimeout_);
