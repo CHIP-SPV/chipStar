@@ -53,8 +53,6 @@
 
 #cmakedefine CHIP_L0_FIRST_TOUCH
 
-#cmakedefine CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
-
 #cmakedefine CHIP_FAST_MATH
 
 #cmakedefine CHIP_ERROR_IF_NOT_IMPLEMENTED

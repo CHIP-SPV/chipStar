@@ -25,7 +25,6 @@
 
 #include <hip/devicelib/macros.hh>
 
-#ifdef CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
 // __bitinsert_* intrinsics are not found in the HIP programming
 // manual but they are provided by hipamd.
 //
@@ -51,7 +50,24 @@ __bitinsert_u64(unsigned long long int src0, unsigned long long int src1,
                 unsigned long long int offset, unsigned long long int width) {
   return __chip_bitinsert_u64(src0, src1, offset, width);
 }
-#endif // CHIP_ENABLE_NON_COMPLIANT_DEVICELIB_CODE
+
+// __bitextract_* intrinsics extract bits from src0 starting at offset with given width
+extern "C" __device__ unsigned int __chip_bitextract_u32(unsigned int src0,
+                                                        unsigned int offset,
+                                                        unsigned int width);
+extern "C++" inline __device__ unsigned int
+__bitextract_u32(unsigned int src0, unsigned int offset, unsigned int width) {
+  return __chip_bitextract_u32(src0, offset, width);
+}
+
+extern "C" __device__ unsigned long long int
+__chip_bitextract_u64(unsigned long long int src0,
+                      unsigned int offset,
+                      unsigned int width);
+extern "C++" inline __device__ unsigned long long int
+__bitextract_u64(unsigned long long int src0, unsigned int offset, unsigned int width) {
+  return __chip_bitextract_u64(src0, offset, width);
+}
 
 // int was replaced with int
 // int64_t was replaced with long long int
