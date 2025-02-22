@@ -1588,3 +1588,24 @@ EXPORT unsigned long long int __chip_float2ull_ru(float x) {
 EXPORT unsigned long long int __chip_float2ull_rz(float x) {
     return (unsigned long long int)max(0.0f, trunc(x));  // Round toward zero, clamp to 0
 }
+
+// Convert float to half with round-to-nearest mode
+EXPORT short __ocml_cvtrtn_f16_f32(float x) {
+    ushort result;
+    vstore_half_rte(x, 0, (void*)&result);
+    return as_short(result);
+}
+
+// Convert float to half with round-toward-positive-infinity mode
+EXPORT short __ocml_cvtrtp_f16_f32(float x) {
+    ushort result;
+    vstore_half_rtp(x, 0, (void*)&result);
+    return as_short(result);
+}
+
+// Convert float to half with round-toward-zero mode
+EXPORT short __ocml_cvtrtz_f16_f32(float x) {
+    ushort result;
+    vstore_half_rtz(x, 0, (void*)&result);
+    return as_short(result);
+}
