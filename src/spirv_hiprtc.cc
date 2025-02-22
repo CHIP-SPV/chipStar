@@ -108,9 +108,9 @@ static bool processOptions(chipstar::Program &Program, int NumOptions,
     if (!Options[OptIdx])
       continue; // Consider NULL pointers are empty.
     auto OptionIn = trim(std::string_view(Options[OptIdx]));
-
-    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") ||
-        Match(OptionIn, "-I.*")) {
+    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") || Match(OptionIn, "-I.*") ||
+        Match(OptionIn, "-g") || Match(OptionIn, "-fno-eliminate-unused-debug-types") || 
+        Match(OptionIn, "-fno-eliminate-unused-debug-symbols")) {
       logDebug("hiprtc: accept option '{}'", std::string(OptionIn));
       OptionsOut.Options.emplace_back(OptionIn);
       continue;
@@ -169,7 +169,7 @@ static std::string createCompileCommand(const CompileOptions &Options,
   Append(getHIPCCPath().value_or("hipcc"));
 
   // Emit device code only. Resulting output file is a clang offload bundle.
-  Append("--cuda-device-only");
+  // Append("--cuda-device-only");
 
 #ifdef CHIP_SOURCE_DIR
   // For making the compilation work in the build directory.
