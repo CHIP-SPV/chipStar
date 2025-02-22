@@ -108,8 +108,9 @@ static bool processOptions(chipstar::Program &Program, int NumOptions,
     if (!Options[OptIdx])
       continue; // Consider NULL pointers are empty.
     auto OptionIn = trim(std::string_view(Options[OptIdx]));
-    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") || Match(OptionIn, "-I.*") ||
-        Match(OptionIn, "-g") || Match(OptionIn, "-fno-eliminate-unused-debug-types") || 
+    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") ||
+        Match(OptionIn, "-I.*") || Match(OptionIn, "-g") ||
+        Match(OptionIn, "-fno-eliminate-unused-debug-types") ||
         Match(OptionIn, "-fno-eliminate-unused-debug-symbols")) {
       logDebug("hiprtc: accept option '{}'", std::string(OptionIn));
       OptionsOut.Options.emplace_back(OptionIn);
@@ -168,7 +169,11 @@ static std::string createCompileCommand(const CompileOptions &Options,
   // found in PATH.
   Append(getHIPCCPath().value_or("hipcc"));
 
-  // Emit device code only. Resulting output file is a clang offload bundle.
+  // Adding this option will cause the compiler to emit device code only.
+  // Ommitting the use of this option will create a fatbin.
+  // We can use readelf --debug-dump=info <fatbin> to get useful debug info.
+  // In particular, this allows HipInterceptLayer to figure out struct sizes
+  // without having to parse source code. 
   // Append("--cuda-device-only");
 
 #ifdef CHIP_SOURCE_DIR

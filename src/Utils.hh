@@ -88,12 +88,6 @@ std::optional<std::string> readFromFile(const fs::path Path);
 /// Locate hipcc tool. Return an absolute path to it if found.
 std::optional<fs::path> getHIPCCPath();
 
-/// Returns a span (string_view) over SPIR-V module in the given clang
-/// offload bundle.  Returns empty span if an error was encountered
-/// and 'ErrorMsg' is set to describe the encountered error.
-std::string_view extractSPIRVModule(const void *ClangOffloadBundle,
-                                    std::string &ErrorMsg);
-
 /// Convert "extra" kernel argument passing style to pointer array
 /// style (an array of pointers to the arguments).
 std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,
