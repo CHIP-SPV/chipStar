@@ -316,6 +316,10 @@ private:
     } else {
       ModuleCacheDir_ = std::string(std::getenv("HOME")) + "/.cache/chipStar";
     }
+
+    SaveTemps_ = readEnvVar("CHIP_RTC_SAVE_TEMPS", value, true)
+                  ? parseBoolean(value)
+                  : SaveTemps_;
   }
 
   int parseInt(const std::string &value) {
