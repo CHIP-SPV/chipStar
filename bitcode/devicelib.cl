@@ -1590,22 +1590,22 @@ EXPORT unsigned long long int __chip_float2ull_rz(float x) {
 }
 
 // Convert float to half with round-to-nearest mode
-EXPORT short __ocml_cvtrtn_f16_f32(float x) {
-    ushort result;
+EXPORT _Float16 __ocml_cvtrtn_f16_f32(float x) {
+    _Float16 result;
     vstore_half_rte(x, 0, (void*)&result);
-    return as_short(result);
+    return result;
 }
 
 // Convert float to half with round-toward-positive-infinity mode
-EXPORT short __ocml_cvtrtp_f16_f32(float x) {
-    ushort result;
+EXPORT _Float16 __ocml_cvtrtp_f16_f32(float x) {
+    _Float16 result;
     vstore_half_rtp(x, 0, (void*)&result);
-    return as_short(result);
+    return result;
 }
 
 // Convert float to half with round-toward-zero mode
-EXPORT short __ocml_cvtrtz_f16_f32(float x) {
-    ushort result;
+EXPORT _Float16 __ocml_cvtrtz_f16_f32(float x) {
+    _Float16 result;
     vstore_half_rtz(x, 0, (void*)&result);
-    return as_short(result);
+    return result;
 }
