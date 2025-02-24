@@ -35,7 +35,7 @@ jobs:
         with:
           path: ~/opt/SPIRV-Tools/v2023.2
           key: ${{ runner.os }}-build-${{ env.cache-name }}
-      - run: sudo apt update; sudo apt install -y gcc cmake python3
+      - run: sudo apt update; sudo apt install -y gcc cmake python3 spirv-tools
         if: steps.spirv-tools.outputs.cache-hit != 'true'
       - uses: actions/checkout@v3
         with:
@@ -49,7 +49,7 @@ jobs:
         if: steps.spirv-tools.outputs.cache-hit != 'true'
       - run: mkdir -p SPIRV-Tools/build
         if: steps.spirv-tools.outputs.cache-hit != 'true'
-      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/SPIRV-Tools/v2023.2 -DSPIRV_SKIP_TESTS=ON
+      - run: cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/opt/SPIRV-Tools/v2023.2 -DSPIRV_SKIP_TESTS=ON -DCMAKE_INSTALL_LIBDIR=lib -DSPIRV_TOOLS_INSTALL_HEADERS=ON -DSPIRV_TOOLS_BUILD_STATIC=ON
         working-directory: SPIRV-Tools/build
         if: steps.spirv-tools.outputs.cache-hit != 'true'
       - run: cmake --build . --parallel 4
@@ -171,7 +171,7 @@ jobs:
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: sudo add-apt-repository ppa:ocl-icd/ppa; sudo apt update
         if: steps.pocl.outputs.cache-hit != 'true'
-      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev
+      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev spirv-tools spirv-headers
         if: steps.pocl.outputs.cache-hit != 'true'
       - uses: actions/checkout@v3
         with:
@@ -223,6 +223,8 @@ jobs:
             pocl-version: 6
       fail-fast: false
     steps:
+      - name: Install spirv-tools & headers
+        run: sudo apt install -y spirv-tools spirv-headers
       - name: Set OPENCL_ENV for intel
         if: matrix.backend == 'intel'
         run: echo "OPENCL_ENV=LD_LIBRARY_PATH=$(dirname $(find /opt/intel -name libsvml.so)):$(dirname $(find /opt/intel/oneapi/tbb -name libtbb.so* -print -quit)):$LD_LIBRARY_PATH OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)" >> $GITHUB_ENV
@@ -275,7 +277,7 @@ jobs:
       - run: ${{ env.OPENCL_ENV }} clinfo
       - run: mkdir -p build
       - name: CMake
-        run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DCMAKE_BUILD_TYPE=Release
+        run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOME/opt/SPIRV-Tools/v2023.2
         working-directory: build
       - name: Build
         run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4
