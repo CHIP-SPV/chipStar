@@ -636,6 +636,19 @@ set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
+# Install FindHIP.cmake and related files
+install(FILES 
+  ${CMAKE_SOURCE_DIR}/HIP/cmake/FindHIP.cmake
+  DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR}
+)
+
+# Install FindHIP helper files in the correct subdirectory
+install(FILES 
+  ${CMAKE_SOURCE_DIR}/HIP/cmake/FindHIP/run_hipcc.cmake
+  ${CMAKE_SOURCE_DIR}/HIP/cmake/FindHIP/run_make2cmake.cmake
+  DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR}/FindHIP
+)
+
 # Setup .hipVersion
 # Install .hipVersion for hipcc. The file is used to detect a HIP
 # runtime and clang extracts HIP version from it.
