@@ -174,7 +174,7 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
   const auto *Header = (const char *)Bundle;
   auto NumBundles = _copyAs<uint64_t>(Header, offsetof(HeaderT, numBundles));
 
-  std::cout << "Number of bundles: " << NumBundles << std::endl;
+  // std::cout << "Number of bundles: " << NumBundles << std::endl;
 
   const char *Desc = Header + offsetof(HeaderT, desc);
   for (size_t i = 0; i < NumBundles; i++) {
@@ -184,10 +184,10 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
     const char *Triple = Desc + offsetof(EntryT, triple);
     std::string_view EntryID(Triple, TripleSize);
 
-    std::cout << "Bundle " << i << ":" << std::endl;
-    std::cout << "  ID: " << EntryID << std::endl;
-    std::cout << "  Offset: " << Offset << std::endl;
-    std::cout << "  Size: " << Size << std::endl;
+    // std::cout << "Bundle " << i << ":" << std::endl;
+    // std::cout << "  ID: " << EntryID << std::endl;
+    // std::cout << "  Offset: " << Offset << std::endl;
+    // std::cout << "  Size: " << Size << std::endl;
 
     // SPIR-V bundle entry ID for HIP-Clang 14+. Additional components
     // are ignored for now.
@@ -195,20 +195,20 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
     if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID ||
         // Legacy entry ID used during early development.
         EntryID == "hip-spir64-unknown-unknown") {
-      std::cout << "Found SPIR-V bundle" << std::endl;
+      // std::cout << "Found SPIR-V bundle" << std::endl;
       const char *spirvData = Header + Offset;
       uint32_t magic;
       std::memcpy(&magic, spirvData, sizeof(uint32_t));
-      std::cout << "Magic at offset: 0x" << std::hex << magic << std::dec
-                << std::endl;
+      // std::cout << "Magic at offset: 0x" << std::hex << magic << std::dec
+                // << std::endl;
       if (magic == SPIRV_MAGIC) {
-        std::cout << "Valid SPIR-V magic number found" << std::endl;
+        // std::cout << "Valid SPIR-V magic number found" << std::endl;
         return std::string_view(spirvData, Size);
       }
-      std::cout << "Invalid SPIR-V magic number" << std::endl;
+      // std::cout << "Invalid SPIR-V magic number" << std::endl;
     }
 
-    std::cout << "Not a SPIR-V triple, ignoring" << std::endl;
+    // std::cout << "Not a SPIR-V triple, ignoring" << std::endl;
     Desc = Triple + TripleSize; // Next bundle entry.
   }
 
@@ -221,12 +221,12 @@ std::string_view disassembleSPIRV(const std::string_view &spirvBinary) {
   spv_text text = nullptr;
   spv_diagnostic diagnostic = nullptr;
 
-  std::cout << "SPIR-V binary size: " << spirvBinary.size() << std::endl;
-  std::cout << "First few bytes: ";
+  // std::cout << "SPIR-V binary size: " << spirvBinary.size() << std::endl;
+  // std::cout << "First few bytes: ";
   for (size_t i = 0; i < std::min(size_t(16), spirvBinary.size()); i++) {
-    std::cout << std::hex << (int)(unsigned char)spirvBinary[i] << " ";
+    // std::cout << std::hex << (int)(unsigned char)spirvBinary[i] << " ";
   }
-  std::cout << std::dec << std::endl;
+  // std::cout << std::dec << std::endl;
 
   spv_result_t result = spvBinaryToText(
       context, reinterpret_cast<const uint32_t *>(spirvBinary.data()),
