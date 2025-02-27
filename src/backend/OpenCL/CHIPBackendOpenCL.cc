@@ -508,8 +508,8 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.clockRate =
       1000 * ClDevice->getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>();
 
-  HipDeviceProps_.multiProcessorCount = 60;
-
+  HipDeviceProps_.multiProcessorCount =
+      ClDevice->getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>();
   HipDeviceProps_.l2CacheSize =
       ClDevice->getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>();
 
