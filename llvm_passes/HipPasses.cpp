@@ -30,6 +30,7 @@
 #include "HipLowerMemset.h"
 #include "HipIGBADetector.h"
 #include "HipPromoteInts.h"
+#include "HipForceSIMD32.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -145,6 +146,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipGlobalVariablesPass());
 
   MPM.addPass(HipWarpsPass());
+  MPM.addPass(HipForceSIMD32Pass());
 
   // This pass must be last one that modifies kernel parameter list.
   MPM.addPass(HipKernelArgSpillerPass());
