@@ -46,6 +46,7 @@ PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
   // freedom for those that don't.
 
   std::vector<const char *> WarpSizeSensitiveFuncNames = {
+      // Basic shuffle operations
       "_Z6__shfliii",
       "_Z6__shflfii",
       "_Z10__shfl_xoriii",
@@ -54,7 +55,11 @@ PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
       "_Z9__shfl_upfji",
       "_Z11__shfl_downiji",
       "_Z11__shfl_downfji",
+      
+      // Ballot operations
       "_Z8__balloti",
+      
+      // Subgroup operations
       "_Z16sub_group_balloti",
       "_Z17sub_group_shufflefj",
       "_Z17sub_group_shuffleij",
@@ -64,11 +69,35 @@ PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
       "_Z22sub_group_shuffle_downffj",
       "_Z20sub_group_shuffle_upiij",
       "_Z20sub_group_shuffle_upffj",
+      
+      // Intel subgroup operations
       "_Z23intel_sub_group_shuffleij",
       "_Z23intel_sub_group_shufflefj",
       "_Z27intel_sub_group_shuffle_xorij",
       "_Z27intel_sub_group_shuffle_xorfj",
-      "_Z22get_sub_group_local_idv"};
+      
+      // Subgroup ID query
+      "_Z22get_sub_group_local_idv",
+      
+      // Additional warp operations
+      "_Z12__chip_allsyncjii",  // __chip_all_sync
+      "_Z12__chip_anysyncjii",  // __chip_any_sync
+      "_Z15__chip_ballotsynciij", // __chip_ballot_sync
+      "_Z9__chip_alli",         // __chip_all
+      "_Z9__chip_anyi",         // __chip_any
+      "_Z13__chip_balloti",     // __chip_ballot
+      "_Z14__chip_lane_idv",    // __chip_lane_id
+      "_Z14__chip_syncwarpv",   // __chip_syncwarp
+      
+      // Sync variants of shuffle operations
+      "_Z11__shfl_syncjiii",
+      "_Z11__shfl_syncjfii",
+      "_Z15__shfl_xor_syncjiiii",
+      "_Z15__shfl_xor_syncjfii",
+      "_Z14__shfl_up_syncjijii",
+      "_Z14__shfl_up_syncjfjii",
+      "_Z16__shfl_down_syncjijii",
+      "_Z16__shfl_down_syncjfjii"};
 
   bool SensitiveFuncFound = false;
   for (auto &FuncName : WarpSizeSensitiveFuncNames) {
