@@ -109,6 +109,7 @@ if(NOT DEFINED LevelZero_LIBRARY)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tools/spirv-extractor)
 
 if(LevelZero_LIBRARY)
   get_filename_component(LevelZeroLib_DIR ${LevelZero_LIBRARY} DIRECTORY CACHE)
@@ -456,7 +457,8 @@ endif()
 target_compile_definitions(
   CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
-target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS})
+find_package(SPIRV-Tools REQUIRED)
+target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS} SPIRV-Tools)
 
 if(HAS_EXPERIMENTAL_FILESYSTEM)
   target_link_libraries(CHIP PUBLIC stdc++fs)

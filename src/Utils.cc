@@ -174,48 +174,6 @@ std::optional<fs::path> getHIPCCPath() {
   return HIPCCPath;
 }
 
-std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
-  // NOTE: This method is designed to read from possibly misaligned buffer.
-
-  std::string Magic(reinterpret_cast<const char *>(Bundle),
-                    sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1);
-  if (Magic != CLANG_OFFLOAD_BUNDLER_MAGIC) {
-    ErrorMsg = "The bundled binaries are not Clang bundled "
-               "(CLANG_OFFLOAD_BUNDLER_MAGIC is missing)";
-    return std::string_view();
-  }
-
-  using HeaderT = __ClangOffloadBundleHeader;
-  using EntryT = __ClangOffloadBundleDesc;
-  const auto *Header = (const char *)Bundle;
-  auto NumBundles = copyAs<uint64_t>(Header, offsetof(HeaderT, numBundles));
-
-  const char *Desc = Header + offsetof(HeaderT, desc);
-  for (size_t i = 0; i < NumBundles; i++) {
-    auto Offset = copyAs<uint64_t>(Desc, offsetof(EntryT, offset));
-    auto Size = copyAs<uint64_t>(Desc, offsetof(EntryT, size));
-    auto TripleSize = copyAs<uint64_t>(Desc, offsetof(EntryT, tripleSize));
-    const char *Triple = Desc + offsetof(EntryT, triple);
-    std::string_view EntryID(Triple, TripleSize);
-
-    logDebug("Bundle entry ID {} is: '{}'\n", i, EntryID);
-
-    // SPIR-V bundle entry ID for HIP-Clang 14+. Additional components
-    // are ignored for now.
-    std::string_view SPIRVBundleID = "hip-spirv64";
-    if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID ||
-        // Legacy entry ID used during early development.
-        EntryID == "hip-spir64-unknown-unknown")
-      return std::string_view(Header + Offset, Size);
-
-    logDebug("Not a SPIR-V triple, ignoring\n");
-    Desc = Triple + TripleSize; // Next bundle entry.
-  }
-
-  ErrorMsg = "Couldn't find SPIR-V binary in the bundle!";
-  return std::string_view();
-}
-
 std::vector<void *>
 convertExtraArgsToPointerArray(void *ExtraArgBuf, const SPVFuncInfo &FuncInfo) {
   auto *BaseAddr = (uint8_t *)ExtraArgBuf;
