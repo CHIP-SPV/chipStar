@@ -2150,6 +2150,7 @@ public:
    */
   template <class GraphNodeType, class... ArgTypes>
   bool captureIntoGraph(ArgTypes... ArgsPack) {
+    return false;
     if (getCaptureStatus() == hipStreamCaptureStatusActive) {
       auto Graph = getCaptureGraph();
       auto Node = new GraphNodeType(ArgsPack...);
