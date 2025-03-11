@@ -174,8 +174,6 @@ RUN ldconfig
 # Optional: If you encounter solver issues, set the following environment variable
 ENV CONDA_LIBMAMBA_SOLVER_NO_CHANNELS_FROM_INSTALLED=1
 
-# Delete Intel OpenCL Loader
-RUN rm -f /apps/conda/envs/oneapi-2024.1.0/lib/libOpenCL.so.1
 
 # Create a module file for OneAPI
 RUN mkdir -p /apps/modulefiles/Core/oneapi && \
@@ -201,6 +199,19 @@ RUN apt-get update && apt-get install -y vim-common # for xxd
 
 # Set permissions to enable non-root access to GPUs
 RUN echo 'sudo chmod 666 /dev/dri/* 2>/dev/null || true' >> /home/chipStarUser/.bashrc
+
+RUN mkdir neo && cd neo && \    
+    wget https://github.com/intel/intel-graphics-compiler/releases/download/v2.7.11/intel-igc-core-2_2.7.11+18581_amd64.deb && \
+    wget https://github.com/intel/intel-graphics-compiler/releases/download/v2.7.11/intel-igc-opencl-2_2.7.11+18581_amd64.deb && \
+    wget https://github.com/intel/compute-runtime/releases/download/25.05.32567.17/intel-level-zero-gpu-dbgsym_1.6.32567.17_amd64.ddeb && \
+    wget https://github.com/intel/compute-runtime/releases/download/25.05.32567.17/intel-level-zero-gpu_1.6.32567.17_amd64.deb && \
+    wget https://github.com/intel/compute-runtime/releases/download/25.05.32567.17/intel-opencl-icd-dbgsym_25.05.32567.17_amd64.ddeb && \
+    wget https://github.com/intel/compute-runtime/releases/download/25.05.32567.17/intel-opencl-icd_25.05.32567.17_amd64.deb && \
+    wget https://github.com/intel/compute-runtime/releases/download/25.05.32567.17/libigdgmm12_22.6.0_amd64.deb && \
+    sudo dpkg -i *.deb
+
+# Copy the intel.icd file to the current OpenCL vendor path
+RUN cp  /etc/OpenCL/vendors/intel.icd $OPENCL_VENDOR_PATH
 
 # Set as default user
 USER chipStarUser
