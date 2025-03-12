@@ -33,14 +33,14 @@ THE SOFTWARE.
 
 #include "SPVRegister.hh"
 
+#include "CHIPDriver.hh"
 #include "common.hh"
 #include "logging.hh"
 #include "macros.hh"
-#include "CHIPDriver.hh"
 
+#include <cassert>
 #include <mutex>
 #include <utility>
-#include <cassert>
 
 /// Register a source module. The 'Source' must be non-empty and its
 /// lifetime must last until the unregistration.
@@ -166,10 +166,10 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
   //       compilation time in the backend.
 
   auto DumpBinary = [](const std::vector<uint32_t> &Bin) -> void {
-    if (ChipEnvVars.getDumpSpirv()) {
+    if (ChipEnvVars.getDumpSpirv())
       if (auto DumpPath = dumpSpirv(Bin))
-        logDebug("Dumped SPIR-V binary to '{}'", fs::absolute(*DumpPath).c_str());
-    }
+        logDebug("Dumped SPIR-V binary to '{}'",
+                 fs::absolute(*DumpPath).c_str());
   };
 
   std::vector<uint32_t> Binary;
@@ -180,7 +180,8 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
     logError("Failure in SPIR-V preprocessing.");
     if (ChipEnvVars.getDumpSpirv())
       if (auto DumpPath = dumpSpirv(SrcMod->OriginalBinary_))
-        logDebug("Dumped SPIR-V binary to '{}'", fs::absolute(*DumpPath).c_str());
+        logDebug("Dumped SPIR-V binary to '{}'",
+                 fs::absolute(*DumpPath).c_str());
     CHIPERR_LOG_AND_THROW("SPIR-V preprocessing failure.", hipErrorTbd);
   }
 

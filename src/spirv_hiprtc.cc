@@ -23,26 +23,19 @@ THE SOFTWARE.
 
 #include <hip/hiprtc.h>
 // #include "macros.hh"
-#include "logging.hh"
 #include "CHIPBackend.hh"
 #include "Utils.hh"
+#include "logging.hh"
 
 #include <cstdlib>
+#include <fstream>
 #include <regex>
 #include <set>
-#include <fstream>
 
 struct CompileOptions {
   std::vector<std::string> Options; /// All accepted user options.
   bool HasO = false; /// True if the user provided an optimization flag.
 };
-
-static bool saveTemps() {
-  // TODO: move to CHIPDriver
-  if (auto *Value = std::getenv("CHIP_RTC_SAVE_TEMPS"))
-    return std::string_view(Value) == "1";
-  return false;
-}
 
 /// Checks the name is valid string for #include (both the "" and <>
 /// forms) and is sensible name for shells as is (doesn't need escaping).
@@ -116,7 +109,8 @@ static bool processOptions(chipstar::Program &Program, int NumOptions,
       continue; // Consider NULL pointers are empty.
     auto OptionIn = trim(std::string_view(Options[OptIdx]));
 
-    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") || Match(OptionIn, "-I.*")) {
+    if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") ||
+        Match(OptionIn, "-I.*")) {
       logDebug("hiprtc: accept option '{}'", std::string(OptionIn));
       OptionsOut.Options.emplace_back(OptionIn);
       continue;
@@ -410,7 +404,7 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
     logDebug("hiprtc: Temp directory: '{}'", TmpDir->string());
     hiprtcResult Result = compile(Program, NumOptions, Options, *TmpDir);
 
-    if (!saveTemps()) {
+    if (!ChipEnvVars.getSaveTemps()) {
       assert(!TmpDir->empty() && *TmpDir != TmpDir->root_path() &&
              "Attempted to delete a root directory!");
 
