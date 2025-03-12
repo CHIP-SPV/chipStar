@@ -37,23 +37,26 @@
  */
 #ifndef CHIP_BINDINGS_H
 #define CHIP_BINDINGS_H
-#include <sys/mman.h>
+#include <cstddef> // for size_t
 #include <errno.h>
 #include <fstream>
+#include <sys/mman.h>
 
 #include "CHIPBackend.hh"
+#include "CHIPBindingsInternal.hh"
 #include "CHIPDriver.hh"
 #include "CHIPException.hh"
+#include "SPVRegister.hh"
+#include "Utils.hh"
 #include "common.hh"
 #include "hip/hip_interop.h"
 #include "hip/spirv_hip_runtime.h"
 #include "hip/spirv_spt.h"
+#include "hipCtx.hh"
 #include "hip_conversions.hh"
 #include "macros.hh"
-#include "Utils.hh"
-#include "SPVRegister.hh"
-#include "CHIPBindingsInternal.hh"
-#include "hipCtx.hh"
+
+#include "spirv-extractor.hh"
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
@@ -3441,10 +3444,10 @@ hipError_t hipStreamQuery(hipStream_t Stream) {
 static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
 
-  if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
-    ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
-    return hipErrorStreamCaptureInvalidated;
-  }
+  // if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
+  //   ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
+  //   return hipErrorStreamCaptureInvalidated;
+  // }
 
   ChipQueue->finish();
   return hipSuccess;
