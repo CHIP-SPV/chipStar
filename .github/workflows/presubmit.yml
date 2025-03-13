@@ -291,5 +291,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: build-and-check-${{ matrix.backend }}-llvm-${{ matrix.llvm-version }}
+          name: build-and-check-${{ matrix.backend }}-pocl-${{ matrix.pocl-version }}-llvm-${{ matrix.llvm-version }}
           path: build/Testing/Temporary/LastTest.log
