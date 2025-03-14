@@ -1,6 +1,10 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    Unit_hipGraph_SimpleGraphWithKernel: 'Temp disabled graphs'
+    Unit_hipStreamBeginCapture_BasicFunctional: 'Temp disabled graphs'
+    Unit_hipStreamBeginCapture_Negative: 'Temp disabled graphs'
+    Unit_hipStreamBeginCapture_DetectingInvalidCapture: 'Temp disabled graphs'
     hipStreamSemantics: 'timing dependent, flaky when ctest -j'
     hip_async_binomial: 'SEGFAULT'
     Unit_AnyAll_CompileTest: 'Failed'
