@@ -724,7 +724,12 @@ add_to_config(_hipInfo_build
   HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
   "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_BINARY_DIR}")
 
-INSTALL(TARGETS CHIP host device deviceRDC
+add_library(hip::host ALIAS host)
+add_library(hip::device ALIAS device)
+add_library(hiprtc-lib INTERFACE)
+add_library(hiprtc::hiprtc ALIAS hiprtc-lib)
+
+INSTALL(TARGETS CHIP host device deviceRDC hiprtc-lib
   EXPORT hip-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION lib
@@ -732,12 +737,6 @@ INSTALL(TARGETS CHIP host device deviceRDC
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 INSTALL(EXPORT hip-targets DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR} NAMESPACE hip::)
 # export(EXPORT hip-targets FILE "${CHIP_BUILD_DIR}/hip-targets.cmake" NAMESPACE hip::)
-
-add_library(hip::host ALIAS host)
-add_library(hip::device ALIAS device)
-add_library(hiprtc-lib INTERFACE)
-add_library(hiprtc::hiprtc ALIAS hiprtc-lib)
-
 
 # hip-config.cmake generation
 include(CMakePackageConfigHelpers)
