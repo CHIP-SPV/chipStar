@@ -1,0 +1,1 @@
+/space/pvelesko/install/llvm/18.0/bin/opt expand-hip-spirv64-generic-link.bc -load-pass-plugin /space/pvelesko/install/HIP/chipStar/test/lib/llvm/libLLVMHipSpvPasses.so -passes=hip-post-link-passes -o expand-hip-spirv64-generic-lower.bc
