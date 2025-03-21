@@ -275,7 +275,21 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       Value *RetVal = RetI->getOperand(0);
       Value *PromotedRetVal = PromotedValues.count(RetVal) ? PromotedValues[RetVal] : RetVal;
       
-      // Create a new return instruction with the promoted value
+      // Make sure the return value matches the function's return type
+      if (PromotedRetVal->getType() != I->getFunction()->getReturnType()) {
+        // If the function return type is larger than the value type, extend it
+        if (PromotedRetVal->getType()->getPrimitiveSizeInBits() < 
+            I->getFunction()->getReturnType()->getPrimitiveSizeInBits()) {
+          PromotedRetVal = Builder.CreateZExt(PromotedRetVal, I->getFunction()->getReturnType());
+        } 
+        // If the function return type is smaller, truncate it
+        else if (PromotedRetVal->getType()->getPrimitiveSizeInBits() > 
+                 I->getFunction()->getReturnType()->getPrimitiveSizeInBits()) {
+          PromotedRetVal = Builder.CreateTrunc(PromotedRetVal, I->getFunction()->getReturnType());
+        }
+      }
+      
+      // Create a new return instruction with the correctly typed value
       ReturnInst *NewRet = Builder.CreateRet(PromotedRetVal);
       
       LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
