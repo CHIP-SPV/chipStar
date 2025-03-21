@@ -237,6 +237,39 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                       << *NewInst << "\n");
     PromotedValues[I] = NewInst;
     Replacements.push_back(Replacement(I, NewInst));
+  } else if (isa<ICmpInst>(I)) {
+    ICmpInst *CmpI = cast<ICmpInst>(I);
+    
+    // Get promoted operands
+    Value *LHS = getPromotedValue(CmpI->getOperand(0));
+    Value *RHS = getPromotedValue(CmpI->getOperand(1));
+    
+    // Make sure operands are of same type for comparison
+    if (LHS->getType() != RHS->getType()) {
+      // If one operand is promoted and the other isn't, promote the other
+      if (LHS->getType() == PromotedTy) {
+        RHS = Builder.CreateZExt(RHS, PromotedTy);
+      } else if (RHS->getType() == PromotedTy) {
+        LHS = Builder.CreateZExt(LHS, PromotedTy);
+      } else {
+        // If neither is promoted type but they still differ, convert to common type
+        Type *CommonType = LHS->getType()->getPrimitiveSizeInBits() > 
+                           RHS->getType()->getPrimitiveSizeInBits() ? 
+                           LHS->getType() : RHS->getType();
+        if (LHS->getType() != CommonType)
+          LHS = Builder.CreateZExt(LHS, CommonType);
+        if (RHS->getType() != CommonType)
+          RHS = Builder.CreateZExt(RHS, CommonType);
+      }
+    }
+    
+    // Create new comparison instruction
+    Value *NewCmp = Builder.CreateICmp(CmpI->getPredicate(), LHS, RHS, CmpI->getName());
+    
+    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+                      << *NewCmp << "\n");
+    PromotedValues[I] = NewCmp;
+    Replacements.push_back(Replacement(I, NewCmp));
   } else if (isa<CallInst>(I)) {
     CallInst *OldCall = cast<CallInst>(I);
     // Create a new call with the same operands, but use promoted values where
