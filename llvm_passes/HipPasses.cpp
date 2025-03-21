@@ -100,9 +100,6 @@ public:
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipSanityChecksPass());
 
-  // Fix InvalidBitWidth errors due to non-standard integer types
-  MPM.addPass(HipPromoteIntsPass());
-
   /// For extracting name expression to lowered name expressions (hiprtc).
   MPM.addPass(HipEmitLoweredNamesPass());
 
@@ -163,6 +160,9 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipFixOpenCLMDPass());
 
   MPM.addPass(HipIGBADetectorPass());
+
+  // Fix InvalidBitWidth errors due to non-standard integer types
+  MPM.addPass(HipPromoteIntsPass());
 }
 
 #if LLVM_VERSION_MAJOR < 14
