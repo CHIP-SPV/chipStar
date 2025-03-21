@@ -166,7 +166,6 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> " << *NewPhi
                       << "\n");
     PromotedValues[Phi] = NewPhi;
-    Phi->replaceAllUsesWith(NewPhi);
     Replacements.push_back(Replacement(I, NewPhi));
   } else if (isa<ZExtInst>(I)) {
     ZExtInst *ZExtI = cast<ZExtInst>(I);
@@ -268,7 +267,31 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                       << *NewCall << "\n");
     PromotedValues[I] = NewCall;
     Replacements.push_back(Replacement(I, NewCall));
+  } else if (isa<ReturnInst>(I)) {
+    ReturnInst *RetI = cast<ReturnInst>(I);
+    
+    // If there's a return value, check if it needs to be promoted
+    if (RetI->getNumOperands() > 0) {
+      Value *RetVal = RetI->getOperand(0);
+      Value *PromotedRetVal = PromotedValues.count(RetVal) ? PromotedValues[RetVal] : RetVal;
+      
+      // Create a new return instruction with the promoted value
+      ReturnInst *NewRet = Builder.CreateRet(PromotedRetVal);
+      
+      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+                        << *NewRet << "\n");
+      PromotedValues[I] = NewRet;
+      Replacements.push_back(Replacement(I, NewRet));
+    } else {
+      // Handle void return
+      ReturnInst *NewRet = Builder.CreateRetVoid();
+      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+                        << *NewRet << "\n");
+      PromotedValues[I] = NewRet;
+      Replacements.push_back(Replacement(I, NewRet));
+    }
   } else {
+    LLVM_DEBUG(dbgs() << Indent << "  Unhandled instruction type: " << *I << "\n");
     assert(false && "HipPromoteIntsPass: Unhandled instruction type");
   }
 }
