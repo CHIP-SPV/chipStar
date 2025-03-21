@@ -203,8 +203,33 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     if (PromotedSrc->getType() != PromotedTy)
       PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
 
+    // Check if we're truncating to a non-standard type
+    Type *DestTy = TruncI->getDestTy();
+    if (auto *IntTy = dyn_cast<IntegerType>(DestTy)) {
+      if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
+        // Instead of truncating to a non-standard type, truncate to the next smaller standard type
+        unsigned NewWidth = HipPromoteIntsPass::getPromotedBitWidth(IntTy->getBitWidth());
+        // If the next smaller standard type is wider than what we want, find the next smaller one
+        if (NewWidth > IntTy->getBitWidth()) {
+          if (NewWidth == 8) {
+            // Special case: if we're smaller than 8 bits, still use 8 bits
+            NewWidth = 8;
+          } else if (NewWidth == 16) {
+            NewWidth = 8;
+          } else if (NewWidth == 32) {
+            NewWidth = 16;
+          } else if (NewWidth == 64) {
+            NewWidth = 32;
+          }
+        }
+        DestTy = Type::getIntNTy(DestTy->getContext(), NewWidth);
+        LLVM_DEBUG(dbgs() << Indent << "    Changing truncation target from i" 
+                  << IntTy->getBitWidth() << " to i" << NewWidth << "\n");
+      }
+    }
+
     // Create a new trunc for external users
-    Value *NewTrunc = Builder.CreateTrunc(PromotedSrc, TruncI->getType());
+    Value *NewTrunc = Builder.CreateTrunc(PromotedSrc, DestTy);
     LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
                       << *NewTrunc << "\n");
 
@@ -280,12 +305,28 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       Value *NewArg =
           PromotedValues.count(OldArg) ? PromotedValues[OldArg] : OldArg;
 
-      // if the function expects a non-standard type, abort for now.
-      // TODO: if this assert is hit, we need to handle this case in the future
-      // by promoting the function arguments as well.
-      if (OldArg->getType() != NewArg->getType())
-        assert(false &&
-               "HipPromoteIntsPass: Function expects non-standard type");
+      // If the argument type doesn't match what the function expects,
+      // we need to convert it back to the expected type
+      Type *ExpectedType = OldCall->getFunctionType()->getParamType(i);
+      if (NewArg->getType() != ExpectedType) {
+        // Check if we need to truncate or extend
+        if (auto *IntTy = dyn_cast<IntegerType>(ExpectedType)) {
+          if (auto *ArgIntTy = dyn_cast<IntegerType>(NewArg->getType())) {
+            // If expected type is smaller, truncate
+            if (IntTy->getBitWidth() < ArgIntTy->getBitWidth()) {
+              NewArg = Builder.CreateTrunc(NewArg, ExpectedType);
+              LLVM_DEBUG(dbgs() << Indent << "    Truncating argument from " 
+                       << *ArgIntTy << " to " << *IntTy << "\n");
+            }
+            // If expected type is larger, extend
+            else if (IntTy->getBitWidth() > ArgIntTy->getBitWidth()) {
+              NewArg = Builder.CreateZExt(NewArg, ExpectedType);
+              LLVM_DEBUG(dbgs() << Indent << "    Extending argument from " 
+                       << *ArgIntTy << " to " << *IntTy << "\n");
+            }
+          }
+        }
+      }
 
       NewArgs.push_back(NewArg);
     }

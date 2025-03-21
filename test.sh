@@ -7,7 +7,12 @@
 # /space/pvelesko/install/llvm/18.0/bin/opt -load-pass-plugin /space/pvelesko/chipStar/fix-promote-int-pass/build/install/lib/llvm/libLLVMHipSpvPasses.so -passes=hip-post-link-passes $IR -o $IR.bc -debug
 # /space/pvelesko/install/llvm/18.0/bin/llvm-spirv $IR.bc -o $IR.spv
 
-IR=~/chipStar/fix-promote-int-pass/ext-repro.ll
+# IR=~/chipStar/fix-promote-int-pass/ext-repro.ll
+# llvm-as $IR
+# /space/pvelesko/install/llvm/18.0/bin/opt -load-pass-plugin /space/pvelesko/chipStar/fix-promote-int-pass/build/lib/libLLVMHipSpvPasses.so -passes=hip-post-link-passes $IR -o $IR.bc -debug
+# /space/pvelesko/install/llvm/18.0/bin/llvm-spirv $IR.bc -o $IR.spv
+
+IR=~/chipStar/fix-promote-int-pass/func-return-nonstd.ll
 llvm-as $IR
-/space/pvelesko/install/llvm/18.0/bin/opt -load-pass-plugin /space/pvelesko/chipStar/fix-promote-int-pass/build/install/lib/llvm/libLLVMHipSpvPasses.so -passes=hip-post-link-passes $IR -o $IR.bc -debug
+/space/pvelesko/install/llvm/18.0/bin/opt -load-pass-plugin /space/pvelesko/chipStar/fix-promote-int-pass/build/lib/libLLVMHipSpvPasses.so -passes=hip-post-link-passes $IR -o $IR.bc -debug
 /space/pvelesko/install/llvm/18.0/bin/llvm-spirv $IR.bc -o $IR.spv
