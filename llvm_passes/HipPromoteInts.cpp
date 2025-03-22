@@ -531,6 +531,108 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                       << *NewCall << "\n");
     PromotedValues[I] = NewCall;
     Replacements.push_back(Replacement(I, NewCall));
+  } else if (isa<StoreInst>(I)) {
+    StoreInst *Store = cast<StoreInst>(I);
+    
+    // Get the value being stored (possibly promoted)
+    Value *StoredValue = Store->getValueOperand();
+    Value *NewStoredValue = PromotedValues.count(StoredValue) 
+                          ? PromotedValues[StoredValue] 
+                          : StoredValue;
+    
+    // Get the pointer (we don't normally promote pointers)
+    Value *Ptr = Store->getPointerOperand();
+    
+    // Check if the value type needs adjustment to match what's expected by the store
+    Type *ExpectedType = StoredValue->getType();
+    if (NewStoredValue->getType() != ExpectedType) {
+      // If the promoted value is larger, truncate it back
+      if (NewStoredValue->getType()->getPrimitiveSizeInBits() > ExpectedType->getPrimitiveSizeInBits()) {
+        LLVM_DEBUG(dbgs() << Indent << "    Truncating store value from " 
+                         << *NewStoredValue->getType() << " to " << *ExpectedType << "\n");
+        NewStoredValue = Builder.CreateTrunc(NewStoredValue, ExpectedType);
+      }
+      // If it's smaller (unusual), extend it
+      else if (NewStoredValue->getType()->getPrimitiveSizeInBits() < ExpectedType->getPrimitiveSizeInBits()) {
+        LLVM_DEBUG(dbgs() << Indent << "    Extending store value from " 
+                         << *NewStoredValue->getType() << " to " << *ExpectedType << "\n");
+        NewStoredValue = Builder.CreateZExt(NewStoredValue, ExpectedType);
+      }
+      // If same size but different types, bitcast
+      else {
+        LLVM_DEBUG(dbgs() << Indent << "    Bitcasting store value to match original type\n");
+        NewStoredValue = Builder.CreateBitCast(NewStoredValue, ExpectedType);
+      }
+    }
+    
+    // Create a new store instruction
+    StoreInst *NewStore = Builder.CreateStore(NewStoredValue, Ptr);
+    
+    // Preserve the alignment and other attributes from the original store
+    NewStore->setAlignment(Store->getAlign());
+    NewStore->setVolatile(Store->isVolatile());
+    NewStore->setOrdering(Store->getOrdering());
+    NewStore->setSyncScopeID(Store->getSyncScopeID());
+    
+    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Store: ====> "
+                      << *NewStore << "\n");
+    PromotedValues[I] = NewStore;
+    Replacements.push_back(Replacement(I, NewStore));
+  } else if (isa<LoadInst>(I)) {
+    LoadInst *Load = cast<LoadInst>(I);
+    
+    // Get the pointer operand
+    Value *Ptr = Load->getPointerOperand();
+    
+    // Create a new load instruction
+    LoadInst *NewLoad = Builder.CreateLoad(Load->getType(), Ptr, Load->getName());
+    
+    // Preserve the alignment and other attributes from the original load
+    NewLoad->setAlignment(Load->getAlign());
+    NewLoad->setVolatile(Load->isVolatile());
+    NewLoad->setOrdering(Load->getOrdering());
+    NewLoad->setSyncScopeID(Load->getSyncScopeID());
+    
+    // If the loaded value is of a non-standard type, promote it
+    if (auto *IntTy = dyn_cast<IntegerType>(Load->getType())) {
+      if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
+        // Promote to standard width
+        Type *PromotedLoadType = HipPromoteIntsPass::getPromotedType(Load->getType());
+        Value *PromotedValue = nullptr;
+        
+        if (Load->getType()->getPrimitiveSizeInBits() < PromotedLoadType->getPrimitiveSizeInBits()) {
+          LLVM_DEBUG(dbgs() << Indent << "    ZExting loaded value from non-standard type\n");
+          PromotedValue = Builder.CreateZExt(NewLoad, PromotedLoadType);
+        } else if (Load->getType()->getPrimitiveSizeInBits() > PromotedLoadType->getPrimitiveSizeInBits()) {
+          LLVM_DEBUG(dbgs() << Indent << "    Truncing loaded value from non-standard type\n");
+          PromotedValue = Builder.CreateTrunc(NewLoad, PromotedLoadType);
+        } else {
+          LLVM_DEBUG(dbgs() << Indent << "    Bitcasting loaded value from non-standard type\n");
+          PromotedValue = Builder.CreateBitCast(NewLoad, PromotedLoadType);
+        }
+        
+        // For non-standard types, we want to use the promoted value internally
+        PromotedValues[I] = PromotedValue;
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Load (non-standard): ====> "
+                         << *PromotedValue << "\n");
+        
+        // However, external uses should still see the original type, so we need to
+        // replace the original instruction with the non-promoted load
+        Replacements.push_back(Replacement(I, NewLoad));
+      } else {
+        // For standard types, just use the load directly
+        PromotedValues[I] = NewLoad;
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Load (standard): ====> "
+                         << *NewLoad << "\n");
+        Replacements.push_back(Replacement(I, NewLoad));
+      }
+    } else {
+      // Non-integer types are not promoted
+      PromotedValues[I] = NewLoad;
+      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Load (non-int): ====> "
+                       << *NewLoad << "\n");
+      Replacements.push_back(Replacement(I, NewLoad));
+    }
   } else if (isa<ReturnInst>(I)) {
     ReturnInst *RetI = cast<ReturnInst>(I);
     
@@ -664,18 +766,45 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
           promoteChain(I, IntTy, PromotedType, GlobalVisited, Replacements,
                        PromotedValues, 0);
 
-          // Update uses and cleanup as before
+          // Update uses and cleanup
+          // First, replace all uses in instructions that are not in our visited set
           for (const auto &R : Replacements) {
-            for (auto &U : R.Old->uses()) {
-              User *User = U.getUser();
-              if (!GlobalVisited.count(cast<Instruction>(User)))
-                U.set(R.New);
+            LLVM_DEBUG(dbgs() << "Replacing uses of: " << *R.Old << "\n"
+                             << "    with: " << *R.New << "\n");
+            // Make a copy of the users to avoid iterator invalidation
+            SmallVector<User*, 8> Users(R.Old->user_begin(), R.Old->user_end());
+            for (User *U : Users) {
+              if (auto *I = dyn_cast<Instruction>(U)) {
+                if (!GlobalVisited.count(I) || PromotedValues.count(I)) {
+                  LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
+                  U->replaceUsesOfWith(R.Old, R.New);
+                }
+              } else {
+                // Non-instruction users should be updated as well
+                LLVM_DEBUG(dbgs() << "  Updating non-instruction use in: " << *U << "\n");
+                U->replaceUsesOfWith(R.Old, R.New);
+              }
+            }
+          }
+          
+          // Then, for any instructions with remaining uses, we need a different approach
+          for (auto &R : Replacements) {
+            if (!R.Old->use_empty()) {
+              LLVM_DEBUG(dbgs() << "Instruction still has uses after replacement: " << *R.Old << "\n");
+              R.Old->replaceAllUsesWith(R.New);
             }
           }
 
-          for (auto It = Replacements.rbegin(); It != Replacements.rend();
-               ++It)
+          // Finally, delete the original instructions in reverse order to handle dependencies
+          for (auto It = Replacements.rbegin(); It != Replacements.rend(); ++It) {
+            LLVM_DEBUG(dbgs() << "Deleting instruction: " << *(It->Old) << "\n");
+            if (!It->Old->use_empty()) {
+              LLVM_DEBUG(dbgs() << "WARNING: Instruction still has uses before deletion: " << *(It->Old) << "\n");
+              // Force replacement again to handle circular references
+              It->Old->replaceAllUsesWith(It->New);
+            }
             It->Old->eraseFromParent();
+          }
 
           Changed = true;
         }

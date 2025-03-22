@@ -1,3 +1,5 @@
+target triple = "spirv64-unknown-unknown"
+; TODO: test zext abnd trunc
 ; Simplified reproducer for HipPromoteInts pass issue
 define i32 @test_function(i32 %arg) {
 entry:
@@ -13,9 +15,9 @@ if.then:
 
 if.else:
   ; Create a boolean value
-  %bool_val = icmp eq i32 %arg, 42
+  %bool_val = trunc i32 %arg to i3
   ; Convert boolean to i8
-  %frombool = zext i1 %bool_val to i8
+  %frombool = zext i3 %bool_val to i8
   br label %merge
 
 merge:
