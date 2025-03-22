@@ -124,10 +124,22 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
 
     // If it's the non-standard type, promote it
     if (V->getType() == NonStdType) {
-      auto NewV = Builder.CreateZExt(V, PromotedTy);
+      // Make sure we don't try to extend a larger type to a smaller one
+      Value *NewV = nullptr;
+      if (V->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
+        NewV = Builder.CreateZExt(V, PromotedTy);
+        LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with zext: " << *V
+                          << " to " << *NewV << "\n");
+      } else if (V->getType()->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
+        NewV = Builder.CreateTrunc(V, PromotedTy);
+        LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with trunc: " << *V
+                          << " to " << *NewV << "\n");
+      } else {
+        NewV = Builder.CreateBitCast(V, PromotedTy);
+        LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with bitcast: " << *V
+                          << " to " << *NewV << "\n");
+      }
       PromotedValues[V] = NewV;
-      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type: " << *V
-                        << " to " << *NewV << "\n");
       return NewV;
     }
 
@@ -186,6 +198,28 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
           }
         }
       }
+      // Also handle zero-extension from non-standard types
+      else if (auto *ZExtI = dyn_cast<ZExtInst>(IncomingValue)) {
+        Value *ZExtSrc = ZExtI->getOperand(0);
+        
+        // Check if the source operand has a non-standard type
+        if (auto *SrcTy = dyn_cast<IntegerType>(ZExtSrc->getType())) {
+          if (!HipPromoteIntsPass::isStandardBitWidth(SrcTy->getBitWidth())) {
+            LLVM_DEBUG(dbgs() << Indent << "      Found zero-extension from non-standard type: " << *ZExtI << "\n");
+            
+            // Handle consistently with how we process ZExt instructions
+            if (PromotedValues.count(IncomingValue)) {
+              NewIncomingValue = PromotedValues[IncomingValue];
+              LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for zext: " 
+                               << *NewIncomingValue << "\n");
+            } else {
+              // If this zext hasn't been processed yet, let the normal processing handle it
+              NewIncomingValue = IncomingValue;
+              LLVM_DEBUG(dbgs() << Indent << "      Using original zero-extension value to maintain consistency\n");
+            }
+          }
+        }
+      }
       
       // If not handled by special case above, use normal promotion
       if (!NewIncomingValue) {
@@ -196,9 +230,21 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
 
         // If the incoming value isn't promoted yet, promote it now
         if (NewIncomingValue->getType() != PromotedType) {
-          LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue
-                            << " ===> " << *NewIncomingValue << "\n");
-          NewIncomingValue = Builder.CreateZExt(NewIncomingValue, PromotedType);
+          // Check if we need to extend or truncate based on bit size
+          if (NewIncomingValue->getType()->getPrimitiveSizeInBits() < PromotedType->getPrimitiveSizeInBits()) {
+            LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue
+                              << " ===> " << *NewIncomingValue << "\n");
+            NewIncomingValue = Builder.CreateZExt(NewIncomingValue, PromotedType);
+          } else if (NewIncomingValue->getType()->getPrimitiveSizeInBits() > PromotedType->getPrimitiveSizeInBits()) {
+            LLVM_DEBUG(dbgs() << Indent << "      truncing incoming value: " << *IncomingValue
+                              << " ===> " << *NewIncomingValue << "\n");
+            NewIncomingValue = Builder.CreateTrunc(NewIncomingValue, PromotedType);
+          } else {
+            // Same bit width but different types
+            LLVM_DEBUG(dbgs() << Indent << "      bitcasting incoming value: " << *IncomingValue
+                              << " ===> " << *NewIncomingValue << "\n");
+            NewIncomingValue = Builder.CreateBitCast(NewIncomingValue, PromotedType);
+          }
         }
       }
 
@@ -212,27 +258,64 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     ZExtInst *ZExtI = cast<ZExtInst>(I);
     Value *SrcOp = ZExtI->getOperand(0);
 
-    // If we're extending from our non-standard type to our promoted type,
-    // just use the promoted value directly
-    if (SrcOp->getType() == NonStdType && ZExtI->getDestTy() == PromotedTy) {
-      Value *PromotedSrc =
-          PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
-      LLVM_DEBUG(dbgs() << Indent << "  " << *I
-                        << "   promoting ZExt: ====> " << *PromotedSrc
-                        << "\n");
-      PromotedValues[I] = PromotedSrc;
-      Replacements.push_back(Replacement(I, PromotedSrc));
+    // Get promoted source if available
+    Value *PromotedSrc =
+        PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
+
+    // Handle zero extension based on source and destination types
+    if (SrcOp->getType() == NonStdType) {
+      // If the source is our non-standard type, we need to be careful with type consistency
+      LLVM_DEBUG(dbgs() << Indent << "  ZExt with non-standard source type: " << *ZExtI << "\n");
+      
+      // Create a new zext with properly promoted types
+      Type *DestTy = ZExtI->getDestTy();
+      
+      // If destination type is smaller than our promoted type, we need to truncate first
+      if (DestTy->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
+        Value *NewZExt = Builder.CreateTrunc(PromotedSrc, DestTy);
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting ZExt (with trunc): ====> "
+                          << *NewZExt << "\n");
+        PromotedValues[I] = NewZExt;
+        Replacements.push_back(Replacement(I, NewZExt));
+      } 
+      // If destination type is larger, create a proper zext
+      else if (DestTy->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
+        Value *NewZExt = Builder.CreateZExt(PromotedSrc, DestTy);
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting ZExt (with zext): ====> "
+                          << *NewZExt << "\n");
+        PromotedValues[I] = NewZExt;
+        Replacements.push_back(Replacement(I, NewZExt));
+      }
+      // If destination is exactly our promoted type, just use the promoted source
+      else {
+        LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting ZExt (direct): ====> "
+                          << *PromotedSrc << "\n");
+        PromotedValues[I] = PromotedSrc;
+        Replacements.push_back(Replacement(I, PromotedSrc));
+      }
     } else {
-      // Otherwise handle as normal
-      Value *PromotedSrc =
-          PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
-      if (PromotedSrc->getType() != PromotedTy) {
+      // For standard source types, handle normally
+      if (PromotedSrc->getType() != PromotedTy && 
+          PromotedSrc->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
         PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
       }
-      PromotedValues[I] = PromotedSrc;
-      Replacements.push_back(Replacement(I, PromotedSrc));
+      
+      // Create a new zext to the destination type
+      Type *DestTy = ZExtI->getDestTy();
+      Value *NewZExt;
+      
+      if (PromotedSrc->getType()->getPrimitiveSizeInBits() > DestTy->getPrimitiveSizeInBits()) {
+        NewZExt = Builder.CreateTrunc(PromotedSrc, DestTy);
+      } else if (PromotedSrc->getType()->getPrimitiveSizeInBits() < DestTy->getPrimitiveSizeInBits()) {
+        NewZExt = Builder.CreateZExt(PromotedSrc, DestTy);
+      } else {
+        NewZExt = PromotedSrc; // Same size, no conversion needed
+      }
+      
       LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting ZExt: ====> "
-                        << *PromotedSrc << "\n");
+                       << *NewZExt << "\n");
+      PromotedValues[I] = NewZExt;
+      Replacements.push_back(Replacement(I, NewZExt));
     }
   } else if (isa<TruncInst>(I)) {
     TruncInst *TruncI = cast<TruncInst>(I);
@@ -241,8 +324,20 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
         PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
 
     // Verify the source is actually of our promoted type
-    if (PromotedSrc->getType() != PromotedTy)
-      PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
+    if (PromotedSrc->getType() != PromotedTy) {
+      // Check if we need to extend or truncate
+      if (PromotedSrc->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
+        LLVM_DEBUG(dbgs() << Indent << "    ZExting source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
+        PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
+      } else if (PromotedSrc->getType()->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
+        LLVM_DEBUG(dbgs() << Indent << "    Truncing source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
+        PromotedSrc = Builder.CreateTrunc(PromotedSrc, PromotedTy);
+      } else {
+        // Same bit width but different types, this should rarely happen
+        LLVM_DEBUG(dbgs() << Indent << "    Bitcasting source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
+        PromotedSrc = Builder.CreateBitCast(PromotedSrc, PromotedTy);
+      }
+    }
 
     // Check if we're truncating to a non-standard type
     Type *DestTy = TruncI->getDestTy();
