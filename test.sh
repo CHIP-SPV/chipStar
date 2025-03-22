@@ -18,7 +18,12 @@
 # /space/pvelesko/install/llvm/18.0/bin/llvm-spirv $IR.bc -o $IR.spv
 
 
-IR=~/chipStar/fix-promote-int-pass/dominance.ll
+# IR=~/chipStar/fix-promote-int-pass/dominance.ll
+# llvm-as $IR
+# /space/pvelesko/install/llvm/18.0/bin/opt -load-pass-plugin /space/pvelesko/chipStar/fix-promote-int-pass/build/lib/libLLVMHipSpvPasses.so -passes=hip-post-link-passes $IR -o $IR.bc -debug -debug-only=hip-promote-ints 
+# /space/pvelesko/install/llvm/18.0/bin/llvm-spirv $IR.bc -o $IR.spv
+
+IR=~/chipStar/fix-promote-int-pass/illegalZext.ll
 llvm-as $IR
 /space/pvelesko/install/llvm/18.0/bin/opt -load-pass-plugin /space/pvelesko/chipStar/fix-promote-int-pass/build/lib/libLLVMHipSpvPasses.so -passes=hip-post-link-passes $IR -o $IR.bc -debug -debug-only=hip-promote-ints 
 /space/pvelesko/install/llvm/18.0/bin/llvm-spirv $IR.bc -o $IR.spv
