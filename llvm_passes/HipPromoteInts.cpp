@@ -392,6 +392,66 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                       << *NewInst << "\n");
     PromotedValues[I] = NewInst;
     Replacements.push_back(Replacement(I, NewInst));
+  } else if (isa<SelectInst>(I)) {
+    SelectInst *SelI = cast<SelectInst>(I);
+    bool NeedsPromotion = (SelI->getType() == NonStdType);
+    
+    // Get promoted operands
+    Value *Condition = getPromotedValue(SelI->getCondition());
+    Value *TrueVal = getPromotedValue(SelI->getTrueValue());
+    Value *FalseVal = getPromotedValue(SelI->getFalseValue());
+    
+    // Make sure condition is i1
+    if (Condition->getType() != Type::getInt1Ty(I->getContext())) {
+      LLVM_DEBUG(dbgs() << Indent << "    Converting condition to i1: " << *Condition << "\n");
+      Condition = Builder.CreateICmpNE(
+          Condition, 
+          Constant::getNullValue(Condition->getType()),
+          "select.cond");
+    }
+    
+    Value *NewSelect;
+    if (NeedsPromotion) {
+      // Create operation in promoted type
+      NewSelect = Builder.CreateSelect(Condition, TrueVal, FalseVal, SelI->getName());
+    } else {
+      // For operations that should stay in original type
+      Type *OriginalType = SelI->getType();
+      
+      // True and false values must match the select's type
+      if (TrueVal->getType() != OriginalType) {
+        if (TrueVal->getType()->getPrimitiveSizeInBits() > OriginalType->getPrimitiveSizeInBits()) {
+          TrueVal = Builder.CreateTrunc(TrueVal, OriginalType);
+          LLVM_DEBUG(dbgs() << Indent << "    Truncating true value to match select type\n");
+        } else if (TrueVal->getType()->getPrimitiveSizeInBits() < OriginalType->getPrimitiveSizeInBits()) {
+          TrueVal = Builder.CreateZExt(TrueVal, OriginalType);
+          LLVM_DEBUG(dbgs() << Indent << "    Extending true value to match select type\n");
+        } else {
+          TrueVal = Builder.CreateBitCast(TrueVal, OriginalType);
+          LLVM_DEBUG(dbgs() << Indent << "    Bitcasting true value to match select type\n");
+        }
+      }
+      
+      if (FalseVal->getType() != OriginalType) {
+        if (FalseVal->getType()->getPrimitiveSizeInBits() > OriginalType->getPrimitiveSizeInBits()) {
+          FalseVal = Builder.CreateTrunc(FalseVal, OriginalType);
+          LLVM_DEBUG(dbgs() << Indent << "    Truncating false value to match select type\n");
+        } else if (FalseVal->getType()->getPrimitiveSizeInBits() < OriginalType->getPrimitiveSizeInBits()) {
+          FalseVal = Builder.CreateZExt(FalseVal, OriginalType);
+          LLVM_DEBUG(dbgs() << Indent << "    Extending false value to match select type\n");
+        } else {
+          FalseVal = Builder.CreateBitCast(FalseVal, OriginalType);
+          LLVM_DEBUG(dbgs() << Indent << "    Bitcasting false value to match select type\n");
+        }
+      }
+      
+      NewSelect = Builder.CreateSelect(Condition, TrueVal, FalseVal, SelI->getName());
+    }
+    
+    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Select: ====> "
+                      << *NewSelect << "\n");
+    PromotedValues[I] = NewSelect;
+    Replacements.push_back(Replacement(I, NewSelect));
   } else if (isa<ICmpInst>(I)) {
     ICmpInst *CmpI = cast<ICmpInst>(I);
     
