@@ -413,6 +413,31 @@ static void promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
 
 PreservedAnalyses HipPromoteIntsPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
+  // First, check all function signatures for non-standard integer types
+  for (Function &F : M) {
+    // Check return type
+    if (auto *IntTy = dyn_cast<IntegerType>(F.getReturnType())) {
+      if (!isStandardBitWidth(IntTy->getBitWidth())) {
+        LLVM_DEBUG(dbgs() << "Function " << F.getName() 
+                  << " has non-standard integer return type i" 
+                  << IntTy->getBitWidth() << ". Aborting.\n");
+        return PreservedAnalyses::all();
+      }
+    }
+    
+    // Check parameter types
+    for (const Argument &Arg : F.args()) {
+      if (auto *IntTy = dyn_cast<IntegerType>(Arg.getType())) {
+        if (!isStandardBitWidth(IntTy->getBitWidth())) {
+          LLVM_DEBUG(dbgs() << "Function " << F.getName() 
+                    << " has parameter with non-standard integer type i" 
+                    << IntTy->getBitWidth() << ". Aborting.\n");
+          return PreservedAnalyses::all();
+        }
+      }
+    }
+  }
+
   bool Changed = false;
   SmallPtrSet<Instruction *, 32>
       GlobalVisited; // Track all visited instructions across chains
