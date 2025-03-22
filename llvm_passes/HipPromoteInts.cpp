@@ -378,6 +378,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     Value *NewInst;
     if (NeedsPromotion) {
       // Create operation in promoted type
+      LLVM_DEBUG(dbgs() << Indent << "  Creating a binary operation Opcode: " << BinOp->getOpcodeName() << " LHS: " << *LHS << " and RHS: " << *RHS << "\n");
       NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
     } else {
       // For operations that should stay in original type
