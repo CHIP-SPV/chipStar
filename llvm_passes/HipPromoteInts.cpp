@@ -294,14 +294,32 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
         Replacements.push_back(Replacement(I, PromotedSrc));
       }
     } else {
-      // For standard source types, handle normally
+      // For standard source types, check if destination type is non-standard
+      Type *DestTy = ZExtI->getDestTy();
+      
+      if (auto *IntTy = dyn_cast<IntegerType>(DestTy)) {
+        if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
+          // Promote the destination type to standard width
+          Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy);
+          
+          // Create a direct zext from source to promoted destination type
+          Value *NewZExt = Builder.CreateZExt(PromotedSrc, PromotedDestTy);
+          
+          LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting ZExt (non-std dest): ====> "
+                         << *NewZExt << "\n");
+          PromotedValues[I] = NewZExt;
+          Replacements.push_back(Replacement(I, NewZExt));
+          return;
+        }
+      }
+      
+      // For standard destination types, handle normally
       if (PromotedSrc->getType() != PromotedTy && 
           PromotedSrc->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
         PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
       }
       
       // Create a new zext to the destination type
-      Type *DestTy = ZExtI->getDestTy();
       Value *NewZExt;
       
       if (PromotedSrc->getType()->getPrimitiveSizeInBits() > DestTy->getPrimitiveSizeInBits()) {
