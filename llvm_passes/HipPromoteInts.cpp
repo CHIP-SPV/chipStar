@@ -159,17 +159,47 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       LLVM_DEBUG(dbgs() << Indent << "    Processing incoming value: " << *IncomingValue
                         << " from block: " << IncomingBlock->getName() << "\n");
                         
-      // If the incoming value is from our promotion chain, use the promoted
-      // value
-      Value *NewIncomingValue = PromotedValues.count(IncomingValue)
-                                    ? PromotedValues[IncomingValue]
-                                    : IncomingValue;
+      Value *NewIncomingValue = nullptr;
+      
+      // Special handling for truncation instructions with non-standard intermediate types
+      if (auto *TruncI = dyn_cast<TruncInst>(IncomingValue)) {
+        Value *TruncSrc = TruncI->getOperand(0);
+        
+        // Check if the source operand has a non-standard type
+        if (auto *SrcTy = dyn_cast<IntegerType>(TruncSrc->getType())) {
+          if (!HipPromoteIntsPass::isStandardBitWidth(SrcTy->getBitWidth())) {
+            LLVM_DEBUG(dbgs() << Indent << "      Found truncation from non-standard type: " << *TruncI << "\n");
+            
+            // Instead of creating a new truncation chain, we need to handle the chain consistently
+            // First, get the mapped value for this truncation instruction if it exists
+            if (PromotedValues.count(IncomingValue)) {
+              NewIncomingValue = PromotedValues[IncomingValue];
+              LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for truncation: " 
+                               << *NewIncomingValue << "\n");
+            } else {
+              // If this truncation hasn't been processed yet, we should let the normal truncation
+              // handling take care of it later in promoteChain
+              // For now, just use the original value to avoid inconsistencies
+              NewIncomingValue = IncomingValue;
+              LLVM_DEBUG(dbgs() << Indent << "      Using original truncation value to maintain consistency\n");
+            }
+          }
+        }
+      }
+      
+      // If not handled by special case above, use normal promotion
+      if (!NewIncomingValue) {
+        // If the incoming value is from our promotion chain, use the promoted value
+        NewIncomingValue = PromotedValues.count(IncomingValue)
+                                ? PromotedValues[IncomingValue]
+                                : IncomingValue;
 
-      // If the incoming value isn't promoted yet, promote it now
-      if (NewIncomingValue->getType() != PromotedType) {
-        LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue
-                          << " ===> " << *NewIncomingValue << "\n");
-        NewIncomingValue = Builder.CreateZExt(NewIncomingValue, PromotedType);
+        // If the incoming value isn't promoted yet, promote it now
+        if (NewIncomingValue->getType() != PromotedType) {
+          LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue
+                            << " ===> " << *NewIncomingValue << "\n");
+          NewIncomingValue = Builder.CreateZExt(NewIncomingValue, PromotedType);
+        }
       }
 
       NewPhi->addIncoming(NewIncomingValue, IncomingBlock);
@@ -232,10 +262,17 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                       << *NewTrunc << "\n");
 
     // Store both the promoted and truncated versions
-    PromotedValues[I] = PromotedSrc; // Use promoted version in our chain
-    Replacements.push_back(Replacement(
-        I,
-        NewTrunc)); // Replace old instruction with new trunc for external users
+    PromotedValues[I] = NewTrunc; // Use truncated version as the default
+    
+    // Only use the promoted version for internal operations on non-standard types
+    if (auto *IntTy = dyn_cast<IntegerType>(DestTy)) {
+      if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
+        // For non-standard destination types, store the promoted version for our internal use
+        PromotedValues[I] = PromotedSrc;
+      }
+    }
+    
+    Replacements.push_back(Replacement(I, NewTrunc));
   } else if (isa<BinaryOperator>(I)) {
     BinaryOperator *BinOp = cast<BinaryOperator>(I);
     bool NeedsPromotion = (BinOp->getType() == NonStdType);
