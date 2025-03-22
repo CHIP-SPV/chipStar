@@ -104,7 +104,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                         SmallDenseMap<Value *, Value *> &PromotedValues) {
   IRBuilder<> Builder(I);
 
-  /// Helper to get or create promoted version of a value
+  /// Helper to get or create promoted value
   auto getPromotedValue = [&](Value *V) -> Value * {
     LLVM_DEBUG(dbgs() << Indent << "    getPromotedValue for: " << *V << "\n");
 
@@ -144,12 +144,21 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     Type *PromotedType = HipPromoteIntsPass::getPromotedType(Phi->getType());
     PHINode *NewPhi =
         PHINode::Create(PromotedType, Phi->getNumIncomingValues(), "", Phi);
+        
+    // Register the PHI node in the map BEFORE processing incoming values
+    // to handle circular references properly
+    LLVM_DEBUG(dbgs() << Indent << "  Creating promotion for PHI: " << *Phi
+                      << " to " << *NewPhi << "\n");
+    PromotedValues[Phi] = NewPhi;
 
     // Copy all incoming values and blocks
     for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
       Value *IncomingValue = Phi->getIncomingValue(i);
       BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
 
+      LLVM_DEBUG(dbgs() << Indent << "    Processing incoming value: " << *IncomingValue
+                        << " from block: " << IncomingBlock->getName() << "\n");
+                        
       // If the incoming value is from our promotion chain, use the promoted
       // value
       Value *NewIncomingValue = PromotedValues.count(IncomingValue)
@@ -157,16 +166,18 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                                     : IncomingValue;
 
       // If the incoming value isn't promoted yet, promote it now
-      if (NewIncomingValue->getType() != PromotedType)
+      if (NewIncomingValue->getType() != PromotedType) {
         NewIncomingValue = Builder.CreateZExt(NewIncomingValue, PromotedType);
+        LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *NewIncomingValue
+                          << " to " << *NewIncomingValue << "\n");
+      }
 
       NewPhi->addIncoming(NewIncomingValue, IncomingBlock);
     }
 
-    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> " << *NewPhi
+    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting PHI node: ====> " << *NewPhi
                       << "\n");
-    PromotedValues[Phi] = NewPhi;
-    Replacements.push_back(Replacement(I, NewPhi));
+    Replacements.push_back(Replacement(Phi, NewPhi));
   } else if (isa<ZExtInst>(I)) {
     ZExtInst *ZExtI = cast<ZExtInst>(I);
     Value *SrcOp = ZExtI->getOperand(0);
@@ -177,7 +188,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       Value *PromotedSrc =
           PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
       LLVM_DEBUG(dbgs() << Indent << "  " << *I
-                        << "    ============> Using promoted: " << *PromotedSrc
+                        << "   promoting ZExt: ====> " << *PromotedSrc
                         << "\n");
       PromotedValues[I] = PromotedSrc;
       Replacements.push_back(Replacement(I, PromotedSrc));
@@ -190,7 +201,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       }
       PromotedValues[I] = PromotedSrc;
       Replacements.push_back(Replacement(I, PromotedSrc));
-      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting ZExt: ====> "
                         << *PromotedSrc << "\n");
     }
   } else if (isa<TruncInst>(I)) {
@@ -207,21 +218,8 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     Type *DestTy = TruncI->getDestTy();
     if (auto *IntTy = dyn_cast<IntegerType>(DestTy)) {
       if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
-        // Instead of truncating to a non-standard type, truncate to the next smaller standard type
+        // Instead of truncating to a non-standard type, truncate to the next LARGER standard type
         unsigned NewWidth = HipPromoteIntsPass::getPromotedBitWidth(IntTy->getBitWidth());
-        // If the next smaller standard type is wider than what we want, find the next smaller one
-        if (NewWidth > IntTy->getBitWidth()) {
-          if (NewWidth == 8) {
-            // Special case: if we're smaller than 8 bits, still use 8 bits
-            NewWidth = 8;
-          } else if (NewWidth == 16) {
-            NewWidth = 8;
-          } else if (NewWidth == 32) {
-            NewWidth = 16;
-          } else if (NewWidth == 64) {
-            NewWidth = 32;
-          }
-        }
         DestTy = Type::getIntNTy(DestTy->getContext(), NewWidth);
         LLVM_DEBUG(dbgs() << Indent << "    Changing truncation target from i" 
                   << IntTy->getBitWidth() << " to i" << NewWidth << "\n");
@@ -230,7 +228,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
 
     // Create a new trunc for external users
     Value *NewTrunc = Builder.CreateTrunc(PromotedSrc, DestTy);
-    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Trunc: ====> "
                       << *NewTrunc << "\n");
 
     // Store both the promoted and truncated versions
@@ -258,7 +256,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
     }
 
-    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting BinOp: ====> "
                       << *NewInst << "\n");
     PromotedValues[I] = NewInst;
     Replacements.push_back(Replacement(I, NewInst));
@@ -291,7 +289,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     // Create new comparison instruction
     Value *NewCmp = Builder.CreateICmp(CmpI->getPredicate(), LHS, RHS, CmpI->getName());
     
-    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting ICmp: ====> "
                       << *NewCmp << "\n");
     PromotedValues[I] = NewCmp;
     Replacements.push_back(Replacement(I, NewCmp));
@@ -337,7 +335,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     NewCall->setCallingConv(OldCall->getCallingConv());
     NewCall->setAttributes(OldCall->getAttributes());
 
-    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+    LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Call: ====> "
                       << *NewCall << "\n");
     PromotedValues[I] = NewCall;
     Replacements.push_back(Replacement(I, NewCall));
@@ -366,14 +364,14 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       // Create a new return instruction with the correctly typed value
       ReturnInst *NewRet = Builder.CreateRet(PromotedRetVal);
       
-      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Return: ====> "
                         << *NewRet << "\n");
       PromotedValues[I] = NewRet;
       Replacements.push_back(Replacement(I, NewRet));
     } else {
       // Handle void return
       ReturnInst *NewRet = Builder.CreateRetVoid();
-      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "    ============> "
+      LLVM_DEBUG(dbgs() << Indent << "  " << *I << "   promoting Return: ====> "
                         << *NewRet << "\n");
       PromotedValues[I] = NewRet;
       Replacements.push_back(Replacement(I, NewRet));
@@ -467,6 +465,10 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       }
     }
   }
+
+  // Print the final IR state before exiting
+  LLVM_DEBUG(dbgs() << "Final module IR after HipPromoteIntsPass:\n");
+  LLVM_DEBUG(M.print(dbgs(), nullptr));
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
