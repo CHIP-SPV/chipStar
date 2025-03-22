@@ -167,9 +167,9 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
 
       // If the incoming value isn't promoted yet, promote it now
       if (NewIncomingValue->getType() != PromotedType) {
+        LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue
+                          << " ===> " << *NewIncomingValue << "\n");
         NewIncomingValue = Builder.CreateZExt(NewIncomingValue, PromotedType);
-        LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *NewIncomingValue
-                          << " to " << *NewIncomingValue << "\n");
       }
 
       NewPhi->addIncoming(NewIncomingValue, IncomingBlock);
