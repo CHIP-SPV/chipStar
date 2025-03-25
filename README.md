@@ -61,6 +61,9 @@ Release notes for [1.1](docs/release_notes/chipStar_1.1.rst), [1.0](docs/release
   (e.g. llvm\_release\_170 for LLVM 17)
 ,  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
+* SPIRV-Tools and SPIRV-Headers:
+  * If available on the system, the system installation will be used
+  * If not found, the submodules will be automatically initialized and built when needed
 
 ### Compiling Clang, LLVM and SPIRV-LLVM-Translator
 
