@@ -5,7 +5,7 @@ add_chip_binary(
   hipDeviceLinkRead.cpp
   hipDeviceLinkWrite.cpp)
 
-target_link_libraries(hipTestDeviceLink deviceRDCInternal)
+target_link_libraries(hipTestDeviceLink PRIVATE deviceRDCInternal)
 
 add_test(NAME hipTestDeviceLink
   COMMAND ${SKIP_DOUBLE_TESTS} "${CMAKE_CURRENT_BINARY_DIR}/hipTestDeviceLink")
