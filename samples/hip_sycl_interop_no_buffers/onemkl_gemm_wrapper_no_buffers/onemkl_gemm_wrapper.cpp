@@ -22,12 +22,22 @@
  */
 
 #include <oneapi/mkl.hpp>
+
+// Check if UR API is available
 #if INTEL_MKL_VERSION >= 20250000
-#include <sycl/backend.hpp>
+  #include <sycl/backend.hpp>
+  // Check if ur_native_handle_t is defined
+  #ifdef ur_native_handle_t
+    #define HAS_UR_API 1
+  #else
+    #define HAS_UR_API 0
+  #endif
 #elif INTEL_MKL_VERSION >= 20230000
-#include <sycl/ext/oneapi/backend/level_zero.hpp>
+  #include <sycl/ext/oneapi/backend/level_zero.hpp>
+  #define HAS_UR_API 0
 #else
-#include <CL/sycl/backend/level_zero.hpp>
+  #include <CL/sycl/backend/level_zero.hpp>
+  #define HAS_UR_API 0
 #endif
 
 #include "ze_api.h"
@@ -93,7 +103,7 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, float *A,
         cl_context hContext = (cl_context)nativeHandlers[3];
         cl_command_queue hQueue = (cl_command_queue)nativeHandlers[4];
         
-#if INTEL_MKL_VERSION >= 20250000
+#if HAS_UR_API
         // MKL 2025 uses UR API
         sycl::platform sycl_platform =
             sycl::detail::make_platform((ur_native_handle_t)hPlatformId, sycl::backend::opencl);
@@ -126,7 +136,7 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, float *A,
 
       bool isImmCmdList = hCommandList ? true : false;
 
-#if INTEL_MKL_VERSION >= 20250000
+#if HAS_UR_API
       // MKL 2025 uses UR API
       sycl::platform sycl_platform =
           sycl::detail::make_platform((ur_native_handle_t)hDriver, sycl::backend::ext_oneapi_level_zero);
