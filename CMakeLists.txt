@@ -458,8 +458,8 @@ target_compile_definitions(
   CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
 find_package(SPIRV-Tools)
-set(SPIRV-Tools_FOUND 0)
 if (NOT SPIRV-Tools_FOUND)
+  message(STATUS "spirv-tools not found, building...")
   # Download and build SPIRV-Tools
   include(ExternalProject)
   
@@ -503,6 +503,8 @@ if (NOT SPIRV-Tools_FOUND)
     IMPORTED_LOCATION "${SPIRV_TOOLS_INSTALL_DIR}/lib/libSPIRV-Tools.a"
     INTERFACE_INCLUDE_DIRECTORIES "${SPIRV_TOOLS_INSTALL_DIR}/include"
   )
+else()
+  message(STATUS "spirv-tools: ${SPIRV-Tools}")
 endif()
 
 list(APPEND CHIP_INTERFACE_LIBS SPIRV-Tools)
