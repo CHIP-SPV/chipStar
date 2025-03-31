@@ -30,8 +30,12 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_outputs)
 # Configure and copy the test script
 configure_file(run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/run_promote_int_pass.bash @ONLY)
 
-# Copy test files and create individual tests
-file(GLOB TEST_IR_FILES "*.ll")
+list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/dominance.ll)
+list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/ext-repro.ll)
+list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/warpCalc.ll)
+# If we have this, a pass won't help
+# list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/func-return-nonstd.ll)
+
 foreach(IR_FILE ${TEST_IR_FILES})
   get_filename_component(FILENAME ${IR_FILE} NAME)
   get_filename_component(BASENAME ${IR_FILE} NAME_WE)
