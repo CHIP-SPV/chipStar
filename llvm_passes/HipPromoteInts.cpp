@@ -98,10 +98,18 @@ struct Replacement {
   Replacement(Instruction *O, Value *N) : Old(O), New(N) {}
 };
 
+// Structure to hold pending PHI node additions
+struct PendingPhiAdd {
+  PHINode *TargetPhi;
+  Value *OriginalValue;
+  BasicBlock *IncomingBlock;
+};
+
 void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                         const std::string &Indent,
                         SmallVectorImpl<Replacement> &Replacements,
-                        SmallDenseMap<Value *, Value *> &PromotedValues) {
+                        SmallDenseMap<Value *, Value *> &PromotedValues,
+                        SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds) {
   IRBuilder<> Builder(I);
 
   /// Helper to get or create promoted value
@@ -163,7 +171,7 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                       << " to " << *NewPhi << "\n");
     PromotedValues[Phi] = NewPhi;
 
-    // Copy all incoming values and blocks
+    // Copy all incoming values and blocks, potentially deferring some
     for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
       Value *IncomingValue = Phi->getIncomingValue(i);
       BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
@@ -173,28 +181,60 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                         
       Value *NewIncomingValue = nullptr;
       
-      // Special handling for truncation instructions with non-standard intermediate types
+      // Special handling for truncation instructions that convert from standard to non-standard types
       if (auto *TruncI = dyn_cast<TruncInst>(IncomingValue)) {
         Value *TruncSrc = TruncI->getOperand(0);
+        Type *SrcTy = TruncSrc->getType();
+        Type *DestTy = TruncI->getDestTy();
         
-        // Check if the source operand has a non-standard type
-        if (auto *SrcTy = dyn_cast<IntegerType>(TruncSrc->getType())) {
-          if (!HipPromoteIntsPass::isStandardBitWidth(SrcTy->getBitWidth())) {
-            LLVM_DEBUG(dbgs() << Indent << "      Found truncation from non-standard type: " << *TruncI << "\n");
+        bool IsSrcStandard = false;
+        if (auto *SrcIntTy = dyn_cast<IntegerType>(SrcTy)) {
+          IsSrcStandard = HipPromoteIntsPass::isStandardBitWidth(SrcIntTy->getBitWidth());
+        }
+        
+        bool IsDestNonStandard = false;
+        if (auto *DestIntTy = dyn_cast<IntegerType>(DestTy)) {
+          IsDestNonStandard = !HipPromoteIntsPass::isStandardBitWidth(DestIntTy->getBitWidth());
+        }
+        
+        // Handle truncation from standard to non-standard specially
+        if (IsSrcStandard && IsDestNonStandard) {
+          LLVM_DEBUG(dbgs() << Indent << "      Found truncation from standard to non-standard type: " << *TruncI << "\n");
+          
+          // Check if we already have a promoted value for this truncation
+          if (PromotedValues.count(IncomingValue)) {
+            NewIncomingValue = PromotedValues[IncomingValue];
+            LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value: " << *NewIncomingValue << "\n");
+          } else {
+            // If not already processed, get the promoted source directly
+            Value *PromotedSrc = PromotedValues.count(TruncSrc) ? PromotedValues[TruncSrc] : TruncSrc;
             
-            // Instead of creating a new truncation chain, we need to handle the chain consistently
-            // First, get the mapped value for this truncation instruction if it exists
-            if (PromotedValues.count(IncomingValue)) {
-              NewIncomingValue = PromotedValues[IncomingValue];
-              LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for truncation: " 
-                               << *NewIncomingValue << "\n");
-            } else {
-              // If this truncation hasn't been processed yet, we should let the normal truncation
-              // handling take care of it later in promoteChain
-              // For now, just use the original value to avoid inconsistencies
-              NewIncomingValue = IncomingValue;
-              LLVM_DEBUG(dbgs() << Indent << "      Using original truncation value to maintain consistency\n");
-            }
+            // For standard to non-standard truncation, we use the source value directly
+            // This makes the truncation effectively a no-op in our promotion chain
+            LLVM_DEBUG(dbgs() << Indent << "      Using source directly for standard-to-nonstandard trunc: " 
+                              << *PromotedSrc << "\n");
+            
+            NewIncomingValue = PromotedSrc; // Use the (potentially promoted) source
+
+            // Store this for future use (map the original trunc to the promoted source)
+            PromotedValues[IncomingValue] = NewIncomingValue;
+          }
+        } else if (!IsSrcStandard) {
+          // Check if the source operand has a non-standard type
+          LLVM_DEBUG(dbgs() << Indent << "      Found truncation from non-standard type: " << *TruncI << "\n");
+          
+          // Instead of creating a new truncation chain, we need to handle the chain consistently
+          // Check if the truncation itself has already been processed/promoted
+          if (PromotedValues.count(IncomingValue)) {
+            NewIncomingValue = PromotedValues[IncomingValue];
+            LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for truncation: "
+                             << *NewIncomingValue << "\n");
+          } else {
+            // If this truncation hasn't been processed yet, it will be handled later by promoteChain.
+            // Defer adding it to the PHI.
+            LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed non-standard truncation\n");
+            PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
+            continue; // Skip the rest of the loop iteration
           }
         }
       }
@@ -214,8 +254,9 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                                << *NewIncomingValue << "\n");
             } else {
               // If this zext hasn't been processed yet, let the normal processing handle it
-              NewIncomingValue = IncomingValue;
-              LLVM_DEBUG(dbgs() << Indent << "      Using original zero-extension value to maintain consistency\n");
+              LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed non-standard zext\n");
+              PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
+              continue; // Skip the rest of the loop iteration
             }
           }
         }
@@ -223,28 +264,40 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       
       // If not handled by special case above, use normal promotion
       if (!NewIncomingValue) {
-        // If the incoming value is from our promotion chain, use the promoted value
-        NewIncomingValue = PromotedValues.count(IncomingValue)
-                                ? PromotedValues[IncomingValue]
-                                : IncomingValue;
+        // Check if the incoming value is already promoted
+        if (PromotedValues.count(IncomingValue)) {
+          NewIncomingValue = PromotedValues[IncomingValue];
+           LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value: " << *NewIncomingValue << "\n");
+        } else if (isa<Instruction>(IncomingValue)) {
+          // If it's an instruction but not promoted yet, defer it
+          LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed instruction: " << *IncomingValue << "\n");
+          PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
+          continue; // Skip the rest of the loop iteration
+        } else {
+          // Must be a constant, argument, or global - use directly
+          NewIncomingValue = IncomingValue;
+          LLVM_DEBUG(dbgs() << Indent << "      Using non-instruction value directly: " << *NewIncomingValue << "\n");
+        }
+      }
 
-        // If the incoming value isn't promoted yet, promote it now
-        if (NewIncomingValue->getType() != PromotedType) {
-          // Check if we need to extend or truncate based on bit size
-          if (NewIncomingValue->getType()->getPrimitiveSizeInBits() < PromotedType->getPrimitiveSizeInBits()) {
-            LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue
-                              << " ===> " << *NewIncomingValue << "\n");
-            NewIncomingValue = Builder.CreateZExt(NewIncomingValue, PromotedType);
-          } else if (NewIncomingValue->getType()->getPrimitiveSizeInBits() > PromotedType->getPrimitiveSizeInBits()) {
-            LLVM_DEBUG(dbgs() << Indent << "      truncing incoming value: " << *IncomingValue
-                              << " ===> " << *NewIncomingValue << "\n");
-            NewIncomingValue = Builder.CreateTrunc(NewIncomingValue, PromotedType);
-          } else {
-            // Same bit width but different types
-            LLVM_DEBUG(dbgs() << Indent << "      bitcasting incoming value: " << *IncomingValue
-                              << " ===> " << *NewIncomingValue << "\n");
-            NewIncomingValue = Builder.CreateBitCast(NewIncomingValue, PromotedType);
-          }
+      // If we have a value (either promoted or original non-instruction), add it now
+      // Ensure the type matches the promoted PHI type
+      if (NewIncomingValue->getType() != PromotedType) {
+        // Use a temporary builder placed before the original PHI
+        IRBuilder<> PhiBuilder(Phi);
+        if (NewIncomingValue->getType()->getPrimitiveSizeInBits() < PromotedType->getPrimitiveSizeInBits()) {
+          LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue);
+          NewIncomingValue = PhiBuilder.CreateZExt(NewIncomingValue, PromotedType);
+          LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
+        } else if (NewIncomingValue->getType()->getPrimitiveSizeInBits() > PromotedType->getPrimitiveSizeInBits()) {
+          LLVM_DEBUG(dbgs() << Indent << "      truncing incoming value: " << *IncomingValue);
+          NewIncomingValue = PhiBuilder.CreateTrunc(NewIncomingValue, PromotedType);
+          LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
+        } else {
+          // Same bit width but different types
+          LLVM_DEBUG(dbgs() << Indent << "      bitcasting incoming value: " << *IncomingValue);
+          NewIncomingValue = PhiBuilder.CreateBitCast(NewIncomingValue, PromotedType);
+          LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
         }
       }
 
@@ -341,6 +394,38 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     Value *PromotedSrc =
         PromotedValues.count(SrcOp) ? PromotedValues[SrcOp] : SrcOp;
 
+    // Check if we're truncating from a standard type to a non-standard type
+    Type *DestTy = TruncI->getDestTy();
+    bool IsDestNonStandard = false;
+    if (auto *IntTy = dyn_cast<IntegerType>(DestTy)) {
+      IsDestNonStandard = !HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth());
+    }
+
+    bool IsSrcStandard = false;
+    if (auto *SrcIntTy = dyn_cast<IntegerType>(SrcOp->getType())) {
+      IsSrcStandard = HipPromoteIntsPass::isStandardBitWidth(SrcIntTy->getBitWidth());
+    }
+
+    // Special handling for truncation from standard type to non-standard type
+    if (IsSrcStandard && IsDestNonStandard) {
+      LLVM_DEBUG(dbgs() << Indent << "  " << *I 
+                << "   truncation from standard to non-standard becomes no-op: ====> "
+                << *PromotedSrc << "\n");
+      
+      // For internal use within our promotion chain, we use the source value directly
+      // (effectively making the truncation a no-op)
+      PromotedValues[I] = PromotedSrc;
+      
+      // For external users, we still need to provide the truncated value
+      // Value *ExternalValue = Builder.CreateTrunc(PromotedSrc, DestTy);
+      // LLVM_DEBUG(dbgs() << Indent << "    Creating external truncated value: " << *ExternalValue << "\n");
+      
+      // Replace the original instruction with its (promoted) input operand directly,
+      // effectively eliminating the non-standard type production.
+      Replacements.push_back(Replacement(I, PromotedSrc));
+      return;
+    }
+
     // Verify the source is actually of our promoted type
     if (PromotedSrc->getType() != PromotedTy) {
       // Check if we need to extend or truncate
@@ -358,7 +443,6 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
     }
 
     // Check if we're truncating to a non-standard type
-    Type *DestTy = TruncI->getDestTy();
     if (auto *IntTy = dyn_cast<IntegerType>(DestTy)) {
       if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
         // Instead of truncating to a non-standard type, truncate to the next LARGER standard type
@@ -699,6 +783,7 @@ static void promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
                          SmallPtrSetImpl<Instruction *> &Visited,
                          SmallVectorImpl<Replacement> &Replacements,
                          SmallDenseMap<Value *, Value *> &PromotedValues,
+                         SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds,
                          unsigned Depth = 0) {
   // If we've already processed this instruction, just return
   if (!Visited.insert(OldI).second) {
@@ -713,13 +798,13 @@ static void promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
 
   // Process instruction
   processInstruction(OldI, NonStdType, PromotedTy, Indent, Replacements,
-                     PromotedValues);
+                     PromotedValues, PendingPhiAdds);
 
   // Recursively process all users
   for (User *U : OldI->users())
     if (auto *UI = dyn_cast<Instruction>(U))
       promoteChain(UI, NonStdType, PromotedTy, Visited, Replacements,
-                   PromotedValues, Depth + 1);
+                   PromotedValues, PendingPhiAdds, Depth + 1);
 
   return;
 }
@@ -780,13 +865,47 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
 
           SmallVector<Replacement, 16> Replacements;
           SmallDenseMap<Value *, Value *> PromotedValues;
+          SmallVector<PendingPhiAdd, 16> PendingPhiAdds;
 
           // Use GlobalVisited instead of creating a new set
           promoteChain(I, IntTy, PromotedType, GlobalVisited, Replacements,
-                       PromotedValues, 0);
+                       PromotedValues, PendingPhiAdds, 0);
 
-          // Update uses and cleanup
-          // First, replace all uses in instructions that are not in our visited set
+          // Process pending PHI additions *before* main replacement
+          LLVM_DEBUG(dbgs() << "Processing " << PendingPhiAdds.size() << " pending PHI additions...\n");
+          for (const auto &Pending : PendingPhiAdds) {
+              PHINode *TargetPhi = Pending.TargetPhi;
+              Value *OriginalValue = Pending.OriginalValue;
+              BasicBlock *IncomingBlock = Pending.IncomingBlock;
+
+              LLVM_DEBUG(dbgs() << "  Pending: Add " << *OriginalValue << " to " << *TargetPhi << " from block " << IncomingBlock->getName() << "\n");
+
+              // The original value should now be in PromotedValues
+              assert(PromotedValues.count(OriginalValue) && "Pending PHI value was not promoted!");
+              Value *PromotedValue = PromotedValues[OriginalValue];
+              LLVM_DEBUG(dbgs() << "    Found promoted value: " << *PromotedValue << "\n");
+
+              // Adjust type if necessary, inserting before the PHI node
+              if (PromotedValue->getType() != TargetPhi->getType()) {
+                IRBuilder<> PhiBuilder(TargetPhi); // Place instructions before the PHI
+                if (PromotedValue->getType()->getPrimitiveSizeInBits() < TargetPhi->getType()->getPrimitiveSizeInBits()) {
+                  LLVM_DEBUG(dbgs() << "    Adjusting type (zext) for PHI add\n");
+                  PromotedValue = PhiBuilder.CreateZExt(PromotedValue, TargetPhi->getType());
+                } else if (PromotedValue->getType()->getPrimitiveSizeInBits() > TargetPhi->getType()->getPrimitiveSizeInBits()) {
+                  LLVM_DEBUG(dbgs() << "    Adjusting type (trunc) for PHI add\n");
+                  PromotedValue = PhiBuilder.CreateTrunc(PromotedValue, TargetPhi->getType());
+                } else {
+                  LLVM_DEBUG(dbgs() << "    Adjusting type (bitcast) for PHI add\n");
+                  PromotedValue = PhiBuilder.CreateBitCast(PromotedValue, TargetPhi->getType());
+                }
+                LLVM_DEBUG(dbgs() << "      ==> Adjusted value: " << *PromotedValue << "\n");
+              }
+
+              TargetPhi->addIncoming(PromotedValue, IncomingBlock);
+          }
+
+          // Now perform the main replacements
+          LLVM_DEBUG(dbgs() << "Performing main instruction replacements...\n");
           for (const auto &R : Replacements) {
             LLVM_DEBUG(dbgs() << "Replacing uses of: " << *R.Old << "\n"
                              << "    with: " << *R.New << "\n");
