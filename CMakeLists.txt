@@ -241,6 +241,7 @@ option(CHIP_BUILD_HIPBLAS "When enabled, hipBLAS will be built and installed alo
 option(CHIP_BUILD_HIPFFT "When enabled, hipFFT will be built and installed along chipStar" OFF)
 option(CHIP_BUILD_HIPSOLVER "When enabled, hipSOLVER will be built and installed along chipStar" OFF)
 option(CHIP_BUILD_ROCPRIM "When enabled, rocPRIM will be built and installed along chipStar" OFF)
+option(CHIP_BUILD_ROCTHRUST "When enabled, rocThrust will be built and installed along chipStar" OFF)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
 
@@ -898,6 +899,11 @@ endif()
 if(CHIP_BUILD_ROCPRIM)
   add_subdirectory(rocPRIM)
   add_dependencies(rocprim CHIP)
+endif()
+
+if(CHIP_BUILD_ROCTHRUST)
+  add_subdirectory(rocThrust)
+  add_dependencies(rocThrust CHIP)
 endif()
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
