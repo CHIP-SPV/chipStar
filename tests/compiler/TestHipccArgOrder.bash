@@ -1,44 +1,28 @@
-#!/bin/bash
+set -eu
 
-# Set the path to hipcc - it should be in the build directory
-HIPCC_PATH=/space/pvelesko/chipStar/main/build/bin/hipcc
+HIPCC=@CMAKE_BINARY_DIR@/bin/hipcc
 
-# Check if hipcc exists
-if [ ! -f "$HIPCC_PATH" ]; then
-    echo "Error: hipcc not found at $HIPCC_PATH"
-    exit 1
-fi
+echo '#include "gzstream.w.h"
+void open( const char* name, int open_mode) {
+}' > gzstream.w.C
 
-# Expected order of Linker arguments
-EXPECTED_ARGS="-L/path/to/libA -L/path/to/libB -llibA -llibB"
-# Create a grep pattern that respects the order
-# Replace spaces with .* to allow for other arguments inserted by hipcc/linker
-GREP_PATTERN=$(echo "$EXPECTED_ARGS" | sed 's/ /.*/g')
+echo 'void open( const char* name, int open_mode);' > gzstream.w.h
 
-# Minimal C++ source code
-SOURCE_CODE="int main() { return 0; }"
+echo '#include "gzstream.w.h"
+#include <stdlib.h>
 
-# Run hipcc with verbose output, specific argument order, reading source from stdin
-# NO -c flag, so linking will happen (and likely fail, but we check args before that)
-OUTPUT=$(echo "$SOURCE_CODE" | "$HIPCC_PATH" -v -x c++ - -o /dev/null $EXPECTED_ARGS 2>&1)
+int main( int argc, char*argv[]) {
+  open( "c", 0);
+  return 0;
+}' > test.w.C
 
-# Debug: Print the grep pattern and the output line being checked
-echo "Debug: Grep pattern: $GREP_PATTERN"
-LINKER_CMD_LINE=$(echo "$OUTPUT" | grep "/ld" | head -n 1) # Get the first line containing /ld
-echo "Debug: Checking linker command line:"
-echo "$LINKER_CMD_LINE"
+# Compile the library
+${HIPCC} -c gzstream.w.C -o gzstream.w.o
+ar cr libgzstream.w.a gzstream.w.o
 
-echo "Debug: Starting grep check..."
-# Check if the verbose output contains the ld command with the expected argument order
-# Use grep -E for extended regex and check the specific line invoking the linker
-# Use -e to specify the pattern explicitly
-if echo "$LINKER_CMD_LINE" | grep -q -E -e "$GREP_PATTERN"; then
-    echo "Test Passed: Linker argument order appears to be preserved."
-    exit 0
-else
-    echo "Test Failed: Linker argument order might be changed."
-    echo "--- hipcc -v output ---"
-    echo "$OUTPUT"
-    echo "-----------------------"
-    exit 1
-fi 
+# Compile main with -c
+${HIPCC} -c test.w.C -o test.w.o
+
+# Link via -L. -lgzstream.w
+echo "${HIPCC} -L. -lgzstream.w test.w.o -o test"
+${HIPCC} -L. -lgzstream.w test.w.o -o test
