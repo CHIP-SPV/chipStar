@@ -1,6 +1,7 @@
 set -eu
 
 HIPCC=@CMAKE_BINARY_DIR@/bin/hipcc
+HIPCC=/space/pvelesko/install/llvm/18.0/bin/clang++
 
 echo '#include "gzstream.w.h"
 void open( const char* name, int open_mode) {
@@ -24,5 +25,5 @@ ar cr libgzstream.w.a gzstream.w.o
 ${HIPCC} -c test.w.C -o test.w.o
 
 # Link via -L. -lgzstream.w
-echo "${HIPCC} -L. -lgzstream.w test.w.o -o test"
-${HIPCC} -L. -lgzstream.w test.w.o -o test
+echo "${HIPCC} test.w.o -o test -L. -lgzstream.w"
+${HIPCC} test.w.o -o test -L. -lgzstream.w
