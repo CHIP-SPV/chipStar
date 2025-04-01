@@ -45,10 +45,22 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
 
     add_executable("${EXEC_NAME}" ${SOURCE})
 
-    set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
+    set_target_properties("${EXEC_NAME}" PROPERTIES 
+        CXX_STANDARD_REQUIRED ON
+        BUILD_WITH_INSTALL_RPATH TRUE
+        SKIP_BUILD_RPATH FALSE)
 
-    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
+    target_link_libraries("${EXEC_NAME}" PRIVATE CHIP deviceInternal)
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include/hip ${CHIP_SRC_DIR}/include)
+    
+    # Add explicit dependency on CHIP library
+    add_dependencies("${EXEC_NAME}" CHIP deviceInternal)
+    
+    # Set RPATH for the executable
+    set_target_properties("${EXEC_NAME}" PROPERTIES
+        INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
+        INSTALL_RPATH_USE_LINK_PATH TRUE)
+
     install(TARGETS "${EXEC_NAME}"
             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
 
@@ -61,39 +73,52 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
              PASS_REGULAR_EXPRESSION "${TEST_PASS}"
              SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
              LABELS internal)
-
 endfunction()
 
 
 # ARGN = sources
 function(add_chip_binary EXEC_NAME)
-
     set(SOURCES ${ARGN})
     set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
 
     add_executable("${EXEC_NAME}" ${SOURCES})
 
-    set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
+    set_target_properties("${EXEC_NAME}" PROPERTIES 
+        CXX_STANDARD_REQUIRED ON
+        BUILD_WITH_INSTALL_RPATH TRUE
+        SKIP_BUILD_RPATH FALSE)
+
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
-    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
+    target_link_libraries("${EXEC_NAME}" PRIVATE CHIP deviceInternal)
+    
+    # Add explicit dependency on CHIP library
+    add_dependencies("${EXEC_NAME}" CHIP deviceInternal)
+    
+    # Set RPATH for the executable
+    set_target_properties("${EXEC_NAME}" PROPERTIES
+        INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
+        INSTALL_RPATH_USE_LINK_PATH TRUE)
 
     install(TARGETS "${EXEC_NAME}"
             RUNTIME DESTINATION "${CHIP_SAMPLE_BINDIR}")
-
 endfunction()
 
 function(add_chip_library EXEC_NAME)
-
     set(SOURCES ${ARGN})
     set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
 
     add_library("${EXEC_NAME}" STATIC ${SOURCES})
 
-    set_target_properties("${EXEC_NAME}" PROPERTIES CXX_STANDARD_REQUIRED ON)
+    set_target_properties("${EXEC_NAME}" PROPERTIES 
+        CXX_STANDARD_REQUIRED ON
+        BUILD_WITH_INSTALL_RPATH TRUE
+        SKIP_BUILD_RPATH FALSE)
 
-    target_link_libraries("${EXEC_NAME}" CHIP deviceInternal)
+    target_link_libraries("${EXEC_NAME}" PRIVATE CHIP deviceInternal)
     target_include_directories("${EXEC_NAME}" PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
-
+    
+    # Add explicit dependency on CHIP library
+    add_dependencies("${EXEC_NAME}" CHIP deviceInternal)
 endfunction()
 
 set(SAMPLES
@@ -150,9 +175,24 @@ else()
   message(STATUS "icpx or MKL not found: Not building SYCL interop samples.")
 endif()
 
-add_custom_target(samples DEPENDS ${SAMPLES})
+# Create a custom target for all samples that depends on CHIP and deviceInternal
+add_custom_target(samples_dependencies)
+add_dependencies(samples_dependencies CHIP deviceInternal)
+
+# Create the main samples target
+add_custom_target(samples)
+add_dependencies(samples samples_dependencies)
+
+# First add all subdirectories to create the targets
 foreach (SAMPLE ${SAMPLES})
   add_subdirectory(${SAMPLE})
 endforeach()
 
 add_subdirectory(cuda_samples)
+
+# Now add dependencies after all targets are created
+foreach (SAMPLE ${SAMPLES})
+  if(TARGET ${SAMPLE})
+    add_dependencies(samples ${SAMPLE})
+  endif()
+endforeach()
