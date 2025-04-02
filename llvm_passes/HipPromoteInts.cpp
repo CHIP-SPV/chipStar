@@ -125,9 +125,41 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
     return V;
   }
 
-  // If it's the non-standard type, promote it
+  // Handle Constants specifically
+  if (auto *ConstInt = dyn_cast<ConstantInt>(V)) {
+    if (ConstInt->getType() == NonStdType) {
+      // Create a new ConstantInt with the promoted type
+      APInt PromotedValue = ConstInt->getValue().zext(PromotedTy->getIntegerBitWidth());
+      Value *NewConst = ConstantInt::get(PromotedTy, PromotedValue);
+      LLVM_DEBUG(dbgs() << Indent << "      Promoting ConstantInt: " << *V
+                        << " to " << *NewConst << "\n");
+      PromotedValues[V] = NewConst; // Cache the promoted constant
+      return NewConst;
+    }
+    // If it's a constant of a different standard type, it might need zext/trunc later
+    // but we return the original constant for now. Adjustments happen in the instruction processing.
+     LLVM_DEBUG(dbgs() << Indent << "      Using original ConstantInt: " << *V << "\n");
+     return V; // Return original standard-type constant
+  }
+
+
+  // If it's the non-standard type (and not a constant, handled above), promote it via instruction
   if (V->getType() == NonStdType) {
-    // Make sure we don't try to extend a larger type to a smaller one
+    // Check if it's an instruction that should have been processed already
+    // This might indicate a circular dependency or an issue in the traversal order.
+    if (isa<Instruction>(V) && !PromotedValues.count(V)) {
+       LLVM_DEBUG(dbgs() << Indent << "      WARNING: Encountered unprocessed non-standard instruction: " << *V << ". This might lead to issues.\n");
+       // Attempting to create a ZExt here might break things if the instruction hasn't been placed yet.
+       // It's better to rely on the main processing loop to handle instructions.
+       // For now, return the original value, hoping it gets processed correctly later.
+       // This scenario ideally shouldn't happen with correct traversal.
+       // Consider adding an assertion or more robust handling if this persists.
+       // A placeholder might be needed in some complex cases (like PHIs).
+       return V; // Or potentially return UndefValue?
+    }
+
+    // For non-instruction Values (like Arguments, Globals if they could be non-std, which they shouldn't)
+    // or already processed instructions reaching here through some path.
     Value *NewV = nullptr;
     if (V->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
       NewV = Builder.CreateZExt(V, PromotedTy);
@@ -135,19 +167,19 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
                         << " to " << *NewV << "\n");
     } else if (V->getType()->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
       NewV = Builder.CreateTrunc(V, PromotedTy);
-      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with trunc: " << *V
+       LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with trunc: " << *V
                         << " to " << *NewV << "\n");
     } else {
       NewV = Builder.CreateBitCast(V, PromotedTy);
-      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with bitcast: " << *V
+       LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with bitcast: " << *V
                         << " to " << *NewV << "\n");
     }
     PromotedValues[V] = NewV;
     return NewV;
   }
 
-  // Otherwise return original value
-  LLVM_DEBUG(dbgs() << Indent << "      Using original value: " << *V << "\n");
+  // Otherwise return original value (likely a standard type different from PromotedTy)
+  LLVM_DEBUG(dbgs() << Indent << "      Using original value (standard type): " << *V << "\n");
   return V;
 };
 
@@ -306,91 +338,113 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
   Replacements.push_back(Replacement(Phi, NewPhi));
 }
 
-static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType, Type *PromotedTy,
+// Helper to check for non-standard integer types
+static bool isNonStandardInt(Type *T) {
+  if (auto *IntTy = dyn_cast<IntegerType>(T)) {
+    // Assuming isStandardBitWidth is accessible here (e.g., static member or global)
+    return !HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth());
+  }
+  return false;
+}
+
+// Helper to adjust value V to type TargetTy using Builder
+static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const std::string& Indent = "") {
+    if (V->getType() == TargetTy) {
+        return V;
+    }
+
+    unsigned SrcBits = V->getType()->getPrimitiveSizeInBits();
+    unsigned DstBits = TargetTy->getPrimitiveSizeInBits();
+
+    LLVM_DEBUG(dbgs() << Indent << "Adjusting type of " << *V << " from " << *V->getType() << " to " << *TargetTy << "\n");
+
+    Value* AdjustedV = nullptr;
+    if (DstBits < SrcBits) {
+        AdjustedV = Builder.CreateTrunc(V, TargetTy);
+         LLVM_DEBUG(dbgs() << Indent << "  Created Trunc: " << *AdjustedV << "\n");
+    } else if (DstBits > SrcBits) {
+        AdjustedV = Builder.CreateZExt(V, TargetTy);
+         LLVM_DEBUG(dbgs() << Indent << "  Created ZExt: " << *AdjustedV << "\n");
+    } else {
+        AdjustedV = Builder.CreateBitCast(V, TargetTy);
+         LLVM_DEBUG(dbgs() << Indent << "  Created BitCast: " << *AdjustedV << "\n");
+    }
+    return AdjustedV;
+}
+
+// Refined processZExtInst logic:
+static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being promoted, e.g. i56 */,
+                            Type *PromotedTy /* Type to promote to, e.g. i64 */,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
   Value *SrcOp = ZExtI->getOperand(0);
+  Type *SrcTy = SrcOp->getType();
+  Type *DestTy = ZExtI->getDestTy();
 
-  // Get promoted source if available
+  // Get the potentially promoted source value. getPromotedValue handles constant promotion.
   Value *PromotedSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
-  // Handle zero extension based on source and destination types
-  if (SrcOp->getType() == NonStdType) {
-    // If the source is our non-standard type, we need to be careful with type consistency
-    LLVM_DEBUG(dbgs() << Indent << "  ZExt with non-standard source type: " << *ZExtI << "\n");
+  bool IsSrcNonStandard = isNonStandardInt(SrcTy);
+  bool IsDestNonStandard = isNonStandardInt(DestTy);
 
-    // Create a new zext with properly promoted types
-    Type *DestTy = ZExtI->getDestTy();
+  Value *NewValue = nullptr;
 
-    // If destination type is smaller than our promoted type, we need to truncate first
-    if (DestTy->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
-      Value *NewZExt = Builder.CreateTrunc(PromotedSrc, DestTy);
-      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (with trunc): ====> "
-                        << *NewZExt << "\n");
-      PromotedValues[ZExtI] = NewZExt;
-      Replacements.push_back(Replacement(ZExtI, NewZExt));
-    }
-    // If destination type is larger, create a proper zext
-    else if (DestTy->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
-      Value *NewZExt = Builder.CreateZExt(PromotedSrc, DestTy);
-      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (with zext): ====> "
-                        << *NewZExt << "\n");
-      PromotedValues[ZExtI] = NewZExt;
-      Replacements.push_back(Replacement(ZExtI, NewZExt));
-    }
-    // If destination is exactly our promoted type, just use the promoted source
-    else {
-      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (direct): ====> "
-                        << *PromotedSrc << "\n");
-      PromotedValues[ZExtI] = PromotedSrc;
-      Replacements.push_back(Replacement(ZExtI, PromotedSrc));
-    }
-  } else {
-    // For standard source types, check if destination type is non-standard
-    Type *DestTy = ZExtI->getDestTy();
+  if (IsSrcNonStandard) {
+    // Case 1: Source is Non-Standard (e.g., zext i56 -> i64)
+    // PromotedSrc should now have the PromotedTy (e.g., i64)
+    assert(PromotedSrc->getType() == PromotedTy && "Non-standard source operand was not promoted correctly in getPromotedValue");
 
-    if (auto *IntTy = dyn_cast<IntegerType>(DestTy)) {
-      if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
-        // Promote the destination type to standard width
-        Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy);
-
-        // Create a direct zext from source to promoted destination type
-        Value *NewZExt = Builder.CreateZExt(PromotedSrc, PromotedDestTy);
-
-        LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std dest): ====> "
-                       << *NewZExt << "\n");
-        PromotedValues[ZExtI] = NewZExt;
-        Replacements.push_back(Replacement(ZExtI, NewZExt));
-        return;
-      }
-    }
-
-    // For standard destination types, handle normally
-    // Ensure source is promoted if needed *before* casting to dest type
-    if (PromotedSrc->getType() != PromotedTy &&
-        PromotedSrc->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
-      PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
-      LLVM_DEBUG(dbgs() << Indent << "    Implicitly ZExting source for standard ZExt\n");
-    }
-
-    // Create a new zext/trunc/noop to the destination type
-    Value *NewZExt;
-
-    if (PromotedSrc->getType()->getPrimitiveSizeInBits() > DestTy->getPrimitiveSizeInBits()) {
-      NewZExt = Builder.CreateTrunc(PromotedSrc, DestTy);
-    } else if (PromotedSrc->getType()->getPrimitiveSizeInBits() < DestTy->getPrimitiveSizeInBits()) {
-      NewZExt = Builder.CreateZExt(PromotedSrc, DestTy);
+    // We need the final result type to be DestTy (original destination type).
+    // Adjust the PromotedSrc to match DestTy if necessary.
+    NewValue = adjustType(PromotedSrc, DestTy, Builder, Indent + "    ");
+    if (NewValue == PromotedSrc) {
+      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std src, becomes no-op): ====> " << *NewValue << "\n");
     } else {
-      NewZExt = PromotedSrc; // Same size, no conversion needed
+      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std src, requires adjust): ====> " << *NewValue << "\n");
     }
 
-    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt: ====> "
-                     << *NewZExt << "\n");
-    PromotedValues[ZExtI] = NewZExt;
-    Replacements.push_back(Replacement(ZExtI, NewZExt));
+    // Replace the original ZExt instruction with the NewValue.
+    PromotedValues[ZExtI] = NewValue; // Map original ZExt result to the final value
+    Replacements.push_back(Replacement(ZExtI, NewValue));
+
+  } else if (IsDestNonStandard) {
+    // Case 2: Destination is Non-Standard (e.g., zext i32 -> i56)
+    Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy); // e.g., i64
+
+    // Ensure the source operand used for the new ZExt has its original standard type.
+    Value* AdjustedSrc = PromotedSrc;
+    if (AdjustedSrc->getType() != SrcTy) {
+        IRBuilder<> TmpBuilder(ZExtI); // Builder before original instruction
+        LLVM_DEBUG(dbgs() << Indent << "    Adjusting source back to original standard type (" << *SrcTy << ") for zext->non-std\n");
+        AdjustedSrc = adjustType(AdjustedSrc, SrcTy, TmpBuilder, Indent + "      ");
+    }
+
+    // Create ZExt using the adjusted standard source to the *promoted* destination type.
+    NewValue = Builder.CreateZExt(AdjustedSrc, PromotedDestTy);
+    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std dest): ====> " << *NewValue << "\n");
+    PromotedValues[ZExtI] = NewValue; // Map original ZExt result to the new promoted value
+    Replacements.push_back(Replacement(ZExtI, NewValue));
+
+  } else {
+    // Case 3: Source and Destination are Standard (e.g., zext i32 -> i64)
+    // Recreate the instruction, ensuring the source operand has its original standard type.
+     Value* AdjustedSrc = PromotedSrc;
+     if (AdjustedSrc->getType() != SrcTy) {
+        IRBuilder<> TmpBuilder(ZExtI); // Builder before original instruction
+        LLVM_DEBUG(dbgs() << Indent << "    Adjusting source back to original standard type (" << *SrcTy << ") for std zext\n");
+        AdjustedSrc = adjustType(AdjustedSrc, SrcTy, TmpBuilder, Indent + "      ");
+     }
+
+    // Create the ZExt with the adjusted standard source and original standard destination type.
+    NewValue = Builder.CreateZExt(AdjustedSrc, DestTy);
+    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (standard src/dest): ====> " << *NewValue << "\n");
+    // Map original ZExt result to new ZExt result. Both should have same standard type.
+    PromotedValues[ZExtI] = NewValue;
+    Replacements.push_back(Replacement(ZExtI, NewValue));
   }
 }
+
 
 static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *PromotedTy,
                              IRBuilder<> &Builder, const std::string &Indent,
@@ -925,31 +979,87 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
     SmallVector<Instruction *, 16> WorkList;
 
     // First collect all instructions we need to promote
-    for (BasicBlock &BB : F)
-      for (Instruction &I : BB)
-        if (auto *IntTy = dyn_cast<IntegerType>(I.getType()))
-          if (!isStandardBitWidth(IntTy->getBitWidth()))
-            WorkList.push_back(&I);
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        bool NeedsPromotion = false;
+        // Check result type
+        if (auto *IntTy = dyn_cast<IntegerType>(I.getType())) {
+          if (!isStandardBitWidth(IntTy->getBitWidth())) {
+            NeedsPromotion = true;
+          }
+        }
+        // Check operand types
+        if (!NeedsPromotion) {
+          for (Value *Op : I.operands()) {
+            if (auto *OpIntTy = dyn_cast<IntegerType>(Op->getType())) {
+              if (!isStandardBitWidth(OpIntTy->getBitWidth())) {
+                NeedsPromotion = true;
+                break; // Found a non-standard operand, no need to check others
+              }
+            }
+          }
+        }
+
+        if (NeedsPromotion) {
+            // Check if it's already in the worklist to avoid duplicates
+            // (Simple linear scan, could optimize if needed)
+            bool Found = false;
+            for(Instruction *ExistingI : WorkList) {
+                if (ExistingI == &I) {
+                    Found = true;
+                    break;
+                }
+            }
+            if (!Found) {
+                 LLVM_DEBUG(dbgs() << "Adding instruction to worklist due to non-standard type: " << I << "\n");
+                 WorkList.push_back(&I);
+            }
+        }
+      }
+    }
 
     // Process the worklist
     for (Instruction *I : WorkList) {
-      // Skip if we've already processed this instruction as part of another
-      // chain
+      // Skip if we've already processed this instruction as part of another chain
       if (GlobalVisited.count(I))
         continue;
 
-      if (auto *IntTy = dyn_cast<IntegerType>(I->getType())) {
-        if (!isStandardBitWidth(IntTy->getBitWidth())) {
-          unsigned PromotedBitWidth = getPromotedBitWidth(IntTy->getBitWidth());
-          Type *PromotedType =
-              Type::getIntNTy(M.getContext(), PromotedBitWidth);
+      // Determine the non-standard type and the target promoted type that trigger processing for this instruction
+      Type* NonStdTriggerType = nullptr;
+      Type* PromotedTargetType = nullptr;
 
+      // Check result type first
+      if (auto *ResIntTy = dyn_cast<IntegerType>(I->getType())) {
+        if (!isStandardBitWidth(ResIntTy->getBitWidth())) {
+          NonStdTriggerType = ResIntTy;
+          PromotedTargetType = Type::getIntNTy(M.getContext(), getPromotedBitWidth(ResIntTy->getBitWidth()));
+           LLVM_DEBUG(dbgs() << "Triggering promotion for " << *I << " due to non-standard result type: " << *NonStdTriggerType << "\n");
+        }
+      }
+
+      // If result type is standard, check operands
+      if (!NonStdTriggerType) {
+        for (Value *Op : I->operands()) {
+          if (auto *OpIntTy = dyn_cast<IntegerType>(Op->getType())) {
+            if (!isStandardBitWidth(OpIntTy->getBitWidth())) {
+              NonStdTriggerType = OpIntTy;
+              PromotedTargetType = Type::getIntNTy(M.getContext(), getPromotedBitWidth(OpIntTy->getBitWidth()));
+              LLVM_DEBUG(dbgs() << "Triggering promotion for " << *I << " due to non-standard operand type: " << *NonStdTriggerType << " (" << *Op << ")\n");
+              break; // Found the first non-standard operand, use it as the trigger
+            }
+          }
+        }
+      }
+
+      // If we found a non-standard type that requires promotion
+      if (NonStdTriggerType && PromotedTargetType) {
           SmallVector<Replacement, 16> Replacements;
           SmallDenseMap<Value *, Value *> PromotedValues;
           SmallVector<PendingPhiAdd, 16> PendingPhiAdds;
 
-          // Use GlobalVisited instead of creating a new set
-          promoteChain(I, IntTy, PromotedType, GlobalVisited, Replacements,
+          // Call promoteChain using the identified non-standard type and its corresponding promoted type
+          // GlobalVisited is passed to track processed instructions across different chain roots
+          promoteChain(I, NonStdTriggerType, PromotedTargetType, GlobalVisited, Replacements,
                        PromotedValues, PendingPhiAdds, 0);
 
           // Process pending PHI additions *before* main replacement
@@ -969,16 +1079,8 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
               // Adjust type if necessary, inserting before the PHI node
               if (PromotedValue->getType() != TargetPhi->getType()) {
                 IRBuilder<> PhiBuilder(TargetPhi); // Place instructions before the PHI
-                if (PromotedValue->getType()->getPrimitiveSizeInBits() < TargetPhi->getType()->getPrimitiveSizeInBits()) {
-                  LLVM_DEBUG(dbgs() << "    Adjusting type (zext) for PHI add\n");
-                  PromotedValue = PhiBuilder.CreateZExt(PromotedValue, TargetPhi->getType());
-                } else if (PromotedValue->getType()->getPrimitiveSizeInBits() > TargetPhi->getType()->getPrimitiveSizeInBits()) {
-                  LLVM_DEBUG(dbgs() << "    Adjusting type (trunc) for PHI add\n");
-                  PromotedValue = PhiBuilder.CreateTrunc(PromotedValue, TargetPhi->getType());
-                } else {
-                  LLVM_DEBUG(dbgs() << "    Adjusting type (bitcast) for PHI add\n");
-                  PromotedValue = PhiBuilder.CreateBitCast(PromotedValue, TargetPhi->getType());
-                }
+                LLVM_DEBUG(dbgs() << "    Adjusting type for PHI add from " << *PromotedValue->getType() << " to " << *TargetPhi->getType() << "\n");
+                PromotedValue = adjustType(PromotedValue, TargetPhi->getType(), PhiBuilder, "      "); // Use helper
                 LLVM_DEBUG(dbgs() << "      ==> Adjusted value: " << *PromotedValue << "\n");
               }
 
@@ -993,23 +1095,23 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
             // Make a copy of the users to avoid iterator invalidation
             SmallVector<User*, 8> Users(R.Old->user_begin(), R.Old->user_end());
             for (User *U : Users) {
-              if (auto *I = dyn_cast<Instruction>(U)) {
-                if (!GlobalVisited.count(I) || PromotedValues.count(I)) {
-                  LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
-                  U->replaceUsesOfWith(R.Old, R.New);
+                // Replace uses only if the user instruction itself is part of the processed chain
+                // or if it's not an instruction (e.g. a constant expression using the old value).
+                Instruction* UserInst = dyn_cast<Instruction>(U);
+                if (!UserInst || GlobalVisited.count(UserInst)) {
+                     LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
+                     U->replaceUsesOfWith(R.Old, R.New);
+                } else {
+                     LLVM_DEBUG(dbgs() << "  Skipping update for use in unprocessed instruction: " << *U << "\n");
                 }
-              } else {
-                // Non-instruction users should be updated as well
-                LLVM_DEBUG(dbgs() << "  Updating non-instruction use in: " << *U << "\n");
-                U->replaceUsesOfWith(R.Old, R.New);
-              }
             }
           }
-          
-          // Then, for any instructions with remaining uses, we need a different approach
+
+          // Then, for any instructions with remaining uses, force replacement.
+          // This can happen with complex dependencies or cycles not fully resolved by the above.
           for (auto &R : Replacements) {
             if (!R.Old->use_empty()) {
-              LLVM_DEBUG(dbgs() << "Instruction still has uses after replacement: " << *R.Old << "\n");
+              LLVM_DEBUG(dbgs() << "Instruction still has uses after initial replacement: " << *R.Old << "\n" << "  Forcing replaceAllUsesWith...\n");
               R.Old->replaceAllUsesWith(R.New);
             }
           }
@@ -1019,17 +1121,16 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
             LLVM_DEBUG(dbgs() << "Deleting instruction: " << *(It->Old) << "\n");
             if (!It->Old->use_empty()) {
               LLVM_DEBUG(dbgs() << "WARNING: Instruction still has uses before deletion: " << *(It->Old) << "\n");
-              // Force replacement again to handle circular references
+              // Force replacement again just in case
               It->Old->replaceAllUsesWith(It->New);
             }
             It->Old->eraseFromParent();
           }
 
-          Changed = true;
-        }
-      }
-    }
-  }
+          Changed = true; // Mark that changes were made
+      } // End if (NonStdTriggerType && PromotedTargetType)
+    } // End for (Instruction *I : WorkList)
+  } // End for (Function &F : M)
 
   // Print the final IR state before exiting
   LLVM_DEBUG(dbgs() << "Final module IR after HipPromoteIntsPass:\n");
