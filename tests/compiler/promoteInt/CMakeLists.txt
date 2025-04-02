@@ -33,6 +33,7 @@ configure_file(run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/run_promote
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/dominance.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/ext-repro.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/warpCalc.ll)
+list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rocprim.ll)
 # If we have this, a pass won't help
 # list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/func-return-nonstd.ll)
 
