@@ -531,37 +531,21 @@ static void processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type 
                                   IRBuilder<> &Builder, const std::string &Indent,
                                   SmallVectorImpl<Replacement> &Replacements,
                                   SmallDenseMap<Value *, Value *> &PromotedValues) {
-  bool NeedsPromotion = (BinOp->getType() == NonStdType);
+  bool NeedsPromotion = isNonStandardInt(BinOp->getType()); // Use helper
 
   Value *LHS = getPromotedValue(BinOp->getOperand(0), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
   Value *RHS = getPromotedValue(BinOp->getOperand(1), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
-  Value *NewInst;
-  if (NeedsPromotion) {
-    // Create operation in promoted type
-    LLVM_DEBUG(dbgs() << Indent << "  Creating a binary operation Opcode: " << BinOp->getOpcodeName() << " LHS: " << *LHS << " and RHS: " << *RHS << "\n");
-    NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
-  } else {
-    // For operations that should stay in original type
-    Type* OriginalType = BinOp->getType();
-    if (LHS->getType() != OriginalType) {
-        if (LHS->getType()->getPrimitiveSizeInBits() > OriginalType->getPrimitiveSizeInBits())
-            LHS = Builder.CreateTrunc(LHS, OriginalType);
-        else if (LHS->getType()->getPrimitiveSizeInBits() < OriginalType->getPrimitiveSizeInBits())
-             LHS = Builder.CreateZExt(LHS, OriginalType);
-        else
-             LHS = Builder.CreateBitCast(LHS, OriginalType);
-    }
-    if (RHS->getType() != OriginalType) {
-         if (RHS->getType()->getPrimitiveSizeInBits() > OriginalType->getPrimitiveSizeInBits())
-            RHS = Builder.CreateTrunc(RHS, OriginalType);
-        else if (RHS->getType()->getPrimitiveSizeInBits() < OriginalType->getPrimitiveSizeInBits())
-             RHS = Builder.CreateZExt(RHS, OriginalType);
-        else
-             RHS = Builder.CreateBitCast(RHS, OriginalType);
-    }
-    NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
-  }
+  // Determine the target type for the new binary operation
+  Type* TargetType = NeedsPromotion ? PromotedTy : BinOp->getType();
+
+  // Adjust operands to the target type *before* creating the new BinOp
+  LHS = adjustType(LHS, TargetType, Builder, Indent + "  Adjusting LHS: ");
+  RHS = adjustType(RHS, TargetType, Builder, Indent + "  Adjusting RHS: ");
+
+  // Now LHS and RHS must have the same type
+  assert(LHS->getType() == RHS->getType() && "Operand types mismatch for BinOp after adjustment!");
+  Value *NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *BinOp << "   promoting BinOp: ====> "
                     << *NewInst << "\n");
@@ -573,51 +557,37 @@ static void processSelectInst(SelectInst *SelI, Type *NonStdType, Type *Promoted
                               IRBuilder<> &Builder, const std::string &Indent,
                               SmallVectorImpl<Replacement> &Replacements,
                               SmallDenseMap<Value *, Value *> &PromotedValues) {
-  bool NeedsPromotion = (SelI->getType() == NonStdType);
+  bool NeedsPromotion = isNonStandardInt(SelI->getType()); // Use helper
 
-  // Get promoted operands
-  Value *Condition = getPromotedValue(SelI->getCondition(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  // Get potentially promoted operands
+  Value *Condition = SelI->getCondition(); // Condition is usually i1, promotion unlikely needed directly by getPromotedValue
   Value *TrueVal = getPromotedValue(SelI->getTrueValue(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
   Value *FalseVal = getPromotedValue(SelI->getFalseValue(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
   // Make sure condition is i1
   if (Condition->getType() != Type::getInt1Ty(SelI->getContext())) {
     LLVM_DEBUG(dbgs() << Indent << "    Converting condition to i1: " << *Condition << "\n");
-    Condition = Builder.CreateICmpNE(
-        Condition,
-        Constant::getNullValue(Condition->getType()),
-        "select.cond");
+    // Use adjustType to handle potential promotion of condition operand if needed
+    Condition = adjustType(Condition, Type::getInt1Ty(SelI->getContext()), Builder, Indent + "  Adjusting Cond: ");
+    // Check if adjustment resulted in non-i1; if so, create comparison
+    if (Condition->getType() != Type::getInt1Ty(SelI->getContext())) {
+         Condition = Builder.CreateICmpNE(
+            Condition,
+            Constant::getNullValue(Condition->getType()),
+            "select.cond");
+    }
   }
 
-  Value *NewSelect;
-  if (NeedsPromotion) {
-    // Create operation in promoted type
-    NewSelect = Builder.CreateSelect(Condition, TrueVal, FalseVal, SelI->getName());
-  } else {
-    // For operations that should stay in original type
-    Type *OriginalType = SelI->getType();
+  // Determine the target type for the select result and true/false values
+  Type* TargetType = NeedsPromotion ? PromotedTy : SelI->getType();
 
-    // True and false values must match the select's type
-    auto adjustType = [&](Value *V, const std::string& val_name) -> Value* {
-        if (V->getType() != OriginalType) {
-            if (V->getType()->getPrimitiveSizeInBits() > OriginalType->getPrimitiveSizeInBits()) {
-                V = Builder.CreateTrunc(V, OriginalType);
-                LLVM_DEBUG(dbgs() << Indent << "    Truncating " << val_name << " value to match select type\n");
-            } else if (V->getType()->getPrimitiveSizeInBits() < OriginalType->getPrimitiveSizeInBits()) {
-                V = Builder.CreateZExt(V, OriginalType);
-                LLVM_DEBUG(dbgs() << Indent << "    Extending " << val_name << " value to match select type\n");
-            } else {
-                V = Builder.CreateBitCast(V, OriginalType);
-                LLVM_DEBUG(dbgs() << Indent << "    Bitcasting " << val_name << " value to match select type\n");
-            }
-        }
-        return V;
-    };
-    TrueVal = adjustType(TrueVal, "true");
-    FalseVal = adjustType(FalseVal, "false");
+  // Adjust TrueVal and FalseVal to the target type *before* creating the new SelectInst
+  TrueVal = adjustType(TrueVal, TargetType, Builder, Indent + "  Adjusting TrueVal: ");
+  FalseVal = adjustType(FalseVal, TargetType, Builder, Indent + "  Adjusting FalseVal: ");
 
-    NewSelect = Builder.CreateSelect(Condition, TrueVal, FalseVal, SelI->getName());
-  }
+  // Now TrueVal and FalseVal must have the same type
+  assert(TrueVal->getType() == FalseVal->getType() && "Operand types mismatch for Select after adjustment!");
+  Value *NewSelect = Builder.CreateSelect(Condition, TrueVal, FalseVal, SelI->getName());
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *SelI << "   promoting Select: ====> "
                     << *NewSelect << "\n");
@@ -629,46 +599,35 @@ static void processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
-  // Get promoted operands
+  // Get potentially promoted operands
   Value *LHS = getPromotedValue(CmpI->getOperand(0), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
   Value *RHS = getPromotedValue(CmpI->getOperand(1), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
-  // Make sure operands are of same type for comparison
-  if (LHS->getType() != RHS->getType()) {
-    // Determine the common type (prefer promoted type if involved)
-    Type *CommonType = nullptr;
-    if (LHS->getType() == PromotedTy || RHS->getType() == PromotedTy) {
-        CommonType = PromotedTy;
-    } else {
-        // If neither is promoted type but they still differ, convert to largest type
-        CommonType = LHS->getType()->getPrimitiveSizeInBits() >
-                     RHS->getType()->getPrimitiveSizeInBits() ?
-                     LHS->getType() : RHS->getType();
-    }
+  // Determine the common type for comparison. Prefer the wider type if they differ.
+  // If either became PromotedTy, use that.
+  Type *CompareType = nullptr;
+  Type* LHSType = LHS->getType();
+  Type* RHSType = RHS->getType();
 
-    // Cast LHS if needed
-    if (LHS->getType() != CommonType) {
-        if (LHS->getType()->getPrimitiveSizeInBits() < CommonType->getPrimitiveSizeInBits())
-            LHS = Builder.CreateZExt(LHS, CommonType);
-        else if (LHS->getType()->getPrimitiveSizeInBits() > CommonType->getPrimitiveSizeInBits())
-            LHS = Builder.CreateTrunc(LHS, CommonType);
-        else
-            LHS = Builder.CreateBitCast(LHS, CommonType);
-        LLVM_DEBUG(dbgs() << Indent << "    Adjusting ICmp LHS type to " << *CommonType << "\n");
-    }
-    // Cast RHS if needed
-    if (RHS->getType() != CommonType) {
-         if (RHS->getType()->getPrimitiveSizeInBits() < CommonType->getPrimitiveSizeInBits())
-            RHS = Builder.CreateZExt(RHS, CommonType);
-        else if (RHS->getType()->getPrimitiveSizeInBits() > CommonType->getPrimitiveSizeInBits())
-            RHS = Builder.CreateTrunc(RHS, CommonType);
-        else
-            RHS = Builder.CreateBitCast(RHS, CommonType);
-        LLVM_DEBUG(dbgs() << Indent << "    Adjusting ICmp RHS type to " << *CommonType << "\n");
-    }
+  bool LHSIsPromoted = LHSType == PromotedTy || (isa<IntegerType>(LHSType) && HipPromoteIntsPass::getPromotedBitWidth(LHSType->getIntegerBitWidth()) == PromotedTy->getIntegerBitWidth());
+  bool RHSIsPromoted = RHSType == PromotedTy || (isa<IntegerType>(RHSType) && HipPromoteIntsPass::getPromotedBitWidth(RHSType->getIntegerBitWidth()) == PromotedTy->getIntegerBitWidth());
+
+  if (LHSIsPromoted || RHSIsPromoted) {
+    CompareType = PromotedTy; // Promote comparison to the wider type if either operand involves it
+  } else if (LHSType->getPrimitiveSizeInBits() > RHSType->getPrimitiveSizeInBits()) {
+    CompareType = LHSType;
+  } else {
+    CompareType = RHSType; // Use RHS type if it's wider or if types are the same
   }
+   LLVM_DEBUG(dbgs() << Indent << "    Determined ICmp CompareType: " << *CompareType << "\n");
 
-  // Create new comparison instruction
+  // Adjust operands *to the determined comparison type*
+  LHS = adjustType(LHS, CompareType, Builder, Indent + "  Adjusting ICmp LHS: ");
+  RHS = adjustType(RHS, CompareType, Builder, Indent + "  Adjusting ICmp RHS: ");
+
+  // Now LHS and RHS must have the same type
+  assert(LHS->getType() == RHS->getType() && "Operand types mismatch for ICmp after adjustment!");
+  // Create new comparison instruction (result is always i1)
   Value *NewCmp = Builder.CreateICmp(CmpI->getPredicate(), LHS, RHS, CmpI->getName());
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *CmpI << "   promoting ICmp: ====> "
@@ -1032,7 +991,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       if (auto *ResIntTy = dyn_cast<IntegerType>(I->getType())) {
         if (!isStandardBitWidth(ResIntTy->getBitWidth())) {
           NonStdTriggerType = ResIntTy;
-          PromotedTargetType = Type::getIntNTy(M.getContext(), getPromotedBitWidth(ResIntTy->getBitWidth()));
+          PromotedTargetType = Type::getIntNTy(M.getContext(), HipPromoteIntsPass::getPromotedBitWidth(ResIntTy->getBitWidth()));
            LLVM_DEBUG(dbgs() << "Triggering promotion for " << *I << " due to non-standard result type: " << *NonStdTriggerType << "\n");
         }
       }
@@ -1043,7 +1002,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
           if (auto *OpIntTy = dyn_cast<IntegerType>(Op->getType())) {
             if (!isStandardBitWidth(OpIntTy->getBitWidth())) {
               NonStdTriggerType = OpIntTy;
-              PromotedTargetType = Type::getIntNTy(M.getContext(), getPromotedBitWidth(OpIntTy->getBitWidth()));
+              PromotedTargetType = Type::getIntNTy(M.getContext(), HipPromoteIntsPass::getPromotedBitWidth(OpIntTy->getBitWidth()));
               LLVM_DEBUG(dbgs() << "Triggering promotion for " << *I << " due to non-standard operand type: " << *NonStdTriggerType << " (" << *Op << ")\n");
               break; // Found the first non-standard operand, use it as the trigger
             }
