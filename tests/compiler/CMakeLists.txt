@@ -142,6 +142,7 @@ add_shell_test(TestHipccFp16Include.bash)
 add_shell_test(TestHipcc692Regression.bash)
 add_shell_test(TestHipccFileOrderPreservation.bash)
 add_shell_test(TestHipcc945MacroSpace.bash)
+add_shell_test(TestHipccArgOrder.bash)
 add_test(NAME "TestHipccMultiSource" COMMAND 
   ${CMAKE_BINARY_DIR}/bin/hipcc ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
 
