@@ -143,23 +143,12 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   }
 
 
-  // If it's the non-standard type (and not a constant, handled above), promote it via instruction
+  // If it's the non-standard type (and not a constant, handled above), promote it
   if (V->getType() == NonStdType) {
     // Check if it's an instruction that should have been processed already
     // This might indicate a circular dependency or an issue in the traversal order.
-    if (isa<Instruction>(V) && !PromotedValues.count(V)) {
-       LLVM_DEBUG(dbgs() << Indent << "      WARNING: Encountered unprocessed non-standard instruction: " << *V << ". This might lead to issues.\n");
-       // Attempting to create a ZExt here might break things if the instruction hasn't been placed yet.
-       // It's better to rely on the main processing loop to handle instructions.
-       // For now, return the original value, hoping it gets processed correctly later.
-       // This scenario ideally shouldn't happen with correct traversal.
-       // Consider adding an assertion or more robust handling if this persists.
-       // A placeholder might be needed in some complex cases (like PHIs).
-       return V; // Or potentially return UndefValue?
-    }
+    assert(isa<Instruction>(V) && !PromotedValues.count(V) && "Encountered unprocessed non-standard instruction");
 
-    // For non-instruction Values (like Arguments, Globals if they could be non-std, which they shouldn't)
-    // or already processed instructions reaching here through some path.
     Value *NewV = nullptr;
     if (V->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
       NewV = Builder.CreateZExt(V, PromotedTy);
@@ -167,19 +156,19 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
                         << " to " << *NewV << "\n");
     } else if (V->getType()->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
       NewV = Builder.CreateTrunc(V, PromotedTy);
-       LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with trunc: " << *V
+      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with trunc: " << *V
                         << " to " << *NewV << "\n");
     } else {
       NewV = Builder.CreateBitCast(V, PromotedTy);
-       LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with bitcast: " << *V
+      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with bitcast: " << *V
                         << " to " << *NewV << "\n");
     }
     PromotedValues[V] = NewV;
     return NewV;
   }
 
-  // Otherwise return original value (likely a standard type different from PromotedTy)
-  LLVM_DEBUG(dbgs() << Indent << "      Using original value (standard type): " << *V << "\n");
+  // Otherwise return original value
+  LLVM_DEBUG(dbgs() << Indent << "      Using original value: " << *V << "\n");
   return V;
 };
 
@@ -341,7 +330,6 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
 // Helper to check for non-standard integer types
 static bool isNonStandardInt(Type *T) {
   if (auto *IntTy = dyn_cast<IntegerType>(T)) {
-    // Assuming isStandardBitWidth is accessible here (e.g., static member or global)
     return !HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth());
   }
   return false;
@@ -531,7 +519,7 @@ static void processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type 
                                   IRBuilder<> &Builder, const std::string &Indent,
                                   SmallVectorImpl<Replacement> &Replacements,
                                   SmallDenseMap<Value *, Value *> &PromotedValues) {
-  bool NeedsPromotion = isNonStandardInt(BinOp->getType()); // Use helper
+  bool NeedsPromotion = isNonStandardInt(BinOp->getType());
 
   Value *LHS = getPromotedValue(BinOp->getOperand(0), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
   Value *RHS = getPromotedValue(BinOp->getOperand(1), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
@@ -557,10 +545,10 @@ static void processSelectInst(SelectInst *SelI, Type *NonStdType, Type *Promoted
                               IRBuilder<> &Builder, const std::string &Indent,
                               SmallVectorImpl<Replacement> &Replacements,
                               SmallDenseMap<Value *, Value *> &PromotedValues) {
-  bool NeedsPromotion = isNonStandardInt(SelI->getType()); // Use helper
+  bool NeedsPromotion = isNonStandardInt(SelI->getType());
 
   // Get potentially promoted operands
-  Value *Condition = SelI->getCondition(); // Condition is usually i1, promotion unlikely needed directly by getPromotedValue
+  Value *Condition = SelI->getCondition(); // Condition is usually i1
   Value *TrueVal = getPromotedValue(SelI->getTrueValue(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
   Value *FalseVal = getPromotedValue(SelI->getFalseValue(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
@@ -961,7 +949,6 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
 
         if (NeedsPromotion) {
             // Check if it's already in the worklist to avoid duplicates
-            // (Simple linear scan, could optimize if needed)
             bool Found = false;
             for(Instruction *ExistingI : WorkList) {
                 if (ExistingI == &I) {
