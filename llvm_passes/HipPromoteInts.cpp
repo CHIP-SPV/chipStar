@@ -7,62 +7,71 @@
 #define DEBUG_TYPE "hip-promote-ints"
 
 /**
- * This pass promotes integer types to the next standard bit width.
- * During optimization of loops, LLVM generates non-standard integer types 
- * such as i33 or i56
+ * @brief Promotes non-standard integer types (e.g., i33, i56) to the next standard width.
+ *
+ * LLVM's loop optimizations can generate integer types with bit widths that are
+ * not powers of two (or 1). These non-standard types can cause issues during
+ * later stages, particularly SPIR-V translation.
  *
  * Algorithm Overview:
  * ------------------
- * The pass uses a two-phase approach to handle non-standard integer types:
+ * This pass replaces instructions involving non-standard integer types with
+ * equivalent instructions using the next largest standard integer type (8, 16, 32, 64).
+ * It operates in two main phases within the `run` method for each function:
  *
- * 1. Construction Phase:
- *    - When encountering a non-standard integer type (e.g., i33), the pass
- *      first creates a chain of replacement instructions that will eventually 
- *      replace the original ones
- *    - During this phase, intermediate instructions may temporarily use
- *      non-standard types. This is necessary because LLVM requires type 
- *      consistency when building instruction chains
- *    - The pass maintains a map (PromotedValues) tracking both the original and
- *      promoted versions of values to ensure consistent promotion throughout the
- *      chain
- *    - Intermediate zext instructions are created to establish a valid def-use
- *      chain, ensuring instructions get visited and processed later by
- *      promoteChain()
+ * 1. Worklist Collection:
+ *    - Identify all instructions that either produce a non-standard integer type
+ *      or use an operand with a non-standard integer type.
+ *    - These instructions form the starting points for promotion chains.
  *
- * 2. Replacement Phase:
- *    - After constructing all necessary instructions, the pass performs the
- *      actual replacements
- *    - All non-standard integer types are promoted to their next larger
- *      standard size (e.g., i33 -> i64)
- *    - The original instructions are replaced with their promoted versions
- *    - The intermediate zext instructions are cleaned up as part of the 
- *      replacement process
+ * 2. Chain Promotion and Replacement:
+ *    - For each instruction in the worklist (that hasn't already been processed):
+ *        a. **Recursive Promotion (`promoteChain`)**: Recursively traverse the use-def chain
+ *           starting from the initial instruction. For each instruction encountered:
+ *           - Determine its corresponding promoted instruction (using standard types).
+ *           - Store the mapping from the original instruction to its promoted counterpart
+ *             (using `PromotedValues` map).
+ *           - Add the original instruction and its replacement to a `Replacements` list.
+ *           - Handle type adjustments (zext/trunc/bitcast) as needed to maintain consistency
+ *             within the *new* chain being built (which uses promoted types).
+ *           - Special handling for PHI nodes is required to manage dependencies correctly,
+ *             deferring the addition of incoming values until the producing instruction is processed.
+ *        b. **PHI Node Patching**: After processing a chain, resolve any pending PHI node additions.
+ *           Look up the promoted values for the original incoming values and add them to the new PHI nodes,
+ *           inserting type adjustments if necessary.
+ *        c. **Instruction Replacement**: Iterate through the `Replacements` list.
+ *           - Replace all uses of the original instruction `Old` with the new value `New`,
+ *             *only* updating users that were also part of the processed chain (`GlobalVisited`).
+ *           - Perform a final `replaceAllUsesWith` to catch any remaining uses (e.g., external users
+ *             or complex dependencies).
+ *           - Erase the original instruction `Old`.
  *
- * This two-phase approach is necessary because:
- * 1. LLVM requires type consistency when building instructions
- * 2. We can't modify instructions in place while building their replacements
- * 3. We need to ensure all uses of a value are properly promoted before replacement
+ * Key Data Structures:
+ * --------------------
+ * - `WorkList`: Stores initial instructions needing promotion.
+ * - `GlobalVisited`: Tracks instructions already processed across all chains to avoid redundant work.
+ * - `PromotedValues`: Maps original `Value*` (instructions, constants) to their promoted `Value*` equivalents
+ *   within the context of a single `promoteChain` call.
+ * - `Replacements`: Stores pairs of `{original instruction, new value}` created during `promoteChain`.
+ * - `PendingPhiAdds`: Temporarily stores information needed to update PHI nodes after their dependencies are processed.
  *
- * Initial implementation of this pass used mutateType() which is dangerous and
- * likely to break code.
+ * Example:
+ * --------
+ * Original IR:
+ *   %1 = zext i32 %x to i33
+ *   %2 = add i33 %1, 1
+ *   %3 = trunc i33 %2 to i8
  *
- * Example kernel that generates non-standard types:
- * __global__ void testWarpCalc(int* debug) {
- *   int tid = threadIdx.x;
- *   int bid = blockIdx.x;
- *   int globalIdx = bid * blockDim.x + tid;
+ * After Promotion (Conceptual):
+ *   %1_promoted = zext i32 %x to i64 ; Handled by processZExtInst (non-std dest)
+ *   %const1_promoted = i64 1
+ *   %2_promoted = add i64 %1_promoted, %const1_promoted ; Handled by processBinaryOperator
+ *   %3_final = trunc i64 %2_promoted to i8 ; Handled by processTruncInst
  *
- *   // Optimizations on this loop will generate i33 types.
- *   int result = 0;
- *   for(int i = 0; i < tid + 1; i++) {
- *     result += i * globalIdx;
- *   }
- *
- *   // Store using atomic operation
- *   atomicExch(&debug[globalIdx], result);
- * }
- *
- * https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/2823
+ * The pass builds the promoted instructions (%1_promoted, %2_promoted, %3_final)
+ * alongside the originals, then replaces uses of %1 with %1_promoted (if used later),
+ * replaces uses of %2 with %2_promoted, replaces uses of %3 with %3_final, and
+ * finally deletes %1, %2, and %3.
  */
 
 using namespace llvm;
