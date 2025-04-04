@@ -289,6 +289,13 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   return V;
 };
 
+static inline void finalizePromotion(Instruction *Old, Value *New, 
+                                     SmallVectorImpl<Replacement> &Replacements,
+                                     SmallDenseMap<Value *, Value *> &PromotedValues) {
+    PromotedValues[Old] = New; 
+    Replacements.push_back(Replacement(Old, New));
+}
+
 static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
                            IRBuilder<> &Builder, const std::string &Indent,
                            SmallVectorImpl<Replacement> &Replacements,
@@ -554,43 +561,32 @@ static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being prom
     }
 
     // Replace the original ZExt instruction with the NewValue.
-    PromotedValues[ZExtI] = NewValue; // Map original ZExt result to the final value
-    Replacements.push_back(Replacement(ZExtI, NewValue));
+    finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
 
   } else if (IsDestNonStandard) {
     // Case 2: Destination is Non-Standard (e.g., zext i32 -> i56)
     Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy); // e.g., i64
 
-    // Ensure the source operand used for the new ZExt has its original standard type.
-    Value* AdjustedSrc = PromotedSrc;
-    if (AdjustedSrc->getType() != SrcTy) {
-        IRBuilder<> TmpBuilder(ZExtI); // Builder before original instruction
-        LLVM_DEBUG(dbgs() << Indent << "    Adjusting source back to original standard type (" << *SrcTy << ") for zext->non-std\n");
-        AdjustedSrc = adjustType(AdjustedSrc, SrcTy, TmpBuilder, Indent + "      ");
-    }
+    // Since the source is standard, getPromotedValue should have returned a value
+    // with the original source type SrcTy. No adjustment should be needed.
+    assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard ZExt source");
 
-    // Create ZExt using the adjusted standard source to the *promoted* destination type.
-    NewValue = Builder.CreateZExt(AdjustedSrc, PromotedDestTy);
-    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std dest): ====> " << *NewValue << "\n");
-    PromotedValues[ZExtI] = NewValue; // Map original ZExt result to the new promoted value
-    Replacements.push_back(Replacement(ZExtI, NewValue));
+    // Create ZExt using the standard source (PromotedSrc) to the *promoted* destination type.
+    NewValue = Builder.CreateZExt(PromotedSrc, PromotedDestTy);
+    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std dest): ====> " << *NewValue << "\\n");
+    finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
 
   } else {
     // Case 3: Source and Destination are Standard (e.g., zext i32 -> i64)
-    // Recreate the instruction, ensuring the source operand has its original standard type.
-     Value* AdjustedSrc = PromotedSrc;
-     if (AdjustedSrc->getType() != SrcTy) {
-        IRBuilder<> TmpBuilder(ZExtI); // Builder before original instruction
-        LLVM_DEBUG(dbgs() << Indent << "    Adjusting source back to original standard type (" << *SrcTy << ") for std zext\n");
-        AdjustedSrc = adjustType(AdjustedSrc, SrcTy, TmpBuilder, Indent + "      ");
-     }
+    // Recreate the instruction. Since the source is standard, getPromotedValue
+    // should have returned a value with the original source type SrcTy.
+    assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard ZExt source");
 
-    // Create the ZExt with the adjusted standard source and original standard destination type.
-    NewValue = Builder.CreateZExt(AdjustedSrc, DestTy);
-    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (standard src/dest): ====> " << *NewValue << "\n");
+    // Create the ZExt with the standard source (PromotedSrc) and original standard destination type.
+    NewValue = Builder.CreateZExt(PromotedSrc, DestTy);
+    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (standard src/dest): ====> " << *NewValue << "\\n");
     // Map original ZExt result to new ZExt result. Both should have same standard type.
-    PromotedValues[ZExtI] = NewValue;
-    Replacements.push_back(Replacement(ZExtI, NewValue));
+    finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
   }
 }
 
@@ -688,8 +684,7 @@ static void processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type 
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *BinOp << "   promoting BinOp: ====> "
                     << *NewInst << "\n");
-  PromotedValues[BinOp] = NewInst;
-  Replacements.push_back(Replacement(BinOp, NewInst));
+  finalizePromotion(BinOp, NewInst, Replacements, PromotedValues);
 }
 
 static void processSelectInst(SelectInst *SelI, Type *NonStdType, Type *PromotedTy,
@@ -730,8 +725,7 @@ static void processSelectInst(SelectInst *SelI, Type *NonStdType, Type *Promoted
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *SelI << "   promoting Select: ====> "
                     << *NewSelect << "\n");
-  PromotedValues[SelI] = NewSelect;
-  Replacements.push_back(Replacement(SelI, NewSelect));
+  finalizePromotion(SelI, NewSelect, Replacements, PromotedValues);
 }
 
 static void processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
@@ -771,8 +765,7 @@ static void processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *CmpI << "   promoting ICmp: ====> "
                     << *NewCmp << "\n");
-  PromotedValues[CmpI] = NewCmp;
-  Replacements.push_back(Replacement(CmpI, NewCmp));
+  finalizePromotion(CmpI, NewCmp, Replacements, PromotedValues);
 }
 
 static void processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedTy,
@@ -806,8 +799,7 @@ static void processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedT
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *OldCall << "   promoting Call: ====> "
                     << *NewCall << "\n");
-  PromotedValues[OldCall] = NewCall;
-  Replacements.push_back(Replacement(OldCall, NewCall));
+  finalizePromotion(OldCall, NewCall, Replacements, PromotedValues);
 }
 
 static void processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedTy,
