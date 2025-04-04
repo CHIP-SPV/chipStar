@@ -763,6 +763,7 @@ add_to_config(_hipInfo_install HIP_RUNTIME "${HIP_RUNTIME}")
 add_to_config(_hipInfo_install HIP_COMPILER "${HIP_COMPILER}")
 add_to_config(_hipInfo_install HIP_ARCH "${HIP_ARCH}")
 add_to_config(_hipInfo_install HIP_CLANG_PATH "${HIP_CLANG_PATH}")
+add_to_config(_hipInfo_install HIP_CXX_COMPILER "${HIP_CXX_COMPILER}")
 add_to_config(_hipInfo_install
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL}")
 add_to_config(_hipInfo_install
@@ -778,6 +779,7 @@ add_to_config(_hipInfo_build HIP_RUNTIME "${HIP_RUNTIME}")
 add_to_config(_hipInfo_build HIP_COMPILER "${HIP_COMPILER}")
 add_to_config(_hipInfo_build HIP_ARCH "${HIP_ARCH}")
 add_to_config(_hipInfo_build HIP_CLANG_PATH "${HIP_CLANG_PATH}")
+add_to_config(_hipInfo_build HIP_CXX_COMPILER "${HIP_CXX_COMPILER}")
 add_to_config(_hipInfo_build
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD}")
 add_to_config(_hipInfo_build
