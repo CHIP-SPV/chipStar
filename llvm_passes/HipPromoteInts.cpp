@@ -115,6 +115,7 @@ struct PendingPhiAdd {
 };
 
 // Helper to get or create promoted value
+// TODO: explain when and on what this is called
 static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
                                IRBuilder<> &Builder, const std::string &Indent,
                                SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -135,9 +136,14 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   }
 
   // Handle Constants specifically
+  // Example:
+  //   %c = add i33 %a, 1
+  // Becomes:
+  //   %c_promoted = add i64 %a_promoted, 1
   if (auto *ConstInt = dyn_cast<ConstantInt>(V)) {
     if (ConstInt->getType() == NonStdType) {
       // Create a new ConstantInt with the promoted type
+      // zext resolves at compile time, it doesn't generate zext instructions
       APInt PromotedValue = ConstInt->getValue().zext(PromotedTy->getIntegerBitWidth());
       Value *NewConst = ConstantInt::get(PromotedTy, PromotedValue);
       LLVM_DEBUG(dbgs() << Indent << "      Promoting ConstantInt: " << *V
@@ -153,9 +159,16 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
 
 
   // If it's the non-standard type (and not a constant, handled above), promote it
+  // Example:
+  //   %res = add i33 %a, %b
+  // If %res (i33) is used later where an i64 is expected by a promoted instruction:
+  //   getPromotedValue(%res, i33, i64, ...) -> creates '%res.zext = zext i33 %res to i64'
+  // This %res.zext is then used by the promoted instruction.
+  // TODO: %res.zext = zext i33 %res to i64 still contains i33, explain how this is handled
   if (V->getType() == NonStdType) {
     // Check if it's an instruction that should have been processed already
     // This might indicate a circular dependency or an issue in the traversal order.
+    // TODO: explain where a circular dependency might happen and give an example.
     assert(isa<Instruction>(V) && !PromotedValues.count(V) && "Encountered unprocessed non-standard instruction");
 
     Value *NewV = nullptr;
@@ -164,10 +177,12 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
       LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with zext: " << *V
                         << " to " << *NewV << "\n");
     } else if (V->getType()->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
+      // TODO: this should never happen, correct?
       NewV = Builder.CreateTrunc(V, PromotedTy);
       LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with trunc: " << *V
                         << " to " << *NewV << "\n");
     } else {
+      // TODO: explain why we need to bitcast
       NewV = Builder.CreateBitCast(V, PromotedTy);
       LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with bitcast: " << *V
                         << " to " << *NewV << "\n");
@@ -209,6 +224,28 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
     Value *NewIncomingValue = nullptr;
 
     // Special handling for truncation instructions that convert from standard to non-standard types
+    // Example:
+    // bb1:
+    //   %x = add i64 ...
+    //   %trunc_std_nonstd = trunc i64 %x to i33
+    //   br label %bb2
+    // bb2:
+    //   %phi = phi i33 [ %trunc_std_nonstd, %bb1 ], ...
+    //
+    // When processing %phi, we encounter %trunc_std_nonstd.
+    // Since it's standard -> non-standard, we directly use the *source* (%x)
+    // as the incoming value for the *promoted* PHI node (%phi_promoted of type i64).
+    // This effectively bypasses the truncation within the promoted chain.
+    //
+    // TODO: Explain why we can't use processZExtInst/processTruncInst here
+    // We handle this case *within* processPhiNode because we need to determine the
+    // correct *incoming value* for the *new* PHI node based on the original incoming
+    // value's nature. If the original incoming value is a `trunc` from a standard
+    // type, we want the *source* of that `trunc` (which is already standard or will
+    // be promoted) to be the incoming value for the new PHI. Calling
+    // `processTruncInst` recursively might create unnecessary intermediate instructions
+    // or lead to incorrect handling if the `TruncInst` hasn't been visited yet by the
+    // main `promoteChain` traversal. This special handling simplifies the PHI logic.
     if (auto *TruncI = dyn_cast<TruncInst>(IncomingValue)) {
       Value *TruncSrc = TruncI->getOperand(0);
       Type *SrcTy = TruncSrc->getType();
@@ -225,6 +262,7 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
       }
 
       // Handle truncation from standard to non-standard specially
+      // e.x. %trunc_std_nonstd = trunc i64 %x to i33
       if (IsSrcStandard && IsDestNonStandard) {
         LLVM_DEBUG(dbgs() << Indent << "      Found truncation from standard to non-standard type: " << *TruncI << "\n");
 
@@ -266,6 +304,29 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
       }
     }
     // Also handle zero-extension from non-standard types
+    // TODO: IR Example
+    // Example:
+    // bb1:
+    //   %y = add i33 ...
+    //   %zext_nonstd_std = zext i33 %y to i64
+    //   br label %bb2
+    // bb2:
+    //   %phi = phi i64 [ %zext_nonstd_std, %bb1 ], ...
+    //
+    // When processing %phi, we encounter %zext_nonstd_std.
+    // If %zext_nonstd_std has already been processed by promoteChain,
+    // PromotedValues[%zext_nonstd_std] will exist (and be the correct i64 value),
+    // so we use that.
+    // If it hasn't been processed yet, we defer adding it to the PHI using
+    // PendingPhiAdds. promoteChain will eventually process %zext_nonstd_std,
+    // create its replacement, and then the pending add will be resolved.
+    //
+    // TODO: Explain why we can't use processZExtInst/processTruncInst here
+    // Similar to the `trunc` case, we defer if the source instruction (`ZExtInst`)
+    // hasn't been processed yet by `promoteChain`. This ensures that when we
+    // add the incoming value to the new PHI, we use the *result* of the already-promoted
+    // `ZExtInst`. Calling `processZExtInst` recursively here could disrupt the
+    // planned processing order managed by `promoteChain` and `GlobalVisited`.
     else if (auto *ZExtI = dyn_cast<ZExtInst>(IncomingValue)) {
       Value *ZExtSrc = ZExtI->getOperand(0);
 
@@ -290,6 +351,18 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
     }
 
     // If not handled by special case above, use normal promotion
+    // TODO: IR Example
+    // Example:
+    // bb1:
+    //   %const = i33 42
+    //   br label %bb2
+    // bb2:
+    //   %phi = phi i33 [ %const, %bb1 ], ...
+    //
+    // When processing %phi (type i33), the incoming %const (i33) is not an instruction.
+    // getPromotedValue will handle promoting the constant to i64.
+    // This promoted constant (i64 42) will be used as NewIncomingValue.
+    // If %phi's promoted type is i64, no further adjustment is needed.
     if (!NewIncomingValue) {
       // Check if the incoming value is already promoted
       if (PromotedValues.count(IncomingValue)) {
@@ -309,6 +382,17 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
 
     // If we have a value (either promoted or original non-instruction), add it now
     // Ensure the type matches the promoted PHI type
+    // TODO: IR Example
+    // Example:
+    //   %phi = phi i33 [ %incoming_i8, %bb1 ], ...
+    // Assume %phi promotes to %phi_promoted (i64).
+    // NewIncomingValue might be %incoming_i8 (original if not promoted elsewhere) or
+    // a promoted version if it came from another processed instruction.
+    // Let NewIncomingValue be %val (type i8).
+    // Since %val (i8) != %phi_promoted (i64), we need adjustment.
+    // This block will insert:
+    //   %zext_for_phi = zext i8 %val to i64 (inserted before %phi)
+    // Then, %zext_for_phi will be added as the incoming value to %phi_promoted.
     if (NewIncomingValue->getType() != PromotedType) {
       // Use a temporary builder placed before the original PHI
       IRBuilder<> PhiBuilder(Phi);
@@ -349,6 +433,14 @@ static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const s
     if (V->getType() == TargetTy) {
         return V;
     }
+
+    // TODO: IR Example
+    // Example 1: Source i32, Target i64
+    //   adjustType(%val_i32, i64, builder) -> creates '%zext = zext i32 %val_i32 to i64'
+    // Example 2: Source i64, Target i32
+    //   adjustType(%val_i64, i32, builder) -> creates '%trunc = trunc i64 %val_i64 to i32'
+    // Example 3: Source i64, Target <64 x i1> (Different types, same size)
+    //   adjustType(%val_i64, <64 x i1>, builder) -> creates '%bitcast = bitcast i64 %val_i64 to <64 x i1>'
 
     unsigned SrcBits = V->getType()->getPrimitiveSizeInBits();
     unsigned DstBits = TargetTy->getPrimitiveSizeInBits();
