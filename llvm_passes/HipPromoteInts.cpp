@@ -57,21 +57,80 @@
  *
  * Example:
  * --------
- * Original IR:
- *   %1 = zext i32 %x to i33
- *   %2 = add i33 %1, 1
- *   %3 = trunc i33 %2 to i8
  *
- * After Promotion (Conceptual):
- *   %1_promoted = zext i32 %x to i64 ; Handled by processZExtInst (non-std dest)
- *   %const1_promoted = i64 1
- *   %2_promoted = add i64 %1_promoted, %const1_promoted ; Handled by processBinaryOperator
- *   %3_final = trunc i64 %2_promoted to i8 ; Handled by processTruncInst
+ * === Promotion Walkthrough with PHI ===
+ * Original IR (Illustrating PHI with standard->non-standard trunc):
  *
- * The pass builds the promoted instructions (%1_promoted, %2_promoted, %3_final)
- * alongside the originals, then replaces uses of %1 with %1_promoted (if used later),
- * replaces uses of %2 with %2_promoted, replaces uses of %3 with %3_final, and
- * finally deletes %1, %2, and %3.
+ *   ; Assume %cond (i1), %std_val (i64), %non_std_val (i33) are defined earlier.
+ *   entry:
+ *     br i1 %cond, label %bb.true, label %bb.false
+ *
+ *   bb.true: ; Original Path
+ *     ; --- Originals still exist ---
+ *     %val_true = trunc i64 %std_val to i33
+ *     br label %bb.merge
+ *
+ *   bb.false: ; Original Path
+ *     %val_false = add i33 %non_std_val, 1
+ *     br label %bb.merge
+ *
+ *   bb.merge: ; Original Path
+ *     %merged_val = phi i33 [ %val_true, %bb.true ], [ %val_false, %bb.false ]
+ *     %final_res = trunc i33 %merged_val to i8
+ *     ; Use %final_res (i8)
+ *
+ *   ; --- New Promoted Instructions/Values --- (inserted somewhere, possibly different BBs)
+ *     %non_std_val.promoted = zext i33 %non_std_val to i64 ; (Created by getPromotedValue)
+ *     %const1_promoted = i64 1                               ; (Created by getPromotedValue)
+ *     ; --- Promoted path for bb.false ---
+ *     %val_false.promoted = add i64 %non_std_val.promoted, %const1_promoted
+ *     ; --- Promoted PHI ---
+ *     %merged_val.promoted = phi i64 [ %std_val, %bb.true ], [ %val_false.promoted, %bb.false ]
+ *     ; --- Promoted final truncation ---
+ *     %final_res.promoted = trunc i64 %merged_val.promoted to i8
+ *
+ * 1. Initial State (Non-Standard Type i33):
+ *   The pass starts with the original IR as shown just above.
+ *
+ * 2. Intermediate State (During Promotion - Before Replacements):
+ *   - The pass identifies instructions involving i33: `%val_true`, `%val_false`, `%merged_val`, `%final_res`.
+ *   - It starts processing, creating promoted counterparts.
+ *   - When processing `%merged_val` (a PHINode):
+ *     - A new PHI `%merged_val.promoted` of type i64 is created.
+ *     - For incoming `%val_true` (from `trunc i64 %std_val to i33`):
+ *       - The special logic in `processPhiNode` recognizes this standard->non-standard trunc.
+ *       - It uses the *source* of the trunc, `%std_val` (already i64), directly as the incoming value.
+ *     - For incoming `%val_false` (from `add i33 %non_std_val, 1`):
+ *       - `getPromotedValue` is called for `%val_false`.
+ *       - This recursively processes `%val_false`, creating `%val_false.promoted = add i64 %non_std_val.promoted, 1`.
+ *       - `%val_false.promoted` (i64) is used as the incoming value.
+ *     - An intermediate `%final_res.promoted = trunc i64 %merged_val.promoted to i8` is created.
+ *
+ * 3. Final State (After Replacements, Deletions, and Cleanup):
+ *   - Uses of original instructions (`%val_true`, `%val_false`, `%merged_val`, `%final_res`)
+ *     are replaced with their final values (`%std_val`, `%val_false.promoted`, `%merged_val.promoted`, `%final_res.promoted`).
+ *   - Original instructions are deleted.
+ *   - Any intermediate bridging instructions (like potential zexts created by getPromotedValue)
+ *     become dead code and are removed by cleanup passes.
+ *   - Cleanup passes (like ADCE) remove the dead code.
+ *   ; --- Final Snippet after Promotion and Cleanup ---
+ *   entry:
+ *     br i1 %cond, label %bb.true.final, label %bb.false.final
+ *
+ *   bb.true.final:
+ *     ; Path becomes empty as the original trunc was bypassed and deleted.
+ *     br label %bb.merge.final
+ *
+ *   bb.false.final:
+ *     %const1_promoted = i64 1
+ *     %val_false.promoted = add i64 %non_std_val.promoted, %const1_promoted
+ *     br label %bb.merge.final
+ *
+ *   bb.merge.final:
+ *     %merged_val.promoted = phi i64 [ %std_val, %bb.true.final ], [ %val_false.promoted, %bb.false.final ]
+ *     %final_res.promoted = trunc i64 %merged_val.promoted to i8
+ *     ; Use %final_res.promoted (i8)
+ *
  */
 
 using namespace llvm;
