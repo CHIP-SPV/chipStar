@@ -14,7 +14,7 @@ OUTPUT_SPV="${BASE_NAME}.spv"
 
 # Run the promote int pass
 ${LLVM_OPT} -load-pass-plugin "${HIP_SPV_PASSES_LIB}" \
-    -passes=hip-post-link-passes -debug -debug-only=hip-promote-ints \
+    -passes=hip-post-link-passes \
     "${INPUT_FILE}" -o "${OUTPUT_BC}" || exit 1
 
 # Disassemble for examination
