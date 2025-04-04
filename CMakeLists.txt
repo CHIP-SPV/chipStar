@@ -209,6 +209,9 @@ set(HIP_ARCH "spirv" CACHE STRING "chipStar architecture")
 get_filename_component(HIP_CLANG_PATH ${CMAKE_CXX_COMPILER} DIRECTORY)
 get_filename_component(HIP_CLANG_PATH "${HIP_CLANG_PATH}../" DIRECTORY CACHE)
 
+# Normally configured in hip-config.cmake
+set(HIP_CXX_COMPILER ${CMAKE_CXX_COMPILER})
+
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use.")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -636,7 +639,7 @@ string(REPLACE ";" " " HIP_RDC_SUPPLEMENT_LINK_FLAGS
 message(STATUS "Generated HIP_OFFLOAD_COMPILE_OPTIONS: ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL}")
 message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_INSTALL}")
 
-# Must separate these targets into deviceInteral to be used for building samples,etc.
+# Must separate these targets into deviceInternal to be used for building samples,etc.
 # and device for external export. Have to do this because generator expressions don't seem to work here.
 # TODO: Is there a better way to do this?
 add_library(deviceInternal INTERFACE)
@@ -897,6 +900,16 @@ if (CHIP_BUILD_HIPSOLVER)
 endif()
 
 if(CHIP_BUILD_ROCPRIM)
+  # Manually configure rocPRIM version info, mimicking rocm_setup_version
+  set(ROCPRIM_VERSION_MAJOR 2)
+  set(ROCPRIM_VERSION_MINOR 10)
+  set(ROCPRIM_VERSION_PATCH 9)
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/rocPRIM/rocprim/include/rocprim/rocprim_version.hpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/rocPRIM/rocprim/include/rocprim/rocprim_version.hpp
+  )
+
+  set(BUILD_TEST ON CACHE BOOL "Enable rocPRIM tests" FORCE)
   add_subdirectory(rocPRIM)
   add_dependencies(rocprim CHIP)
 endif()
