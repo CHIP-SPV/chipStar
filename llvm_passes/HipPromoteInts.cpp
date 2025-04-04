@@ -277,20 +277,9 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
     // Sanity check if it's an instruction that should have been processed already
     assert(isa<Instruction>(V) && !PromotedValues.count(V) && "Encountered unprocessed non-standard instruction");
 
-    Value *NewV = nullptr;
-    if (V->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
-      NewV = Builder.CreateZExt(V, PromotedTy);
-      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with zext: " << *V
-                        << " to " << *NewV << "\n");
-    } else {
-      // The remaining cases (bit width > promoted width OR bit width == promoted width)
-      // should not occur when promoting a NonStdType instruction result, because:
-      // 1. getPromotedBitWidth always returns a width >= the original non-standard width.
-      // 2. If widths were equal, V->getType() == PromotedTy should have been true earlier
-      // Hitting this implies a logic error in width calculation or type handling.
-      assert(false && "Unreachable state: NonStdType width is not less than PromotedTy width.");
-      NewV = V; // Assign something to silence compiler warnings
-    }
+    // Use adjustType to handle the conversion
+    Value *NewV = adjustType(V, PromotedTy, Builder, Indent + "      ");
+
     PromotedValues[V] = NewV;
     return NewV;
   }
@@ -509,21 +498,9 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
     if (NewIncomingValue->getType() != PromotedType) {
       // Use a temporary builder placed before the original PHI
       IRBuilder<> PhiBuilder(Phi);
-      // TODO: refactor this
-      if (NewIncomingValue->getType()->getPrimitiveSizeInBits() < PromotedType->getPrimitiveSizeInBits()) {
-        LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue);
-        NewIncomingValue = PhiBuilder.CreateZExt(NewIncomingValue, PromotedType);
-        LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
-      } else if (NewIncomingValue->getType()->getPrimitiveSizeInBits() > PromotedType->getPrimitiveSizeInBits()) {
-        LLVM_DEBUG(dbgs() << Indent << "      truncing incoming value: " << *IncomingValue);
-        NewIncomingValue = PhiBuilder.CreateTrunc(NewIncomingValue, PromotedType);
-        LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
-      } else {
-        // Same bit width but different types
-        LLVM_DEBUG(dbgs() << Indent << "      bitcasting incoming value: " << *IncomingValue);
-        NewIncomingValue = PhiBuilder.CreateBitCast(NewIncomingValue, PromotedType);
-        LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
-      }
+      // Use adjustType helper
+      LLVM_DEBUG(dbgs() << Indent << "      Adjusting incoming PHI value type: " << *NewIncomingValue << " to " << *PromotedType << "\n");
+      NewIncomingValue = adjustType(NewIncomingValue, PromotedType, PhiBuilder, Indent + "        Adjusting PHI incoming: ");
     }
 
     NewPhi->addIncoming(NewIncomingValue, IncomingBlock);
@@ -655,18 +632,8 @@ static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promoted
 
   // Verify the source is actually of our promoted type
   if (PromotedSrc->getType() != PromotedTy) {
-    // Check if we need to extend or truncate
-    if (PromotedSrc->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
-      LLVM_DEBUG(dbgs() << Indent << "    ZExting source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
-      PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
-    } else if (PromotedSrc->getType()->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
-      LLVM_DEBUG(dbgs() << Indent << "    Truncing source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
-      PromotedSrc = Builder.CreateTrunc(PromotedSrc, PromotedTy);
-    } else {
-      // Same bit width but different types, this should rarely happen
-      LLVM_DEBUG(dbgs() << Indent << "    Bitcasting source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
-      PromotedSrc = Builder.CreateBitCast(PromotedSrc, PromotedTy);
-    }
+    // Use adjustType to ensure the source matches the promoted type
+    PromotedSrc = adjustType(PromotedSrc, PromotedTy, Builder, Indent + "    Adjusting source to promoted type: ");
   }
 
   // Check if we're truncating to a non-standard type
@@ -680,8 +647,8 @@ static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promoted
     }
   }
 
-  // Create a new trunc for external users
-  Value *NewTrunc = Builder.CreateTrunc(PromotedSrc, DestTy);
+  // Create a new trunc for external users using adjustType
+  Value *NewTrunc = adjustType(PromotedSrc, DestTy, Builder, Indent + "  Creating external trunc: ");
   LLVM_DEBUG(dbgs() << Indent << "  " << *TruncI << "   promoting Trunc: ====> "
                     << *NewTrunc << "\n");
 
@@ -823,26 +790,9 @@ static void processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedT
     // we need to convert it back to the expected type
     Type *ExpectedType = OldCall->getFunctionType()->getParamType(i);
     if (NewArg->getType() != ExpectedType) {
-      // Check if we need to truncate or extend
-      if (auto *IntTy = dyn_cast<IntegerType>(ExpectedType)) {
-        if (auto *ArgIntTy = dyn_cast<IntegerType>(NewArg->getType())) {
-          // If expected type is smaller, truncate
-          if (IntTy->getBitWidth() < ArgIntTy->getBitWidth()) {
-            NewArg = Builder.CreateTrunc(NewArg, ExpectedType);
-            LLVM_DEBUG(dbgs() << Indent << "    Truncating argument " << i << " from "
-                     << *ArgIntTy << " to " << *IntTy << "\n");
-          }
-          // If expected type is larger, extend
-          else if (IntTy->getBitWidth() > ArgIntTy->getBitWidth()) {
-            NewArg = Builder.CreateZExt(NewArg, ExpectedType);
-            LLVM_DEBUG(dbgs() << Indent << "    Extending argument " << i << " from "
-                     << *ArgIntTy << " to " << *IntTy << "\n");
-          } else {
-            NewArg = Builder.CreateBitCast(NewArg, ExpectedType);
-            LLVM_DEBUG(dbgs() << Indent << "    Bitcasting argument " << i << " to " << *IntTy << "\n");
-          }
-        }
-      }
+      // Use adjustType to convert argument back to expected type
+      LLVM_DEBUG(dbgs() << Indent << "    Adjusting argument " << i << " from " << *NewArg->getType() << " to " << *ExpectedType << "\n");
+      NewArg = adjustType(NewArg, ExpectedType, Builder, Indent + "      Adjusting arg: ");
     }
 
     NewArgs.push_back(NewArg);
@@ -874,23 +824,9 @@ static void processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedT
   // Check if the value type needs adjustment to match what's expected by the store
   Type *ExpectedType = StoredValue->getType();
   if (NewStoredValue->getType() != ExpectedType) {
-    // If the promoted value is larger, truncate it back
-    if (NewStoredValue->getType()->getPrimitiveSizeInBits() > ExpectedType->getPrimitiveSizeInBits()) {
-      LLVM_DEBUG(dbgs() << Indent << "    Truncating store value from "
-                       << *NewStoredValue->getType() << " to " << *ExpectedType << "\n");
-      NewStoredValue = Builder.CreateTrunc(NewStoredValue, ExpectedType);
-    }
-    // If it's smaller (unusual), extend it
-    else if (NewStoredValue->getType()->getPrimitiveSizeInBits() < ExpectedType->getPrimitiveSizeInBits()) {
-      LLVM_DEBUG(dbgs() << Indent << "    Extending store value from "
-                       << *NewStoredValue->getType() << " to " << *ExpectedType << "\n");
-      NewStoredValue = Builder.CreateZExt(NewStoredValue, ExpectedType);
-    }
-    // If same size but different types, bitcast
-    else {
-      LLVM_DEBUG(dbgs() << Indent << "    Bitcasting store value to match original type\n");
-      NewStoredValue = Builder.CreateBitCast(NewStoredValue, ExpectedType);
-    }
+    // Use adjustType to convert the stored value back to the expected type
+    LLVM_DEBUG(dbgs() << Indent << "    Adjusting store value from " << *NewStoredValue->getType() << " to " << *ExpectedType << "\n");
+    NewStoredValue = adjustType(NewStoredValue, ExpectedType, Builder, Indent + "      Adjusting store val: ");
   }
 
   // Create a new store instruction
@@ -936,16 +872,9 @@ static void processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy,
       // Use a temporary builder positioned *after* the NewLoad
       IRBuilder<> AfterLoadBuilder(NewLoad->getNextNode());
 
-      if (Load->getType()->getPrimitiveSizeInBits() < PromotedLoadType->getPrimitiveSizeInBits()) {
-        LLVM_DEBUG(dbgs() << Indent << "    ZExting loaded value from non-standard type\n");
-        PromotedValue = AfterLoadBuilder.CreateZExt(NewLoad, PromotedLoadType, Load->getName() + ".promoted");
-      } else if (Load->getType()->getPrimitiveSizeInBits() > PromotedLoadType->getPrimitiveSizeInBits()) {
-        LLVM_DEBUG(dbgs() << Indent << "    Truncing loaded value from non-standard type\n");
-        PromotedValue = AfterLoadBuilder.CreateTrunc(NewLoad, PromotedLoadType, Load->getName() + ".promoted");
-      } else {
-        LLVM_DEBUG(dbgs() << Indent << "    Bitcasting loaded value from non-standard type\n");
-        PromotedValue = AfterLoadBuilder.CreateBitCast(NewLoad, PromotedLoadType, Load->getName() + ".promoted");
-      }
+      // Use adjustType to promote the loaded value
+      LLVM_DEBUG(dbgs() << Indent << "    Promoting loaded non-standard value using adjustType\n");
+      PromotedValue = adjustType(NewLoad, PromotedLoadType, AfterLoadBuilder, Indent + "      Adjusting load result: ");
 
       // For non-standard types, we want to use the promoted value internally
       ResultValue = PromotedValue;
@@ -979,19 +908,9 @@ static void processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *Promoted
     // Make sure the return value matches the function's return type
     Type *FuncRetType = RetI->getFunction()->getReturnType();
     if (NewRetVal->getType() != FuncRetType) {
-      // If the function return type is larger than the value type, extend it
-      if (NewRetVal->getType()->getPrimitiveSizeInBits() < FuncRetType->getPrimitiveSizeInBits()) {
-          LLVM_DEBUG(dbgs() << Indent << "    Extending return value for function type\n");
-          NewRetVal = Builder.CreateZExt(NewRetVal, FuncRetType);
-      }
-      // If the function return type is smaller, truncate it
-      else if (NewRetVal->getType()->getPrimitiveSizeInBits() > FuncRetType->getPrimitiveSizeInBits()) {
-           LLVM_DEBUG(dbgs() << Indent << "    Truncating return value for function type\n");
-           NewRetVal = Builder.CreateTrunc(NewRetVal, FuncRetType);
-      } else {
-           LLVM_DEBUG(dbgs() << Indent << "    Bitcasting return value for function type\n");
-           NewRetVal = Builder.CreateBitCast(NewRetVal, FuncRetType);
-      }
+      // Use adjustType to match the function's return type
+      LLVM_DEBUG(dbgs() << Indent << "    Adjusting return value to match function type\n");
+      NewRetVal = adjustType(NewRetVal, FuncRetType, Builder, Indent + "      Adjusting ret val: ");
     }
 
     // Create a new return instruction with the correctly typed value
