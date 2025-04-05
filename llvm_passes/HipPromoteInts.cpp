@@ -994,6 +994,149 @@ static void processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *Promoted
   }
 }
 
+// Add new handler for BitCastInst
+static void processBitCastInst(BitCastInst *BitCast, Type *NonStdType, Type *PromotedTy,
+                             IRBuilder<> &Builder, const std::string &Indent,
+                             SmallVectorImpl<Replacement> &Replacements,
+                             SmallDenseMap<Value *, Value *> &PromotedValues) {
+  Value *SrcOp = BitCast->getOperand(0);
+  Value *PromotedSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Type *DestTy = BitCast->getDestTy();
+  Type *TargetType = DestTy; // Default to original destination type
+
+  // If the destination type was non-standard, we need to cast to the *promoted* type instead.
+  if (isNonStandardInt(DestTy)) {
+    TargetType = HipPromoteIntsPass::getPromotedType(DestTy);
+     LLVM_DEBUG(dbgs() << Indent << "    Changing bitcast target from non-standard " << *DestTy << " to " << *TargetType << "\n");
+  }
+
+  // Adjust the source operand to the target type if necessary *before* creating the new BitCastInst
+  PromotedSrc = adjustType(PromotedSrc, TargetType, Builder, Indent + "  Adjusting BitCast Src: ");
+
+  Value *NewInst = Builder.CreateBitCast(PromotedSrc, TargetType);
+  LLVM_DEBUG(dbgs() << Indent << "  " << *BitCast << "   promoting BitCast: ====> "
+                    << *NewInst << "\n");
+  finalizePromotion(BitCast, NewInst, Replacements, PromotedValues);
+}
+
+// Add new handler for ExtractElementInst
+static void processExtractElementInst(ExtractElementInst *ExtractI, Type *NonStdType, Type *PromotedTy,
+                                    IRBuilder<> &Builder, const std::string &Indent,
+                                    SmallVectorImpl<Replacement> &Replacements,
+                                    SmallDenseMap<Value *, Value *> &PromotedValues) {
+  Value *VecOp = ExtractI->getVectorOperand();
+  Value *IndexOp = ExtractI->getIndexOperand(); // Index type is usually standard (i32/i64)
+  Type *ElementTy = ExtractI->getType(); // The type of the element being extracted
+
+  // Get the potentially promoted vector operand
+  // Note: Promoting vectors themselves might be complex. For now, assume getPromotedValue handles it
+  // if the *element type* of the vector matches NonStdType. This might need refinement.
+  Value *PromotedVecOp = getPromotedValue(VecOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+  // Determine the target type for the extracted element
+  Type* TargetElementType = ElementTy;
+  if (isNonStandardInt(ElementTy)) {
+      TargetElementType = HipPromoteIntsPass::getPromotedType(ElementTy);
+      LLVM_DEBUG(dbgs() << Indent << "    Changing extractelement result type from non-standard " << *ElementTy << " to " << *TargetElementType << "\n");
+  }
+
+  // Check if the promoted vector operand's element type matches the target element type
+  Type* PromotedVecElementTy = cast<VectorType>(PromotedVecOp->getType())->getElementType();
+
+  // If the promoted vector's element type is different from the target type we need,
+  // we might need an intermediate bitcast of the vector or element-wise conversion.
+  // For simplicity, let's assume for now that getPromotedValue gave us a vector
+  // whose element type matches the *PromotedTy* if the original vector element was NonStdType.
+  // If the original element type was standard, PromotedVecOp should be the original vector.
+  if (isNonStandardInt(ElementTy) && PromotedVecElementTy != TargetElementType) {
+      // This case is complex. How did getPromotedValue handle the vector?
+      // Let's adjust the PromotedVecOp *if* its element type matches the global PromotedTy
+      if (PromotedVecElementTy == PromotedTy) {
+         // We have a vector of PromotedTy, but we need to extract TargetElementType.
+         // This usually implies the original extract was non-std -> non-std.
+         // We create the extract with PromotedTy elements first.
+         Value *ExtractPromoted = Builder.CreateExtractElement(PromotedVecOp, IndexOp);
+         // Then adjust the result.
+         Value* NewInst = adjustType(ExtractPromoted, TargetElementType, Builder, Indent + "  Adjusting Extracted Element: ");
+         LLVM_DEBUG(dbgs() << Indent << "  " << *ExtractI << "   promoting ExtractElement (adjusting result): ====> " << *NewInst << "\n");
+         finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
+         return;
+      } else {
+        // If PromotedVecElementTy is neither the original ElementTy nor the PromotedTy,
+        // this scenario needs more complex handling (potentially element-wise zext/trunc on vector).
+        // For now, assert or fallback to simpler logic.
+         LLVM_DEBUG(dbgs() << Indent << "WARN: Unhandled case in ExtractElement promotion. Vector element type mismatch." << *PromotedVecOp->getType() << " vs " << *TargetElementType << "\n");
+         // Fallback: Create extract with original types (might fail later)
+         Value *NewInst = Builder.CreateExtractElement(VecOp, IndexOp);
+         finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
+         return;
+      }
+
+  }
+
+  // Create the new ExtractElement instruction using the potentially promoted vector
+  // and the target element type.
+  Value *NewInst = Builder.CreateExtractElement(PromotedVecOp, IndexOp);
+
+  // Adjust the result if the element type needs changing from what CreateExtractElement produced.
+  if (NewInst->getType() != TargetElementType) {
+      NewInst = adjustType(NewInst, TargetElementType, Builder, Indent + "  Adjusting Extracted Element Type: ");
+  }
+
+  LLVM_DEBUG(dbgs() << Indent << "  " << *ExtractI << "   promoting ExtractElement: ====> " << *NewInst << "\n");
+  finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
+}
+
+// Add new handler for InsertElementInst
+static void processInsertElementInst(InsertElementInst *InsertI, Type *NonStdType, Type *PromotedTy,
+                                     IRBuilder<> &Builder, const std::string &Indent,
+                                     SmallVectorImpl<Replacement> &Replacements,
+                                     SmallDenseMap<Value *, Value *> &PromotedValues) {
+    Value *VecOp = InsertI->getOperand(0); // The vector being inserted into
+    Value *ElementOp = InsertI->getOperand(1); // The element being inserted
+    Value *IndexOp = InsertI->getOperand(2); // The index
+    Type *ResultVecTy = InsertI->getType(); // Type of the resulting vector
+    Type *ElementTy = ElementOp->getType(); // Type of the element being inserted
+
+    assert(isa<VectorType>(ResultVecTy) && "InsertElement should produce a vector type");
+    Type *VecElementTy = cast<VectorType>(ResultVecTy)->getElementType();
+
+    // Get potentially promoted operands
+    Value *PromotedVecOp = getPromotedValue(VecOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+    Value *PromotedElementOp = getPromotedValue(ElementOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+    // Determine the target type for the resulting vector and its elements
+    Type *TargetVecTy = ResultVecTy;
+    Type *TargetElementTy = VecElementTy;
+
+    if (isNonStandardInt(VecElementTy)) {
+        TargetElementTy = HipPromoteIntsPass::getPromotedType(VecElementTy);
+        TargetVecTy = VectorType::get(TargetElementTy, cast<VectorType>(ResultVecTy)->getElementCount());
+        LLVM_DEBUG(dbgs() << Indent << "    Changing insertelement result vector type from non-standard element " << *ResultVecTy << " to " << *TargetVecTy << "\n");
+    }
+
+    // Ensure the vector operand has the correct TargetVecTy
+    // Note: This assumes getPromotedValue correctly handled vector promotion if necessary.
+    // If the original vector had non-std elements, PromotedVecOp should ideally have TargetVecTy.
+    if (PromotedVecOp->getType() != TargetVecTy) {
+         LLVM_DEBUG(dbgs() << Indent << "    Adjusting InsertElement Vector Operand Type: " << *PromotedVecOp->getType() << " -> " << *TargetVecTy << "\n");
+         PromotedVecOp = adjustType(PromotedVecOp, TargetVecTy, Builder, Indent + "      ");
+    }
+
+    // Ensure the element operand has the correct TargetElementTy
+    if (PromotedElementOp->getType() != TargetElementTy) {
+        LLVM_DEBUG(dbgs() << Indent << "    Adjusting InsertElement Element Operand Type: " << *PromotedElementOp->getType() << " -> " << *TargetElementTy << "\n");
+        PromotedElementOp = adjustType(PromotedElementOp, TargetElementTy, Builder, Indent + "      ");
+    }
+
+    // Create the new InsertElement instruction
+    Value *NewInst = Builder.CreateInsertElement(PromotedVecOp, PromotedElementOp, IndexOp, InsertI->getName());
+
+    // Finalize promotion
+    LLVM_DEBUG(dbgs() << Indent << "  " << *InsertI << "   promoting InsertElement: ====> " << *NewInst << "\n");
+    finalizePromotion(InsertI, NewInst, Replacements, PromotedValues);
+}
+
 void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                         const std::string &Indent,
                         SmallVectorImpl<Replacement> &Replacements,
@@ -1022,6 +1165,12 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       processLoadInst(Load, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *RetI = dyn_cast<ReturnInst>(I)) {
       processReturnInst(RetI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+  } else if (auto *BitCast = dyn_cast<BitCastInst>(I)) { // Add handler for BitCast
+      processBitCastInst(BitCast, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+  } else if (auto *ExtractI = dyn_cast<ExtractElementInst>(I)) { // Add handler for ExtractElement
+      processExtractElementInst(ExtractI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+  } else if (auto *InsertI = dyn_cast<InsertElementInst>(I)) { // Add handler for InsertElement
+      processInsertElementInst(InsertI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else {
     llvm::errs() << "HipPromoteIntsPass: Unhandled instruction type: " << I->getOpcodeName() << "\n";
     assert(false && "HipPromoteIntsPass: Unhandled instruction type");
