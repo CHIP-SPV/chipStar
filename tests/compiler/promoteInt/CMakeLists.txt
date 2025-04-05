@@ -46,7 +46,7 @@ foreach(IR_FILE ${TEST_IR_FILES})
   
   # Check if the test should be disabled
   set(TEST_DISABLED FALSE)
-  if(LLVM_VERSION_MAJOR LESS 17 AND BASENAME STREQUAL "rocprim-redux")
+  if(LLVM_VERSION_MAJOR LESS 18 AND BASENAME STREQUAL "rocprim-redux")
     set(TEST_DISABLED TRUE)
   endif()
 
