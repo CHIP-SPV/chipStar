@@ -1023,8 +1023,8 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
   } else if (auto *RetI = dyn_cast<ReturnInst>(I)) {
       processReturnInst(RetI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else {
-    LLVM_DEBUG(dbgs() << Indent << "  Unhandled instruction type: " << *I << "\n");
-    assert(false && "HipPromoteIntsPass: Unhandled instruction type");
+    auto msg = "HipPromoteIntsPass: Unhandled instruction type: " + std::string(I->getOpcodeName());
+    assert(false && msg.c_str());
   }
 }
 
