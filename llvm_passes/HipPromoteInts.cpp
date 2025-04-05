@@ -12,7 +12,17 @@
  * LLVM's loop optimizations can generate integer types with bit widths that are
  * not powers of two (or 1). These non-standard types can cause issues during
  * later stages, particularly SPIR-V translation.
- *
+ * Key Data Structures:
+ * -------------------- 
+ * - `WorkList`: Stores initial instructions needing promotion within a function.
+ * - `GlobalVisited`: Tracks instructions already processed across *all* chains in a function to avoid redundant work.
+ *                    Ensures each instruction is promoted only once per function, even if reachable
+ *                    from multiple starting points in the `WorkList`.
+ * - `PromotedValues`: Maps original `Value*` (instructions, constants) to their promoted `Value*` equivalents
+ *   within the context of a single `promoteChain` call.
+ * - `Replacements`: Stores pairs of `{original instruction, new value}` created during `promoteChain`.
+ * - `PendingPhiAdds`: Temporarily stores `{TargetPhi, OriginalValue, IncomingBlock}` tuples for PHI inputs
+ *   whose `OriginalValue` hadn't been processed yet when `processPhiNode` was called.
  * Algorithm Overview:
  * ------------------
  * This pass replaces instructions involving non-standard integer types with
@@ -22,114 +32,103 @@
  * 1. Worklist Collection:
  *    - Identify all instructions that either produce a non-standard integer type
  *      or use an operand with a non-standard integer type.
- *    - These instructions form the starting points for promotion chains.
+ *    - These instructions form the initial `WorkList` for promotion chains.
  *
  * 2. Chain Promotion and Replacement:
- *    - For each instruction in the worklist (that hasn't already been processed):
+ *    - For each instruction in the `WorkList` (that hasn't already been processed
+ *      via `GlobalVisited`):
  *        a. **Recursive Promotion (`promoteChain`)**: Recursively traverse the use-def chain
  *           starting from the initial instruction. For each instruction encountered:
- *           - Determine its corresponding promoted instruction (using standard types).
- *           - Store the mapping from the original instruction to its promoted counterpart
- *             (using `PromotedValues` map).
- *           - Add the original instruction and its replacement to a `Replacements` list.
- *           - Handle type adjustments (zext/trunc/bitcast) as needed to maintain consistency
- *             within the *new* chain being built (which uses promoted types).
- *           - Special handling for PHI nodes is required to manage dependencies correctly,
- *             deferring the addition of incoming values until the producing instruction is processed.
- *        b. **PHI Node Patching**: After processing a chain, resolve any pending PHI node additions.
- *           Look up the promoted values for the original incoming values and add them to the new PHI nodes,
- *           inserting type adjustments if necessary.
+ *           - Dispatch to the appropriate `processInstruction` handler (e.g.,
+ *             `processBinaryOperator`, `processPhiNode`, `processTruncInst`).
+ *           - Determine its corresponding promoted instruction/value (using standard types).
+ *           - Store the mapping from the original instruction/value to its promoted counterpart
+ *             in the `PromotedValues` map for the current chain.
+ *           - Add the original instruction and its replacement/new value to a `Replacements` list.
+ *           - Use the `adjustType` helper function to insert explicit type conversions
+ *             (zext/trunc/bitcast) as needed to maintain type consistency *within the newly built
+ *             promoted instruction chain*.
+ *           - Special handling for PHI nodes (`processPhiNode`): Create the new PHI node
+ *             with the promoted type and register it immediately in `PromotedValues` to break
+ *             potential cycles during recursive processing. Defer adding incoming values
+ *             if their producers haven't been processed yet by adding them to `PendingPhiAdds`.
+ *           - Special handling for `TruncInst` and `ZExtInst` to manage conversions between
+ *             standard and non-standard types, sometimes bypassing the instruction or using
+ *             the promoted source directly.
+ *        b. **PHI Node Patching**: After processing a chain initiated by `promoteChain`,
+ *           iterate through the `PendingPhiAdds` list generated during that chain's processing.
+ *           Look up the now-available promoted values for the original incoming values (using
+ *           `PromotedValues`), adjust their types if necessary using `adjustType`, and add
+ *           them to their corresponding new PHI nodes.
  *        c. **Instruction Replacement**: Iterate through the `Replacements` list.
- *           - Replace all uses of the original instruction `Old` with the new value `New`,
- *             *only* updating users that were also part of the processed chain (`GlobalVisited`).
- *           - Perform a final `replaceAllUsesWith` to catch any remaining uses (e.g., external users
- *             or complex dependencies).
- *           - Erase the original instruction `Old`.
+ *           - First pass: Replace uses of the original instruction `Old` with the new value `New`,
+ *             *only* updating users that were also part of the processed chain (tracked in `GlobalVisited`).
+ *           - Second pass: Perform a final `replaceAllUsesWith` on `Old` to catch any remaining uses
+ *             (e.g., users outside the processed chain or complex dependencies).
+ *           - Erase the original instruction `Old` (in reverse order of replacement). 
  *
- * Key Data Structures:
- * --------------------
- * - `WorkList`: Stores initial instructions needing promotion.
- * - `GlobalVisited`: Tracks instructions already processed across all chains to avoid redundant work.
- * - `PromotedValues`: Maps original `Value*` (instructions, constants) to their promoted `Value*` equivalents
- *   within the context of a single `promoteChain` call.
- * - `Replacements`: Stores pairs of `{original instruction, new value}` created during `promoteChain`.
- * - `PendingPhiAdds`: Temporarily stores information needed to update PHI nodes after their dependencies are processed.
- *
- * Example:
+ * Example: Promotion Walkthrough with PHI Deferral
  * --------
+ * Original IR (Illustrating standard->non-standard trunc and cycle):
  *
- * === Promotion Walkthrough with PHI ===
- * Original IR (Illustrating PHI with standard->non-standard trunc):
- *
- *   ; Assume %cond (i1), %std_val (i64), %non_std_val (i33) are defined earlier.
  *   entry:
- *     br i1 %cond, label %bb.true, label %bb.false
+ *     %std_val = ... ; i64
+ *     %non_std_init = ... ; i33
+ *     br label %loop_header
  *
- *   bb.true: ; Original Path
- *     ; --- Originals still exist ---
- *     %val_true = trunc i64 %std_val to i33
- *     br label %bb.merge
+ *   loop_header:
+ *     %phi.loop = phi i33 [ %non_std_init, %entry ], [ %next_val, %loop_latch ]
+ *     br label %loop_body
  *
- *   bb.false: ; Original Path
- *     %val_false = add i33 %non_std_val, 1
- *     br label %bb.merge
+ *   loop_body:
+ *     %trunc_std = trunc i64 %std_val to i33 ; Standard -> Non-standard
+ *     %added = add i33 %phi.loop, 1
+ *     br label %loop_latch
  *
- *   bb.merge: ; Original Path
- *     %merged_val = phi i33 [ %val_true, %bb.true ], [ %val_false, %bb.false ]
- *     %final_res = trunc i33 %merged_val to i8
- *     ; Use %final_res (i8)
+ *   loop_latch:
+ *     %next_val = select i1 ..., i33 %added, i33 %trunc_std
+ *     br label %loop_header
  *
- *   ; --- New Promoted Instructions/Values --- (inserted somewhere, possibly different BBs)
- *     %non_std_val.promoted = zext i33 %non_std_val to i64 ; (Created by getPromotedValue)
- *     %const1_promoted = i64 1                               ; (Created by getPromotedValue)
- *     ; --- Promoted path for bb.false ---
- *     %val_false.promoted = add i64 %non_std_val.promoted, %const1_promoted
- *     ; --- Promoted PHI ---
- *     %merged_val.promoted = phi i64 [ %std_val, %bb.true ], [ %val_false.promoted, %bb.false ]
- *     ; --- Promoted final truncation ---
- *     %final_res.promoted = trunc i64 %merged_val.promoted to i8
+ * 1. Worklist: Instructions involving `i33` are added: `%phi.loop`, `%added`, `%trunc_std`, `%next_val`.
+ * 2. `promoteChain` starts (e.g., triggered by `%added`):
+ *    - Processes `%added`: Creates `%added.promoted = add i64 ...`. Needs promoted `%phi.loop`.
+ *    - Recursively calls `promoteChain` for `%phi.loop`.
+ *    - `processPhiNode` for `%phi.loop`:
+ *        - Creates `NewPhi = %phi.loop.promoted = phi i64 ...`.
+ *        - Registers `PromotedValues[%phi.loop] = NewPhi`.
+ *        - Processes incoming `[%non_std_init, %entry]`: Gets promoted `%non_std_init.promoted`, adds it directly.
+ *        - Processes incoming `[%next_val, %loop_latch]`: `PromotedValues` doesn't contain `%next_val` yet.
+ *          Adds `{NewPhi, %next_val, %loop_latch}` to `PendingPhiAdds`. Deferral occurs.
+ *    - Recursion returns. `promoteChain` continues processing other instructions.
+ *    - Processes `%trunc_std`: `processTruncInst` recognizes standard->non-standard. Creates mapping
+ *      `PromotedValues[%trunc_std] = %std_val` (bypassing the trunc internally).
+ *    - Processes `%next_val`: Creates `%next_val.promoted = select i1 ..., i64 %added.promoted, i64 %std_val`.
+ *      Needs promoted `%added` (available) and promoted `%trunc_std` (available as `%std_val`).
+ *      Registers `PromotedValues[%next_val] = %next_val.promoted`.
+ * 3. PHI Patching: After the chain processing completes:
+ *    - Iterates `PendingPhiAdds`. Finds `{NewPhi, %next_val, %loop_latch}`.
+ *    - Looks up `PromotedValues[%next_val]`, finds `%next_val.promoted` (i64).
+ *    - Calls `NewPhi->addIncoming(%next_val.promoted, %loop_latch)`.
+ * 4. Replacement/Deletion: Replaces uses and deletes original `i33` instructions.
  *
- * 1. Initial State (Non-Standard Type i33):
- *   The pass starts with the original IR as shown just above.
- *
- * 2. Intermediate State (During Promotion - Before Replacements):
- *   - The pass identifies instructions involving i33: `%val_true`, `%val_false`, `%merged_val`, `%final_res`.
- *   - It starts processing, creating promoted counterparts.
- *   - When processing `%merged_val` (a PHINode):
- *     - A new PHI `%merged_val.promoted` of type i64 is created.
- *     - For incoming `%val_true` (from `trunc i64 %std_val to i33`):
- *       - The special logic in `processPhiNode` recognizes this standard->non-standard trunc.
- *       - It uses the *source* of the trunc, `%std_val` (already i64), directly as the incoming value.
- *     - For incoming `%val_false` (from `add i33 %non_std_val, 1`):
- *       - `getPromotedValue` is called for `%val_false`.
- *       - This recursively processes `%val_false`, creating `%val_false.promoted = add i64 %non_std_val.promoted, 1`.
- *       - `%val_false.promoted` (i64) is used as the incoming value.
- *     - An intermediate `%final_res.promoted = trunc i64 %merged_val.promoted to i8` is created.
- *
- * 3. Final State (After Replacements, Deletions, and Cleanup):
- *   - Uses of original instructions (`%val_true`, `%val_false`, `%merged_val`, `%final_res`)
- *     are replaced with their final values (`%std_val`, `%val_false.promoted`, `%merged_val.promoted`, `%final_res.promoted`).
- *   - Original instructions are deleted.
- *   - Any intermediate bridging instructions (like potential zexts created by getPromotedValue)
- *     become dead code and are removed by cleanup passes.
- *   - Cleanup passes (like ADCE) remove the dead code.
- *   ; --- Final Snippet after Promotion and Cleanup ---
+ * Final State (Simplified):
  *   entry:
- *     br i1 %cond, label %bb.true.final, label %bb.false.final
+ *     %std_val = ... ; i64
+ *     %non_std_init.promoted = zext i33 %non_std_init to i64
+ *     br label %loop_header
  *
- *   bb.true.final:
- *     ; Path becomes empty as the original trunc was bypassed and deleted.
- *     br label %bb.merge.final
+ *   loop_header:
+ *     %phi.loop.promoted = phi i64 [ %non_std_init.promoted, %entry ], [ %next_val.promoted, %loop_latch ]
+ *     br label %loop_body
  *
- *   bb.false.final:
- *     %const1_promoted = i64 1
- *     %val_false.promoted = add i64 %non_std_val.promoted, %const1_promoted
- *     br label %bb.merge.final
+ *   loop_body:
+ *     ; %trunc_std deleted
+ *     %added.promoted = add i64 %phi.loop.promoted, 1
+ *     br label %loop_latch
  *
- *   bb.merge.final:
- *     %merged_val.promoted = phi i64 [ %std_val, %bb.true.final ], [ %val_false.promoted, %bb.false.final ]
- *     %final_res.promoted = trunc i64 %merged_val.promoted to i8
- *     ; Use %final_res.promoted (i8)
+ *   loop_latch:
+ *     %next_val.promoted = select i1 ..., i64 %added.promoted, i64 %std_val
+ *     br label %loop_header
  *
  */
 
@@ -214,25 +213,28 @@ static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const s
     return AdjustedV;
 }
 
-// Helper to get or create promoted value
-// This helper function is called whenever an instruction processing function
-// (e.g., `processBinaryOperator`, `processPhiNode`) needs an operand's value.
-// It ensures that if the operand `V` is part of the non-standard type chain,
-// an equivalent value with the `PromotedTy` is returned. It handles:
-// 1. Returning cached results from `PromotedValues`.
-// 2. Returning `V` directly if it's already the `PromotedTy`.
-// 3. Promoting `ConstantInt`s of `NonStdType` directly to `PromotedTy`.
-// 4. Creating `ZExt`/`Trunc`/`BitCast` instructions if `V` is an instruction
-//    result of `NonStdType` to convert it to `PromotedTy`.
-// 5. Returning other values (standard constants, arguments) directly.
-//
-// Parameters:
-//   V: The original Value* operand.
-//   NonStdType: The specific non-standard type being processed in the current chain (e.g., i33).
-//   PromotedTy: The target standard type for the current chain (e.g., i64).
-//   Builder: IRBuilder positioned correctly to insert new instructions if needed.
-//   Indent: String for debug printing indentation.
-//   PromotedValues: Map to cache already promoted values.
+/**
+ * Get or create promoted value
+ * 
+ * This helper function is called whenever an instruction processing function
+ * (e.g., `processBinaryOperator`, `processPhiNode`) needs an operand's value.
+ * It ensures that if the operand `V` is part of the non-standard type chain,
+ * an equivalent value with the `PromotedTy` is returned. It handles:
+ * 1. Returning cached results from `PromotedValues`.
+ * 2. Returning `V` directly if it's already the `PromotedTy`.
+ * 3. Promoting `ConstantInt`s of `NonStdType` directly to `PromotedTy`.
+ * 4. Creating `ZExt`/`Trunc`/`BitCast` instructions if `V` is an instruction
+ *    result of `NonStdType` to convert it to `PromotedTy`.
+ * 5. Returning other values (standard constants, arguments) directly.
+ * 
+ * @param V The original Value* operand
+ * @param NonStdType The specific non-standard type being processed in the current chain (e.g., i33)
+ * @param PromotedTy The target standard type for the current chain (e.g., i64)
+ * @param Builder IRBuilder positioned correctly to insert new instructions if needed
+ * @param Indent String for debug printing indentation
+ * @param PromotedValues Map to cache already promoted values
+ * @return The promoted value
+ */
 static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
                                IRBuilder<> &Builder, const std::string &Indent,
                                SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -297,6 +299,17 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   return V;
 };
 
+/**
+ * Finalize promotion
+ * 
+ * This function finalizes the promotion of an instruction.
+ * It caches the promoted value and adds the replacement to the list.
+ * 
+ * @param Old The original instruction
+ * @param New The promoted value
+ * @param Replacements The list of replacements
+ * @param PromotedValues The map of already promoted values
+ */
 static inline void finalizePromotion(Instruction *Old, Value *New, 
                                      SmallVectorImpl<Replacement> &Replacements,
                                      SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -304,7 +317,21 @@ static inline void finalizePromotion(Instruction *Old, Value *New,
     Replacements.push_back(Replacement(Old, New));
 }
 
-// Helper to handle TruncInst as incoming PHI value
+/**
+ * Handle incoming PHI value as TruncInst
+ * 
+ * This function handles the case where a PHI node has an incoming value that is a TruncInst.
+ * It checks if the source of the truncation is standard and the destination is non-standard.
+ * If so, it promotes the source value to the promoted type and adds it to the PHI node.
+ * 
+ * @param TruncI The TruncInst to handle
+ * @param NonStdType The non-standard type being promoted
+ * @param PromotedType The promoted type
+ * @param Indent The indent for debug printing
+ * @param PromotedValues The map of already promoted values
+ * @param PendingPhiAdds The list of pending PHI node additions
+ * @param NewPhi The new PHI node to add
+ */
 static bool handlePhiIncomingTrunc(TruncInst *TruncI, Type *NonStdType,
                                    Type *PromotedType, const std::string &Indent,
                                    SmallDenseMap<Value *, Value *> &PromotedValues,
@@ -363,7 +390,23 @@ static bool handlePhiIncomingTrunc(TruncInst *TruncI, Type *NonStdType,
   return false; // Not handled specially, let general logic take over
 }
 
-// Helper to handle ZExtInst as incoming PHI value
+/**
+ * Handle incoming PHI value as ZExtInst
+ * 
+ * This function handles the case where a PHI node has an incoming value that is a ZExtInst.
+ * It checks if the source of the zero-extension is non-standard.
+ * If so, it promotes the source value to the promoted type and adds it to the PHI node.
+ * 
+ * @param ZExtI The ZExtInst to handle
+ * @param NonStdType The non-standard type being promoted
+ * @param PromotedType The promoted type
+ * @param Indent The indent for debug printing
+ * @param PromotedValues The map of already promoted values
+ * @param PendingPhiAdds The list of pending PHI node additions
+ * @param NewPhi The new PHI node to add
+ * @param NewIncomingValue The new incoming value to add
+ * @return true if the value was deferred, false otherwise
+ */
 static bool handlePhiIncomingZExt(ZExtInst *ZExtI, Type *NonStdType,
                                   Type *PromotedType, const std::string &Indent,
                                   SmallDenseMap<Value *, Value *> &PromotedValues,
@@ -393,7 +436,25 @@ static bool handlePhiIncomingZExt(ZExtInst *ZExtI, Type *NonStdType,
   return false; // Not a non-standard ZExt, let general logic take over
 }
 
-// Helper to get/adjust the incoming value for the new PHI node
+/**
+ * Helper to get/adjust the incoming value for the new PHI node
+ * 
+ * This function checks if the incoming value has already been promoted.
+ * If so, it returns the promoted value.
+ * Otherwise, it determines the incoming value for the new PHI node.
+ * 
+ * @param IncomingValue The incoming value to check
+ * @param NonStdType The non-standard type being promoted
+ * @param PromotedType The promoted type
+ * @param Phi The PHI node to add
+ * @param Indent The indent for debug printing
+ * @param PromotedValues The map of already promoted values
+ * @param PendingPhiAdds The list of pending PHI node additions
+ * @param NewPhi The new PHI node to add
+ * @param IncomingBlock The incoming block to add
+ * @param NewIncomingValue The new incoming value to add
+ * @return true if the value was deferred, false otherwise
+ */
 static bool
 determinePhiIncomingValue(Value *IncomingValue, Type *NonStdType,
                           Type *PromotedType, PHINode *Phi,
