@@ -33,6 +33,9 @@ configure_file(run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/run_promote
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/dominance.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/ext-repro.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/warpCalc.ll)
+list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rocprim.ll)
+list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rocprim-redux.ll)
+list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rocmprim-device-scan.ll)
 # If we have this, a pass won't help
 # list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/func-return-nonstd.ll)
 
@@ -41,6 +44,12 @@ foreach(IR_FILE ${TEST_IR_FILES})
   get_filename_component(BASENAME ${IR_FILE} NAME_WE)
   configure_file(${IR_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME} COPYONLY)
   
+  # Check if the test should be disabled
+  set(TEST_DISABLED FALSE)
+  if(LLVM_VERSION_MAJOR LESS 18 AND BASENAME STREQUAL "rocprim-redux")
+    set(TEST_DISABLED TRUE)
+  endif()
+
   add_test(
     NAME hipPromoteInt-${BASENAME}
     COMMAND env 
@@ -50,4 +59,9 @@ foreach(IR_FILE ${TEST_IR_FILES})
       HIP_SPV_PASSES_LIB=${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
       ${CMAKE_CURRENT_BINARY_DIR}/run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME}
   )
+
+  # Set the DISABLED property if needed
+  if(TEST_DISABLED)
+    set_tests_properties(hipPromoteInt-${BASENAME} PROPERTIES DISABLED TRUE)
+  endif()
 endforeach() 
