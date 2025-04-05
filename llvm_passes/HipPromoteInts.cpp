@@ -304,215 +304,235 @@ static inline void finalizePromotion(Instruction *Old, Value *New,
     Replacements.push_back(Replacement(Old, New));
 }
 
+// Helper to handle TruncInst as incoming PHI value
+static bool handlePhiIncomingTrunc(TruncInst *TruncI, Type *NonStdType,
+                                   Type *PromotedType, const std::string &Indent,
+                                   SmallDenseMap<Value *, Value *> &PromotedValues,
+                                   SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds,
+                                   PHINode *NewPhi, BasicBlock *IncomingBlock,
+                                   Value *&NewIncomingValue) {
+  Value *TruncSrc = TruncI->getOperand(0);
+  Type *SrcTy = TruncSrc->getType();
+  Type *DestTy = TruncI->getDestTy();
+
+  bool IsSrcStandard = HipPromoteIntsPass::isStandardBitWidth(
+      SrcTy->isIntegerTy() ? SrcTy->getIntegerBitWidth() : 0);
+  bool IsDestNonStandard = !HipPromoteIntsPass::isStandardBitWidth(
+      DestTy->isIntegerTy() ? DestTy->getIntegerBitWidth() : 0);
+
+  // Case 1: Standard -> Non-Standard Truncation
+  if (IsSrcStandard && IsDestNonStandard) {
+    LLVM_DEBUG(dbgs() << Indent
+                      << "      Found standard -> non-standard trunc: "
+                      << *TruncI << "\n");
+    if (PromotedValues.count(TruncI)) {
+      NewIncomingValue = PromotedValues[TruncI];
+      LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value: "
+                        << *NewIncomingValue << "\n");
+    } else {
+      Value *PromotedSrc =
+          PromotedValues.count(TruncSrc) ? PromotedValues[TruncSrc] : TruncSrc;
+      LLVM_DEBUG(dbgs() << Indent
+                        << "      Using source directly: " << *PromotedSrc
+                        << "\n");
+      NewIncomingValue = PromotedSrc;
+      PromotedValues[TruncI] = NewIncomingValue; // Cache the bypass
+    }
+    return false; // Not deferred
+  }
+  // Case 2: Non-Standard Source Truncation
+  else if (!IsSrcStandard) {
+    LLVM_DEBUG(dbgs() << Indent
+                      << "      Found non-standard source trunc: " << *TruncI
+                      << "\n");
+    if (PromotedValues.count(TruncI)) {
+      NewIncomingValue = PromotedValues[TruncI];
+      LLVM_DEBUG(dbgs() << Indent
+                        << "      Using existing promoted value: " << *NewIncomingValue
+                        << "\n");
+      return false; // Not deferred
+    } else {
+      LLVM_DEBUG(dbgs() << Indent
+                        << "      Deferring PHI add for unprocessed non-standard "
+                           "truncation\n");
+      PendingPhiAdds.push_back({NewPhi, TruncI, IncomingBlock});
+      return true; // Deferred
+    }
+  }
+  // Case 3: Other Truncation (e.g., Standard -> Standard)
+  return false; // Not handled specially, let general logic take over
+}
+
+// Helper to handle ZExtInst as incoming PHI value
+static bool handlePhiIncomingZExt(ZExtInst *ZExtI, Type *NonStdType,
+                                  Type *PromotedType, const std::string &Indent,
+                                  SmallDenseMap<Value *, Value *> &PromotedValues,
+                                  SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds,
+                                  PHINode *NewPhi, BasicBlock *IncomingBlock,
+                                  Value *&NewIncomingValue) {
+  Value *ZExtSrc = ZExtI->getOperand(0);
+  if (auto *SrcTy = dyn_cast<IntegerType>(ZExtSrc->getType())) {
+    if (!HipPromoteIntsPass::isStandardBitWidth(SrcTy->getBitWidth())) {
+      LLVM_DEBUG(dbgs() << Indent
+                        << "      Found zero-extension from non-standard type: "
+                        << *ZExtI << "\n");
+      if (PromotedValues.count(ZExtI)) {
+        NewIncomingValue = PromotedValues[ZExtI];
+        LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for zext: "
+                          << *NewIncomingValue << "\n");
+        return false; // Not deferred
+      } else {
+        LLVM_DEBUG(
+            dbgs() << Indent
+                   << "      Deferring PHI add for unprocessed non-standard zext\n");
+        PendingPhiAdds.push_back({NewPhi, ZExtI, IncomingBlock});
+        return true; // Deferred
+      }
+    }
+  }
+  return false; // Not a non-standard ZExt, let general logic take over
+}
+
+// Helper to get/adjust the incoming value for the new PHI node
+static bool
+determinePhiIncomingValue(Value *IncomingValue, Type *NonStdType,
+                          Type *PromotedType, PHINode *Phi,
+                          const std::string &Indent,
+                          SmallDenseMap<Value *, Value *> &PromotedValues,
+                          SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds,
+                          PHINode *NewPhi, BasicBlock *IncomingBlock,
+                          Value *&NewIncomingValue) {
+  // Check cache first
+  if (PromotedValues.count(IncomingValue)) {
+    NewIncomingValue = PromotedValues[IncomingValue];
+    LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value: "
+                      << *NewIncomingValue << "\n");
+    return false; // Not deferred
+  }
+
+  // Handle Instruction types
+  if (auto *IncomingInst = dyn_cast<Instruction>(IncomingValue)) {
+    // Check if the instruction itself or its operands involve non-std type
+    if (isNonStandardInt(IncomingInst->getType()) ||
+        llvm::any_of(IncomingInst->operands(),
+                     [](Value *V) { return isNonStandardInt(V->getType()); })) {
+      // Defer if it involves non-standard types and hasn't been processed
+      LLVM_DEBUG(dbgs() << Indent
+                        << "      Deferring PHI add for unprocessed instruction "
+                           "involving non-std type: "
+                        << *IncomingValue << "\n");
+      PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
+      return true; // Deferred
+    } else {
+      // Standard instruction, get its promoted value (might be itself)
+      IRBuilder<> TmpBuilder(Phi); // Builder before the PHI
+      NewIncomingValue = getPromotedValue(IncomingValue, NonStdType, PromotedType,
+                                          TmpBuilder, Indent + "      ",
+                                          PromotedValues);
+      LLVM_DEBUG(dbgs() << Indent
+                        << "      Using potentially promoted value for standard "
+                           "instruction: "
+                        << *NewIncomingValue << "\n");
+      return false; // Not deferred
+    }
+  } else {
+    // Must be a constant, argument, global - get its potentially promoted form
+    IRBuilder<> TmpBuilder(Phi); // Builder before the PHI
+    NewIncomingValue = getPromotedValue(IncomingValue, NonStdType, PromotedType,
+                                        TmpBuilder, Indent + "      ",
+                                        PromotedValues);
+    LLVM_DEBUG(dbgs() << Indent << "      Using potentially promoted value: "
+                      << *NewIncomingValue << "\n");
+    return false; // Not deferred
+  }
+}
+
 static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
                            IRBuilder<> &Builder, const std::string &Indent,
                            SmallVectorImpl<Replacement> &Replacements,
                            SmallDenseMap<Value *, Value *> &PromotedValues,
                            SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds) {
-  // Create new PHI node with the promoted type (e.g., i64)
+  // Create new PHI node with the promoted type
   Type *PromotedType = HipPromoteIntsPass::getPromotedType(Phi->getType());
   PHINode *NewPhi =
       PHINode::Create(PromotedType, Phi->getNumIncomingValues(), "", Phi);
 
-  // Register the PHI node in the map BEFORE processing incoming values
-  // to handle circular references properly
-  // Explanation: PHI nodes inherently create cycles in loops (value defined by PHI
-  // is used in the loop, and the result feeds back into the PHI).
-  // Example Cycle:
-  //   loop:
-  //     %phi = phi i33 [ 0, %entry ], [ %next, %loop ]
-  //     %next = add i33 %phi, 1
-  //     br label %loop
-  // If we process `%next` first, we need the promoted value for `%phi`. By creating
-  // the `NewPhi` and registering it in `PromotedValues` *before* processing `%next`
-  // or the incoming value `%next`, we ensure that when `getPromotedValue` is called
-  // for the original `%phi`, it finds the (incomplete) `NewPhi`. This breaks the
-  // dependency issue during the recursive build-up. The incoming values are added later.
+  // Register the PHI node early to handle cycles
   LLVM_DEBUG(dbgs() << Indent << "  Creating promotion for PHI: " << *Phi
                     << " to " << *NewPhi << "\n");
   PromotedValues[Phi] = NewPhi;
 
-  // Temporary list to store incoming values that can be added immediately
+  // Temporary list for values to add immediately
   SmallVector<std::pair<Value *, BasicBlock *>, 4> ValuesToAdd;
 
-  // Iterate through original incoming values to determine promoted/adjusted values
+  // Iterate through original incoming values
   for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
     Value *IncomingValue = Phi->getIncomingValue(i);
     BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
-
     LLVM_DEBUG(dbgs() << Indent << "    Processing incoming value: " << *IncomingValue
                       << " from block: " << IncomingBlock->getName() << "\n");
 
     Value *NewIncomingValue = nullptr;
     bool DeferAdd = false;
 
-    // Special handling for truncation instructions that convert from standard to non-standard types
-    // Example:
-    // bb1:
-    //   %x = add i64 ...
-    //   %trunc_std_nonstd = trunc i64 %x to i33
-    //   br label %bb2
-    // bb2:
-    //   %phi = phi i33 [ %trunc_std_nonstd, %bb1 ], ...
-    //
-    // When processing %phi, we encounter %trunc_std_nonstd.
-    // Since it's standard -> non-standard, we directly use the *source* (%x)
-    // as the incoming value for the *promoted* PHI node (%phi_promoted = i64 [%x, %bb1]).
-    // This effectively bypasses the truncation within the promoted chain.
+    // Check for special cases first (Trunc, ZExt)
     if (auto *TruncI = dyn_cast<TruncInst>(IncomingValue)) {
-      Value *TruncSrc = TruncI->getOperand(0);
-      Type *SrcTy = TruncSrc->getType();
-      Type *DestTy = TruncI->getDestTy();
-
-      bool IsSrcStandard = false;
-      if (auto *SrcIntTy = dyn_cast<IntegerType>(SrcTy)) {
-        IsSrcStandard = HipPromoteIntsPass::isStandardBitWidth(SrcIntTy->getBitWidth());
-      }
-
-      bool IsDestNonStandard = false;
-      if (auto *DestIntTy = dyn_cast<IntegerType>(DestTy)) {
-        IsDestNonStandard = !HipPromoteIntsPass::isStandardBitWidth(DestIntTy->getBitWidth());
-      }
-
-      // Handle truncation from standard to non-standard specially
-      // e.x. %trunc_std_nonstd = trunc i64 %x to i33
-      if (IsSrcStandard && IsDestNonStandard) {
-        LLVM_DEBUG(dbgs() << Indent << "      Found truncation from standard to non-standard type: " << *TruncI << "\n");
-
-        // Check if we already have a promoted value for this truncation
-        if (PromotedValues.count(IncomingValue)) {
-          NewIncomingValue = PromotedValues[IncomingValue];
-          LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value: " << *NewIncomingValue << "\n");
-        } else {
-          // If not already processed, get the promoted source directly
-          Value *PromotedSrc = PromotedValues.count(TruncSrc) ? PromotedValues[TruncSrc] : TruncSrc;
-
-          // For standard to non-standard truncation, we use the source value directly
-          // This makes the truncation effectively a no-op in our promotion chain
-          LLVM_DEBUG(dbgs() << Indent << "      Using source directly for standard-to-nonstandard trunc: "
-                            << *PromotedSrc << "\n");
-
-          NewIncomingValue = PromotedSrc; // Use the (potentially promoted) source
-
-          // Store this for future use (map the original trunc to the promoted source)
-          PromotedValues[IncomingValue] = NewIncomingValue;
-        }
-      } else if (!IsSrcStandard) {
-        // Check if the source operand has a non-standard type
-        LLVM_DEBUG(dbgs() << Indent << "      Found truncation from non-standard type: " << *TruncI << "\n");
-
-        // Instead of creating a new truncation chain, we need to handle the chain consistently
-        // Check if the truncation itself has already been processed/promoted
-        if (PromotedValues.count(IncomingValue)) {
-          NewIncomingValue = PromotedValues[IncomingValue];
-          LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for truncation: "
-                           << *NewIncomingValue << "\n");
-        } else {
-          // If this truncation hasn't been processed yet, it will be handled later by promoteChain.
-          // Defer adding it to the PHI.
-          LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed non-standard truncation\n");
-          PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
-          DeferAdd = true;
-        }
-      }
-    }
-    // Also handle zero-extension from non-standard types
-    // TODO: IR Example
-    // Example:
-    // bb1:
-    //   %y = add i33 ...
-    //   %zext_nonstd_std = zext i33 %y to i64
-    //   br label %bb2
-    // bb2:
-    //   %phi = phi i64 [ %zext_nonstd_std, %bb1 ], ...
-    //
-    // When processing %phi, we encounter %zext_nonstd_std.
-    // If %zext_nonstd_std has already been processed by promoteChain,
-    // PromotedValues[%zext_nonstd_std] will exist (and be the correct i64 value),
-    // so we use that.
-    // If it hasn't been processed yet, we defer adding it to the PHI using
-    // PendingPhiAdds. promoteChain will eventually process %zext_nonstd_std,
-    // create its replacement, and then the pending add will be resolved.
-    else if (auto *ZExtI = dyn_cast<ZExtInst>(IncomingValue)) {
-      Value *ZExtSrc = ZExtI->getOperand(0);
-
-      // Check if the source operand has a non-standard type
-      if (auto *SrcTy = dyn_cast<IntegerType>(ZExtSrc->getType())) {
-        if (!HipPromoteIntsPass::isStandardBitWidth(SrcTy->getBitWidth())) {
-          LLVM_DEBUG(dbgs() << Indent << "      Found zero-extension from non-standard type: " << *ZExtI << "\n");
-
-          // Handle consistently with how we process ZExt instructions
-          if (PromotedValues.count(IncomingValue)) {
-            NewIncomingValue = PromotedValues[IncomingValue];
-            LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for zext: "
-                             << *NewIncomingValue << "\n");
-          } else {
-            // If this zext hasn't been processed yet, let the normal processing handle it
-            LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed non-standard zext\n");
-            PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
-            DeferAdd = true;
-          }
-        }
-      }
+      DeferAdd = handlePhiIncomingTrunc(TruncI, NonStdType, PromotedType, Indent,
+                                        PromotedValues, PendingPhiAdds, NewPhi,
+                                        IncomingBlock, NewIncomingValue);
+    } else if (auto *ZExtI = dyn_cast<ZExtInst>(IncomingValue)) {
+      DeferAdd = handlePhiIncomingZExt(ZExtI, NonStdType, PromotedType, Indent,
+                                       PromotedValues, PendingPhiAdds, NewPhi,
+                                       IncomingBlock, NewIncomingValue);
     }
 
-    // If not deferred by special handling above
+    // If not handled by special cases and not already deferred, use general logic
+    if (!NewIncomingValue && !DeferAdd) {
+      DeferAdd = determinePhiIncomingValue(
+          IncomingValue, NonStdType, PromotedType, Phi, Indent, PromotedValues,
+          PendingPhiAdds, NewPhi, IncomingBlock, NewIncomingValue);
+    }
+
+    // If we determined a value and didn't defer, add it to the list
     if (!DeferAdd) {
-        if (!NewIncomingValue) { // If not already determined by special cases
-            // Check cache or defer if it's an unprocessed instruction
-            if (PromotedValues.count(IncomingValue)) {
-                NewIncomingValue = PromotedValues[IncomingValue];
-                LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value: " << *NewIncomingValue << "\n");
-            } else if (isa<Instruction>(IncomingValue)) {
-                Instruction* IncomingInst = cast<Instruction>(IncomingValue); // Cast to Instruction*
-                // Check if the instruction result or any of its operands involve non-standard types
-                if (isNonStandardInt(IncomingInst->getType()) ||
-                    llvm::any_of(IncomingInst->operands(), // Use the casted pointer
-                                 [](Value *V){ return isNonStandardInt(V->getType()); }))
-                {
-                     // Only defer if the instruction itself or its operands involve non-std type
-                     // AND it hasn't been processed/promoted yet.
-                     LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed instruction involving non-std type: " << *IncomingValue << "\n");
-                     PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
-                     DeferAdd = true;
-                } else {
-                     // It's a standard instruction not involving non-standard types, process now
-                     IRBuilder<> TmpBuilder(Phi); // Builder before the PHI
-                     NewIncomingValue = getPromotedValue(IncomingValue, NonStdType, PromotedType, TmpBuilder, Indent + "      ", PromotedValues);
-                     LLVM_DEBUG(dbgs() << Indent << "      Using potentially promoted value for standard instruction: " << *NewIncomingValue << "\n");
-                }
-            } else {
-                // Must be a constant, argument, global - get its potentially promoted form
-                // Use getPromotedValue which handles constants correctly.
-                IRBuilder<> TmpBuilder(Phi); // Builder before the PHI
-                NewIncomingValue = getPromotedValue(IncomingValue, NonStdType, PromotedType, TmpBuilder, Indent + "      ", PromotedValues);
-                LLVM_DEBUG(dbgs() << Indent << "      Using potentially promoted value: " << *NewIncomingValue << "\n");
-            }
-        }
-
-        // If we have a value (and didn't defer), adjust its type and add to temporary list
-        if (!DeferAdd) {
-            assert(NewIncomingValue && "Value for PHI should have been determined");
-            if (NewIncomingValue->getType() != PromotedType) {
-                IRBuilder<> PhiBuilder(Phi); // Builder before the PHI
-                LLVM_DEBUG(dbgs() << Indent << "      Adjusting incoming PHI value type: " << *NewIncomingValue << " to " << *PromotedType << "\n");
-                NewIncomingValue = adjustType(NewIncomingValue, PromotedType, PhiBuilder, Indent + "        Adjusting PHI incoming: ");
-            }
-            ValuesToAdd.push_back({NewIncomingValue, IncomingBlock});
-             LLVM_DEBUG(dbgs() << Indent << "      Queueing PHI add: [" << *NewIncomingValue << ", " << IncomingBlock->getName() << "]\n");
-        }
+      assert(NewIncomingValue && "Value for PHI should have been determined");
+      if (NewIncomingValue->getType() != PromotedType) {
+        IRBuilder<> PhiBuilder(Phi); // Builder before the PHI
+        LLVM_DEBUG(dbgs() << Indent
+                          << "      Adjusting incoming PHI value type: "
+                          << *NewIncomingValue << " to " << *PromotedType
+                          << "\n");
+        NewIncomingValue = adjustType(NewIncomingValue, PromotedType, PhiBuilder,
+                                      Indent + "        Adjusting PHI incoming: ");
+      }
+      ValuesToAdd.push_back({NewIncomingValue, IncomingBlock});
+      LLVM_DEBUG(dbgs() << Indent << "      Queueing PHI add: ["
+                        << *NewIncomingValue << ", " << IncomingBlock->getName()
+                        << "]\n");
     }
   } // End loop through original incoming values
 
-  // Now, add all the non-deferred values we collected
-  LLVM_DEBUG(dbgs() << Indent << "  Adding " << ValuesToAdd.size() << " non-deferred incoming values to PHI: " << *NewPhi << "\n");
-  for (const auto& Pair : ValuesToAdd) {
+  // Add the non-deferred values collected
+  LLVM_DEBUG(dbgs() << Indent << "  Adding " << ValuesToAdd.size()
+                    << " non-deferred incoming values to PHI: " << *NewPhi
+                    << "\n");
+  for (const auto &Pair : ValuesToAdd) {
     NewPhi->addIncoming(Pair.first, Pair.second);
   }
 
-  LLVM_DEBUG(dbgs() << Indent << "  " << *Phi << "   promoting PHI node: ====> " << *NewPhi
-                    << " (" << NewPhi->getNumIncomingValues() << " initial incoming, "
-                    << PendingPhiAdds.size() << " pending)\n");
+  // Calculate pending count separately for clarity in debug message
+  size_t PendingCount = 0;
+  for(const auto& p : PendingPhiAdds) {
+      if (p.TargetPhi == NewPhi) {
+          PendingCount++;
+      }
+  }
+
+  LLVM_DEBUG(dbgs() << Indent << "  " << *Phi
+                    << "   promoting PHI node: ====> " << *NewPhi << " ("
+                    << NewPhi->getNumIncomingValues() << " initial incoming, "
+                    << PendingCount << " pending)\n");
+
   Replacements.push_back(Replacement(Phi, NewPhi));
 }
 
