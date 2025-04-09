@@ -214,6 +214,41 @@ static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const s
 }
 
 /**
+ * Check if the constant value is used for signed comparison
+ * 
+ * This function goes through all the users of the constant and checks if any of them are used for signed comparison.
+ * 
+ * @param CI The constant integer to check
+ * @return True if the constant is used for signed comparison, false otherwise
+ */
+bool constValUsedForSignedCompare(const ConstantInt *CI) {
+  for (const User *U : CI->users()) {
+    if (const Instruction *UserInst = dyn_cast<Instruction>(U)) {
+        // Check for signed comparisons
+        if (const ICmpInst *Cmp = dyn_cast<ICmpInst>(UserInst)) {
+          if (Cmp->isSigned()) {
+             LLVM_DEBUG(dbgs() << "Constant " << *CI << " used in signed comparison: " << *Cmp << "\n");
+            return true;
+          }
+        }
+
+        // Check for other signed operations
+        switch (UserInst->getOpcode()) {
+        case Instruction::SDiv:
+        case Instruction::SRem:
+        case Instruction::AShr:
+           LLVM_DEBUG(dbgs() << "Constant " << *CI << " used in signed operation: " << *UserInst << "\n");
+          return true;
+        default:
+          // Other instructions are assumed to not require sign extension for this constant
+          break;
+        }
+    }
+  }
+  return false;
+}
+
+/**
  * Get or create promoted value
  * 
  * This helper function is called whenever an instruction processing function
@@ -261,6 +296,7 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   //   %c_promoted = add i64 %a_promoted, 1
   if (auto *ConstInt = dyn_cast<ConstantInt>(V)) {
     if (ConstInt->getType() == NonStdType) {
+      assert(!constValUsedForSignedCompare(ConstInt) && "ConstantInt requires sign extension");
       // Create a new ConstantInt with the promoted type
       // zext resolves at compile time, it doesn't generate zext instructions
       APInt PromotedValue = ConstInt->getValue().zext(PromotedTy->getIntegerBitWidth());
