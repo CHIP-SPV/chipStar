@@ -1173,6 +1173,66 @@ static void processInsertElementInst(InsertElementInst *InsertI, Type *NonStdTyp
     finalizePromotion(InsertI, NewInst, Replacements, PromotedValues);
 }
 
+// Add new handler for SExtInst
+static void processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being promoted, e.g. i56 */,
+                            Type *PromotedTy /* Type to promote to, e.g. i64 */,
+                            IRBuilder<> &Builder, const std::string &Indent,
+                            SmallVectorImpl<Replacement> &Replacements,
+                            SmallDenseMap<Value *, Value *> &PromotedValues) {
+  Value *SrcOp = SExtI->getOperand(0);
+  Type *SrcTy = SrcOp->getType();
+  Type *DestTy = SExtI->getDestTy();
+
+  // Get the potentially promoted source value. getPromotedValue handles constant promotion.
+  Value *PromotedSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+  bool IsSrcNonStandard = isNonStandardInt(SrcTy);
+  bool IsDestNonStandard = isNonStandardInt(DestTy);
+
+  Value *NewValue = nullptr;
+
+  if (IsSrcNonStandard) {
+    // Case 1: Source is Non-Standard (e.g., sext i56 -> i64)
+    // PromotedSrc should now have the PromotedTy (e.g., i64)
+    assert(PromotedSrc->getType() == PromotedTy && "Non-standard source operand was not promoted correctly in getPromotedValue");
+
+    // We need the final result type to be DestTy (original destination type).
+    // Adjust the PromotedSrc to match DestTy if necessary.
+    NewValue = adjustType(PromotedSrc, DestTy, Builder, Indent + "    ");
+    if (NewValue == PromotedSrc) {
+      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std src, becomes no-op): ====> " << *NewValue << "\n");
+    } else {
+      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std src, requires adjust): ====> " << *NewValue << "\n");
+    }
+    finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
+
+  } else if (IsDestNonStandard) {
+    // Case 2: Destination is Non-Standard (e.g., sext i32 -> i56)
+    Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy); // e.g., i64
+
+    // Since the source is standard, getPromotedValue should have returned a value
+    // with the original source type SrcTy. No adjustment should be needed yet.
+    assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard SExt source");
+
+    // Create SExt using the standard source (PromotedSrc) to the *promoted* destination type.
+    NewValue = Builder.CreateSExt(PromotedSrc, PromotedDestTy); // Use SExt
+    LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std dest): ====> " << *NewValue << "\n");
+    finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
+
+  } else {
+    // Case 3: Source and Destination are Standard (e.g., sext i32 -> i64)
+    // Recreate the instruction. Since the source is standard, getPromotedValue
+    // should have returned a value with the original source type SrcTy.
+    assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard SExt source");
+
+    // Create the SExt with the standard source (PromotedSrc) and original standard destination type.
+    NewValue = Builder.CreateSExt(PromotedSrc, DestTy); // Use SExt
+    LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (standard src/dest): ====> " << *NewValue << "\n");
+    // Map original SExt result to new SExt result. Both should have same standard type.
+    finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
+  }
+}
+
 void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                         const std::string &Indent,
                         SmallVectorImpl<Replacement> &Replacements,
@@ -1185,6 +1245,8 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
       processPhiNode(Phi, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues, PendingPhiAdds);
   } else if (auto *ZExtI = dyn_cast<ZExtInst>(I)) {
       processZExtInst(ZExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+  } else if (auto *SExtI = dyn_cast<SExtInst>(I)) { // Add handler for SExtInst
+      processSExtInst(SExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *TruncI = dyn_cast<TruncInst>(I)) {
       processTruncInst(TruncI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
