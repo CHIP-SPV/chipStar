@@ -275,8 +275,6 @@ ANY:
     Unit_hipUserObjectCreate_Negative: 'hipUserObjectCreate is not implemented'
     Unit_hipUserObjectRelease_Negative: 'hipUserObjectCreate is not implemented'
     Unit_hipUserObjectRetain_Negative: 'hipUserObjectCreate is not implemented'
-    Unit_printf_flags: ''
-    Unit_printf_specifier: ''
     constant_fold_lgamma_r: ''
     cuda-simpleCallback: ''
     hipMultiThreadAddCallback: ''
