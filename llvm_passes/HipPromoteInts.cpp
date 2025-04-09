@@ -296,7 +296,7 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   //   %c_promoted = add i64 %a_promoted, 1
   if (auto *ConstInt = dyn_cast<ConstantInt>(V)) {
     if (ConstInt->getType() == NonStdType) {
-      assert(!constValUsedForSignedCompare(ConstInt) && "ConstantInt requires sign extension");
+      assert(!constValUsedForSignedCompare(ConstInt) && "ConstantInt requires sign extension - please open an issue with the test case");
       // Create a new ConstantInt with the promoted type
       // zext resolves at compile time, it doesn't generate zext instructions
       APInt PromotedValue = ConstInt->getValue().zext(PromotedTy->getIntegerBitWidth());
