@@ -47,6 +47,12 @@ else()
   set(BC_DESTINATION lib/hip-device-lib)
 endif()
 
+# Add definitions for the fast math variant
+set(BC_FILE_FAST "hipspv-${BC_TRIPLE}-fast.bc")
+set(INTERMEDIATE_BC_DIR "${CMAKE_CURRENT_BINARY_DIR}/BC")
+set(INTERMEDIATE_BC_FAST_DIR "${CMAKE_CURRENT_BINARY_DIR}/BC_FAST")
+file(MAKE_DIRECTORY "${INTERMEDIATE_BC_FAST_DIR}")
+
 set(BITCODE_CL_COMPILE_FLAGS
   -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
   -cl-ext=+cl_khr_subgroup --target=${BC_TRIPLE}
@@ -56,25 +62,43 @@ set(BITCODE_C_COMPILE_FLAGS
   --target=${BC_TRIPLE} -O2 -x c -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE}
   -emit-llvm ${EXTRA_FLAGS})
 
+# Add flags for the fast math variant
+set(BITCODE_CL_COMPILE_FLAGS_FAST ${BITCODE_CL_COMPILE_FLAGS} -DCHIP_FAST_MATH)
+set(BITCODE_C_COMPILE_FLAGS_FAST ${BITCODE_C_COMPILE_FLAGS} -DCHIP_FAST_MATH)
+
 # non-OCML sources
 set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture") # "printf_support"
 
 # Compiles SOURCE treated as OpenCL to LLVM bitcode.
-function(add_opencl_bitcode SOURCE OUTPUT)
+function(add_opencl_bitcode SOURCE OUTPUT_DIR FLAGS OUTPUT_VARIABLE)
+  get_filename_component(FILENAME ${SOURCE} NAME_WE)
+  set(OUTPUT "${OUTPUT_DIR}/${FILENAME}.bc")
   add_custom_command(
     OUTPUT "${OUTPUT}"
     DEPENDS "${SOURCE}"
-    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
+    COMMAND "${CMAKE_CXX_COMPILER}" ${FLAGS}
     -o "${OUTPUT}" -c "${SOURCE}"
-    COMMENT "Building ${SOURCE}"
+    COMMENT "Building ${SOURCE} -> ${OUTPUT}"
     VERBATIM)
+  # Return the output path
+  set(${OUTPUT_VARIABLE} ${OUTPUT} PARENT_SCOPE)
 endfunction()
 
 foreach(SOURCE IN LISTS NON_OCML_SOURCES)
   add_opencl_bitcode(
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
-    "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
-  list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
+    "${INTERMEDIATE_BC_DIR}"
+    "${BITCODE_CL_COMPILE_FLAGS}"
+    OUTPUT_VARIABLE BC_PATH)
+  list(APPEND DEPEND_LIST ${BC_PATH})
+
+  # Build fast math variant
+  add_opencl_bitcode(
+    "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
+    "${INTERMEDIATE_BC_FAST_DIR}"
+    "${BITCODE_CL_COMPILE_FLAGS_FAST}"
+    OUTPUT_VARIABLE BC_PATH_FAST)
+  list(APPEND DEPEND_LIST_FAST ${BC_PATH_FAST})
 endforeach()
 
 # required by ROCm-Device-Libs
@@ -106,14 +130,25 @@ set(OCML_LIB_PATHS
 )
 
 add_custom_command(
-  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
+  OUTPUT "${INTERMEDIATE_BC_DIR}/c_to_opencl.bc"
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
   COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS}
-  -o "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
+  -o "${INTERMEDIATE_BC_DIR}/c_to_opencl.bc"
   -c "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
   COMMENT "Building c_to_opencl.bc"
   VERBATIM)
-list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
+list(APPEND DEPEND_LIST "${INTERMEDIATE_BC_DIR}/c_to_opencl.bc")
+
+# Add command for fast math c_to_opencl
+add_custom_command(
+  OUTPUT "${INTERMEDIATE_BC_FAST_DIR}/c_to_opencl.bc"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS_FAST}
+  -o "${INTERMEDIATE_BC_FAST_DIR}/c_to_opencl.bc"
+  -c "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  COMMENT "Building c_to_opencl_fast.bc"
+  VERBATIM)
+list(APPEND DEPEND_LIST_FAST "${INTERMEDIATE_BC_FAST_DIR}/c_to_opencl.bc")
 
 # devicelib
 add_custom_command(
@@ -128,10 +163,34 @@ add_custom_command(
   COMMENT "Linking device library bitcode '${BC_FILE}'"
   VERBATIM)
 
+# Add command for fast math devicelib
+add_custom_command(
+  OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE_FAST}"
+  DEPENDS ${DEPEND_LIST_FAST} ${OCML_LIBS}
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+  "${CMAKE_BINARY_DIR}/${BC_DESTINATION}"
+  COMMAND "${LLVM_LINK}"
+  -o "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE_FAST}"
+  ${DEPEND_LIST_FAST}
+  ${OCML_LIB_PATHS}
+  COMMENT "Linking fast math device library bitcode '${BC_FILE_FAST}'"
+  VERBATIM)
+
 add_custom_target("devicelib_bc"
   DEPENDS "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}")
 
+# Add target for fast math devicelib
+add_custom_target("devicelib_bc_fast"
+  DEPENDS "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE_FAST}")
+
+# Ensure the fast math bitcode is built with the default 'all' target
+add_custom_target(force_build_devicelib_bc_fast ALL DEPENDS devicelib_bc_fast)
+
 install(FILES "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
+  DESTINATION ${BC_DESTINATION})
+
+# Add install rule for fast math devicelib
+install(FILES "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE_FAST}"
   DESTINATION ${BC_DESTINATION})
 
 # =============================================================================
@@ -165,6 +224,16 @@ set(RTDEVLIB_SOURCES_v1_3
   ballot_native)
 
 # Alias for add_opencl_bitcode.
+function(add_opencl_bitcode SOURCE OUTPUT)
+  add_custom_command(
+    OUTPUT "${OUTPUT}"
+    DEPENDS "${SOURCE}"
+    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
+    -o "${OUTPUT}" -c "${SOURCE}"
+    COMMENT "Building ${SOURCE}"
+    VERBATIM)
+endfunction()
+
 foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2 RTDEVLIB_SOURCES_v1_3)
  add_opencl_bitcode(
    "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
