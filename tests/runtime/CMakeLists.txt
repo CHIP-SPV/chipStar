@@ -44,6 +44,12 @@ function(add_hip_runtime_test MAIN_SOURCE)
 
   set_tests_properties("${EXEC_NAME}" PROPERTIES
     SKIP_RETURN_CODE ${CHIP_SKIP_TEST})
+  set_tests_properties("${EXEC_NAME}" PROPERTIES
+    PASS_REGULAR_EXPRESSION "PASS")
+  set_tests_properties("${EXEC_NAME}" PROPERTIES
+    FAIL_REGULAR_EXPRESSION "FAIL")
+  set_tests_properties("${EXEC_NAME}" PROPERTIES
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 endfunction()
 
@@ -60,10 +66,6 @@ add_hip_runtime_test(TestRecordEventBlocking.cpp)
 # This test checks if zeEventQuery is a blocking operation
 set_tests_properties(TestRecordEventBlocking PROPERTIES
   TIMEOUT 60)
-set_tests_properties(TestRecordEventBlocking PROPERTIES
-  FAIL_REGULAR_EXPRESSION "FAIL")
-set_tests_properties(TestRecordEventBlocking PROPERTIES
-  PASS_REGULAR_EXPRESSION "PASS")
 
 add_hip_runtime_test(TestLazyModuleInit.cpp)
 add_hip_runtime_test(TestKernelArgs.hip)
@@ -109,17 +111,6 @@ add_hip_runtime_test(Test887.hip)
 add_hip_runtime_test(TestEnvVars.hip)
 set_tests_properties(TestEnvVars PROPERTIES
   TIMEOUT 60)
-set_tests_properties(TestEnvVars PROPERTIES
-  FAIL_REGULAR_EXPRESSION "FAIL")
-set_tests_properties(TestEnvVars PROPERTIES
-  PASS_REGULAR_EXPRESSION "PASS")
-set_tests_properties(TestEnvVars PROPERTIES
-  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 add_hip_runtime_test(host-math-funcs.hip)
-set_tests_properties("host-math-funcs" PROPERTIES
-FAIL_REGULAR_EXPRESSION "FAIL")
-set_tests_properties("host-math-funcs" PROPERTIES
-PASS_REGULAR_EXPRESSION "PASS")
-set_tests_properties("host-math-funcs" PROPERTIES
-SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+add_hip_runtime_test(TestMemcpyAsyncPageable.hip)
