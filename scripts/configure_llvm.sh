@@ -188,31 +188,32 @@ else
 fi
 
 # Add build type condition
+# Forcing the use of gcc and g++ to avoid issues with intel compilers
+COMMON_CMAKE_OPTIONS=(
+  -DCMAKE_CXX_COMPILER=g++ \
+  -DCMAKE_C_COMPILER=gcc \
+  -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
+  -DLLVM_TARGETS_TO_BUILD=host \
+  -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
+  -DLLVM_ENABLE_ASSERTIONS=On \
+  -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}
+  -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64"
+)
+
 if [ "$LINK_TYPE" == "static" ]; then
   cmake ../  \
-    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
-    -DLLVM_TARGETS_TO_BUILD=host \
-    -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
-    -DLLVM_ENABLE_ASSERTIONS=On \
-    -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR} \
-    -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64"
+    "${COMMON_CMAKE_OPTIONS[@]}" 
 elif [ "$LINK_TYPE" == "dynamic" ]; then
   cmake ../ \
-    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
+    "${COMMON_CMAKE_OPTIONS[@]}" \
     -DCMAKE_INSTALL_RPATH=${INSTALL_DIR}/lib \
-    -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
-    -DLLVM_TARGETS_TO_BUILD=host \
-    -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
     -DLLVM_LINK_LLVM_DYLIB=ON \
-    -DLLVM_BUILD_LLVM_DYLIB=ON \
-    -DLLVM_PARALLEL_LINK_JOBS=2 \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
-    -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR} \
-    -DLLVM_ENABLE_ASSERTIONS=On
+    -DLLVM_BUILD_LLVM_DYLIB=ON
 else
   echo "Invalid link_type. Must be 'static' or 'dynamic'."
   exit 1
 fi
+
+# Make sure ninja is in the path
