@@ -12,7 +12,7 @@
 //   https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/2043.
 
 #include <hip/hip_runtime.h>
-
+#include <iostream>
 static __device__ int add123(int Val) { return Val + 123; }
 static __device__ int sub321(int Val) { return Val - 321; }
 
@@ -32,5 +32,10 @@ int main() {
   k<<<1,1>>>(DataD, 0);
   k<<<1,1>>>(DataD, 1);
   (void)hipMemcpy(&DataH, DataD, sizeof(int), hipMemcpyDeviceToHost);
+  if (DataH == 802) {
+    std::cout << "PASSED\n";
+  } else {
+    std::cout << "FAILED\n";
+  }
   return !(DataH == 802);
 }

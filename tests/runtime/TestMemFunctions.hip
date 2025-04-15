@@ -7,6 +7,7 @@
 //   arguments! Should be: llvm.memset.p1i8.i64
 #include <hip/hip_runtime.h>
 #include <numeric>
+#include <iostream>
 
 __global__ void performMemset(void *Dst, int Val, size_t Count) {
   memset(Dst, Val, Count);
@@ -68,5 +69,6 @@ int main() {
   (void)hipFree(SrcD);
   (void)hipFree(DstD);
 
+  std::cout << "PASSED\n";
   return 0;
 }

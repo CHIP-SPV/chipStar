@@ -107,5 +107,6 @@ int main()
     HIP_CHECK(hipFree(d_dataA));
     HIP_CHECK(hipFree(d_dataB));
 
+    std::cout << "PASSED\n";
     return 0;
 }

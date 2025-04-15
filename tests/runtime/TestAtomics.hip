@@ -66,5 +66,6 @@ int main() {
       });
   assert(Res7 == 3.21f);
 
+  std::cout << "PASSED\n";
   return 0;
 }

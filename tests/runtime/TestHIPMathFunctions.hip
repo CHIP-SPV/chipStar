@@ -4,6 +4,7 @@
 #endif
 #include <cassert>
 #include <hip/hip_runtime.h>
+#include <iostream>
 
 template <typename T, typename FnT>
 __global__ void unaryKernel(FnT Fn, T *Data) {
@@ -29,5 +30,6 @@ int main() {
   auto Answer =
       launchUnaryFn([] __device__(float f) { return ::log1pf(f); }, 0.0f);
   assert(Answer == 0.0f);
+  std::cout << "PASSED\n";
   return 0;
 }

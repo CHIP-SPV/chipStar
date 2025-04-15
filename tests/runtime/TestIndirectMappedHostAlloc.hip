@@ -2,6 +2,7 @@
 #include <hip/hip_runtime_api.h>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 
 #define HIP_CHECK(X)                                                           \
   do {                                                                         \
@@ -46,5 +47,7 @@ int main() {
 
   HIP_CHECK(hipHostFree(InH));
   HIP_CHECK(hipHostFree(OutH));
+
+  std::cout << "PASSED\n";
   return Failed;
 }

@@ -2,6 +2,7 @@
 #undef NDEBUG
 #endif
 #include <cassert>
+#include <iostream>
 
 #include "SPIRVFuncInfo.hh"
 
@@ -134,5 +135,7 @@ int main() {
     }
   });
 
+  // All assertions succeeded
+  std::cout << "PASSED\n";
   return 0;
 }

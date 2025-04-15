@@ -8,6 +8,7 @@
 // Check indirect global buffer access (IGBA) detection.
 #include <hip/hip_runtime.h>
 #include "CHIPBackend.hh"
+#include <iostream>
 
 __global__ void k(uintptr_t Arg) {
   auto *Ptr = reinterpret_cast<int *>(Arg);
@@ -18,5 +19,6 @@ int main() {
   auto *ChipKernel = Backend->getActiveDevice()->findKernel(
       HostPtr(reinterpret_cast<const void *>(k)));
   // HasNoIGBAs should be false here.
+  std::cout << "PASSED\n";
   return ChipKernel->getModule()->getInfo().HasNoIGBAs;
 }

@@ -1,4 +1,5 @@
 #include <hip/hip_runtime.h>
+#include <iostream>
 
 struct  __align__(32) s0_t {
   int a;
@@ -21,5 +22,6 @@ int main() {
   hipMemcpy(&OutH, OutD, sizeof(size_t), hipMemcpyDeviceToHost);
   if (!OutH)
     return 1;
+  std::cout << "PASSED\n";
   return 0;
 }

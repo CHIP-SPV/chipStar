@@ -9,6 +9,7 @@
 // buffer accesses.
 #include <hip/hip_runtime.h>
 #include "CHIPBackend.hh"
+#include <iostream>
 
 __global__ void k(int *Out) { *Out = 123; }
 

@@ -4,6 +4,7 @@
 #endif
 #include <hip/hip_runtime.h>
 #include <cassert>
+#include <iostream>
 
 __global__ void k() {}
 
@@ -18,5 +19,6 @@ int main() {
     assert(hipFuncSetCacheConfig(nullptr, Cfg) != hipSuccess);
   }
 
+  std::cout << "PASSED\n";
   return 0;
 }

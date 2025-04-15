@@ -1,4 +1,5 @@
 #include <hip/hip_runtime.h>
+#include <iostream>
 
 __global__ void bitInsert(unsigned *Dst, unsigned Src0, unsigned Src1,
                           unsigned Offset, unsigned Width) {
@@ -33,5 +34,7 @@ int main() {
 
   (void)hipFree(Dst1D);
   (void)hipFree(Dst2D);
+
+  std::cout << "PASSED\n";
   return 0;
 }

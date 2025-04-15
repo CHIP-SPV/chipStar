@@ -104,5 +104,6 @@ int main() {
   assert(S5Out.b.a == S5.b.a);
   assert(S5Out.c == S5.c);
 
+  std::cout << "PASSED\n";
   return 0;
 }
