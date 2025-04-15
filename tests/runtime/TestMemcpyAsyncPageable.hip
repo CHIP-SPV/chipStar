@@ -27,7 +27,7 @@ __global__ void kernelB(double* arrayA, double* arrayB, size_t size){
 int main()
 {
     constexpr int numOfBlocks = 1 << 20;
-    constexpr int threadsPerBlock = 1024;
+    constexpr int threadsPerBlock = 512;
     constexpr int numberOfIterations = 2;
     // The array size smaller to avoid the relatively short kernel launch compared to memory copies
     constexpr size_t arraySize = 1U << 25;
