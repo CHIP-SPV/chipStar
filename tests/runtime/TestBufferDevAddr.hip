@@ -98,5 +98,6 @@ int main(int ArgC, char *ArgV[]) {
   CHECK(hipFree(SrcD) == hipSuccess);
   CHECK(hipHostFree(DstH) == hipSuccess);
 
+  printf("PASSED.\n");
   return 0;
 }
