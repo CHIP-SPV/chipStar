@@ -92,7 +92,7 @@ extern "C++" __device__ double copysign(double x, double y); // OpenCL
 
 #if defined __has_builtin && __has_builtin(__builtin_cos)
 static inline __device__ double cos(double x) { return __builtin_cos(x); }
-#elif defined __FAST_MATH__
+#elif defined CHIP_FAST_MATH
 extern "C++" __device__ double native_cos(double x); // OpenCL
 extern "C++" inline __device__ double cos(double x) { return ::native_cos(x); }
 #else
@@ -141,14 +141,14 @@ extern "C++" inline __device__ double erfinv(double x) {
 
 #if defined __has_builtin && __has_builtin(__builtin_exp)
 static inline __device__ double exp(double x) { return __builtin_exp(x); }
-#elif defined __FAST_MATH__
+#elif defined CHIP_FAST_MATH
 extern "C++" __device__ double native_exp(double x); // OpenCL
 extern "C++" inline __device__ double exp(double x) { return ::native_exp(x); }
 #else
 extern "C++" __device__ double exp(double x); // OpenCL
 #endif
 
-#ifdef __FAST_MATH__
+#ifdef CHIP_FAST_MATH
 extern "C++" __device__ double native_exp10(double x); // OpenCL
 extern "C++" inline __device__ double exp10(double x) {
   return ::native_exp10(x);
@@ -159,7 +159,7 @@ extern "C++" __device__ double exp10(double x); // OpenCL
 
 #if defined __has_builtin && __has_builtin(__builtin_exp2)
 static inline __device__ double exp2(double x) { return __builtin_exp2(x); }
-#elif defined __FAST_MATH__
+#elif defined CHIP_FAST_MATH
 extern "C++" __device__ double native_exp2(double x); // OpenCL
 extern "C++" inline __device__ double exp2(double x) {
   return ::native_exp2(x);
@@ -264,7 +264,7 @@ extern "C++" inline __device__ long long int llround(double x) {
 
 #if defined __has_builtin && __has_builtin(__builtin_log)
 static inline __device__ double log(double x) { return __builtin_log(x); }
-#elif defined __FAST_MATH__
+#elif defined CHIP_FAST_MATH
 extern "C++" __device__ double native_log(double x); // OpenCL
 extern "C++" inline __device__ double log(double x) { return ::native_log(x); }
 #else
@@ -273,7 +273,7 @@ extern "C++" __device__ double log(double x);   // OpenCL
 
 #if defined __has_builtin && __has_builtin(__builtin_log10)
 static inline __device__ double log10(double x) { return __builtin_log10(x); }
-#elif defined __FAST_MATH__
+#elif defined CHIP_FAST_MATH
 extern "C++" __device__ double native_log10(double x); // OpenCL
 extern "C++" inline __device__ double log10(double x) {
   return ::native_log10(x);
@@ -284,7 +284,7 @@ extern "C++" __device__ double log10(double x); // OpenCL
 
 extern "C++" __device__ double log1p(double x); // OpenCL
 
-#ifdef __FAST_MATH__
+#ifdef CHIP_FAST_MATH
 extern "C++" __device__ double native_log2(double x); // OpenCL
 extern "C++" inline __device__ double log2(double x) {
   return ::native_log2(x);
@@ -413,7 +413,7 @@ static inline __device__ double round(double x) { return __builtin_round(x); }
 extern "C++" __device__ double round(double x); // OpenCL
 #endif
 
-#ifdef __FAST_MATH__
+#ifdef CHIP_FAST_MATH
 extern "C++" __device__ double native_rsqrt(double x); // OpenCL
 extern "C++" inline __device__ double rsqrt(double x) {
   return ::native_rsqrt(x);
@@ -443,7 +443,7 @@ extern "C++" __device__ int signbit(double a); // OpenCL
 
 #if defined __has_builtin && __has_builtin(__builtin_sin)
 static inline __device__ double sin(double x) { return __builtin_sin(x); }
-#elif defined __FAST_MATH__
+#elif defined CHIP_FAST_MATH
 extern "C++" __device__ double native_sin(double x); // OpenCL
 extern "C++" inline __device__ double sin(double x) {
   return ::native_sin(x);
@@ -477,7 +477,7 @@ extern "C++" __device__ double sinpi(double x); // OpenCL
 
 #if defined __has_builtin && __has_builtin(__builtin_sqrt)
 static inline __device__ double sqrt(double x) { return __builtin_sqrt(x); }
-#elif defined __FAST_MATH__
+#elif defined CHIP_FAST_MATH
 extern "C++" __device__ double native_sqrt(double x); // OpenCL
 extern "C++" inline __device__ double sqrt(double x) {
   return ::native_sqrt(x);
@@ -488,7 +488,7 @@ extern "C++" __device__ double sqrt(double x); // OpenCL
 
 #if defined __has_builtin && __has_builtin(__builtin_tan)
 static inline __device__ double tan(double x) { return __builtin_tan(x); }
-#elif defined __FAST_MATH__
+#elif defined CHIP_FAST_MATH
 extern "C++" __device__ double native_tan(double x); // OpenCL
 extern "C++" inline __device__ double tan(double x) { return ::native_tan(x); }
 #else

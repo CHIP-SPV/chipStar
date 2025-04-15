@@ -16,5 +16,10 @@ int main() {
   auto *ChipKernel = Backend->getActiveDevice()->findKernel(
       HostPtr(reinterpret_cast<const void *>(k)));
   // HasNoIGBAs should be true here.
-  return !ChipKernel->getModule()->getInfo().HasNoIGBAs;
+  if (ChipKernel->getModule()->getInfo().HasNoIGBAs) {
+    std::cout << "PASSED\n";
+  } else {
+    std::cout << "FAILED\n";
+  }
+  return 0;
 }

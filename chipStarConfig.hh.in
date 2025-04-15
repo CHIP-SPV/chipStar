@@ -53,8 +53,6 @@
 
 #cmakedefine CHIP_L0_FIRST_TOUCH
 
-#cmakedefine CHIP_FAST_MATH
-
 #cmakedefine CHIP_ERROR_IF_NOT_IMPLEMENTED
 
 #cmakedefine CHIP_DEFAULT_JIT_FLAGS "@CHIP_DEFAULT_JIT_FLAGS@"
