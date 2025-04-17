@@ -23,7 +23,7 @@ void setupTest(int ArgC, char *ArgV[]) {
 
   auto *OclBE = dynamic_cast<CHIPBackendOpenCL *>(::Backend);
   if (!OclBE) {
-    printf("Skip: not running on OpenCL.\n");
+    printf("HIP_SKIP_THIS_TEST: not running on OpenCL.\n");
     exit(CHIP_SKIP_TEST);
   }
 
