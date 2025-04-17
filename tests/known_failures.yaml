@@ -413,6 +413,7 @@ salami:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
+    TestBallot: 'Unsupported SPIR-V capability: SubgroupDispatch'
     hipDynamicShared: 'flaky'
     clock: 'timing dependent, flaky'
     hipStreamSemantics: 'TestStreamSemantics_2 (non-blocking stream):  Failed, then timeout'
