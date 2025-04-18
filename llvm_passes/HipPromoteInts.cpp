@@ -186,7 +186,6 @@ static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const s
         return V;
     }
 
-    // TODO: IR Example
     // Example 1: Source i32, Target i64
     //   adjustType(%val_i32, i64, builder) -> creates '%zext = zext i32 %val_i32 to i64'
     // Example 2: Source i64, Target i32
@@ -622,14 +621,12 @@ static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being prom
       return;
   }
 
-  // Original Logic (slightly adapted)
   if (IsSrcNonStandard) {
     // Case 1: Source is Non-Standard (e.g., zext i56 -> i64) (but not a ConstantInt, handled above)
     // PromotedSrc should now have the PromotedTy (e.g., i64)
     assert(PromotedSrc->getType() == PromotedTy && "Non-standard source operand was not promoted correctly in getPromotedValue");
 
     // Adjust the PromotedSrc (which is i64) to match the promoted destination type (PromotedDestTy)
-    // TODO: Why is this needed? isn't promotedSrc already the correct type?
     NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, Indent + "    Adjusting NonStd Src for ZExt: ");
     if (NewValue == PromotedSrc) {
       LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std src, becomes no-op): ====> " << *NewValue << "\n");
@@ -928,28 +925,13 @@ static void processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
       Type* LHSTy = LHS->getType(); // Type after getPromotedValue
       Type* RHSTy = RHS->getType(); // Type after getPromotedValue
       
-      // TODO: check this
       // Check if both types are integers before comparing bit widths
       if (LHSTy->isIntegerTy() && RHSTy->isIntegerTy()) {
          unsigned LHSBits = LHSTy->getIntegerBitWidth();
          unsigned RHSBits = RHSTy->getIntegerBitWidth();
          CompareType = LHSBits >= RHSBits ? LHSTy : RHSTy;
-         // Since we know both original operands were standard, the wider one must also be standard.
-         // No need to check isStandardBitWidth here.
       } else {
-         // If operands aren't both integers (e.g., floats, vectors are involved),
-         // using PromotedTy might be incorrect as it assumes integer promotion.
-         // LLVM comparisons require operands to have the same type. 
-         // If types differ after getPromotedValue (which shouldn't happen if both were standard),
-         // or are non-integer, using the LHS type might be a reasonable heuristic, 
-         // as adjustType will handle the RHS later if needed.
-         // Alternatively, keeping PromotedTy might require adjustType to handle vector/float casts.
-         // Let's stick to the LHS type as a potentially safer default when non-integers are present.
-         LLVM_DEBUG(dbgs() << Indent << "    Operands for standard ICmp are not both integers or type mismatch, using LHS type as CompareType guess.\n");
-         CompareType = LHSTy; 
-         if (LHSTy != RHSTy) {
-            LLVM_DEBUG(dbgs() << Indent << "    WARN: Standard ICmp operand types differ after getPromotedValue: " << *LHSTy << " vs " << *RHSTy << "\n");
-         }
+         assert(false && "Comparisons between non-integer types are not supported");
       }
   }
   // NOTE: Removed potentially unsafe call to getIntegerBitWidth on CompareType here.
