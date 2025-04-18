@@ -214,41 +214,6 @@ static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const s
 }
 
 /**
- * Check if the constant value is used for signed comparison
- * 
- * This function goes through all the users of the constant and checks if any of them are used for signed comparison.
- * 
- * @param CI The constant integer to check
- * @return True if the constant is used for signed comparison, false otherwise
- */
-bool constValUsedForSignedCompare(const ConstantInt *CI) {
-  for (const User *U : CI->users()) {
-    if (const Instruction *UserInst = dyn_cast<Instruction>(U)) {
-        // Check for signed comparisons
-        if (const ICmpInst *Cmp = dyn_cast<ICmpInst>(UserInst)) {
-          if (Cmp->isSigned()) {
-             LLVM_DEBUG(dbgs() << "Constant " << *CI << " used in signed comparison: " << *Cmp << "\n");
-            return true;
-          }
-        }
-
-        // Check for other signed operations
-        switch (UserInst->getOpcode()) {
-        case Instruction::SDiv:
-        case Instruction::SRem:
-        case Instruction::AShr:
-           LLVM_DEBUG(dbgs() << "Constant " << *CI << " used in signed operation: " << *UserInst << "\n");
-          return true;
-        default:
-          // Other instructions are assumed to not require sign extension for this constant
-          break;
-        }
-    }
-  }
-  return false;
-}
-
-/**
  * Get or create promoted value
  * 
  * This helper function is called whenever an instruction processing function
@@ -296,19 +261,12 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   //   %c_promoted = add i64 %a_promoted, 1
   if (auto *ConstInt = dyn_cast<ConstantInt>(V)) {
     if (ConstInt->getType() == NonStdType) {
-      assert(!constValUsedForSignedCompare(ConstInt) && "ConstantInt requires sign extension - please open an issue with the test case");
-      // Create a new ConstantInt with the promoted type
-      // zext resolves at compile time, it doesn't generate zext instructions
-      APInt PromotedValue = ConstInt->getValue().zext(PromotedTy->getIntegerBitWidth());
-      Value *NewConst = ConstantInt::get(PromotedTy, PromotedValue);
-      LLVM_DEBUG(dbgs() << Indent << "      Promoting ConstantInt: " << *V
-                        << " to " << *NewConst << "\n");
-      PromotedValues[V] = NewConst; // Cache the promoted constant
-      return NewConst;
+      LLVM_DEBUG(dbgs() << Indent << "      Returning original NonStd ConstantInt: " << *V << "\n");
+      return V; // Return the original ConstantInt
     }
     // If it's a constant of a different standard type, it might need zext/trunc later
     // but we return the original constant for now. Adjustments happen in the instruction processing.
-     LLVM_DEBUG(dbgs() << Indent << "      Using original ConstantInt: " << *V << "\n");
+     LLVM_DEBUG(dbgs() << Indent << "      Using original Standard ConstantInt: " << *V << "\n");
      return V; // Return original standard-type constant
   }
 
@@ -646,22 +604,33 @@ static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being prom
   Type *SrcTy = SrcOp->getType();
   Type *DestTy = ZExtI->getDestTy();
 
-  // Get the potentially promoted source value. getPromotedValue handles constant promotion.
+  // Get the source value (might be original NonStd ConstantInt)
   Value *PromotedSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
   bool IsSrcNonStandard = isNonStandardInt(SrcTy);
   bool IsDestNonStandard = isNonStandardInt(DestTy);
+  Type *PromotedDestTy = IsDestNonStandard ? HipPromoteIntsPass::getPromotedType(DestTy) : DestTy;
 
   Value *NewValue = nullptr;
 
+  // Check if SrcOp is a NonStd ConstantInt needing specific extension
+  if (isa<ConstantInt>(PromotedSrc) && IsSrcNonStandard) {
+      LLVM_DEBUG(dbgs() << Indent << "  Extending NonStd ConstantInt operand for ZExt: " << *PromotedSrc << "\n");
+      NewValue = Builder.CreateZExt(PromotedSrc, PromotedDestTy, PromotedSrc->getName() + ".constexpr.zext");
+      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std const src): ====> " << *NewValue << "\n");
+      finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
+      return;
+  }
+
+  // Original Logic (slightly adapted)
   if (IsSrcNonStandard) {
-    // Case 1: Source is Non-Standard (e.g., zext i56 -> i64)
+    // Case 1: Source is Non-Standard (e.g., zext i56 -> i64) (but not a ConstantInt, handled above)
     // PromotedSrc should now have the PromotedTy (e.g., i64)
     assert(PromotedSrc->getType() == PromotedTy && "Non-standard source operand was not promoted correctly in getPromotedValue");
 
-    // We need the final result type to be DestTy (original destination type).
-    // Adjust the PromotedSrc to match DestTy if necessary.
-    NewValue = adjustType(PromotedSrc, DestTy, Builder, Indent + "    ");
+    // Adjust the PromotedSrc (which is i64) to match the promoted destination type (PromotedDestTy)
+    // TODO: Why is this needed? isn't promotedSrc already the correct type?
+    NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, Indent + "    Adjusting NonStd Src for ZExt: ");
     if (NewValue == PromotedSrc) {
       LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std src, becomes no-op): ====> " << *NewValue << "\n");
     } else {
@@ -776,15 +745,81 @@ static void processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type 
                                   SmallDenseMap<Value *, Value *> &PromotedValues) {
   bool NeedsPromotion = isNonStandardInt(BinOp->getType());
 
-  Value *LHS = getPromotedValue(BinOp->getOperand(0), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
-  Value *RHS = getPromotedValue(BinOp->getOperand(1), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *OrigLHS = BinOp->getOperand(0);
+  Value *OrigRHS = BinOp->getOperand(1);
+
+  // Get potentially promoted operands
+  Value *LHS = getPromotedValue(OrigLHS, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *RHS = getPromotedValue(OrigRHS, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+  // --- IR Examples after getPromotedValue ---
+  // Assume NonStdType = i33, PromotedTy = i64
+  //
+  // Example 1: %orig_add = add i33 %inst_i33, i33 5
+  //   OrigLHS = %inst_i33 (result of some preceding non-std instruction)
+  //   OrigRHS = i33 5 (ConstantInt)
+  // After getPromotedValue:
+  //   LHS = result of adjustType(%inst_i33, i64, ...), likely a zext: '%inst_i33.zext = zext i33 %inst_i33 to i64'
+  //   RHS = original ConstantInt* for i33 5 (getPromotedValue no longer promotes constants)
+  // Later, extendOrAdjustOperand will see RHS is i33 5 and create a 'zext i33 5 to i64' for the add.
+  //
+  // Example 2: %orig_sub = sub i64 %std_val, i64 %promoted_non_std
+  //   OrigLHS = %std_val (i64)
+  //   OrigRHS = %promoted_non_std (i64, already promoted from i33 earlier)
+  // After getPromotedValue:
+  //   LHS = %std_val (already i64)
+  //   RHS = %promoted_non_std (already i64)
+  // Later, extendOrAdjustOperand will see types match TargetType (i64) and do nothing.
+  //
+  // Example 3: %orig_sdiv = sdiv i33 %another_inst, i33 -1
+  //   OrigLHS = %another_inst (i33)
+  //   OrigRHS = i33 -1 (ConstantInt)
+  // After getPromotedValue:
+  //   LHS = result of adjustType, e.g., '%another_inst.zext = zext i33 %another_inst to i64'
+  //   RHS = original ConstantInt* for i33 -1
+  // Later, extendOrAdjustOperand will see RHS is i33 -1 and the opcode is SDiv,
+  // so it will create a 'sext i33 -1 to i64' for the sdiv.
+  // --- End IR Examples ---
 
   // Determine the target type for the new binary operation
-  Type* TargetType = NeedsPromotion ? PromotedTy : BinOp->getType();
+  Type* TargetType = PromotedTy; // Default to promoted type
+  if (!isNonStandardInt(BinOp->getType())) { 
+      // If original result was standard, then operands must have been too.
+      // Use the original standard type for the new operation.
+      TargetType = BinOp->getType();
+  }
+  LLVM_DEBUG(dbgs() << Indent << "    Determined BinOp TargetType: " << *TargetType << "\n");
 
-  // Adjust operands to the target type *before* creating the new BinOp
-  LHS = adjustType(LHS, TargetType, Builder, Indent + "  Adjusting LHS: ");
-  RHS = adjustType(RHS, TargetType, Builder, Indent + "  Adjusting RHS: ");
+  // Extend or adjust operands to the target type *before* creating the new BinOp
+  auto extendOrAdjustOperand = 
+      [&](Value *Operand, const std::string &Side) -> Value* {
+      if (Operand->getType() == TargetType) {
+          return Operand; // Already correct type
+      }
+
+      // Check if it's a NonStd ConstantInt needing specific extension
+      if (isa<ConstantInt>(Operand) && isNonStandardInt(Operand->getType())) {
+          LLVM_DEBUG(dbgs() << Indent << "    Extending NonStd ConstantInt " << Side << ": " << *Operand << "\n");
+          Instruction::BinaryOps Opcode = BinOp->getOpcode();
+          bool NeedsSExt = (Opcode == Instruction::SDiv || Opcode == Instruction::SRem || Opcode == Instruction::AShr);
+          
+          if (NeedsSExt) {
+              LLVM_DEBUG(dbgs() << Indent << "      using SExt to " << *TargetType << " for opcode " << BinOp->getOpcodeName() << "\n");
+              return Builder.CreateSExt(Operand, TargetType, Operand->getName() + ".sext");
+          } else {
+              // Includes: Add, Sub, Mul, UDiv, URem, Shl, LShr, And, Or, Xor
+              LLVM_DEBUG(dbgs() << Indent << "      using ZExt to " << *TargetType << " for opcode " << BinOp->getOpcodeName() << "\n");
+              return Builder.CreateZExt(Operand, TargetType, Operand->getName() + ".zext");
+          }
+      } else {
+          // Otherwise, use adjustType for general type mismatches
+          LLVM_DEBUG(dbgs() << Indent << "    Adjusting " << Side << ": " << *Operand << " to " << *TargetType << "\n");
+          return adjustType(Operand, TargetType, Builder, Indent + "      Adjusting BinOp " + Side + ": ");
+      }
+  };
+
+  LHS = extendOrAdjustOperand(LHS, "LHS");
+  RHS = extendOrAdjustOperand(RHS, "RHS");
 
   // Now LHS and RHS must have the same type
   assert(LHS->getType() == RHS->getType() && "Operand types mismatch for BinOp after adjustment!");
@@ -799,33 +834,72 @@ static void processSelectInst(SelectInst *SelI, Type *NonStdType, Type *Promoted
                               IRBuilder<> &Builder, const std::string &Indent,
                               SmallVectorImpl<Replacement> &Replacements,
                               SmallDenseMap<Value *, Value *> &PromotedValues) {
-  bool NeedsPromotion = isNonStandardInt(SelI->getType());
+  Value *OrigCond = SelI->getCondition();
+  Value *OrigTrue = SelI->getTrueValue();
+  Value *OrigFalse = SelI->getFalseValue();
 
   // Get potentially promoted operands
-  Value *Condition = SelI->getCondition(); // Condition is usually i1
-  Value *TrueVal = getPromotedValue(SelI->getTrueValue(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
-  Value *FalseVal = getPromotedValue(SelI->getFalseValue(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *Condition = getPromotedValue(OrigCond, NonStdType, PromotedTy, Builder, Indent, PromotedValues); // Condition is usually i1
+  Value *TrueVal = getPromotedValue(OrigTrue, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *FalseVal = getPromotedValue(OrigFalse, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
   // Make sure condition is i1
-  if (Condition->getType() != Type::getInt1Ty(SelI->getContext())) {
+  Type *Int1Ty = Type::getInt1Ty(SelI->getContext());
+  if (Condition->getType() != Int1Ty) {
     LLVM_DEBUG(dbgs() << Indent << "    Converting condition to i1: " << *Condition << "\n");
-    // Use adjustType to handle potential promotion of condition operand if needed
-    Condition = adjustType(Condition, Type::getInt1Ty(SelI->getContext()), Builder, Indent + "  Adjusting Cond: ");
-    // Check if adjustment resulted in non-i1; if so, create comparison
-    if (Condition->getType() != Type::getInt1Ty(SelI->getContext())) {
+    // If condition itself was non-std, it needs promotion first
+    if (isNonStandardInt(Condition->getType())) {
+        Type* ConditionPromotedTy = Type::getIntNTy(Condition->getContext(), HipPromoteIntsPass::getPromotedBitWidth(Condition->getType()->getIntegerBitWidth()));
+        if (isa<ConstantInt>(Condition)) {
+             // Assume ZExt for condition constants, unlikely to be signed comparison result
+             Condition = Builder.CreateZExt(Condition, ConditionPromotedTy, Condition->getName() + ".zext");
+        } else {
+            Condition = adjustType(Condition, ConditionPromotedTy, Builder, Indent + "  Adjusting NonStd Cond: ");
+        }
+    }
+    // Create comparison if necessary after potential promotion
+    if (Condition->getType() != Int1Ty) {
          Condition = Builder.CreateICmpNE(
             Condition,
             Constant::getNullValue(Condition->getType()),
-            "select.cond");
+            SelI->getName() + ".cond"); // Use Select name for clarity
+         LLVM_DEBUG(dbgs() << Indent << "      Created NE comparison: " << *Condition << "\n");
+    } else {
+         LLVM_DEBUG(dbgs() << Indent << "      Condition already i1 after promotion/adjustment." << "\n");
     }
   }
 
   // Determine the target type for the select result and true/false values
-  Type* TargetType = NeedsPromotion ? PromotedTy : SelI->getType();
+  Type* TargetType = PromotedTy; // Default
+   if (!isNonStandardInt(SelI->getType())) { // Original Select result is standard
+      // If original result was standard, true/false values must also have been standard.
+      // Use the original standard type.
+      TargetType = SelI->getType();
+  }
+  // NOTE: Removed redundant check on operands and isStandardBitWidth call
+   LLVM_DEBUG(dbgs() << Indent << "    Determined Select TargetType: " << *TargetType << "\n");
 
-  // Adjust TrueVal and FalseVal to the target type *before* creating the new SelectInst
-  TrueVal = adjustType(TrueVal, TargetType, Builder, Indent + "  Adjusting TrueVal: ");
-  FalseVal = adjustType(FalseVal, TargetType, Builder, Indent + "  Adjusting FalseVal: ");
+  // Extend or adjust TrueVal and FalseVal to the target type
+  auto extendOrAdjustOperand = 
+      [&](Value *Operand, const std::string &Side) -> Value* {
+      if (Operand->getType() == TargetType) {
+          return Operand; // Already correct type
+      }
+      // Check if it's a NonStd ConstantInt needing specific extension
+      if (isa<ConstantInt>(Operand) && isNonStandardInt(Operand->getType())) {
+          LLVM_DEBUG(dbgs() << Indent << "    Extending NonStd ConstantInt " << Side << ": " << *Operand << "\n");
+          // Select operands usually don't imply signedness, use ZExt
+          LLVM_DEBUG(dbgs() << Indent << "      using ZExt to " << *TargetType << "\n");
+          return Builder.CreateZExt(Operand, TargetType, Operand->getName() + ".zext");
+      } else {
+          // Otherwise, use adjustType for general type mismatches
+          LLVM_DEBUG(dbgs() << Indent << "    Adjusting " << Side << ": " << *Operand << " to " << *TargetType << "\n");
+          return adjustType(Operand, TargetType, Builder, Indent + "      Adjusting Select " + Side + ": ");
+      }
+  };
+
+  TrueVal = extendOrAdjustOperand(TrueVal, "TrueVal");
+  FalseVal = extendOrAdjustOperand(FalseVal, "FalseVal");
 
   // Now TrueVal and FalseVal must have the same type
   assert(TrueVal->getType() == FalseVal->getType() && "Operand types mismatch for Select after adjustment!");
@@ -840,31 +914,73 @@ static void processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
-  // Get potentially promoted operands
-  Value *LHS = getPromotedValue(CmpI->getOperand(0), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
-  Value *RHS = getPromotedValue(CmpI->getOperand(1), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *OrigLHS = CmpI->getOperand(0);
+  Value *OrigRHS = CmpI->getOperand(1);
 
-  // Determine the common type for comparison. Prefer the wider type if they differ.
-  // If either became PromotedTy, use that.
-  Type *CompareType = nullptr;
-  Type* LHSType = LHS->getType();
-  Type* RHSType = RHS->getType();
+  // Get potentially promoted operands (getPromotedValue now returns original ConstInts)
+  Value *LHS = getPromotedValue(OrigLHS, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *RHS = getPromotedValue(OrigRHS, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
-  bool LHSIsPromoted = LHSType == PromotedTy || (isa<IntegerType>(LHSType) && HipPromoteIntsPass::getPromotedBitWidth(LHSType->getIntegerBitWidth()) == PromotedTy->getIntegerBitWidth());
-  bool RHSIsPromoted = RHSType == PromotedTy || (isa<IntegerType>(RHSType) && HipPromoteIntsPass::getPromotedBitWidth(RHSType->getIntegerBitWidth()) == PromotedTy->getIntegerBitWidth());
-
-  if (LHSIsPromoted || RHSIsPromoted) {
-    CompareType = PromotedTy; // Promote comparison to the wider type if either operand involves it
-  } else if (LHSType->getPrimitiveSizeInBits() > RHSType->getPrimitiveSizeInBits()) {
-    CompareType = LHSType;
-  } else {
-    CompareType = RHSType; // Use RHS type if it's wider or if types are the same
+  // Determine the common type for comparison. Usually PromotedTy if non-std involved.
+  Type *CompareType = PromotedTy; // Default to the wider promoted type
+  if (!isNonStandardInt(OrigLHS->getType()) && !isNonStandardInt(OrigRHS->getType())) {
+      // Both original operands are standard. Compare using the wider standard type if possible.
+      Type* LHSTy = LHS->getType(); // Type after getPromotedValue
+      Type* RHSTy = RHS->getType(); // Type after getPromotedValue
+      
+      // TODO: check this
+      // Check if both types are integers before comparing bit widths
+      if (LHSTy->isIntegerTy() && RHSTy->isIntegerTy()) {
+         unsigned LHSBits = LHSTy->getIntegerBitWidth();
+         unsigned RHSBits = RHSTy->getIntegerBitWidth();
+         CompareType = LHSBits >= RHSBits ? LHSTy : RHSTy;
+         // Since we know both original operands were standard, the wider one must also be standard.
+         // No need to check isStandardBitWidth here.
+      } else {
+         // If operands aren't both integers (e.g., floats, vectors are involved),
+         // using PromotedTy might be incorrect as it assumes integer promotion.
+         // LLVM comparisons require operands to have the same type. 
+         // If types differ after getPromotedValue (which shouldn't happen if both were standard),
+         // or are non-integer, using the LHS type might be a reasonable heuristic, 
+         // as adjustType will handle the RHS later if needed.
+         // Alternatively, keeping PromotedTy might require adjustType to handle vector/float casts.
+         // Let's stick to the LHS type as a potentially safer default when non-integers are present.
+         LLVM_DEBUG(dbgs() << Indent << "    Operands for standard ICmp are not both integers or type mismatch, using LHS type as CompareType guess.\n");
+         CompareType = LHSTy; 
+         if (LHSTy != RHSTy) {
+            LLVM_DEBUG(dbgs() << Indent << "    WARN: Standard ICmp operand types differ after getPromotedValue: " << *LHSTy << " vs " << *RHSTy << "\n");
+         }
+      }
   }
+  // NOTE: Removed potentially unsafe call to getIntegerBitWidth on CompareType here.
    LLVM_DEBUG(dbgs() << Indent << "    Determined ICmp CompareType: " << *CompareType << "\n");
 
-  // Adjust operands *to the determined comparison type*
-  LHS = adjustType(LHS, CompareType, Builder, Indent + "  Adjusting ICmp LHS: ");
-  RHS = adjustType(RHS, CompareType, Builder, Indent + "  Adjusting ICmp RHS: ");
+  // Extend or adjust operands *to the determined comparison type*
+  auto extendOrAdjustOperand = 
+      [&](Value *Operand, Value* OriginalOperand, const std::string &Side) -> Value* {
+      if (Operand->getType() == CompareType) {
+          return Operand; // Already correct type
+      }
+
+      // Check if it's a NonStd ConstantInt needing specific extension
+      if (isa<ConstantInt>(Operand) && isNonStandardInt(Operand->getType())) {
+          LLVM_DEBUG(dbgs() << Indent << "    Extending NonStd ConstantInt " << Side << ": " << *Operand << "\n");
+          if (CmpI->isSigned()) {
+              LLVM_DEBUG(dbgs() << Indent << "      using SExt to " << *CompareType << "\n");
+              return Builder.CreateSExt(Operand, CompareType, Operand->getName() + ".sext");
+          } else {
+              LLVM_DEBUG(dbgs() << Indent << "      using ZExt to " << *CompareType << "\n");
+              return Builder.CreateZExt(Operand, CompareType, Operand->getName() + ".zext");
+          }
+      } else {
+          // Otherwise, use adjustType for general type mismatches
+          LLVM_DEBUG(dbgs() << Indent << "    Adjusting " << Side << ": " << *Operand << " to " << *CompareType << "\n");
+          return adjustType(Operand, CompareType, Builder, Indent + "      Adjusting ICmp " + Side + ": ");
+      }
+  };
+
+  LHS = extendOrAdjustOperand(LHS, OrigLHS, "LHS");
+  RHS = extendOrAdjustOperand(RHS, OrigRHS, "RHS");
 
   // Now LHS and RHS must have the same type
   assert(LHS->getType() == RHS->getType() && "Operand types mismatch for ICmp after adjustment!");
@@ -914,23 +1030,38 @@ static void processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedT
                              IRBuilder<> &Builder, const std::string &Indent,
                              SmallVectorImpl<Replacement> &Replacements,
                              SmallDenseMap<Value *, Value *> &PromotedValues) {
+  Value *OrigValue = Store->getValueOperand();
+  Value *OrigPtr = Store->getPointerOperand();
+
   // Get the value being stored (possibly promoted)
-  Value *StoredValue = Store->getValueOperand();
-  Value *NewStoredValue = getPromotedValue(StoredValue, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *StoredValue = getPromotedValue(OrigValue, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
   // Get the pointer (we don't normally promote pointers)
-  Value *Ptr = Store->getPointerOperand();
+  Value *Ptr = getPromotedValue(OrigPtr, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
-  // Check if the value type needs adjustment to match what's expected by the store
-  Type *ExpectedType = StoredValue->getType();
-  if (NewStoredValue->getType() != ExpectedType) {
-    // Use adjustType to convert the stored value back to the expected type
-    LLVM_DEBUG(dbgs() << Indent << "    Adjusting store value from " << *NewStoredValue->getType() << " to " << *ExpectedType << "\n");
-    NewStoredValue = adjustType(NewStoredValue, ExpectedType, Builder, Indent + "      Adjusting store val: ");
+  // Determine the type expected by the store based on the pointer
+  Type *ExpectedType = Store->getValueOperand()->getType(); // Original value's type
+   // More robust way if pointer type changed (though unlikely here):
+   // Type *ExpectedType = cast<PointerType>(Ptr->getType())->getElementType();
+
+  // Check if the value is a NonStd ConstantInt needing specific extension
+  if (isa<ConstantInt>(StoredValue) && isNonStandardInt(StoredValue->getType())) {
+      LLVM_DEBUG(dbgs() << Indent << "    Extending NonStd ConstantInt for Store: " << *StoredValue << "\n");
+      // Store doesn't imply signedness, use ZExt before potential truncation
+      Value *ExtendedValue = Builder.CreateZExt(StoredValue, PromotedTy, StoredValue->getName() + ".store.zext");
+      LLVM_DEBUG(dbgs() << Indent << "      using ZExt to " << *PromotedTy << " -> " << *ExtendedValue << "\n");
+      StoredValue = ExtendedValue; // Use the extended value for further adjustment
+  }
+
+  // Check if the potentially extended value type needs adjustment to match what's expected by the store
+  if (StoredValue->getType() != ExpectedType) {
+    // Use adjustType to convert the stored value back to the expected type (e.g., truncate)
+    LLVM_DEBUG(dbgs() << Indent << "    Adjusting store value from " << *StoredValue->getType() << " to " << *ExpectedType << "\n");
+    StoredValue = adjustType(StoredValue, ExpectedType, Builder, Indent + "      Adjusting store val: ");
   }
 
   // Create a new store instruction
-  StoreInst *NewStore = Builder.CreateStore(NewStoredValue, Ptr);
+  StoreInst *NewStore = Builder.CreateStore(StoredValue, Ptr);
 
   // Preserve the alignment and other attributes from the original store
   NewStore->setAlignment(Store->getAlign());
@@ -1183,35 +1314,42 @@ static void processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being prom
   Type *SrcTy = SrcOp->getType();
   Type *DestTy = SExtI->getDestTy();
 
-  // Get the potentially promoted source value. getPromotedValue handles constant promotion.
+  // Get the source value (might be original NonStd ConstantInt)
   Value *PromotedSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
   bool IsSrcNonStandard = isNonStandardInt(SrcTy);
   bool IsDestNonStandard = isNonStandardInt(DestTy);
+  Type *PromotedDestTy = IsDestNonStandard ? HipPromoteIntsPass::getPromotedType(DestTy) : DestTy;
 
   Value *NewValue = nullptr;
 
-  if (IsSrcNonStandard) {
-    // Case 1: Source is Non-Standard (e.g., sext i56 -> i64)
-    // PromotedSrc should now have the PromotedTy (e.g., i64)
-    assert(PromotedSrc->getType() == PromotedTy && "Non-standard source operand was not promoted correctly in getPromotedValue");
+  // Check if SrcOp is a NonStd ConstantInt needing specific extension
+  if (isa<ConstantInt>(PromotedSrc) && IsSrcNonStandard) {
+      LLVM_DEBUG(dbgs() << Indent << "  Extending NonStd ConstantInt operand for SExt: " << *PromotedSrc << "\n");
+      NewValue = Builder.CreateSExt(PromotedSrc, PromotedDestTy, PromotedSrc->getName() + ".constexpr.sext");
+      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std const src): ====> " << *NewValue << "\n");
+      finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
+      return;
+  }
 
-    // We need the final result type to be DestTy (original destination type).
-    // Adjust the PromotedSrc to match DestTy if necessary.
-    NewValue = adjustType(PromotedSrc, DestTy, Builder, Indent + "    ");
+  // Original Logic (slightly adapted)
+  if (IsSrcNonStandard) {
+    // Case 1: Source is Non-Standard (but not a ConstantInt, handled above)
+    // PromotedSrc should now have the PromotedTy (e.g., i64) from recursive processing
+    assert(PromotedSrc->getType() == PromotedTy && "Non-standard instruction source operand was not promoted correctly");
+
+    // Adjust the PromotedSrc (which is i64) to match the promoted destination type (PromotedDestTy)
+    NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, Indent + "    Adjusting NonStd Src for SExt: ");
     if (NewValue == PromotedSrc) {
-      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std src, becomes no-op): ====> " << *NewValue << "\n");
+      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std inst src, becomes no-op): ====> " << *NewValue << "\n");
     } else {
-      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std src, requires adjust): ====> " << *NewValue << "\n");
+      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std inst src, requires adjust): ====> " << *NewValue << "\n");
     }
     finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
 
   } else if (IsDestNonStandard) {
-    // Case 2: Destination is Non-Standard (e.g., sext i32 -> i56)
-    Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy); // e.g., i64
-
-    // Since the source is standard, getPromotedValue should have returned a value
-    // with the original source type SrcTy. No adjustment should be needed yet.
+    // Case 2: Destination is Non-Standard (Source is Standard)
+    // PromotedSrc should have the original standard source type SrcTy.
     assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard SExt source");
 
     // Create SExt using the standard source (PromotedSrc) to the *promoted* destination type.
@@ -1220,15 +1358,10 @@ static void processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being prom
     finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
 
   } else {
-    // Case 3: Source and Destination are Standard (e.g., sext i32 -> i64)
-    // Recreate the instruction. Since the source is standard, getPromotedValue
-    // should have returned a value with the original source type SrcTy.
+    // Case 3: Source and Destination are Standard
     assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard SExt source");
-
-    // Create the SExt with the standard source (PromotedSrc) and original standard destination type.
     NewValue = Builder.CreateSExt(PromotedSrc, DestTy); // Use SExt
     LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (standard src/dest): ====> " << *NewValue << "\n");
-    // Map original SExt result to new SExt result. Both should have same standard type.
     finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
   }
 }
