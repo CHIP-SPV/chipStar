@@ -34,5 +34,10 @@ int main() {
   assert(RuntimeDev->getNumCompiledModules() == 1);
 
   (void)hipMemcpy(&OutH, OutD, sizeof(int), hipMemcpyDeviceToHost);
-  return !(OutH == 123);
+  bool passed = (OutH == 123);
+  if (passed)
+    std::cout << "PASSED\n";
+  else
+    std::cout << "FAILED\n";
+  return !passed;
 }

@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <hip/hip_runtime.h>
+#include <iostream>
 
 class Test {
 public:
@@ -24,5 +25,6 @@ Test test = Test();
 
 int main() {
   printf("testing\n");
+  std::cout << "PASSED\n";
   return 0;
 }

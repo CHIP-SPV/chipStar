@@ -17,12 +17,12 @@ void checkBallot(unsigned BlockSize, uint64_t In,
   (void)hipMemcpy(&OutH, OutD, sizeof(uint64_t), hipMemcpyDeviceToHost);
 
   if (Props.warpSize < 64 && OutH >> Props.warpSize) {
-    printf("Error: Garbage bits in the __ballot result!\n");
+    printf("FAILED: Garbage bits in the __ballot result!\n");
     exit(1);
   }
 
   if (OutH != In) {
-    printf("BlockSize=%u:\nError: Expected '%lu'. Got '%lu'\n", BlockSize, In,
+    printf("FAILED: BlockSize=%u:\nError: Expected '%lu'. Got '%lu'\n", BlockSize, In,
            OutH);
     exit(1);
   }
@@ -38,5 +38,6 @@ int main() {
   }
 
   checkBallot(32, 0xBADF00D1, Props);
+  std::cout << "PASSED\n";
   return 0;
 }

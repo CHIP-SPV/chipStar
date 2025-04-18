@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <iostream>
 
 template <typename T, typename FnT>
 __global__ void unaryKernel(FnT Fn, T *Data) {
@@ -129,5 +130,6 @@ int main() {
   // launchBinaryFn<int>(
   //     [] __device__(int x, int y) { return std::nextafter(x, y); });
 
+  std::cout << "PASSED\n";
   return 0;
 }

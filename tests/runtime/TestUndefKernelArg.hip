@@ -12,4 +12,6 @@ __global__ void undefArgPtr(int *Unused, int A) { printf("%d\n", A); }
 
 int main() {
   undefArgPtr<<<1, 1>>>((int*)0x2, 1);
+  std::cout << "PASSED\n";
+  return 0;
 }
