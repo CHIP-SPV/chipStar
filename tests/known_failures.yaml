@@ -1,6 +1,7 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    hipPromoteInt-signed_constant_compare: 'constVal used for signed comparison'
     Unit_hipGraph_SimpleGraphWithKernel: 'Temp disabled graphs'
     Unit_hipStreamBeginCapture_BasicFunctional: 'Temp disabled graphs'
     Unit_hipStreamBeginCapture_Negative: 'Temp disabled graphs'

@@ -11,6 +11,7 @@ BASE_NAME=$(basename "${INPUT_FILE}" .ll)
 OUTPUT_BC="${BASE_NAME}.bc"
 OUTPUT_LL="${BASE_NAME}.out.ll"
 OUTPUT_SPV="${BASE_NAME}.spv"
+SPIRV_OPTS="--spirv-max-version=1.2 --spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups"
 
 # Run the promote int pass
 ${LLVM_OPT} -load-pass-plugin "${HIP_SPV_PASSES_LIB}" \
@@ -29,6 +30,6 @@ if [ "${NON_STD_INT_COUNT}" -gt 0 ]; then
 fi
 
 # Convert to SPIR-V to check validity
-${LLVM_SPIRV} "${OUTPUT_BC}" -o "${OUTPUT_SPV}" || exit 1
+${LLVM_SPIRV} "${OUTPUT_BC}" ${SPIRV_OPTS} -o "${OUTPUT_SPV}" || exit 1
 
 exit 0 
