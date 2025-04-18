@@ -512,8 +512,7 @@ else()
   message(STATUS "spirv-tools: ${SPIRV-Tools_FOUND}")
 endif()
 
-list(APPEND CHIP_INTERFACE_LIBS SPIRV-Tools)
-
+target_link_libraries(CHIP PRIVATE SPIRV-Tools)
 
 target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS})
 
