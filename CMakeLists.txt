@@ -243,8 +243,6 @@ option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extensio
 option(CHIP_BUILD_HIPBLAS "When enabled, hipBLAS will be built and installed along chipStar" OFF)
 option(CHIP_BUILD_HIPFFT "When enabled, hipFFT will be built and installed along chipStar" OFF)
 option(CHIP_BUILD_HIPSOLVER "When enabled, hipSOLVER will be built and installed along chipStar" OFF)
-option(CHIP_BUILD_ROCPRIM "When enabled, rocPRIM will be built and installed along chipStar" OFF)
-option(CHIP_BUILD_ROCTHRUST "When enabled, rocThrust will be built and installed along chipStar" OFF)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
 
@@ -899,26 +897,6 @@ endif()
 if (CHIP_BUILD_HIPSOLVER)
   add_subdirectory(H4I-HipSOLVER)
   add_dependencies(hipsolver CHIP MKLShim)
-endif()
-
-if(CHIP_BUILD_ROCPRIM)
-  # Manually configure rocPRIM version info, mimicking rocm_setup_version
-  set(ROCPRIM_VERSION_MAJOR 2)
-  set(ROCPRIM_VERSION_MINOR 10)
-  set(ROCPRIM_VERSION_PATCH 9)
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/rocPRIM/rocprim/include/rocprim/rocprim_version.hpp.in
-    ${CMAKE_CURRENT_BINARY_DIR}/rocPRIM/rocprim/include/rocprim/rocprim_version.hpp
-  )
-
-  set(BUILD_TEST ON CACHE BOOL "Enable rocPRIM tests" FORCE)
-  add_subdirectory(rocPRIM)
-  add_dependencies(rocprim CHIP)
-endif()
-
-if(CHIP_BUILD_ROCTHRUST)
-  add_subdirectory(rocThrust)
-  add_dependencies(rocThrust CHIP)
 endif()
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
