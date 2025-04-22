@@ -5,6 +5,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <set>
+#include <functional>
 
 #define DEBUG_TYPE "hip-promote-ints"
 
@@ -135,17 +137,61 @@
  */
 
 using namespace llvm;
-/// @brief Given an instrucion, return a linked list of instructions that are in its use-def chain
+/// @brief Given an instrucion, return a list of paths in its use-def chain
 /// @param I The instruction to get the use-def chain for
-/// @return A linked list of instructions in the use-def chain
-static std::vector<Instruction *> getLinkedListFromUseDefChain(Instruction *I) {
-  std::vector<Instruction *> Chain;
+/// @return A vector of vectors, where each inner vector represents a distinct path in the use-def chain
+static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Instruction *I) {
+  std::vector<std::vector<Instruction *>> Chains;
+  std::set<Instruction *> Visited;
+  
+  std::function<void(Instruction *, std::vector<Instruction *>)> traverseUsers = 
+      [&](Instruction *Inst, std::vector<Instruction *> CurrentChain) {
+    if (!Inst || Visited.count(Inst))
+      return;
+    
+    Visited.insert(Inst);
+    CurrentChain.push_back(Inst);
+    
+    // Check if this instruction has any users
+    if (Inst->users().empty()) {
+      // We've reached the end of a chain, add it to the list of chains
+      Chains.push_back(CurrentChain);
+      return;
+    }
+    
+    for (User *User : Inst->users()) {
+      if (Instruction *UserInst = dyn_cast<Instruction>(User)) {
+        // Create a new branch for each user
+        traverseUsers(UserInst, CurrentChain);
+      }
+    }
+  };
+  
+  // Start traversal from the users of I (not including I itself)
   for (User *User : I->users()) {
     if (Instruction *UserInst = dyn_cast<Instruction>(User)) {
-      Chain.push_back(UserInst);
+      std::vector<Instruction *> NewChain;
+      NewChain.push_back(I);
+      traverseUsers(UserInst, NewChain);
     }
   }
-  return Chain;
+
+  // If no chains were found (e.g., instruction has no users), return an empty vector
+  if (Chains.empty()) {
+    LLVM_DEBUG(dbgs() << "No chains found for: " << *I << "\n");
+    return Chains;
+  }
+
+  // Print the linked lists
+  LLVM_DEBUG(dbgs() << "Found " << Chains.size() << " chains for: " << *I << "\n");
+  for (unsigned i = 0; i < Chains.size(); ++i) {
+    LLVM_DEBUG(dbgs() << "Chain " << i << ":\n");
+    for (Instruction *Inst : Chains[i]) {
+      LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+    }
+  }
+  
+  return Chains;
 }
 
 /// @brief Given a linked list of instructions that begin with a non-standard type, 
@@ -159,7 +205,7 @@ static std::vector<Instruction *> truncateUseDefLL(std::vector<Instruction *> LL
   // return the truncated linked list
   for (int i = LL.size() - 1; i >= 0; i--) {
     if (LL[i]->getType()->getPrimitiveSizeInBits() == HipPromoteIntsPass::getPromotedBitWidth(LL[i]->getType()->getPrimitiveSizeInBits())) {
-      return std::vector<Instruction *>(LL.begin() + i, LL.end());
+      return std::vector<Instruction *>(LL.begin(), LL.begin() + i + 1);
     }
   }
   return LL;
@@ -1523,6 +1569,32 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
         }
       }
     }
+
+    // Create a vector of truncated linked lists of instructions
+    std::vector<std::vector<Instruction *>> AllChains;
+    for (Instruction *I : WorkList) {
+      std::vector<std::vector<Instruction *>> Chains = getLinkedListsFromUseDefChain(I);
+      // Process each chain individually
+      for (auto &Chain : Chains) {
+        std::vector<Instruction *> TruncatedChain = truncateUseDefLL(Chain);
+        AllChains.push_back(TruncatedChain);
+      }
+    }
+
+    // Debug output for all chains
+    for (unsigned i = 0; i < AllChains.size(); ++i) {
+      LLVM_DEBUG(dbgs() << "Truncated chain " << i << ":\n");
+      for (Instruction *I : AllChains[i]) {
+        LLVM_DEBUG(dbgs() << "  " << *I << "\n");
+      }
+    }
+
+    for (std::vector<Instruction *> LL : AllChains) {
+      for (Instruction *I : LL) {
+        LLVM_DEBUG(dbgs() << "Truncated linked list: " << *I << "\n");
+      }
+    }
+
 
     // Process the worklist
     for (Instruction *I : WorkList) {
