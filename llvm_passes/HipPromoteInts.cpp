@@ -1,4 +1,6 @@
 #include "HipPromoteInts.h"
+#include "llvm/ADT/SmallVector.h" // Include for SmallVector
+#include "llvm/ADT/SmallPtrSet.h" // Include for SmallPtrSet
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
@@ -133,6 +135,35 @@
  */
 
 using namespace llvm;
+/// @brief Given an instrucion, return a linked list of instructions that are in its use-def chain
+/// @param I The instruction to get the use-def chain for
+/// @return A linked list of instructions in the use-def chain
+static std::vector<Instruction *> getLinkedListFromUseDefChain(Instruction *I) {
+  std::vector<Instruction *> Chain;
+  for (User *User : I->users()) {
+    if (Instruction *UserInst = dyn_cast<Instruction>(User)) {
+      Chain.push_back(UserInst);
+    }
+  }
+  return Chain;
+}
+
+/// @brief Given a linked list of instructions that begin with a non-standard type, 
+/// traverse the linked list from the end
+/// Find the instruction that either zexts or truncates to the standard type and drop all from there to the end
+/// @param LL linked list of instructions
+/// @return truncated linked list
+static std::vector<Instruction *> truncateUseDefLL(std::vector<Instruction *> LL){
+  // traverse the linked list from the end
+  // Find the instruction that either zexts or truncates to the standard type and drop all from there to the end
+  // return the truncated linked list
+  for (int i = LL.size() - 1; i >= 0; i--) {
+    if (LL[i]->getType()->getPrimitiveSizeInBits() == HipPromoteIntsPass::getPromotedBitWidth(LL[i]->getType()->getPrimitiveSizeInBits())) {
+      return std::vector<Instruction *>(LL.begin() + i, LL.end());
+    }
+  }
+  return LL;
+}
 
 bool HipPromoteIntsPass::isStandardBitWidth(unsigned BitWidth) {
   // TODO: 128 is not a standard bit width, will handle later as it's more
