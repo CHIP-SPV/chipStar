@@ -18,25 +18,3 @@
 	path = hip-tests
 	url = https://github.com/CHIP-SPV/hip-tests.git
 	branch = origin/develop-chipstar
-[submodule "H4I-MKLShim"]
-	path = H4I-MKLShim
-	url = https://github.com/CHIP-SPV/H4I-MKLShim.git
-	branch = origin/develop
-[submodule "H4I-HipBLAS"]
-	path = H4I-HipBLAS
-	url = https://github.com/CHIP-SPV/H4I-HipBLAS.git
-	branch = origin/develop
-[submodule "H4I-HipFFT"]
-	path = H4I-HipFFT
-	url = https://github.com/CHIP-SPV/H4I-HipFFT.git
-	branch = origin/main
-[submodule "H4I-HipSOLVER"]
-	path = H4I-HipSOLVER
-	url = https://github.com/CHIP-SPV/H4I-HipSOLVER.git
-	branch = origin/develop
-[submodule "rocPRIM"]
-	path = rocPRIM
-	url = https://github.com/CHIP-SPV/rocPRIM.git
-[submodule "rocThrust"]
-	path = rocThrust
-	url = https://github.com/ROCm/rocThrust.git
