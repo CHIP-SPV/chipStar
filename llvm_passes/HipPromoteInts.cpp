@@ -214,7 +214,7 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
   // Start traversal from the users of I (not including I itself)
   for (User *User : I->users()) {
     if (Instruction *UserInst = dyn_cast<Instruction>(User)) {
-      std::vector<Instruction *> NewChain;
+      std::vector<Instruction *> NewChain; 
       NewChain.push_back(I);
       traverseUsers(UserInst, NewChain);
     }
@@ -234,6 +234,14 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
     for (Instruction *Inst : Chains[i]) {
       LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
     }
+
+    for (auto truncatedChain :truncatedChains ) {
+      auto lastTruncChainInstr = truncatedChain.back();
+      if (std::find(Chains[i].begin(), Chains[i].end(), lastTruncChainInstr) != Chains[i].end()) {
+        LLVM_DEBUG(dbgs() << "Found pruning candidate for Chain " << i << " via instr: " << *lastTruncChainInstr << "\n");
+      }
+    }
+
     auto truncatedChain = truncateUseDefLL(Chains[i]);
     truncatedChains.push_back(truncatedChain);
     LLVM_DEBUG(dbgs() << "Truncated chain " << i << ":\n");
