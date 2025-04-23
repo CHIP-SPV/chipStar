@@ -7,7 +7,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <set>
 #include <functional>
-
+#include <queue>
 #define DEBUG_TYPE "hip-promote-ints"
 
 /**
@@ -29,7 +29,6 @@
  *   whose `OriginalValue` hadn't been processed yet when `processPhiNode` was called.
  * Algorithm Overview:
  */
-
 using namespace llvm;
 
 // Helper to check for non-standard integer types
@@ -202,6 +201,7 @@ unsigned HipPromoteIntsPass::getPromotedBitWidth(unsigned Original) {
 }
 
 Type *HipPromoteIntsPass::getPromotedType(Type *TypeToPromote) {
+  assert(TypeToPromote && "TypeToPromote is nullptr");
   if (auto *IntTy = dyn_cast<IntegerType>(TypeToPromote)) {
     unsigned PromotedWidth = getPromotedBitWidth(IntTy->getBitWidth());
     return Type::getIntNTy(TypeToPromote->getContext(), PromotedWidth);
@@ -360,7 +360,7 @@ static inline void finalizePromotion(Instruction *Old, Value *New,
  * @param PendingPhiAdds The list of pending PHI node additions
  * @param NewPhi The new PHI node to add
  */
-static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
+static Value *processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
                            IRBuilder<> &Builder, const std::string &Indent,
                            SmallVectorImpl<Replacement> &Replacements,
                            SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -381,9 +381,11 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
       BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
       Value *NewIncomingValue = nullptr;
 
-      LLVM_DEBUG(dbgs() << Indent << "    Processing incoming: [" << *OriginalValue << ", " << IncomingBlock->getName() << "]\n");
-      // TODO assert that incoming value is already promoted
-      assert(PromotedValues.count(OriginalValue) && "Incoming value must be already promoted");
+      LLVM_DEBUG(dbgs() << Indent << "    Processing incoming: " << *OriginalValue << "\n");
+      if(!PromotedValues.count(OriginalValue)) {
+        LLVM_DEBUG(dbgs() << Indent << "      Incoming value not yet promoted, deferring: " << *OriginalValue << "\n");
+        return nullptr;
+      }
       NewIncomingValue = PromotedValues[OriginalValue];
       // Ensure the determined value matches the NewPhi's type
       LLVM_DEBUG(dbgs() << Indent << "      Adjusting incoming value type if needed...\n");
@@ -398,10 +400,11 @@ static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
                     << PendingCount << " pending)\n");
 
   Replacements.push_back(Replacement(Phi, NewPhi));
+  return NewPhi;
 }
 
 // Refined processZExtInst logic:
-static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being promoted, e.g. i56 */,
+static Value *processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being promoted, e.g. i56 */,
                             Type *PromotedTy /* Type to promote to, e.g. i64 */,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
@@ -425,7 +428,7 @@ static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being prom
       NewValue = Builder.CreateZExt(PromotedSrc, PromotedDestTy, PromotedSrc->getName() + ".constexpr.zext");
       LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std const src): ====> " << *NewValue << "\n");
       finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
-      return;
+      return NewValue;
   }
 
   if (IsSrcNonStandard) {
@@ -469,10 +472,11 @@ static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being prom
     // Map original ZExt result to new ZExt result. Both should have same standard type.
     finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
   }
+  return NewValue;
 }
 
 
-static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *PromotedTy,
+static Value *processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *PromotedTy,
                              IRBuilder<> &Builder, const std::string &Indent,
                              SmallVectorImpl<Replacement> &Replacements,
                              SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -519,7 +523,7 @@ static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promoted
     // Users outside this promotion chain will use this adjusted value.
     Replacements.push_back(Replacement(TruncI, AdjustedSrc));
     LLVM_DEBUG(dbgs() << Indent << "      Scheduled replacement of " << *TruncI << " with " << *AdjustedSrc << "\n");
-    return;
+    return AdjustedSrc;
   }
 
   // --- Original logic for other truncation cases ---
@@ -559,9 +563,10 @@ static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promoted
   }
 
   Replacements.push_back(Replacement(TruncI, NewTrunc));
+  return NewTrunc;
 }
 
-static void processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type *PromotedTy,
+static Value *processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type *PromotedTy,
                                   IRBuilder<> &Builder, const std::string &Indent,
                                   SmallVectorImpl<Replacement> &Replacements,
                                   SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -650,9 +655,10 @@ static void processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type 
   LLVM_DEBUG(dbgs() << Indent << "  " << *BinOp << "   promoting BinOp: ====> "
                     << *NewInst << "\n");
   finalizePromotion(BinOp, NewInst, Replacements, PromotedValues);
+  return NewInst;
 }
 
-static void processSelectInst(SelectInst *SelI, Type *NonStdType, Type *PromotedTy,
+static Value *processSelectInst(SelectInst *SelI, Type *NonStdType, Type *PromotedTy,
                               IRBuilder<> &Builder, const std::string &Indent,
                               SmallVectorImpl<Replacement> &Replacements,
                               SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -730,9 +736,10 @@ static void processSelectInst(SelectInst *SelI, Type *NonStdType, Type *Promoted
   LLVM_DEBUG(dbgs() << Indent << "  " << *SelI << "   promoting Select: ====> "
                     << *NewSelect << "\n");
   finalizePromotion(SelI, NewSelect, Replacements, PromotedValues);
+  return NewSelect;
 }
 
-static void processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
+static Value *processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -797,9 +804,10 @@ static void processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
   LLVM_DEBUG(dbgs() << Indent << "  " << *CmpI << "   promoting ICmp: ====> "
                     << *NewCmp << "\n");
   finalizePromotion(CmpI, NewCmp, Replacements, PromotedValues);
+  return NewCmp;
 }
 
-static void processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedTy,
+static Value *processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedTy,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -831,9 +839,10 @@ static void processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedT
   LLVM_DEBUG(dbgs() << Indent << "  " << *OldCall << "   promoting Call: ====> "
                     << *NewCall << "\n");
   finalizePromotion(OldCall, NewCall, Replacements, PromotedValues);
+  return NewCall;
 }
 
-static void processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedTy,
+static Value *processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedTy,
                              IRBuilder<> &Builder, const std::string &Indent,
                              SmallVectorImpl<Replacement> &Replacements,
                              SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -880,10 +889,11 @@ static void processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedT
                     << *NewStore << "\n");
   // Store instructions don't produce a value, so we don't put them in PromotedValues
   Replacements.push_back(Replacement(Store, NewStore));
+  return NewStore;
 }
 
 
-static void processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy,
+static Value *processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -932,12 +942,14 @@ static void processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy,
   PromotedValues[Load] = ResultValue;
   // Replace the original load instruction with the new load instruction (which has the original type)
   Replacements.push_back(Replacement(Load, NewLoad));
+  return NewLoad;
 }
 
-static void processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *PromotedTy,
+static Value *processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *PromotedTy,
                               IRBuilder<> &Builder, const std::string &Indent,
                               SmallVectorImpl<Replacement> &Replacements,
                               SmallDenseMap<Value *, Value *> &PromotedValues) {
+  ReturnInst *NewRet = nullptr;
    // If there's a return value, check if it needs to be promoted/adjusted
   if (RetI->getNumOperands() > 0) {
     Value *RetVal = RetI->getReturnValue();
@@ -952,7 +964,7 @@ static void processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *Promoted
     }
 
     // Create a new return instruction with the correctly typed value
-    ReturnInst *NewRet = Builder.CreateRet(NewRetVal);
+    NewRet = Builder.CreateRet(NewRetVal);
 
     LLVM_DEBUG(dbgs() << Indent << "  " << *RetI << "   promoting Return: ====> "
                       << *NewRet << "\n");
@@ -960,16 +972,17 @@ static void processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *Promoted
     Replacements.push_back(Replacement(RetI, NewRet));
   } else {
     // Handle void return
-    ReturnInst *NewRet = Builder.CreateRetVoid();
+    NewRet = Builder.CreateRetVoid();
     LLVM_DEBUG(dbgs() << Indent << "  " << *RetI << "   promoting Return: ====> "
                       << *NewRet << "\n");
     // Return instructions don't produce a value, so we don't put them in PromotedValues
     Replacements.push_back(Replacement(RetI, NewRet));
   }
+  return NewRet;
 }
 
 // Add new handler for BitCastInst
-static void processBitCastInst(BitCastInst *BitCast, Type *NonStdType, Type *PromotedTy,
+static Value *processBitCastInst(BitCastInst *BitCast, Type *NonStdType, Type *PromotedTy,
                              IRBuilder<> &Builder, const std::string &Indent,
                              SmallVectorImpl<Replacement> &Replacements,
                              SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -991,10 +1004,11 @@ static void processBitCastInst(BitCastInst *BitCast, Type *NonStdType, Type *Pro
   LLVM_DEBUG(dbgs() << Indent << "  " << *BitCast << "   promoting BitCast: ====> "
                     << *NewInst << "\n");
   finalizePromotion(BitCast, NewInst, Replacements, PromotedValues);
+  return NewInst;
 }
 
 // Add new handler for ExtractElementInst
-static void processExtractElementInst(ExtractElementInst *ExtractI, Type *NonStdType, Type *PromotedTy,
+static Value *processExtractElementInst(ExtractElementInst *ExtractI, Type *NonStdType, Type *PromotedTy,
                                     IRBuilder<> &Builder, const std::string &Indent,
                                     SmallVectorImpl<Replacement> &Replacements,
                                     SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -1034,7 +1048,7 @@ static void processExtractElementInst(ExtractElementInst *ExtractI, Type *NonStd
          Value* NewInst = adjustType(ExtractPromoted, TargetElementType, Builder, Indent + "  Adjusting Extracted Element: ");
          LLVM_DEBUG(dbgs() << Indent << "  " << *ExtractI << "   promoting ExtractElement (adjusting result): ====> " << *NewInst << "\n");
          finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
-         return;
+         return NewInst;
       } else {
         // If PromotedVecElementTy is neither the original ElementTy nor the PromotedTy,
         // this scenario needs more complex handling (potentially element-wise zext/trunc on vector).
@@ -1043,7 +1057,7 @@ static void processExtractElementInst(ExtractElementInst *ExtractI, Type *NonStd
          // Fallback: Create extract with original types (might fail later)
          Value *NewInst = Builder.CreateExtractElement(VecOp, IndexOp);
          finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
-         return;
+         return NewInst;
       }
 
   }
@@ -1059,10 +1073,11 @@ static void processExtractElementInst(ExtractElementInst *ExtractI, Type *NonStd
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *ExtractI << "   promoting ExtractElement: ====> " << *NewInst << "\n");
   finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
+  return NewInst;
 }
 
 // Add new handler for InsertElementInst
-static void processInsertElementInst(InsertElementInst *InsertI, Type *NonStdType, Type *PromotedTy,
+static Value *processInsertElementInst(InsertElementInst *InsertI, Type *NonStdType, Type *PromotedTy,
                                      IRBuilder<> &Builder, const std::string &Indent,
                                      SmallVectorImpl<Replacement> &Replacements,
                                      SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -1109,10 +1124,11 @@ static void processInsertElementInst(InsertElementInst *InsertI, Type *NonStdTyp
     // Finalize promotion
     LLVM_DEBUG(dbgs() << Indent << "  " << *InsertI << "   promoting InsertElement: ====> " << *NewInst << "\n");
     finalizePromotion(InsertI, NewInst, Replacements, PromotedValues);
+    return NewInst;
 }
 
 // Add new handler for SExtInst
-static void processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being promoted, e.g. i56 */,
+static Value *processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being promoted, e.g. i56 */,
                             Type *PromotedTy /* Type to promote to, e.g. i64 */,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
@@ -1136,7 +1152,7 @@ static void processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being prom
       NewValue = Builder.CreateSExt(PromotedSrc, PromotedDestTy, PromotedSrc->getName() + ".constexpr.sext");
       LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std const src): ====> " << *NewValue << "\n");
       finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
-      return;
+      return NewValue;
   }
 
   // Original Logic (slightly adapted)
@@ -1171,9 +1187,10 @@ static void processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being prom
     LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (standard src/dest): ====> " << *NewValue << "\n");
     finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
   }
+  return NewValue;
 }
 
-void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
+Value*processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                         const std::string &Indent,
                         SmallVectorImpl<Replacement> &Replacements,
                         SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -1181,33 +1198,33 @@ void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
 
   // Dispatch to the appropriate handler based on instruction type
   if (auto *Phi = dyn_cast<PHINode>(I)) {
-      processPhiNode(Phi, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processPhiNode(Phi, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *ZExtI = dyn_cast<ZExtInst>(I)) {
-      processZExtInst(ZExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processZExtInst(ZExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *SExtI = dyn_cast<SExtInst>(I)) { // Add handler for SExtInst
-      processSExtInst(SExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processSExtInst(SExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *TruncI = dyn_cast<TruncInst>(I)) {
-      processTruncInst(TruncI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processTruncInst(TruncI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
-      processBinaryOperator(BinOp, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processBinaryOperator(BinOp, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *SelI = dyn_cast<SelectInst>(I)) {
-      processSelectInst(SelI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processSelectInst(SelI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *CmpI = dyn_cast<ICmpInst>(I)) {
-      processICmpInst(CmpI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processICmpInst(CmpI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *OldCall = dyn_cast<CallInst>(I)) {
-      processCallInst(OldCall, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processCallInst(OldCall, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *Store = dyn_cast<StoreInst>(I)) {
-      processStoreInst(Store, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processStoreInst(Store, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *Load = dyn_cast<LoadInst>(I)) {
-      processLoadInst(Load, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processLoadInst(Load, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *RetI = dyn_cast<ReturnInst>(I)) {
-      processReturnInst(RetI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processReturnInst(RetI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *BitCast = dyn_cast<BitCastInst>(I)) { // Add handler for BitCast
-      processBitCastInst(BitCast, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processBitCastInst(BitCast, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *ExtractI = dyn_cast<ExtractElementInst>(I)) { // Add handler for ExtractElement
-      processExtractElementInst(ExtractI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processExtractElementInst(ExtractI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *InsertI = dyn_cast<InsertElementInst>(I)) { // Add handler for InsertElement
-      processInsertElementInst(InsertI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      return processInsertElementInst(InsertI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else {
     llvm::errs() << "HipPromoteIntsPass: Unhandled instruction type: " << I->getOpcodeName() << "\n";
     assert(false && "HipPromoteIntsPass: Unhandled instruction type");
@@ -1307,22 +1324,47 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       }
     }
 
+    SmallVector<Replacement, 16> Replacements;
+    SmallDenseMap<Value *, Value *> PromotedValues;
+    std::queue<Instruction *> DeferredInstructions;
     for (unsigned i = 0; i < longestChainNumInstructions; i++) { // loop over instructions until no more
       for (auto &chain : prunedChains) {
         if (i >= chain.size()) continue;
         auto I = chain[i];
 
         LLVM_DEBUG(dbgs() << "Processing instruction: " << *I << "\n");
-        SmallVector<Replacement, 16> Replacements;
-        SmallDenseMap<Value *, Value *> PromotedValues;
         // Determine NonStdType and PromotedTy for the instruction I
         Type* NonStdType = isNonStandardInt(I->getType()) ? I->getType() : nullptr;
+        if (!NonStdType) {
+          LLVM_DEBUG(dbgs() << "Instruction " << *I << " is standard type. Skipping.\n");
+          continue;
+        }
         Type* PromotedTy = HipPromoteIntsPass::getPromotedType(NonStdType);
         std::string Indent = ""; // Basic indent for now
-        processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues);
+        auto processed = processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues);
+        if (!processed) {
+          LLVM_DEBUG(dbgs() << "Deferring instruction: " << *I << "\n");
+          DeferredInstructions.push(I);
+        }
 
       } // End for (Instruction *I : chain)
     } // End for (auto &chain : prunedChains)
+
+    LLVM_DEBUG(dbgs() << "Processing deferred instructions\n");
+    while (!DeferredInstructions.empty()) {
+      auto *I = DeferredInstructions.front();
+      LLVM_DEBUG(dbgs() << "Processing deferred instruction: " << *I << "\n");
+      Type* NonStdType = isNonStandardInt(I->getType()) ? I->getType() : nullptr;
+      Type* PromotedTy = HipPromoteIntsPass::getPromotedType(NonStdType);
+      std::string Indent = ""; // Basic indent for now
+      auto processed = processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues);
+      if (!processed) {
+        LLVM_DEBUG(dbgs() << "Deferring instruction: " << *I << "\n");
+        DeferredInstructions.push(I);
+      }
+      DeferredInstructions.pop();
+      LLVM_DEBUG(dbgs() << "Successfully processed deferred instruction: " << *I << "\n");
+    }
   } // End for (Function &F : M)
 
   // Print the final IR state before exiting
