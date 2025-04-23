@@ -1366,7 +1366,14 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
         DeferredInstructions.push_back(I);
       }
       DeferredInstructions.pop_front();
+      Replacements.push_back(Replacement(I, processed));
       LLVM_DEBUG(dbgs() << "Successfully processed deferred instruction: " << *I << "\n");
+    }
+
+    // Perform replacements
+    for (auto &Replacement : Replacements) {
+      Replacement.Old->replaceAllUsesWith(Replacement.New);
+      Replacement.Old->eraseFromParent();
     }
   } // End for (Function &F : M)
 
