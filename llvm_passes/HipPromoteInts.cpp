@@ -235,11 +235,21 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
       LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
     }
 
+    auto prunePossible = false;
+    auto ChainBegin = Chains[i].begin();
+    auto ChainEnd = Chains[i].end();
     for (auto truncatedChain :truncatedChains ) {
       auto lastTruncChainInstr = truncatedChain.back();
-      if (std::find(Chains[i].begin(), Chains[i].end(), lastTruncChainInstr) != Chains[i].end()) {
+      auto found = std::find(ChainBegin, ChainEnd, lastTruncChainInstr);
+      if (found != ChainEnd) {
         LLVM_DEBUG(dbgs() << "Found pruning candidate for Chain " << i << " via instr: " << *lastTruncChainInstr << "\n");
+        prunePossible = true;
+        LLVM_DEBUG(dbgs() << "Old ChainBegin first instr: " << **ChainBegin << "\n");
+        ChainBegin = found + 1;
+        LLVM_DEBUG(dbgs() << "New ChainBegin first instr: " << **ChainBegin << "\n");
       }
+    }
+    if (prunePossible) {
     }
 
     auto truncatedChain = truncateUseDefLL(Chains[i]);
