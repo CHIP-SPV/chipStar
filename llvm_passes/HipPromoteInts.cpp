@@ -1656,118 +1656,41 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       }
     }
 
-    // Process the worklist
-    for (Instruction *I : WorkList) {
-      // Skip if we've already processed this instruction as part of another chain
-      if (GlobalVisited.count(I))
-        continue;
-
-      // Determine the non-standard type and the target promoted type that trigger processing for this instruction
-      Type* NonStdTriggerType = nullptr;
-      Type* PromotedTargetType = nullptr;
-
-      // Check result type first
-      if (auto *ResIntTy = dyn_cast<IntegerType>(I->getType())) {
-        if (!isStandardBitWidth(ResIntTy->getBitWidth())) {
-          NonStdTriggerType = ResIntTy;
-          PromotedTargetType = Type::getIntNTy(M.getContext(), HipPromoteIntsPass::getPromotedBitWidth(ResIntTy->getBitWidth()));
-           LLVM_DEBUG(dbgs() << "Triggering promotion for " << *I << " due to non-standard result type: " << *NonStdTriggerType << "\n");
-        }
+    // Process the chains
+    for (unsigned i = 0; i < prunedChains.size(); ++i) {
+      for (Instruction *Inst : prunedChains[i]) {
+        LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
       }
+    }
 
-      // If result type is standard, check operands
-      if (!NonStdTriggerType) {
-        for (Value *Op : I->operands()) {
-          if (auto *OpIntTy = dyn_cast<IntegerType>(Op->getType())) {
-            if (!isStandardBitWidth(OpIntTy->getBitWidth())) {
-              NonStdTriggerType = OpIntTy;
-              PromotedTargetType = Type::getIntNTy(M.getContext(), HipPromoteIntsPass::getPromotedBitWidth(OpIntTy->getBitWidth()));
-              LLVM_DEBUG(dbgs() << "Triggering promotion for " << *I << " due to non-standard operand type: " << *NonStdTriggerType << " (" << *Op << ")\n");
-              break; // Found the first non-standard operand, use it as the trigger
-            }
-          }
-        }
+    auto longestChainNumInstructions = 0;
+    for (auto &chain : prunedChains) {
+      if (chain.size() > longestChainNumInstructions) {
+        longestChainNumInstructions = chain.size();
       }
+    }
 
-      // If we found a non-standard type that requires promotion
-      if (NonStdTriggerType && PromotedTargetType) {
-          SmallVector<Replacement, 16> Replacements;
-          SmallDenseMap<Value *, Value *> PromotedValues;
-          SmallVector<PendingPhiAdd, 16> PendingPhiAdds;
+    for (unsigned i = 0; i < longestChainNumInstructions; i++) { // loop over instructions until no more
+      for (auto &chain : prunedChains) {
+        if (i >= chain.size()) continue;
+        auto I = chain[i];
 
-          // Call promoteChain using the identified non-standard type and its corresponding promoted type
-          // GlobalVisited is passed to track processed instructions across different chain roots
-          promoteChain(I, NonStdTriggerType, PromotedTargetType, GlobalVisited, Replacements,
-                       PromotedValues, PendingPhiAdds, 0);
+        LLVM_DEBUG(dbgs() << "Processing instruction: " << *I << "\n");
+        // SmallVector<Replacement, 16> Replacements;
+        // SmallDenseMap<Value *, Value *> PromotedValues;
+        // // Determine NonStdType and PromotedTy for the instruction I
+        // Type* NonStdType = isNonStandardInt(I->getType()) ? I->getType() : nullptr;
+        // if (!NonStdType) for (Value *Op : I->operands()) if (isNonStandardInt(Op->getType())) { NonStdType = Op->getType(); break; }
 
-          // Process pending PHI additions *before* main replacement
-          LLVM_DEBUG(dbgs() << "Processing " << PendingPhiAdds.size() << " pending PHI additions...\n");
-          for (const auto &Pending : PendingPhiAdds) {
-              PHINode *TargetPhi = Pending.TargetPhi;
-              Value *OriginalValue = Pending.OriginalValue;
-              BasicBlock *IncomingBlock = Pending.IncomingBlock;
+        // if (NonStdType) { // Only proceed if a non-standard type is involved
+        //   Type* PromotedTy = HipPromoteIntsPass::getPromotedType(NonStdType);
+        //   std::string Indent = ""; // Basic indent for now
+        //   SmallVector<PendingPhiAdd, 16> PendingPhiAdds; // Initialize required structure
+        //   processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues, PendingPhiAdds);
+        // }
 
-              LLVM_DEBUG(dbgs() << "  Pending: Add " << *OriginalValue << " to " << *TargetPhi << " from block " << IncomingBlock->getName() << "\n");
-
-              // The original value should now be in PromotedValues
-              assert(PromotedValues.count(OriginalValue) && "Pending PHI value was not promoted!");
-              Value *PromotedValue = PromotedValues[OriginalValue];
-              LLVM_DEBUG(dbgs() << "    Found promoted value: " << *PromotedValue << "\n");
-
-              // Adjust type if necessary, inserting before the PHI node
-              if (PromotedValue->getType() != TargetPhi->getType()) {
-                IRBuilder<> PhiBuilder(TargetPhi); // Place instructions before the PHI
-                LLVM_DEBUG(dbgs() << "    Adjusting type for PHI add from " << *PromotedValue->getType() << " to " << *TargetPhi->getType() << "\n");
-                PromotedValue = adjustType(PromotedValue, TargetPhi->getType(), PhiBuilder, "      "); // Use helper
-                LLVM_DEBUG(dbgs() << "      ==> Adjusted value: " << *PromotedValue << "\n");
-              }
-
-              TargetPhi->addIncoming(PromotedValue, IncomingBlock);
-          }
-
-          // Now perform the main replacements
-          LLVM_DEBUG(dbgs() << "Performing main instruction replacements...\n");
-          for (const auto &R : Replacements) {
-            LLVM_DEBUG(dbgs() << "Replacing uses of: " << *R.Old << "\n"
-                             << "    with: " << *R.New << "\n");
-            // Make a copy of the users to avoid iterator invalidation
-            SmallVector<User*, 8> Users(R.Old->user_begin(), R.Old->user_end());
-            for (User *U : Users) {
-                // Replace uses only if the user instruction itself is part of the processed chain
-                // or if it's not an instruction (e.g. a constant expression using the old value).
-                Instruction* UserInst = dyn_cast<Instruction>(U);
-                if (!UserInst || GlobalVisited.count(UserInst)) {
-                     LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
-                     U->replaceUsesOfWith(R.Old, R.New);
-                } else {
-                     LLVM_DEBUG(dbgs() << "  Skipping update for use in unprocessed instruction: " << *U << "\n");
-                }
-            }
-          }
-
-          // Then, for any instructions with remaining uses, force replacement.
-          // This can happen with complex dependencies or cycles not fully resolved by the above.
-          for (auto &R : Replacements) {
-            if (!R.Old->use_empty()) {
-              LLVM_DEBUG(dbgs() << "Instruction still has uses after initial replacement: " << *R.Old << "\n" << "  Forcing replaceAllUsesWith...\n");
-              R.Old->replaceAllUsesWith(R.New);
-            }
-          }
-
-          // Finally, delete the original instructions in reverse order to handle dependencies
-          for (auto It = Replacements.rbegin(); It != Replacements.rend(); ++It) {
-            LLVM_DEBUG(dbgs() << "Deleting instruction: " << *(It->Old) << "\n");
-            if (!It->Old->use_empty()) {
-              LLVM_DEBUG(dbgs() << "WARNING: Instruction still has uses before deletion: " << *(It->Old) << "\n");
-              // Force replacement again just in case
-              It->Old->replaceAllUsesWith(It->New);
-            }
-            It->Old->eraseFromParent();
-          }
-
-          Changed = true; // Mark that changes were made
-      } // End if (NonStdTriggerType && PromotedTargetType)
-    } // End for (Instruction *I : WorkList)
+      } // End for (Instruction *I : chain)
+    } // End for (auto &chain : prunedChains)
   } // End for (Function &F : M)
 
   // Print the final IR state before exiting
