@@ -7,7 +7,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <set>
 #include <functional>
-#include <queue>
+#include <list>
 #define DEBUG_TYPE "hip-promote-ints"
 
 /**
@@ -1326,7 +1326,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
 
     SmallVector<Replacement, 16> Replacements;
     SmallDenseMap<Value *, Value *> PromotedValues;
-    std::queue<Instruction *> DeferredInstructions;
+    std::list<Instruction *> DeferredInstructions;
     for (unsigned i = 0; i < longestChainNumInstructions; i++) { // loop over instructions until no more
       for (auto &chain : prunedChains) {
         if (i >= chain.size()) continue;
@@ -1344,7 +1344,10 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
         auto processed = processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues);
         if (!processed) {
           LLVM_DEBUG(dbgs() << "Deferring instruction: " << *I << "\n");
-          DeferredInstructions.push(I);
+          // push if not already in DeferredInstructions
+          if (std::find(DeferredInstructions.begin(), DeferredInstructions.end(), I) == DeferredInstructions.end()) {
+            DeferredInstructions.push_back(I);
+          }
         }
 
       } // End for (Instruction *I : chain)
@@ -1360,9 +1363,9 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       auto processed = processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues);
       if (!processed) {
         LLVM_DEBUG(dbgs() << "Deferring instruction: " << *I << "\n");
-        DeferredInstructions.push(I);
+        DeferredInstructions.push_back(I);
       }
-      DeferredInstructions.pop();
+      DeferredInstructions.pop_front();
       LLVM_DEBUG(dbgs() << "Successfully processed deferred instruction: " << *I << "\n");
     }
   } // End for (Function &F : M)
