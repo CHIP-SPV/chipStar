@@ -137,6 +137,50 @@
  */
 
 using namespace llvm;
+
+// Helper to check for non-standard integer types
+static bool isNonStandardInt(Type *T) {
+  if (auto *IntTy = dyn_cast<IntegerType>(T)) {
+    return !HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth());
+  }
+  return false;
+}
+
+/// @brief Given a linked list of instructions that begin with a non-standard type, 
+/// traverse the linked list from the beginning
+/// Find the first instruction that either zexts or truncates to the standard type and drop all from there to the end
+/// @param LL linked list of instructions
+/// @return truncated linked list
+static std::vector<Instruction *> truncateUseDefLL(std::vector<Instruction *> LL){
+  for (int i = LL.size() - 1; i >= 0; --i) {
+    Instruction *Inst = LL[i];
+    bool NonStdFound = false;
+
+    // Check if the result type is non-standard
+    if (isNonStandardInt(Inst->getType())) {
+      NonStdFound = true;
+    } else {
+      // Check if any operand type is non-standard
+      for (Value *Op : Inst->operands()) {
+        if (isNonStandardInt(Op->getType())) {
+          NonStdFound = true;
+          break;
+        }
+      }
+    }
+
+    // If this instruction involves a non-standard type, it's the end of our relevant chain.
+    if (NonStdFound) {
+      // Return the sublist from the beginning up to and including this instruction.
+      return std::vector<Instruction *>(LL.begin(), LL.begin() + i + 1);
+    }
+  }
+
+  return LL;
+}
+
+
+
 /// @brief Given an instrucion, return a list of paths in its use-def chain
 /// @param I The instruction to get the use-def chain for
 /// @return A vector of vectors, where each inner vector represents a distinct path in the use-def chain
@@ -182,6 +226,7 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
     return Chains;
   }
 
+  std::vector<std::vector<Instruction *>> truncatedChains;
   // Print the linked lists
   LLVM_DEBUG(dbgs() << "Found " << Chains.size() << " chains for: " << *I << "\n");
   for (unsigned i = 0; i < Chains.size(); ++i) {
@@ -189,27 +234,18 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
     for (Instruction *Inst : Chains[i]) {
       LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
     }
-  }
-  
-  return Chains;
-}
-
-/// @brief Given a linked list of instructions that begin with a non-standard type, 
-/// traverse the linked list from the end
-/// Find the instruction that either zexts or truncates to the standard type and drop all from there to the end
-/// @param LL linked list of instructions
-/// @return truncated linked list
-static std::vector<Instruction *> truncateUseDefLL(std::vector<Instruction *> LL){
-  // traverse the linked list from the end
-  // Find the instruction that either zexts or truncates to the standard type and drop all from there to the end
-  // return the truncated linked list
-  for (int i = LL.size() - 1; i >= 0; i--) {
-    if (LL[i]->getType()->getPrimitiveSizeInBits() == HipPromoteIntsPass::getPromotedBitWidth(LL[i]->getType()->getPrimitiveSizeInBits())) {
-      return std::vector<Instruction *>(LL.begin(), LL.begin() + i + 1);
+    auto truncatedChain = truncateUseDefLL(Chains[i]);
+    truncatedChains.push_back(truncatedChain);
+    LLVM_DEBUG(dbgs() << "Truncated chain " << i << ":\n");
+    for (Instruction *Inst : truncatedChain) {
+      LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
     }
   }
-  return LL;
+  
+  return truncatedChains;
 }
+
+
 
 bool HipPromoteIntsPass::isStandardBitWidth(unsigned BitWidth) {
   // TODO: 128 is not a standard bit width, will handle later as it's more
@@ -226,14 +262,6 @@ unsigned HipPromoteIntsPass::getPromotedBitWidth(unsigned Original) {
   if (Original <= 32)
     return 32;
   return 64;
-}
-
-// Helper to check for non-standard integer types
-static bool isNonStandardInt(Type *T) {
-  if (auto *IntTy = dyn_cast<IntegerType>(T)) {
-    return !HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth());
-  }
-  return false;
 }
 
 Type *HipPromoteIntsPass::getPromotedType(Type *TypeToPromote) {
