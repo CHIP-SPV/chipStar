@@ -184,7 +184,19 @@ static std::vector<Instruction *> backPruneLL(std::vector<Instruction *> LL){
 /// @brief Given an instrucion, return a list of paths in its use-def chain
 /// @param I The instruction to get the use-def chain for
 /// @return A vector of vectors, where each inner vector represents a distinct path in the use-def chain
-static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Instruction *I) {
+static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vector<Instruction *>> &prunedChains) {
+  // Check if the instruction is already in a pruned chain
+  for (auto &chain : prunedChains) {
+    if (std::find(chain.begin(), chain.end(), I) != chain.end()) {
+      LLVM_DEBUG(dbgs() << "Skipping instruction already in a pruned chain: " << *I << "\n");
+      LLVM_DEBUG(dbgs() << "Found in this chain: ");
+      for (Instruction *Inst : chain) {
+        LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+      }
+      break;
+    }
+  }
+
   std::vector<std::vector<Instruction *>> Chains;
   std::set<Instruction *> Visited;
   
@@ -223,10 +235,9 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
   // If no chains were found (e.g., instruction has no users), return an empty vector
   if (Chains.empty()) {
     LLVM_DEBUG(dbgs() << "No chains found for: " << *I << "\n");
-    return Chains;
+    return;
   }
 
-  std::vector<std::vector<Instruction *>> prunedChains;
   // Print the linked lists
   LLVM_DEBUG(dbgs() << "Found " << Chains.size() << " chains for: " << *I << "\n");
   for (unsigned i = 0; i < Chains.size(); ++i) {
@@ -277,8 +288,6 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
       LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
     }
   }
-  
-  return prunedChains;
 }
 
 
@@ -1636,29 +1645,9 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
 
     // Create a vector of truncated linked lists of instructions
     std::vector<std::vector<Instruction *>> AllChains;
-    for (Instruction *I : WorkList) {
-      std::vector<std::vector<Instruction *>> Chains = getLinkedListsFromUseDefChain(I);
-      // Process each chain individually
-      for (auto &Chain : Chains) {
-        std::vector<Instruction *> TruncatedChain = backPruneLL(Chain);
-        AllChains.push_back(TruncatedChain);
-      }
-    }
-
-    // Debug output for all chains
-    for (unsigned i = 0; i < AllChains.size(); ++i) {
-      LLVM_DEBUG(dbgs() << "Truncated chain " << i << ":\n");
-      for (Instruction *I : AllChains[i]) {
-        LLVM_DEBUG(dbgs() << "  " << *I << "\n");
-      }
-    }
-
-    for (std::vector<Instruction *> LL : AllChains) {
-      for (Instruction *I : LL) {
-        LLVM_DEBUG(dbgs() << "Truncated linked list: " << *I << "\n");
-      }
-    }
-
+    std::vector<std::vector<Instruction *>> prunedChains;
+    for (Instruction *I : WorkList)
+      getLinkedListsFromUseDefChain(I, prunedChains);
 
     // Process the worklist
     for (Instruction *I : WorkList) {
