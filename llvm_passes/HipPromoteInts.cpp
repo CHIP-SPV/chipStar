@@ -188,11 +188,11 @@ static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vecto
   // Check if the instruction is already in a pruned chain
   for (auto &chain : prunedChains) {
     if (std::find(chain.begin(), chain.end(), I) != chain.end()) {
-      LLVM_DEBUG(dbgs() << "Skipping instruction already in a pruned chain: " << *I << "\n");
-      LLVM_DEBUG(dbgs() << "Found in this chain: ");
-      for (Instruction *Inst : chain) {
-        LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
-      }
+      // LLVM_DEBUG(dbgs() << "Skipping instruction already in a pruned chain: " << *I << "\n");
+      // LLVM_DEBUG(dbgs() << "Found in this chain: ");
+      // for (Instruction *Inst : chain) {
+      //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+      // }
       break;
     }
   }
@@ -239,7 +239,7 @@ static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vecto
   }
 
   // Print the linked lists
-  LLVM_DEBUG(dbgs() << "Found " << Chains.size() << " chains for: " << *I << "\n");
+  // LLVM_DEBUG(dbgs() << "Found " << Chains.size() << " chains for: " << *I << "\n");
   for (unsigned i = 0; i < Chains.size(); ++i) {
     auto CurrentChain = Chains[i];
 
@@ -269,7 +269,7 @@ static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vecto
         ++ChainBegin;
       }
       if (ChainBegin == ChainEnd) {
-        LLVM_DEBUG(dbgs() << "Chain " << i << " was completely pruned\n");
+        // LLVM_DEBUG(dbgs() << "Chain " << i << " was completely pruned\n");
         continue;
       }
 
@@ -283,10 +283,10 @@ static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vecto
 
     auto frontAndBackPrunedChain = backPruneLL(CurrentChain);
     prunedChains.push_back(frontAndBackPrunedChain);
-    LLVM_DEBUG(dbgs() << "Truncated chain " << i << ":\n");
-    for (Instruction *Inst : frontAndBackPrunedChain) {
-      LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
-    }
+    // LLVM_DEBUG(dbgs() << "Truncated chain " << i << ":\n");
+    // for (Instruction *Inst : frontAndBackPrunedChain) {
+    //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+    // }
   }
 }
 
@@ -1648,6 +1648,13 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
     std::vector<std::vector<Instruction *>> prunedChains;
     for (Instruction *I : WorkList)
       getLinkedListsFromUseDefChain(I, prunedChains);
+
+    for (unsigned i = 0; i < prunedChains.size(); ++i) {
+      LLVM_DEBUG(dbgs() << "Pruned chain " << i << ":\n");
+      for (Instruction *Inst : prunedChains[i]) {
+        LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+      }
+    }
 
     // Process the worklist
     for (Instruction *I : WorkList) {
