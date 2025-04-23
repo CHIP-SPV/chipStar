@@ -231,7 +231,8 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
   LLVM_DEBUG(dbgs() << "Found " << Chains.size() << " chains for: " << *I << "\n");
   for (unsigned i = 0; i < Chains.size(); ++i) {
     LLVM_DEBUG(dbgs() << "Chain " << i << ":\n");
-    for (Instruction *Inst : Chains[i]) {
+    auto CurrentChain = Chains[i];
+    for (Instruction *Inst : CurrentChain) {
       LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
     }
 
@@ -247,12 +248,28 @@ static std::vector<std::vector<Instruction *>> getLinkedListsFromUseDefChain(Ins
         LLVM_DEBUG(dbgs() << "Old ChainBegin first instr: " << **ChainBegin << "\n");
         ChainBegin = found + 1;
         LLVM_DEBUG(dbgs() << "New ChainBegin first instr: " << **ChainBegin << "\n");
+
       }
     }
+    // If we found a pruning candidate, increment ChainBegin until we found a non-standard instruction
     if (prunePossible) {
+      while (ChainBegin != ChainEnd && !isNonStandardInt((*ChainBegin)->getType())) {
+        ++ChainBegin;
+      }
+      if (ChainBegin == ChainEnd) {
+        LLVM_DEBUG(dbgs() << "Chain " << i << " was completely pruned\n");
+        continue;
+      }
+
+      CurrentChain = std::vector<Instruction *>(ChainBegin, ChainEnd);
     }
 
-    auto truncatedChain = truncateUseDefLL(Chains[i]);
+    LLVM_DEBUG(dbgs() << "Chain " << i << " after pruning:\n");
+    for (Instruction *Inst : CurrentChain) {
+      LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+    }
+
+    auto truncatedChain = truncateUseDefLL(CurrentChain);
     truncatedChains.push_back(truncatedChain);
     LLVM_DEBUG(dbgs() << "Truncated chain " << i << ":\n");
     for (Instruction *Inst : truncatedChain) {
