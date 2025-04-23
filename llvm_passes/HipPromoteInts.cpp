@@ -189,11 +189,11 @@ static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vecto
   for (auto &chain : prunedChains) {
     if (std::find(chain.begin(), chain.end(), I) != chain.end()) {
       // LLVM_DEBUG(dbgs() << "Skipping instruction already in a pruned chain: " << *I << "\n");
-      // LLVM_DEBUG(dbgs() << "Found in this chain: ");
+      // LLVM_DEBUG(dbgs() << "Found in this chain:\n");
       // for (Instruction *Inst : chain) {
       //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
       // }
-      break;
+      return;
     }
   }
 
@@ -234,7 +234,7 @@ static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vecto
 
   // If no chains were found (e.g., instruction has no users), return an empty vector
   if (Chains.empty()) {
-    LLVM_DEBUG(dbgs() << "No chains found for: " << *I << "\n");
+    // LLVM_DEBUG(dbgs() << "No chains found for: " << *I << "\n");
     return;
   }
 
@@ -248,33 +248,33 @@ static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vecto
     //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
     // }
 
-    auto prunePossible = false;
-    auto ChainBegin = Chains[i].begin();
-    auto ChainEnd = Chains[i].end();
-    for (auto prunedChain :prunedChains ) {
-      auto lastPrunedChainInstr = prunedChain.back();
-      auto found = std::find(ChainBegin, ChainEnd, lastPrunedChainInstr);
-      if (found != ChainEnd) {
-        // LLVM_DEBUG(dbgs() << "Found pruning candidate for Chain " << i << " via instr: " << *lastPrunedChainInstr << "\n");
-        prunePossible = true;
-        // LLVM_DEBUG(dbgs() << "Old ChainBegin first instr: " << **ChainBegin << "\n");
-        ChainBegin = found + 1;
-        // LLVM_DEBUG(dbgs() << "New ChainBegin first instr: " << **ChainBegin << "\n");
+    // auto prunePossible = false;
+    // auto ChainBegin = Chains[i].begin();
+    // auto ChainEnd = Chains[i].end();
+    // for (auto prunedChain :prunedChains ) {
+    //   auto lastPrunedChainInstr = prunedChain.back();
+    //   auto found = std::find(ChainBegin, ChainEnd, lastPrunedChainInstr);
+    //   if (found != ChainEnd) {
+    //     LLVM_DEBUG(dbgs() << "Found pruning candidate for Chain " << i << " via instr: " << *lastPrunedChainInstr << "\n");
+    //     prunePossible = true;
+    //     LLVM_DEBUG(dbgs() << "Old ChainBegin first instr: " << **ChainBegin << "\n");
+    //     ChainBegin = found + 1;
+    //     LLVM_DEBUG(dbgs() << "New ChainBegin first instr: " << **ChainBegin << "\n");
 
-      }
-    }
-    // If we found a pruning candidate, increment ChainBegin until we found a non-standard instruction
-    if (prunePossible) {
-      while (ChainBegin != ChainEnd && !isNonStandardInt((*ChainBegin)->getType())) {
-        ++ChainBegin;
-      }
-      if (ChainBegin == ChainEnd) {
-        // LLVM_DEBUG(dbgs() << "Chain " << i << " was completely pruned\n");
-        continue;
-      }
+    //   }
+    // }
+    // // If we found a pruning candidate, increment ChainBegin until we found a non-standard instruction
+    // if (prunePossible) {
+    //   while (ChainBegin != ChainEnd && !isNonStandardInt((*ChainBegin)->getType())) {
+    //     ++ChainBegin;
+    //   }
+    //   if (ChainBegin == ChainEnd) {
+    //     LLVM_DEBUG(dbgs() << "Chain " << i << " was completely pruned\n");
+    //     continue;
+    //   }
 
-      CurrentChain = std::vector<Instruction *>(ChainBegin, ChainEnd);
-    }
+    //   CurrentChain = std::vector<Instruction *>(ChainBegin, ChainEnd);
+    // }
 
     // LLVM_DEBUG(dbgs() << "Chain " << i << " after pruning:\n");
     // for (Instruction *Inst : CurrentChain) {
@@ -283,7 +283,7 @@ static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vecto
 
     auto frontAndBackPrunedChain = backPruneLL(CurrentChain);
     prunedChains.push_back(frontAndBackPrunedChain);
-    // LLVM_DEBUG(dbgs() << "Truncated chain " << i << ":\n");
+    // LLVM_DEBUG(dbgs() << "Back-pruned chain " << i << ":\n");
     // for (Instruction *Inst : frontAndBackPrunedChain) {
     //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
     // }
@@ -1656,13 +1656,6 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       }
     }
 
-    // Process the chains
-    for (unsigned i = 0; i < prunedChains.size(); ++i) {
-      for (Instruction *Inst : prunedChains[i]) {
-        LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
-      }
-    }
-
     auto longestChainNumInstructions = 0;
     for (auto &chain : prunedChains) {
       if (chain.size() > longestChainNumInstructions) {
@@ -1694,8 +1687,8 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
   } // End for (Function &F : M)
 
   // Print the final IR state before exiting
-  LLVM_DEBUG(dbgs() << "Final module IR after HipPromoteIntsPass:\n");
-  LLVM_DEBUG(M.print(dbgs(), nullptr));
+  // LLVM_DEBUG(dbgs() << "Final module IR after HipPromoteIntsPass:\n");
+  // LLVM_DEBUG(M.print(dbgs(), nullptr));
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
