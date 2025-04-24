@@ -10,6 +10,8 @@
 #include <list>
 #define DEBUG_TYPE "hip-promote-ints"
 
+// Define the static member
+
 /**
  * @brief Promotes non-standard integer types (e.g., i33, i56) to the next standard width.
  *
@@ -18,10 +20,6 @@
  * later stages, particularly SPIR-V translation.
  * Key Data Structures:
  * -------------------- 
- * - `WorkList`: Stores initial instructions needing promotion within a function.
- * - `GlobalVisited`: Tracks instructions already processed across *all* chains in a function to avoid redundant work.
- *                    Ensures each instruction is promoted only once per function, even if reachable
- *                    from multiple starting points in the `WorkList`.
  * - `PromotedValues`: Maps original `Value*` (instructions, constants) to their promoted `Value*` equivalents
  *   within the context of a single `promoteChain` call.
  * - `Replacements`: Stores pairs of `{original instruction, new value}` created during `promoteChain`.
@@ -31,6 +29,7 @@
  */
 using namespace llvm;
 
+SmallPtrSet<Instruction *, 32> HipPromoteIntsPass::GlobalVisited;
 // Helper to check for non-standard integer types
 static bool isNonStandardInt(Type *T) {
   if (auto *IntTy = dyn_cast<IntegerType>(T)) {
@@ -236,14 +235,15 @@ static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const s
     Value* AdjustedV = nullptr;
     if (DstBits < SrcBits) {
         AdjustedV = Builder.CreateTrunc(V, TargetTy);
-         LLVM_DEBUG(dbgs() << Indent << "  Created Trunc: " << *AdjustedV << "\n");
+        LLVM_DEBUG(dbgs() << Indent << "  Created Trunc: " << *AdjustedV << "\n");
     } else if (DstBits > SrcBits) {
         AdjustedV = Builder.CreateZExt(V, TargetTy);
-         LLVM_DEBUG(dbgs() << Indent << "  Created ZExt: " << *AdjustedV << "\n");
+        LLVM_DEBUG(dbgs() << Indent << "  Created ZExt: " << *AdjustedV << "\n");
     } else {
         AdjustedV = Builder.CreateBitCast(V, TargetTy);
-         LLVM_DEBUG(dbgs() << Indent << "  Created BitCast: " << *AdjustedV << "\n");
+        LLVM_DEBUG(dbgs() << Indent << "  Created BitCast: " << *AdjustedV << "\n");
     }
+    if (AdjustedV) HipPromoteIntsPass::GlobalVisited.insert(dyn_cast<Instruction>(AdjustedV));
     return AdjustedV;
 }
 
@@ -366,26 +366,26 @@ static Value *processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
                            SmallDenseMap<Value *, Value *> &PromotedValues) {
   // Create new PHI node with the promoted type
   Type *PromotedType = HipPromoteIntsPass::getPromotedType(Phi->getType());
-  PHINode *NewPhi =
-      PHINode::Create(PromotedType, Phi->getNumIncomingValues(), "", Phi);
-
-  // Register the PHI node early to handle cycles
-  LLVM_DEBUG(dbgs() << Indent << "  Creating promotion for PHI: " << *Phi
-                    << " to " << *NewPhi << "\n");
-  PromotedValues[Phi] = NewPhi;
-
-  // Process incoming values
-  unsigned PendingCount = 0;
-  for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
+  
+    // Check if the incoming values are already promoted
+    for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
       Value *OriginalValue = Phi->getIncomingValue(i);
-      BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
-      Value *NewIncomingValue = nullptr;
-
       LLVM_DEBUG(dbgs() << Indent << "    Processing incoming: " << *OriginalValue << "\n");
       if(!PromotedValues.count(OriginalValue)) {
         LLVM_DEBUG(dbgs() << Indent << "      Incoming value not yet promoted, deferring: " << *OriginalValue << "\n");
         return nullptr;
       }
+  }
+
+      
+  // Process incoming values
+  PHINode *NewPhi = PHINode::Create(PromotedType, Phi->getNumIncomingValues(), "", Phi);
+  unsigned PendingCount = 0;
+  for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
+      Value *OriginalValue = Phi->getIncomingValue(i);
+      BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
+      Value *NewIncomingValue = nullptr;
+      assert(PromotedValues.count(OriginalValue) && "Incoming value not yet promoted");
       NewIncomingValue = PromotedValues[OriginalValue];
       // Ensure the determined value matches the NewPhi's type
       LLVM_DEBUG(dbgs() << Indent << "      Adjusting incoming value type if needed...\n");
@@ -394,6 +394,7 @@ static Value *processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
       NewPhi->addIncoming(AdjustedValue, IncomingBlock);
   }
   
+  PromotedValues[Phi] = NewPhi;
   LLVM_DEBUG(dbgs() << Indent << "  " << *Phi
                     << "   promoting PHI node: ====> " << *NewPhi << " ("
                     << NewPhi->getNumIncomingValues() << " initial incoming, "
@@ -518,10 +519,9 @@ static Value *processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promot
     PromotedValues[TruncI] = AdjustedSrc;
     LLVM_DEBUG(dbgs() << Indent << "      Mapped original trunc " << *TruncI << " to " << *AdjustedSrc << " in PromotedValues\n");
 
-
     // Replace the original instruction with the adjusted source value.
     // Users outside this promotion chain will use this adjusted value.
-    Replacements.push_back(Replacement(TruncI, AdjustedSrc));
+    Replacements.push_back(Replacement(TruncI, AdjustedSrc)); // <-- REMOVED
     LLVM_DEBUG(dbgs() << Indent << "      Scheduled replacement of " << *TruncI << " with " << *AdjustedSrc << "\n");
     return AdjustedSrc;
   }
@@ -1195,40 +1195,43 @@ Value*processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                         SmallVectorImpl<Replacement> &Replacements,
                         SmallDenseMap<Value *, Value *> &PromotedValues) {
   IRBuilder<> Builder(I);
+  Value *Result = nullptr;
 
   // Dispatch to the appropriate handler based on instruction type
   if (auto *Phi = dyn_cast<PHINode>(I)) {
-      return processPhiNode(Phi, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processPhiNode(Phi, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *ZExtI = dyn_cast<ZExtInst>(I)) {
-      return processZExtInst(ZExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processZExtInst(ZExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *SExtI = dyn_cast<SExtInst>(I)) { // Add handler for SExtInst
-      return processSExtInst(SExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processSExtInst(SExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *TruncI = dyn_cast<TruncInst>(I)) {
-      return processTruncInst(TruncI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processTruncInst(TruncI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
-      return processBinaryOperator(BinOp, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processBinaryOperator(BinOp, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *SelI = dyn_cast<SelectInst>(I)) {
-      return processSelectInst(SelI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processSelectInst(SelI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *CmpI = dyn_cast<ICmpInst>(I)) {
-      return processICmpInst(CmpI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processICmpInst(CmpI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *OldCall = dyn_cast<CallInst>(I)) {
-      return processCallInst(OldCall, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processCallInst(OldCall, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *Store = dyn_cast<StoreInst>(I)) {
-      return processStoreInst(Store, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processStoreInst(Store, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *Load = dyn_cast<LoadInst>(I)) {
-      return processLoadInst(Load, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processLoadInst(Load, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *RetI = dyn_cast<ReturnInst>(I)) {
-      return processReturnInst(RetI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processReturnInst(RetI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *BitCast = dyn_cast<BitCastInst>(I)) { // Add handler for BitCast
-      return processBitCastInst(BitCast, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processBitCastInst(BitCast, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *ExtractI = dyn_cast<ExtractElementInst>(I)) { // Add handler for ExtractElement
-      return processExtractElementInst(ExtractI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processExtractElementInst(ExtractI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *InsertI = dyn_cast<InsertElementInst>(I)) { // Add handler for InsertElement
-      return processInsertElementInst(InsertI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processInsertElementInst(InsertI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else {
     llvm::errs() << "HipPromoteIntsPass: Unhandled instruction type: " << I->getOpcodeName() << "\n";
     assert(false && "HipPromoteIntsPass: Unhandled instruction type");
   }
+  
+  return Result;
 }
 
 PreservedAnalyses HipPromoteIntsPass::run(Module &M,
@@ -1259,8 +1262,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
   }
 
   bool Changed = false;
-  SmallPtrSet<Instruction *, 32>
-      GlobalVisited; // Track all visited instructions across chains
+
 
   for (Function &F : M) {
     SmallVector<Instruction *, 16> WorkList;
@@ -1336,7 +1338,8 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
         // Determine NonStdType and PromotedTy for the instruction I
         Type* NonStdType = isNonStandardInt(I->getType()) ? I->getType() : nullptr;
         if (!NonStdType) {
-          LLVM_DEBUG(dbgs() << "Instruction " << *I << " is standard type. Skipping.\n");
+          LLVM_DEBUG(dbgs() << "Instruction " << *I << " is standard type. Marking as visited & skipping.\n");
+          GlobalVisited.insert(I);
           continue;
         }
         Type* PromotedTy = HipPromoteIntsPass::getPromotedType(NonStdType);
@@ -1347,6 +1350,14 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
           // push if not already in DeferredInstructions
           if (std::find(DeferredInstructions.begin(), DeferredInstructions.end(), I) == DeferredInstructions.end()) {
             DeferredInstructions.push_back(I);
+          }
+        } else {
+          // Mark this instruction as visited
+          GlobalVisited.insert(I);
+
+          // remove from DeferredInstructions if it's in there
+          if (std::find(DeferredInstructions.begin(), DeferredInstructions.end(), I) != DeferredInstructions.end()) {
+            DeferredInstructions.remove(I);
           }
         }
 
@@ -1364,17 +1375,75 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       if (!processed) {
         LLVM_DEBUG(dbgs() << "Deferring instruction: " << *I << "\n");
         DeferredInstructions.push_back(I);
+      } else {
+        // Mark this instruction as visited
+        GlobalVisited.insert(I);
+      }
+      // Don't add duplicate replacements for successfully processed deferred instructions
+      if (!GlobalVisited.count(I)) {
+        Replacements.push_back(Replacement(I, processed));
+        // Mark the instruction as visited right after adding it to Replacements
+        GlobalVisited.insert(I);
       }
       DeferredInstructions.pop_front();
-      Replacements.push_back(Replacement(I, processed));
       LLVM_DEBUG(dbgs() << "Successfully processed deferred instruction: " << *I << "\n");
     }
 
-    // Perform replacements
-    for (auto &Replacement : Replacements) {
-      Replacement.Old->replaceAllUsesWith(Replacement.New);
-      Replacement.Old->eraseFromParent();
+    // Now perform the main replacements
+    LLVM_DEBUG(dbgs() << "\n\n\n\n\nPerforming main instruction replacements...\n");
+    
+    // Track which instructions have been replaced to avoid duplicates
+    SmallPtrSet<Instruction*, 32> ReplacedInstructions;
+    
+    for (const auto &R : Replacements) {
+      // Skip if we've already processed this instruction
+      if (!ReplacedInstructions.insert(R.Old).second) {
+        LLVM_DEBUG(dbgs() << "Skipping duplicate replacement for: " << *R.Old << "\n");
+        continue;
+      }
+      
+      LLVM_DEBUG(dbgs() << "Replacing uses of: " << *R.Old << "    with: " << *R.New << "\n");
+      // Make a copy of the users to avoid iterator invalidation
+      SmallVector<User*, 8> Users(R.Old->user_begin(), R.Old->user_end());
+      for (User *U : Users) {
+          // Replace uses only if the user instruction itself is part of the processed chain
+          // or if it's not an instruction (e.g. a constant expression using the old value).
+          Instruction* UserInst = dyn_cast<Instruction>(U);
+          if (!UserInst || GlobalVisited.count(UserInst)) {
+              LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
+              U->replaceUsesOfWith(R.Old, R.New);
+          } else {
+              LLVM_DEBUG(dbgs() << "  Skipping update for use in unprocessed instruction: " << *U << "\n");
+          }
+      }
     }
+
+    // Then, for any instructions with remaining uses, force replacement.
+    // This can happen with complex dependencies or cycles not fully resolved by the above.
+    for (auto &R : Replacements) {
+      if (!R.Old->use_empty()) {
+        LLVM_DEBUG(dbgs() << "Instruction still has uses after initial replacement: " << *R.Old << "\n" << "  Forcing replaceAllUsesWith...\n");
+        for (User *U : R.Old->users()) 
+          LLVM_DEBUG(dbgs() << "  User: " << *U << "\n");
+        R.Old->replaceAllUsesWith(R.New);
+      }
+    }
+
+    // Finally, delete the original instructions in reverse order to handle dependencies
+    for (auto It = Replacements.rbegin(); It != Replacements.rend(); ++It) {
+      LLVM_DEBUG(dbgs() << "Deleting instruction: " << *(It->Old) << "\n");
+      if (!It->Old->use_empty()) {
+        LLVM_DEBUG(dbgs() << "WARNING: Instruction still has uses before deletion: " << *(It->Old) << "\n");
+        for (User *U : It->Old->users()) {
+          LLVM_DEBUG(dbgs() << "  User: " << *U << "\n");
+        }
+        // Force replacement again just in case
+        It->Old->replaceAllUsesWith(It->New);
+      }
+      It->Old->eraseFromParent();
+    }
+
+    Changed = true; // Mark that changes were made
   } // End for (Function &F : M)
 
   // Print the final IR state before exiting
