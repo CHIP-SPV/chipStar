@@ -212,6 +212,11 @@ struct Replacement {
   Instruction *Old;
   Value *New;
   Replacement(Instruction *O, Value *N) : Old(O), New(N) {}
+  
+  // Add equality operator for comparison
+  bool operator==(const Replacement &Other) const {
+    return Old == Other.Old && New == Other.New;
+  }
 };
 
 // Helper to adjust value V to type TargetTy using Builder
@@ -220,8 +225,8 @@ static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const s
         return V;
     }
 
-    // Example 1: Source i32, Target i64
-    //   adjustType(%val_i32, i64, builder) -> creates '%zext = zext i32 %val_i32 to i64'
+    // Example 1: Source i33, Target i64
+    //   adjustType(%val_i33, i64, builder) -> creates '%zext = zext i33 %val_i33 to i64'
     // Example 2: Source i64, Target i32
     //   adjustType(%val_i64, i32, builder) -> creates '%trunc = trunc i64 %val_i64 to i32'
     // Example 3: Source i64, Target <64 x i1> (Different types, same size)
@@ -1399,6 +1404,14 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
     // Now perform the main replacements
     LLVM_DEBUG(dbgs() << "\n\n\n\n\nPerforming main instruction replacements...\n");
     
+    // Remove duplicates from Replacements
+    std::sort(Replacements.begin(), Replacements.end(), 
+              [](const Replacement &A, const Replacement &B) { 
+                return std::make_pair(A.Old, A.New) < std::make_pair(B.Old, B.New); 
+              });
+    Replacements.erase(std::unique(Replacements.begin(), Replacements.end()), Replacements.end());
+
+    
     // Track which instructions have been replaced to avoid duplicates
     SmallPtrSet<Instruction*, 32> ReplacedInstructions;
     
@@ -1436,6 +1449,11 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       }
     }
 
+    for (auto &R : Replacements) {
+      LLVM_DEBUG(dbgs() << "Will delete instruction: " << *R.Old << " which is replaced by " << *R.New << "\n");
+    }
+
+
     // Finally, delete the original instructions in reverse order to handle dependencies
     for (auto It = Replacements.rbegin(); It != Replacements.rend(); ++It) {
       LLVM_DEBUG(dbgs() << "Deleting instruction: " << *(It->Old) << "\n");
@@ -1453,9 +1471,39 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
     Changed = true; // Mark that changes were made
   } // End for (Function &F : M)
 
+
+  
+
+
   // Print the final IR state before exiting
-  LLVM_DEBUG(dbgs() << "Final module IR after HipPromoteIntsPass:\n");
+  LLVM_DEBUG(dbgs() << "\n\n\n\n\nFinal module IR after HipPromoteIntsPass:\n");
   LLVM_DEBUG(M.print(dbgs(), nullptr));
+
+    // Perform a final pass to remove any no-op casts
+  
+  LLVM_DEBUG(dbgs() << "\n\n\n\n\nRemoving no-op casts:\n");
+  for (Function &F : M) {
+    SmallVector<Instruction *, 16> DeadCasts; // Collect casts to remove
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        // Check for ZExt, SExt, Trunc, or BitCast where source and dest types are identical
+        if (auto *Cast = dyn_cast<CastInst>(&I)) {
+          if (Cast->getSrcTy() == Cast->getDestTy()) {
+             LLVM_DEBUG(dbgs() << "Found no-op cast: " << I << "\n");
+             DeadCasts.push_back(&I);
+          }
+        }
+      }
+    }
+    // Remove the collected casts after iterating through the block
+    for (Instruction *DeadCast : DeadCasts) {
+       LLVM_DEBUG(dbgs() << "Removing no-op cast: " << *DeadCast << "\n");
+       DeadCast->replaceAllUsesWith(DeadCast->getOperand(0)); // Replace uses with the source operand
+       DeadCast->eraseFromParent();
+    }
+  }
+
+
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
