@@ -869,6 +869,32 @@ static Value *processStoreInst(StoreInst *Store, Type *NonStdType, Type *Promote
   Value *OrigValue = Store->getValueOperand();
   Value *OrigPtr = Store->getPointerOperand();
 
+  // Promote store of non-standard integer types by bitcasting pointer and storing promoted type.
+  if (auto *ValIntTy = dyn_cast<IntegerType>(OrigValue->getType())) {
+    unsigned BW = ValIntTy->getBitWidth();
+    if (!HipPromoteIntsPass::isStandardBitWidth(BW)) {
+      LLVM_DEBUG(dbgs() << Indent << "Promoting store of non-standard i" << BW << "\n");
+      // Determine the promoted integer type and address space
+      unsigned NewBW = HipPromoteIntsPass::getPromotedBitWidth(BW);
+      LLVMContext &Ctx = Store->getContext();
+      Type *PromTy = Type::getIntNTy(Ctx, NewBW);
+      unsigned AS = OrigPtr->getType()->getPointerAddressSpace();
+      PointerType *NewPtrTy = PointerType::get(PromTy, AS);
+      // Bitcast the pointer to the promoted pointer type
+      Value *CastPtr = Builder.CreateBitCast(OrigPtr, NewPtrTy, Store->getName() + ".promote_ptr");
+      // Obtain the promoted value (zero/sign extension handled by getPromotedValue)
+      Value *PromValue = getPromotedValue(OrigValue, OrigValue->getType(), PromTy, Builder, Indent, PromotedValues);
+      // Create the promoted store
+      StoreInst *NewStore = Builder.CreateStore(PromValue, CastPtr);
+      NewStore->setAlignment(Store->getAlign());
+      NewStore->setVolatile(Store->isVolatile());
+      NewStore->setOrdering(Store->getOrdering());
+      NewStore->setSyncScopeID(Store->getSyncScopeID());
+      addReplacement(Store, NewStore, Replacements);
+      return NewStore;
+    }
+  }
+
   // Get the value being stored (possibly promoted)
   Value *StoredValue = getPromotedValue(OrigValue, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
@@ -918,50 +944,27 @@ static Value *processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy
                               SmallVectorImpl<Replacement> &Replacements,
                               SmallDenseMap<Value *, Value *> &PromotedValues) {
   Value *Ptr = Load->getPointerOperand();
-  // Only split non-standard-width integer loads
+  // Promote non-standard integer loads by casting pointer and loading the promoted type.
   if (auto *IntTy = dyn_cast<IntegerType>(Load->getType())) {
     unsigned BW = IntTy->getBitWidth();
     if (!HipPromoteIntsPass::isStandardBitWidth(BW)) {
-      LLVM_DEBUG(dbgs() << Indent << "Splitting non-standard load i" << BW << "\n");
+      LLVM_DEBUG(dbgs() << Indent << "Promoting load of non-standard i" << BW << "\n");
       LLVMContext &Ctx = Load->getContext();
-      // Split into 32-bit + remaining bits
-      unsigned LowBits = std::min<unsigned>(BW, 32);
-      unsigned HighBits = BW - LowBits;
-      // Cast pointer to i8*
-      auto *I8PtrTy = PointerType::get(Type::getInt8Ty(Ctx), Ptr->getType()->getPointerAddressSpace());
-      Value *Ptr8 = Builder.CreateBitCast(Ptr, I8PtrTy, Load->getName() + ".i8ptr");
-      // Load low part
-      auto *LowIntTy = Type::getIntNTy(Ctx, LowBits);
-      auto *LowPtr = Builder.CreateBitCast(Ptr8,
-                       PointerType::get(LowIntTy, Ptr->getType()->getPointerAddressSpace()),
-                       Load->getName() + ".lowptr");
-      LoadInst *LowLoad = Builder.CreateLoad(LowIntTy, LowPtr, Load->getName() + ".low");
-      LowLoad->setAlignment(Align(1 << (unsigned)llvm::Log2_64(LowBits/8)));
-      LowLoad->setVolatile(Load->isVolatile());
-      // Load high part
-      Value *HighPtr8 = Builder.CreateConstGEP1_64(
-          Type::getInt8Ty(Ctx),      // element type
-          Ptr8,                       // pointer operand
-          LowBits / 8,                // byte offset
-          Load->getName() + ".highgep"
-      );
-      auto *HighIntTy = Type::getIntNTy(Ctx, HighBits);
-      auto *HighPtr = Builder.CreateBitCast(HighPtr8,
-                        PointerType::get(HighIntTy, Ptr->getType()->getPointerAddressSpace()),
-                        Load->getName() + ".highptr");
-      LoadInst *HighLoad = Builder.CreateLoad(HighIntTy, HighPtr, Load->getName() + ".high");
-      HighLoad->setAlignment(Align(1 << (unsigned)llvm::Log2_64(HighBits/8)));
-      HighLoad->setVolatile(Load->isVolatile());
-      // Zero-extend parts to i64
-      auto *I64Ty = Type::getInt64Ty(Ctx);
-      Value *LowExt = Builder.CreateZExt(LowLoad, I64Ty, Load->getName() + ".lowext");
-      Value *HighExt = Builder.CreateZExt(HighLoad, I64Ty, Load->getName() + ".highext");
-      // Shift high part into position and combine
-      Value *HighShifted = Builder.CreateShl(HighExt, LowBits, Load->getName() + ".shifted");
-      Value *Combined = Builder.CreateOr(HighShifted, LowExt, Load->getName() + ".combined");
-      PromotedValues[Load] = Combined;
-      addReplacement(Load, Combined, Replacements);
-      return Combined;
+      unsigned NewBW = HipPromoteIntsPass::getPromotedBitWidth(BW);
+      Type *NewIntTy = Type::getIntNTy(Ctx, NewBW);
+      // Bitcast the pointer to point to the promoted integer type
+      PointerType *NewPtrTy = PointerType::get(NewIntTy, 
+                                  Ptr->getType()->getPointerAddressSpace());
+      Value *CastPtr = Builder.CreateBitCast(Ptr, NewPtrTy, Load->getName() + ".promote_ptr");
+      // Create the promoted load
+      LoadInst *NewLoad = Builder.CreateLoad(NewIntTy, CastPtr, Load->getName() + ".promote");
+      NewLoad->setAlignment(Load->getAlign());
+      NewLoad->setVolatile(Load->isVolatile());
+      NewLoad->setOrdering(Load->getOrdering());
+      NewLoad->setSyncScopeID(Load->getSyncScopeID());
+      PromotedValues[Load] = NewLoad;
+      addReplacement(Load, NewLoad, Replacements);
+      return NewLoad;
     }
   }
   // Fallback: standard-width load
