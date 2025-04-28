@@ -587,8 +587,6 @@ static Value *processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Typ
                                   IRBuilder<> &Builder, const std::string &Indent,
                                   SmallVectorImpl<Replacement> &Replacements,
                                   SmallDenseMap<Value *, Value *> &PromotedValues) {
-  bool NeedsPromotion = isNonStandardInt(BinOp->getType());
-
   Value *OrigLHS = BinOp->getOperand(0);
   Value *OrigRHS = BinOp->getOperand(1);
 
@@ -916,54 +914,64 @@ static Value *processStoreInst(StoreInst *Store, Type *NonStdType, Type *Promote
 
 
 static Value *processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy,
-                            IRBuilder<> &Builder, const std::string &Indent,
-                            SmallVectorImpl<Replacement> &Replacements,
-                            SmallDenseMap<Value *, Value *> &PromotedValues) {
-   // Get the pointer operand
+                              IRBuilder<> &Builder, const std::string &Indent,
+                              SmallVectorImpl<Replacement> &Replacements,
+                              SmallDenseMap<Value *, Value *> &PromotedValues) {
   Value *Ptr = Load->getPointerOperand();
-
-  // Create a new load instruction with the original type
+  // Only split non-standard-width integer loads
+  if (auto *IntTy = dyn_cast<IntegerType>(Load->getType())) {
+    unsigned BW = IntTy->getBitWidth();
+    if (!HipPromoteIntsPass::isStandardBitWidth(BW)) {
+      LLVM_DEBUG(dbgs() << Indent << "Splitting non-standard load i" << BW << "\n");
+      LLVMContext &Ctx = Load->getContext();
+      // Split into 32-bit + remaining bits
+      unsigned LowBits = std::min<unsigned>(BW, 32);
+      unsigned HighBits = BW - LowBits;
+      // Cast pointer to i8*
+      auto *I8PtrTy = PointerType::get(Type::getInt8Ty(Ctx), Ptr->getType()->getPointerAddressSpace());
+      Value *Ptr8 = Builder.CreateBitCast(Ptr, I8PtrTy, Load->getName() + ".i8ptr");
+      // Load low part
+      auto *LowIntTy = Type::getIntNTy(Ctx, LowBits);
+      auto *LowPtr = Builder.CreateBitCast(Ptr8,
+                       PointerType::get(LowIntTy, Ptr->getType()->getPointerAddressSpace()),
+                       Load->getName() + ".lowptr");
+      LoadInst *LowLoad = Builder.CreateLoad(LowIntTy, LowPtr, Load->getName() + ".low");
+      LowLoad->setAlignment(Align(1 << (unsigned)llvm::Log2_64(LowBits/8)));
+      LowLoad->setVolatile(Load->isVolatile());
+      // Load high part
+      Value *HighPtr8 = Builder.CreateConstGEP1_64(
+          Type::getInt8Ty(Ctx),      // element type
+          Ptr8,                       // pointer operand
+          LowBits / 8,                // byte offset
+          Load->getName() + ".highgep"
+      );
+      auto *HighIntTy = Type::getIntNTy(Ctx, HighBits);
+      auto *HighPtr = Builder.CreateBitCast(HighPtr8,
+                        PointerType::get(HighIntTy, Ptr->getType()->getPointerAddressSpace()),
+                        Load->getName() + ".highptr");
+      LoadInst *HighLoad = Builder.CreateLoad(HighIntTy, HighPtr, Load->getName() + ".high");
+      HighLoad->setAlignment(Align(1 << (unsigned)llvm::Log2_64(HighBits/8)));
+      HighLoad->setVolatile(Load->isVolatile());
+      // Zero-extend parts to i64
+      auto *I64Ty = Type::getInt64Ty(Ctx);
+      Value *LowExt = Builder.CreateZExt(LowLoad, I64Ty, Load->getName() + ".lowext");
+      Value *HighExt = Builder.CreateZExt(HighLoad, I64Ty, Load->getName() + ".highext");
+      // Shift high part into position and combine
+      Value *HighShifted = Builder.CreateShl(HighExt, LowBits, Load->getName() + ".shifted");
+      Value *Combined = Builder.CreateOr(HighShifted, LowExt, Load->getName() + ".combined");
+      PromotedValues[Load] = Combined;
+      addReplacement(Load, Combined, Replacements);
+      return Combined;
+    }
+  }
+  // Fallback: standard-width load
   LoadInst *NewLoad = Builder.CreateLoad(Load->getType(), Ptr, Load->getName());
-
-  // Preserve the alignment and other attributes from the original load
   NewLoad->setAlignment(Load->getAlign());
   NewLoad->setVolatile(Load->isVolatile());
   NewLoad->setOrdering(Load->getOrdering());
   NewLoad->setSyncScopeID(Load->getSyncScopeID());
-
-  // Now, check if the loaded value is of a non-standard type that needs promotion
-  Value *ResultValue = NewLoad; // Default to the newly created load
-  if (auto *IntTy = dyn_cast<IntegerType>(Load->getType())) {
-    if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
-      // Promote to standard width
-      Type *PromotedLoadType = HipPromoteIntsPass::getPromotedType(Load->getType());
-      Value *PromotedValue = nullptr;
-
-      // Use a temporary builder positioned *after* the NewLoad
-      IRBuilder<> AfterLoadBuilder(NewLoad->getNextNode());
-
-      // Use adjustType to promote the loaded value
-      LLVM_DEBUG(dbgs() << Indent << "    Promoting loaded non-standard value using adjustType\n");
-      PromotedValue = adjustType(NewLoad, PromotedLoadType, AfterLoadBuilder, Indent + "      Adjusting load result: ");
-
-      // For non-standard types, we want to use the promoted value internally
-      ResultValue = PromotedValue;
-      LLVM_DEBUG(dbgs() << Indent << "  " << *Load << "   promoting Load (non-standard): ====> "
-                       << *ResultValue << " (via " << *NewLoad << ")\n");
-    } else {
-        LLVM_DEBUG(dbgs() << Indent << "  " << *Load << "   promoting Load (standard): ====> "
-                         << *ResultValue << "\n");
-    }
-  } else {
-    // Non-integer types are not promoted
-    LLVM_DEBUG(dbgs() << Indent << "  " << *Load << "   promoting Load (non-int): ====> "
-                     << *ResultValue << "\n");
-  }
-
-  // Map the original load instruction to the potentially promoted value for internal use
-  PromotedValues[Load] = ResultValue;
-  // Replace the original load instruction with the new load instruction (which has the original type)
-  addReplacement(Load, ResultValue, Replacements);
+  PromotedValues[Load] = NewLoad;
+  addReplacement(Load, NewLoad, Replacements);
   return NewLoad;
 }
 
@@ -1107,7 +1115,6 @@ static Value *processInsertElementInst(InsertElementInst *InsertI, Type *NonStdT
     Value *ElementOp = InsertI->getOperand(1); // The element being inserted
     Value *IndexOp = InsertI->getOperand(2); // The index
     Type *ResultVecTy = InsertI->getType(); // Type of the resulting vector
-    Type *ElementTy = ElementOp->getType(); // Type of the element being inserted
 
     assert(isa<VectorType>(ResultVecTy) && "InsertElement should produce a vector type");
     Type *VecElementTy = cast<VectorType>(ResultVecTy)->getElementType();
@@ -1447,7 +1454,6 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       for (User *U : Users) {
           // Replace uses only if the user instruction itself is part of the processed chain
           // or if it's not an instruction (e.g. a constant expression using the old value).
-          Instruction* UserInst = dyn_cast<Instruction>(U);
           LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
           U->replaceUsesOfWith(R.Old, R.New);
       }
