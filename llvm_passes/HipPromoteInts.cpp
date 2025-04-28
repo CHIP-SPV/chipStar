@@ -1437,7 +1437,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
     for (const auto &R : Replacements) {
       // Skip if we've already processed this instruction
       if (!ReplacedInstructions.insert(R.Old).second) {
-        LLVM_DEBUG(dbgs() << "Skipping duplicate replacement for: " << *R.Old << "\n");
+        LLVM_DEBUG(dbgs() << "Skipping duplicate replacement for: " << *R.Old << " with " << *R.New << "\n");
         continue;
       }
       
@@ -1482,8 +1482,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
 
 
   // Print the final IR state before exiting
-  LLVM_DEBUG(dbgs() << "\n\n\n\n\nFinal module IR after HipPromoteIntsPass:\n");
-  LLVM_DEBUG(M.print(dbgs(), nullptr));
+
 
     // Perform a final pass to remove any no-op casts
   
@@ -1508,6 +1507,29 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
        DeadCast->eraseFromParent();
     }
   }
+
+  // print the first and the last instruction that contains non-std types
+  std::vector<Instruction *> NonStdTypes;
+  for (Function &F : M) {
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        if (isNonStandardInt(I.getType())) {
+          NonStdTypes.push_back(&I);
+          break;
+        }
+      }
+    }
+  }
+
+  if (NonStdTypes.size() > 0) {
+    LLVM_DEBUG(dbgs() << "First non-std type instruction: " << *NonStdTypes[0] << "\n");
+    LLVM_DEBUG(dbgs() << "Last non-std type instruction: " << *NonStdTypes[NonStdTypes.size() - 1] << "\n");
+  }
+
+  LLVM_DEBUG(dbgs() << "\n\n\n\n\nFinal module IR after HipPromoteIntsPass:\n");
+  LLVM_DEBUG(M.print(dbgs(), nullptr));
+  
+
 
 
 
