@@ -279,7 +279,7 @@ static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, const s
 static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
                                IRBuilder<> &Builder, const std::string &Indent,
                                SmallDenseMap<Value *, Value *> &PromotedValues) {
-  LLVM_DEBUG(dbgs() << Indent << "    getPromotedValue for: " << *V << "\n");
+  LLVM_DEBUG(dbgs() << Indent << "    getPromotedValue for: " << *V << " NonStdType: " << *NonStdType << " PromotedTy: " << *PromotedTy << "\n");
 
   // First check if we already promoted this value
   if (PromotedValues.count(V)) {
@@ -1174,6 +1174,7 @@ static Value *processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being pr
     assert(PromotedSrc->getType() == PromotedTy && "Non-standard instruction source operand was not promoted correctly");
 
     // Adjust the PromotedSrc (which is i64) to match the promoted destination type (PromotedDestTy)
+    LLVM_DEBUG(dbgs() << Indent << "    Adjusting NonStd Src for SExt: " << *PromotedSrc << " to " << *PromotedDestTy << "\n");
     NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, Indent + "    Adjusting NonStd Src for SExt: ");
     if (NewValue == PromotedSrc) {
       LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std inst src, becomes no-op): ====> " << *NewValue << "\n");
@@ -1188,6 +1189,7 @@ static Value *processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being pr
     assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard SExt source");
 
     // Create SExt using the standard source (PromotedSrc) to the *promoted* destination type.
+    LLVM_DEBUG(dbgs() << Indent << "    Adjusting NonStd Dest for SExt: " << *PromotedSrc << " to " << *PromotedDestTy << "\n");
     NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, Indent);
     LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std dest): ====> " << *NewValue << "\n");
     finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
@@ -1195,6 +1197,7 @@ static Value *processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being pr
   } else {
     // Case 3: Source and Destination are Standard
     assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard SExt source");
+    LLVM_DEBUG(dbgs() << Indent << "    Creating SExt: " << *PromotedSrc << " to " << *DestTy << "\n");
     NewValue = Builder.CreateSExt(PromotedSrc, DestTy); // Use SExt
     LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (standard src/dest): ====> " << *NewValue << "\n");
     finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
@@ -1349,6 +1352,12 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
         LLVM_DEBUG(dbgs() << "Processing instruction: " << *I << "\n");
         // Determine NonStdType and PromotedTy for the instruction I
         Type* NonStdType = isNonStandardInt(I->getType()) ? I->getType() : nullptr;
+        for (Value *Op : I->operands()) {
+          if (isNonStandardInt(Op->getType())) {
+            NonStdType = Op->getType();
+            break;
+          }
+        }
         if (!NonStdType) {
           LLVM_DEBUG(dbgs() << "Instruction " << *I << " is standard type. Marking as visited & skipping.\n");
           GlobalVisited.insert(I);
@@ -1429,43 +1438,30 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
           // Replace uses only if the user instruction itself is part of the processed chain
           // or if it's not an instruction (e.g. a constant expression using the old value).
           Instruction* UserInst = dyn_cast<Instruction>(U);
-          if (!UserInst || GlobalVisited.count(UserInst)) {
-              LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
-              U->replaceUsesOfWith(R.Old, R.New);
-          } else {
-              LLVM_DEBUG(dbgs() << "  Skipping update for use in unprocessed instruction: " << *U << "\n");
-          }
+          LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
+          U->replaceUsesOfWith(R.Old, R.New);
       }
     }
 
-    // Then, for any instructions with remaining uses, force replacement.
-    // This can happen with complex dependencies or cycles not fully resolved by the above.
-    for (auto &R : Replacements) {
-      if (!R.Old->use_empty()) {
-        LLVM_DEBUG(dbgs() << "Instruction still has uses after initial replacement: " << *R.Old << "\n" << "  Forcing replaceAllUsesWith...\n");
-        for (User *U : R.Old->users()) 
-          LLVM_DEBUG(dbgs() << "  User: " << *U << "\n");
-        R.Old->replaceAllUsesWith(R.New);
-      }
-    }
-
+    std::set<Instruction *> InstructionsToDelete;
     for (auto &R : Replacements) {
       LLVM_DEBUG(dbgs() << "Will delete instruction: " << *R.Old << " which is replaced by " << *R.New << "\n");
+      InstructionsToDelete.insert(R.Old);
     }
 
 
     // Finally, delete the original instructions in reverse order to handle dependencies
-    for (auto It = Replacements.rbegin(); It != Replacements.rend(); ++It) {
-      LLVM_DEBUG(dbgs() << "Deleting instruction: " << *(It->Old) << "\n");
-      if (!It->Old->use_empty()) {
-        LLVM_DEBUG(dbgs() << "WARNING: Instruction still has uses before deletion: " << *(It->Old) << "\n");
-        for (User *U : It->Old->users()) {
+    for (auto It = InstructionsToDelete.rbegin(); It != InstructionsToDelete.rend(); ++It) {
+      LLVM_DEBUG(dbgs() << "Deleting instruction: " << **It << "\n");
+      if (!(*It)->use_empty()) {
+        LLVM_DEBUG(dbgs() << "WARNING: Instruction still has uses before deletion: " << **It << "\n");
+        for (User *U : (*It)->users()) {
           LLVM_DEBUG(dbgs() << "  User: " << *U << "\n");
         }
         // Force replacement again just in case
-        It->Old->replaceAllUsesWith(It->New);
+        (*It)->replaceAllUsesWith((*It)->getOperand(0));
       }
-      It->Old->eraseFromParent();
+      (*It)->eraseFromParent();
     }
 
     Changed = true; // Mark that changes were made
