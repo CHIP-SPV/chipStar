@@ -334,6 +334,16 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   return V;
 };
 
+void addReplacement(Instruction *Old, Value *New, SmallVectorImpl<Replacement> &Replacements) {
+  LLVM_DEBUG(dbgs() << "addReplacement: " << *Old << " with " << *New << "\n");
+  // assert that none of the entries in Replacements have Old as an operand
+  for (auto &R : Replacements) {
+    if (R.Old == Old && R.New == New) return; // already exists
+    if (R.Old == Old) assert(R.New!= New && "Changing old instruction to different value");
+  }
+  Replacements.push_back(Replacement(Old, New));
+}
+
 /**
  * Finalize promotion
  * 
@@ -349,7 +359,7 @@ static inline void finalizePromotion(Instruction *Old, Value *New,
                                      SmallVectorImpl<Replacement> &Replacements,
                                      SmallDenseMap<Value *, Value *> &PromotedValues) {
     PromotedValues[Old] = New; 
-    Replacements.push_back(Replacement(Old, New));
+    addReplacement(Old, New, Replacements);
 }
 
 /**
@@ -407,7 +417,7 @@ static Value *processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
                     << NewPhi->getNumIncomingValues() << " initial incoming, "
                     << PendingCount << " pending)\n");
 
-  Replacements.push_back(Replacement(Phi, NewPhi));
+  addReplacement(Phi, NewPhi, Replacements);
   return NewPhi;
 }
 
@@ -528,7 +538,7 @@ static Value *processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promot
 
     // Replace the original instruction with the adjusted source value.
     // Users outside this promotion chain will use this adjusted value.
-    Replacements.push_back(Replacement(TruncI, AdjustedSrc)); // <-- REMOVED
+    addReplacement(TruncI, AdjustedSrc, Replacements);
     LLVM_DEBUG(dbgs() << Indent << "      Scheduled replacement of " << *TruncI << " with " << *AdjustedSrc << "\n");
     return AdjustedSrc;
   }
@@ -569,7 +579,7 @@ static Value *processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promot
     }
   }
 
-  Replacements.push_back(Replacement(TruncI, NewTrunc));
+  addReplacement(TruncI, NewTrunc, Replacements);
   return NewTrunc;
 }
 
@@ -900,7 +910,7 @@ static Value *processStoreInst(StoreInst *Store, Type *NonStdType, Type *Promote
   LLVM_DEBUG(dbgs() << Indent << "  " << *Store << "   promoting Store: ====> "
                     << *NewStore << "\n");
   // Store instructions don't produce a value, so we don't put them in PromotedValues
-  Replacements.push_back(Replacement(Store, NewStore));
+  addReplacement(Store, NewStore, Replacements);
   return NewStore;
 }
 
@@ -953,7 +963,7 @@ static Value *processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy
   // Map the original load instruction to the potentially promoted value for internal use
   PromotedValues[Load] = ResultValue;
   // Replace the original load instruction with the new load instruction (which has the original type)
-  Replacements.push_back(Replacement(Load, NewLoad));
+  addReplacement(Load, ResultValue, Replacements);
   return NewLoad;
 }
 
@@ -981,14 +991,14 @@ static Value *processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *Promot
     LLVM_DEBUG(dbgs() << Indent << "  " << *RetI << "   promoting Return: ====> "
                       << *NewRet << "\n");
     // Return instructions don't produce a value, so we don't put them in PromotedValues
-    Replacements.push_back(Replacement(RetI, NewRet));
+    addReplacement(RetI, NewRet, Replacements);
   } else {
     // Handle void return
     NewRet = Builder.CreateRetVoid();
     LLVM_DEBUG(dbgs() << Indent << "  " << *RetI << "   promoting Return: ====> "
                       << *NewRet << "\n");
     // Return instructions don't produce a value, so we don't put them in PromotedValues
-    Replacements.push_back(Replacement(RetI, NewRet));
+    addReplacement(RetI, NewRet, Replacements);
   }
   return NewRet;
 }
@@ -1402,7 +1412,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       }
       // Don't add duplicate replacements for successfully processed deferred instructions
       if (!GlobalVisited.count(I)) {
-        Replacements.push_back(Replacement(I, processed));
+        addReplacement(I, processed, Replacements);
         // Mark the instruction as visited right after adding it to Replacements
         GlobalVisited.insert(I);
       }
