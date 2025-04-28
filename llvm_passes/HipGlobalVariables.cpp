@@ -71,11 +71,21 @@ static Instruction *createKernelStub(Module &M, StringRef Name,
            Name,
            FunctionType::get(Type::getVoidTy(M.getContext()), ArgTypes, false))
           .getCallee());
-  F->setCallingConv(CallingConv::SPIR_KERNEL);
-  // HIP-CLang marks kernels hidden. Do the same here for consistency.
-  F->setVisibility(GlobalValue::HiddenVisibility);
-  assert(F->empty() && "Function name clash?");
-  IRBuilder<> B(BasicBlock::Create(M.getContext(), "entry", F));
+  // If this is a new function, set it up; otherwise, reuse the existing stub.
+  if (F->empty()) {
+    F->setCallingConv(CallingConv::SPIR_KERNEL);
+    // HIP-CLang marks kernels hidden. Do the same here for consistency.
+    F->setVisibility(GlobalValue::HiddenVisibility);
+    BasicBlock *BB = BasicBlock::Create(M.getContext(), "entry", F);
+    IRBuilder<> B(BB);
+    return B.CreateRetVoid();
+  }
+  // Reuse existing function: insert before its return instruction.
+  BasicBlock &entry = F->getEntryBlock();
+  if (auto *ret = dyn_cast<ReturnInst>(entry.getTerminator()))
+    return ret;
+  // No return found: append one at end.
+  IRBuilder<> B(&entry);
   return B.CreateRetVoid();
 }
 
