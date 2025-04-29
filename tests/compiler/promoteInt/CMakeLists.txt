@@ -37,10 +37,13 @@ list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rocprim.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rocprim-redux.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rocmprim-device-scan.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/signed_constant_compare.ll)
-list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_block_sort-hip-spirv64-generic-link.ll)
-list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_device_scan-hip-spirv64-generic-link.ll)
-list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_warp_sort-hip-spirv64-generic-lower.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/loads.ll)
+
+if(LLVM_VERSION_MAJOR GREATER 18)
+  list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_block_sort-hip-spirv64-generic-link.ll)
+  list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_device_scan-hip-spirv64-generic-link.ll)
+  list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_warp_sort-hip-spirv64-generic-lower.ll)
+endif()
 
 # If we have this, a pass won't help
 # list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/func-return-nonstd.ll)
