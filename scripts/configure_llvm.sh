@@ -82,7 +82,7 @@ if [ "$4" == "on" ]; then
   TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
 else
   LLVM_BRANCH="chipStar-llvm-${VERSION}"
-  TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
+  TRANSLATOR_BRANCH="chipStar-llvm-${VERSION}"
 fi
 
 export LLVM_DIR=`pwd`/llvm-project/llvm
@@ -92,7 +92,7 @@ if [ ! -d llvm-project ]; then
   git clone https://github.com/CHIP-SPV/llvm-project.git -b ${LLVM_BRANCH} \
     --depth 1
   cd ${LLVM_DIR}/projects
-  git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git \
+  git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git \
     -b ${TRANSLATOR_BRANCH} --depth 1
   cd ${LLVM_DIR}
 else
