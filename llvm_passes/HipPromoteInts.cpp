@@ -639,10 +639,29 @@ static Value *processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Typ
   }
   LLVM_DEBUG(dbgs() << Indent << "    Determined BinOp TargetType: " << *TargetType << "\n");
 
-  // Extend or adjust operands to the target type *before* creating the new BinOp
-  bool NeedsSExt = (BinOp->getOpcode() == Instruction::SDiv ||
-                    BinOp->getOpcode() == Instruction::SRem ||
-                    BinOp->getOpcode() == Instruction::AShr);
+  bool NeedsSExt = false;
+  // Determine if operands require signed extension before the binary operation
+  switch (BinOp->getOpcode()) {
+    case Instruction::SDiv:
+    case Instruction::SRem:
+    case Instruction::AShr:
+      NeedsSExt = true;
+      break;
+    case Instruction::UDiv:
+    case Instruction::URem:
+    case Instruction::Add:
+    case Instruction::Sub:
+    case Instruction::Mul:
+    case Instruction::And:
+    case Instruction::Or:
+    case Instruction::Xor:
+    case Instruction::Shl:
+    case Instruction::LShr:
+      NeedsSExt = false;
+      break;
+    default:
+      assert(false && "Unsupported binary operator");
+  }
   LHS = adjustType(LHS, TargetType, Builder, NeedsSExt, Indent + "      ");
   RHS = adjustType(RHS, TargetType, Builder, NeedsSExt, Indent + "      ");
 
