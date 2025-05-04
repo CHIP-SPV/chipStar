@@ -27,7 +27,7 @@
 #if INTEL_MKL_VERSION >= 20250000
   #include <sycl/backend.hpp>
   // Check if ur_native_handle_t is defined
-  #ifdef ur_native_handle_t
+  #ifdef UR_API_H_INCLUDED
     #define HAS_UR_API 1
   #else
     #define HAS_UR_API 0
