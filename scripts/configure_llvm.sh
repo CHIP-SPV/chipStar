@@ -198,8 +198,9 @@ COMMON_CMAKE_OPTIONS=(
   -DLLVM_TARGETS_TO_BUILD=host \
   -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
   -DLLVM_ENABLE_ASSERTIONS=On \
-  -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}
-  -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64"
+  -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR} \
+  -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
+  -DCLANG_DEFAULT_PIE_ON_LINUX=off
 )
 
 if [ "$LINK_TYPE" == "static" ]; then
