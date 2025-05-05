@@ -202,19 +202,19 @@ jobs:
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' || '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' }}
     strategy:
       matrix:
-        pocl-version: [5, 6]
-        llvm-version: [18, 19, 20]
+        pocl-version: [4, 5, 6]
+        llvm-version: [16, 17, 18]
         backend: [pocl, intel]
         exclude:
           - backend: pocl
-            pocl-version: 5
+            pocl-version: 4
+            llvm-version: 17
+          - backend: pocl
+            pocl-version: 4
             llvm-version: 18
           - backend: pocl
             pocl-version: 5
-            llvm-version: 19
-          - backend: pocl
-            pocl-version: 5
-            llvm-version: 20
+            llvm-version: 18
           - backend: intel
             pocl-version: 4
           - backend: intel
