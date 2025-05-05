@@ -92,10 +92,13 @@ private:
   }
 
   static void recursivelyFindDirectUsers(Value *V, FSet &FS) {
-    for (auto U : V->users()) {
-      Instruction *Inst = dyn_cast<Instruction>(U);
-      if (Inst) {
-        Function *IF = Inst->getFunction();
+    for (auto *U : V->users()) {
+      if (Instruction *I = dyn_cast<Instruction>(U)) {
+        if (llvm::ReturnInst *RI [[maybe_unused]] = dyn_cast<ReturnInst>(U)) {
+          // ignore return instructions
+          continue;
+        }
+        Function *IF = I->getFunction();
         if (!IF)
           continue;
         FS.insert(IF);
@@ -382,6 +385,11 @@ private:
       assert(M.getContext().hasSetOpaquePointersValue());
 #endif
 
+#if LLVM_VERSION_MAJOR >= 20
+      // LLVM 20+ only supports opaque pointers
+      // replace GVar references with the argument
+      replaceGVarUsesWith(GV, NewF, last_arg);
+#else
       if (M.getContext().supportsTypedPointers()) {
 #endif
         // insert a bitcast of dyn mem argument to [N x Type] Array
@@ -400,11 +408,14 @@ private:
         // the bitcast to [N x Type] should now be unused
         if(LastArgBitcast->getNumUses() != 0) llvm_unreachable("Something still uses LastArg bitcast - bug!");
         LastArgBitcast->eraseFromParent();
-#if LLVM_VERSION_MAJOR >= 15
+#if LLVM_VERSION_MAJOR >= 20
+// No else branch needed for LLVM 20+
+#else
       } else {
         // replace GVar references with the argument
         replaceGVarUsesWith(GV, NewF, last_arg);
       }
+#endif
 #endif
     }
 

@@ -234,8 +234,8 @@ HipPrintfToOpenCLPrintfPass::getOrCreateStrLiteralArg(const std::string &Str,
   assert(B.getContext().hasSetOpaquePointersValue());
 #endif
 
+#if LLVM_VERSION_MAJOR < 20
   if (B.getContext().supportsTypedPointers()) {
-#endif
     GlobalVariable *LiteralStr = B.CreateGlobalString(Str.c_str(), ".cl_printf_fmt_str",
                                             SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
 
@@ -245,11 +245,25 @@ HipPrintfToOpenCLPrintfPass::getOrCreateStrLiteralArg(const std::string &Str,
 
     LiteralArg = llvm::ConstantExpr::getGetElementPtr(
                LiteralStr->getValueType(), LiteralStr, Indices);
-#if LLVM_VERSION_MAJOR >= 15
   } else {
     LiteralArg = B.CreateGlobalString(Str.c_str(), ".cl_printf_fmt_str",
                               SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
   }
+#else // LLVM_VERSION_MAJOR >= 20
+  // In LLVM 20+, opaque pointers are the default and supportsTypedPointers() was removed
+  LiteralArg = B.CreateGlobalString(Str.c_str(), ".cl_printf_fmt_str",
+                            SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
+#endif
+#else // LLVM_VERSION_MAJOR < 15
+  GlobalVariable *LiteralStr = B.CreateGlobalString(Str.c_str(), ".cl_printf_fmt_str",
+                                          SPIRV_OPENCL_PRINTF_FMT_ARG_AS);
+
+  IntegerType *Int64Ty = Type::getInt64Ty(M_->getContext());
+  ConstantInt *Zero = ConstantInt::get(Int64Ty, 0);
+  std::array<Constant *, 2> Indices = {Zero, Zero};
+
+  LiteralArg = llvm::ConstantExpr::getGetElementPtr(
+             LiteralStr->getValueType(), LiteralStr, Indices);
 #endif
 
   return LiteralArg;
