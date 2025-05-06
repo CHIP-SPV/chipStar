@@ -7,6 +7,7 @@ set -e
 LINK_TYPE="static"
 ONLY_NECESSARY_SPIRV_EXTS="off"
 BINUTILS_HEADER_LOCATION=""
+EMIT_ONLY="off"
 
 # parse named arguments
 while [ $# -gt 0 ]; do
@@ -31,6 +32,10 @@ while [ $# -gt 0 ]; do
       BINUTILS_HEADER_LOCATION="$2"
       shift 2
       ;;
+    -N)
+      EMIT_ONLY="on"
+      shift 1
+      ;;
     *)
       echo "Unknown option $1"
       exit 1
@@ -40,12 +45,13 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path> [-N]"
   echo "--version: LLVM version 17, 18, 19 or 20"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
   echo "--only-necessary-spirv-exts: on or off (default: off)"
   echo "--binutils-header-location: path to binutils header (default: empty)"
+  echo "-N: only emit the cmake configure command without executing it"
   exit 1
 fi
 # Check if install-dir argument is provided
@@ -87,56 +93,59 @@ fi
 
 export LLVM_DIR=`pwd`/llvm-project/llvm
 
-# check if llvm-project exists, if not clone it
-if [ ! -d llvm-project ]; then
-  git clone https://github.com/CHIP-SPV/llvm-project.git -b ${LLVM_BRANCH} \
-    --depth 1
-  cd ${LLVM_DIR}/projects
-  git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git \
-    -b ${TRANSLATOR_BRANCH} --depth 1
-  cd ${LLVM_DIR}
-else
-  # Warn the user.
-  echo "llvm-project directory already exists. Assuming it's cloned from chipStar."
-  cd ${LLVM_DIR}
-  # check if already on the desired branch
-  if [ `git branch --show-current` == ${LLVM_BRANCH} ]; then
-    echo "Already on branch ${LLVM_BRANCH}"
+# If we're only emitting the cmake command, skip the git operations
+if [ "$EMIT_ONLY" != "on" ]; then
+  # check if llvm-project exists, if not clone it
+  if [ ! -d llvm-project ]; then
+    git clone https://github.com/CHIP-SPV/llvm-project.git -b ${LLVM_BRANCH} \
+      --depth 1
+    cd ${LLVM_DIR}/projects
+    git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git \
+      -b ${TRANSLATOR_BRANCH} --depth 1
+    cd ${LLVM_DIR}
   else
-    echo "Switching to branch ${LLVM_BRANCH}"
-    git fetch origin ${LLVM_BRANCH}:${LLVM_BRANCH}
-    git checkout ${LLVM_BRANCH}
+    # Warn the user.
+    echo "llvm-project directory already exists. Assuming it's cloned from chipStar."
+    cd ${LLVM_DIR}
+    # check if already on the desired branch
+    if [ `git branch --show-current` == ${LLVM_BRANCH} ]; then
+      echo "Already on branch ${LLVM_BRANCH}"
+    else
+      echo "Switching to branch ${LLVM_BRANCH}"
+      git fetch origin ${LLVM_BRANCH}:${LLVM_BRANCH}
+      git checkout ${LLVM_BRANCH}
+    fi
+    cd ${LLVM_DIR}/projects/SPIRV-LLVM-Translator
+    # check if already on the desired branch
+    if [ `git branch --show-current` == ${TRANSLATOR_BRANCH} ]; then
+      echo "Already on branch ${TRANSLATOR_BRANCH}"
+    else
+      echo "Switching to branch ${TRANSLATOR_BRANCH}"
+      git fetch origin ${TRANSLATOR_BRANCH}:${TRANSLATOR_BRANCH}
+      git checkout ${TRANSLATOR_BRANCH}
+    fi
+    cd ${LLVM_DIR}
   fi
-  cd ${LLVM_DIR}/projects/SPIRV-LLVM-Translator
-  # check if already on the desired branch
-  if [ `git branch --show-current` == ${TRANSLATOR_BRANCH} ]; then
-    echo "Already on branch ${TRANSLATOR_BRANCH}"
-  else
-    echo "Switching to branch ${TRANSLATOR_BRANCH}"
-    git fetch origin ${TRANSLATOR_BRANCH}:${TRANSLATOR_BRANCH}
-    git checkout ${TRANSLATOR_BRANCH}
-  fi
-  cd ${LLVM_DIR}
-fi
 
-# check if the build directory exists
-if [ -d build_$VERSION ]; then
-  read -p "Build directory build_$VERSION already exists. Do you want to delete it and continue? (y/n) " answer
-  case ${answer:0:1} in
-    y|Y )
-      echo "Deleting existing build directory..."
-      rm -rf build_$VERSION
-      mkdir build_$VERSION
-      cd build_$VERSION
-    ;;
-    * )
-      echo "Build directory not deleted. Exiting."
-      exit 1
-    ;;
-  esac
-else
-  mkdir build_$VERSION
-  cd build_$VERSION
+  # check if the build directory exists
+  if [ -d build_$VERSION ]; then
+    read -p "Build directory build_$VERSION already exists. Do you want to delete it and continue? (y/n) " answer
+    case ${answer:0:1} in
+      y|Y )
+        echo "Deleting existing build directory..."
+        rm -rf build_$VERSION
+        mkdir build_$VERSION
+        cd build_$VERSION
+      ;;
+      * )
+        echo "Build directory not deleted. Exiting."
+        exit 1
+      ;;
+    esac
+  else
+    mkdir build_$VERSION
+    cd build_$VERSION
+  fi
 fi
 
 # Check if /usr/include/plugin-api.h exists
@@ -160,29 +169,31 @@ else
     echo "Found previously installed binutils at ${BINUTILS_INSTALL_DIR}"
     BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
   else
-    echo "Installing binutils-dev from source..."
-    
-    # Create the installation directory if it doesn't exist
-    mkdir -p ${BINUTILS_INSTALL_DIR}
-    
-    # Download the binutils source
-    BINUTILS_VERSION="2.36.1"
-    wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
-    
-    # Extract the source
-    tar -xzf binutils-${BINUTILS_VERSION}.tar.gz
-    cd binutils-${BINUTILS_VERSION}
-    
-    # Configure, compile, and install binutils
-    ./configure --prefix=${BINUTILS_INSTALL_DIR}
-    make -j$(nproc)
-    make install
-    
-    # Clean up
-    cd ..
-    rm -rf binutils-${BINUTILS_VERSION} binutils-${BINUTILS_VERSION}.tar.gz
-    
-    echo "binutils-dev installed successfully in ${BINUTILS_INSTALL_DIR}"
+    if [ "$EMIT_ONLY" != "on" ]; then
+      echo "Installing binutils-dev from source..."
+      
+      # Create the installation directory if it doesn't exist
+      mkdir -p ${BINUTILS_INSTALL_DIR}
+      
+      # Download the binutils source
+      BINUTILS_VERSION="2.36.1"
+      wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
+      
+      # Extract the source
+      tar -xzf binutils-${BINUTILS_VERSION}.tar.gz
+      cd binutils-${BINUTILS_VERSION}
+      
+      # Configure, compile, and install binutils
+      ./configure --prefix=${BINUTILS_INSTALL_DIR}
+      make -j$(nproc)
+      make install
+      
+      # Clean up
+      cd ..
+      rm -rf binutils-${BINUTILS_VERSION} binutils-${BINUTILS_VERSION}.tar.gz
+      
+      echo "binutils-dev installed successfully in ${BINUTILS_INSTALL_DIR}"
+    fi
     BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
   fi
 fi
@@ -190,31 +201,33 @@ fi
 # Add build type condition
 # Forcing the use of gcc and g++ to avoid issues with intel compilers
 COMMON_CMAKE_OPTIONS=(
-  -DCMAKE_CXX_COMPILER=g++ \
-  -DCMAKE_C_COMPILER=gcc \
-  -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
-  -DLLVM_TARGETS_TO_BUILD=host \
-  -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
-  -DLLVM_ENABLE_ASSERTIONS=On \
-  -DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR} \
-  -DCMAKE_CXX_LINK_FLAGS="-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64" \
-  -DCLANG_DEFAULT_PIE_ON_LINUX=off
+  "-DCMAKE_CXX_COMPILER=g++"
+  "-DCMAKE_C_COMPILER=gcc"
+  "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}"
+  "-DCMAKE_BUILD_TYPE=Release"
+  "-DLLVM_ENABLE_PROJECTS=\"clang;openmp;clang-tools-extra\""
+  "-DLLVM_TARGETS_TO_BUILD=\"host\""
+  "-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=\"SPIRV\""
+  "-DLLVM_ENABLE_ASSERTIONS=On"
+  "-DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}"
+  "-DCMAKE_CXX_LINK_FLAGS=\"-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64\""
+  "-DCLANG_DEFAULT_PIE_ON_LINUX=off"
 )
 
 if [ "$LINK_TYPE" == "static" ]; then
-  cmake ../  \
-    "${COMMON_CMAKE_OPTIONS[@]}" 
+  CMAKE_COMMAND="cmake ../ ${COMMON_CMAKE_OPTIONS[@]}"
 elif [ "$LINK_TYPE" == "dynamic" ]; then
-  cmake ../ \
-    "${COMMON_CMAKE_OPTIONS[@]}" \
-    -DCMAKE_INSTALL_RPATH=${INSTALL_DIR}/lib \
-    -DLLVM_LINK_LLVM_DYLIB=ON \
-    -DLLVM_BUILD_LLVM_DYLIB=ON
+  CMAKE_COMMAND="cmake ../ ${COMMON_CMAKE_OPTIONS[@]} \"-DCMAKE_INSTALL_RPATH=${INSTALL_DIR}/lib\" \"-DLLVM_LINK_LLVM_DYLIB=ON\" \"-DLLVM_BUILD_LLVM_DYLIB=ON\""
 else
   echo "Invalid link_type. Must be 'static' or 'dynamic'."
   exit 1
+fi
+
+if [ "$EMIT_ONLY" == "on" ]; then
+  echo "CMAKE COMMAND:"
+  echo "$CMAKE_COMMAND"
+else
+  eval $CMAKE_COMMAND
 fi
 
 # Make sure ninja is in the path
