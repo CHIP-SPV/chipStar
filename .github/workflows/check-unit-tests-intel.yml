@@ -20,54 +20,6 @@ jobs:
           workflow_id: nightly-tests.yml
           all_but_latest: false
 
-  unit-tests-llvm-16-debug:
-    needs: cancel-nightly
-    runs-on: X64
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          submodules: 'recursive'
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-16
-        shell: bash
-  unit-tests-llvm-16-release:
-    needs: cancel-nightly
-    runs-on: X64
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          submodules: 'recursive'
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-16
-        shell: bash
-  unit-tests-llvm-17-debug:
-    needs: cancel-nightly
-    runs-on: X64
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          submodules: 'recursive'
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-17
-        shell: bash
-  unit-tests-llvm-17-release:
-    needs: cancel-nightly
-    runs-on: X64
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          submodules: 'recursive'
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-17
-        shell: bash
   unit-tests-llvm-18-debug:
     needs: cancel-nightly
     runs-on: X64
@@ -115,4 +67,28 @@ jobs:
           submodules: 'recursive'
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh release llvm-19
+        shell: bash
+  unit-tests-llvm-20-debug:
+    needs: cancel-nightly
+    runs-on: X64
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh debug llvm-20
+        shell: bash
+  unit-tests-llvm-20-release:
+    needs: cancel-nightly
+    runs-on: X64
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh release llvm-20
         shell: bash

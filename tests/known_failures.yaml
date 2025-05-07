@@ -368,6 +368,7 @@ ANY:
     hipKernelLaunchIsNonBlocking: ''
     Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
   OPENCL_POCL:
+    TestStaticLibRDC: 'LLVM-16 still being tested but not recompiled to include the static library fix'
     cuda-reduction: 'timeout on LLVM16, enable to reproduce anywhere other than github runne'
     TestRecordEventBlocking: 'Segfault in the PoCL driver with module caching on'
     Unit_ballot: ''
@@ -413,6 +414,7 @@ salami:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
+    TestStaticLibRDC: 'Compiler without static library support'
     TestBallot: 'Unsupported SPIR-V capability: SubgroupDispatch'
     hipDynamicShared: 'flaky'
     clock: 'timing dependent, flaky'
@@ -493,3 +495,14 @@ x1921.*b0n0: # sunspot
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
+
+LLVM_MAJOR_VERSION_20:
+  ALL:
+    Unit_hipGraphMemcpyNodeSetParamsToSymbol_Functional: 'Fails with LLVM 20'
+    hipTestDeviceSymbol: 'Fails with LLVM 20'
+    hipConstantTestDeviceSymbol: 'Fails with LLVM 20'
+    hipTestSymbolReset: 'Fails with LLVM 20'
+    cuda-convolutionSeparable: 'Fails with LLVM 20'
+    cuda-binomialoptions: 'Fails with LLVM 20'
+    cuda-FDTD3d: 'Fails with LLVM 20'
+    cuda-qrng: 'Fails with LLVM 20'

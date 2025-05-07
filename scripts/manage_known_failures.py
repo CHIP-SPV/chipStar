@@ -29,6 +29,12 @@ parser.add_argument(
     "--print", action="store_true", help="Pretty print the known_failures.yaml file"
 )
 
+parser.add_argument(
+    "--target-llvm-major-version",
+    type=str,
+    help="The major version of the LLVM compiler being used for the build (e.g., '20')",
+    default=None
+)
 
 args = parser.parse_args()
 
@@ -130,21 +136,42 @@ def generate_test_string(tests_map, output_dir):
     test_string_map = {}
     # platform agnostic way of getting hostname
     hostname = platform.uname().node
-    for category, tests in tests_map['ANY'].items():
+    target_llvm_major_version = args.target_llvm_major_version
+
+    for category, tests in tests_map.get('ANY', {}).items(): # Use .get for safety
         test_string = "$|".join(tests.keys()) + "$" if tests else ""
         test_string_map[category] = test_string
 
-    # use host key as a pattern to find match in hostname
-    for host_pattern in tests_map.keys():
-        if re.search(host_pattern, hostname) != None:
-            # proccess the categories of given host and either create or add tests to categories
-            for category, tests in tests_map[host_pattern].items():
-                if tests:
+    # use host key as a pattern to find match in hostname or LLVM version
+    for key_pattern in tests_map.keys():
+        if key_pattern == 'ANY': # Already processed
+            continue
+
+        apply_rules = False
+        if key_pattern.startswith("LLVM_MAJOR_VERSION_"):
+            expected_llvm_version = key_pattern.replace("LLVM_MAJOR_VERSION_", "")
+            if target_llvm_major_version == expected_llvm_version:
+                apply_rules = True
+        elif re.search(key_pattern, hostname):
+            apply_rules = True
+        
+        if apply_rules:
+            host_specific_tests = tests_map[key_pattern]
+            for category, tests in host_specific_tests.items():
+                if tests: # Ensure 'tests' is not None
                     test_string = "$|".join(tests.keys()) + "$"
-                    if category in test_string_map:
-                        test_string_map[category] += "|" + test_string
+                    if category in test_string_map and test_string_map[category]:
+                        # Append with a separator if category already has tests
+                        if not test_string_map[category].endswith("|") and not test_string_map[category].endswith("$"):
+                             test_string_map[category] += "|" # Intermediate separator needed if previous one ended with $
+                        elif test_string_map[category].endswith("$"):
+                            test_string_map[category] = test_string_map[category][:-1] # Remove trailing $
+                            test_string_map[category] += "|" # Add a proper pipe separator
+
+                        test_string_map[category] += test_string
                     else:
                         test_string_map[category] = test_string
+
     # dump categories to files
     for category in test_string_map.keys():
         with open(f"{output_dir}/{category}.txt", "+w") as file:
