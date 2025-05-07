@@ -436,9 +436,10 @@ add_custom_target(hipInfoBin ALL
 )
 
 execute_process(
-  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py 
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
-  --generate ${CMAKE_BINARY_DIR}/test_lists
+  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
+    --generate ${CMAKE_BINARY_DIR}/test_lists
+    --target-llvm-major-version ${LLVM_VERSION_MAJOR}
   RESULT_VARIABLE result_var
   ERROR_VARIABLE error_var
 )

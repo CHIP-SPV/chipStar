@@ -1,14 +1,6 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
-    Unit_hipGraphMemcpyNodeSetParamsToSymbol_Functional: 'LLVM-20'
-    hipTestDeviceSymbol: 'LLVM-20'
-    hipConstantTestDeviceSymbol: 'LLVM-20'
-    hipTestSymbolReset: 'LLVM-20'
-    cuda-convolutionSeparable: 'LLVM-20'
-    cuda-binomialoptions: 'LLVM-20'
-    cuda-FDTD3d: 'LLVM-20'
-    cuda-qrng: 'LLVM-20'
     Unit_hipGraph_SimpleGraphWithKernel: 'Temp disabled graphs'
     Unit_hipStreamBeginCapture_BasicFunctional: 'Temp disabled graphs'
     Unit_hipStreamBeginCapture_Negative: 'Temp disabled graphs'
@@ -376,6 +368,7 @@ ANY:
     hipKernelLaunchIsNonBlocking: ''
     Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
   OPENCL_POCL:
+    TestStaticLibRDC: 'LLVM-16 still being tested but not recompiled to include the static library fix'
     cuda-reduction: 'timeout on LLVM16, enable to reproduce anywhere other than github runne'
     TestRecordEventBlocking: 'Segfault in the PoCL driver with module caching on'
     Unit_ballot: ''
@@ -501,3 +494,14 @@ x1921.*b0n0: # sunspot
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
+
+LLVM_MAJOR_VERSION_20:
+  ALL:
+    Unit_hipGraphMemcpyNodeSetParamsToSymbol_Functional: 'Fails with LLVM 20'
+    hipTestDeviceSymbol: 'Fails with LLVM 20'
+    hipConstantTestDeviceSymbol: 'Fails with LLVM 20'
+    hipTestSymbolReset: 'Fails with LLVM 20'
+    cuda-convolutionSeparable: 'Fails with LLVM 20'
+    cuda-binomialoptions: 'Fails with LLVM 20'
+    cuda-FDTD3d: 'Fails with LLVM 20'
+    cuda-qrng: 'Fails with LLVM 20'
