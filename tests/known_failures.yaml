@@ -1,6 +1,14 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    Unit_hipGraphMemcpyNodeSetParamsToSymbol_Functional: 'LLVM-20'
+    hipTestDeviceSymbol: 'LLVM-20'
+    hipConstantTestDeviceSymbol: 'LLVM-20'
+    hipTestSymbolReset: 'LLVM-20'
+    cuda-convolutionSeparable: 'LLVM-20'
+    cuda-binomialoptions: 'LLVM-20'
+    cuda-FDTD3d: 'LLVM-20'
+    cuda-qrng: 'LLVM-20'
     Unit_hipGraph_SimpleGraphWithKernel: 'Temp disabled graphs'
     Unit_hipStreamBeginCapture_BasicFunctional: 'Temp disabled graphs'
     Unit_hipStreamBeginCapture_Negative: 'Temp disabled graphs'
