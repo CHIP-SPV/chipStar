@@ -380,18 +380,11 @@ private:
     if (isGVarUsedInFunction(GV, NewF)) {
       B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHI());
 
-#if LLVM_VERSION_MAJOR >= 15
-#if LLVM_VERSION_MAJOR == 15
-      assert(M.getContext().hasSetOpaquePointersValue());
-#endif
-
 #if LLVM_VERSION_MAJOR >= 20
-      // LLVM 20+ only supports opaque pointers
-      // replace GVar references with the argument
+      // LLVM 20+ only supports opaque pointers: just replace GVar with the argument
       replaceGVarUsesWith(GV, NewF, last_arg);
 #else
       if (M.getContext().supportsTypedPointers()) {
-#endif
         // insert a bitcast of dyn mem argument to [N x Type] Array
         Value *BitcastV = B.CreateBitOrPointerCast(last_arg, GV->getType(), "casted_last_arg");
         Instruction *LastArgBitcast = dyn_cast<Instruction>(BitcastV);
@@ -399,23 +392,17 @@ private:
         // replace GVar references with the [N x Type] bitcast
         replaceGVarUsesWith(GV, NewF, BitcastV);
 
-        // now the code should be without GVar references, but still potentially
-        // contains [0 x ElemType] arrays; we need to get rid of those
-
         // replace all [N x Type]* bitcast uses with direct use of ElemT*-type dyn mem argument
         recursivelyReplaceArrayWithPointer(last_arg, LastArgBitcast, ElemT, B);
 
         // the bitcast to [N x Type] should now be unused
-        if(LastArgBitcast->getNumUses() != 0) llvm_unreachable("Something still uses LastArg bitcast - bug!");
+        if (LastArgBitcast->getNumUses() != 0)
+          llvm_unreachable("Something still uses LastArg bitcast - bug!");
         LastArgBitcast->eraseFromParent();
-#if LLVM_VERSION_MAJOR >= 20
-// No else branch needed for LLVM 20+
-#else
       } else {
         // replace GVar references with the argument
         replaceGVarUsesWith(GV, NewF, last_arg);
       }
-#endif
 #endif
     }
 
@@ -547,8 +534,10 @@ static RegisterPass<HipDynMemExternReplacePass>
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 
-PreservedAnalyses
-HipDynMemExternReplaceNewPass::run(Module &M, ModuleAnalysisManager &AM) {
+PreservedAnalyses HipDynMemExternReplaceNewPass::run(Module &M, ModuleAnalysisManager &AM) {
+  // force the entire IR to be parsed before your pass runs
+  if (auto Err = M.materializeAll())
+    report_fatal_error("module materialization failed");
   if (HipDynMemExternReplacePass::transformDynamicShMemVars(M))
     return PreservedAnalyses::none();
   return PreservedAnalyses::all();
