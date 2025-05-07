@@ -92,13 +92,10 @@ private:
   }
 
   static void recursivelyFindDirectUsers(Value *V, FSet &FS) {
-    for (auto *U : V->users()) {
-      if (Instruction *I = dyn_cast<Instruction>(U)) {
-        if (llvm::ReturnInst *RI [[maybe_unused]] = dyn_cast<ReturnInst>(U)) {
-          // ignore return instructions
-          continue;
-        }
-        Function *IF = I->getFunction();
+    for (auto U : V->users()) {
+      Instruction *Inst = dyn_cast<Instruction>(U);
+      if (Inst) {
+        Function *IF = Inst->getFunction();
         if (!IF)
           continue;
         FS.insert(IF);
