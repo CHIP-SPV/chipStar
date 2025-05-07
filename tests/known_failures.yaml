@@ -414,6 +414,7 @@ salami:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
+    TestStaticLibRDC: 'Compiler without static library support'
     TestBallot: 'Unsupported SPIR-V capability: SubgroupDispatch'
     hipDynamicShared: 'flaky'
     clock: 'timing dependent, flaky'
