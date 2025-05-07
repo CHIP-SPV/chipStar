@@ -47,16 +47,35 @@
 #define DEBUG_TYPE PASS_NAME
 
 using namespace llvm;
-
 static bool hasPotentialIGBAs(Module &M) {
-  for (auto &F : M)
-    for (auto &BB : F)
+  for (auto &F : M) {
+    for (auto &BB : F) {
       for (auto &I : BB) {
-        if (isa<IntToPtrInst>(&I))
-          return true;
-        if (auto *LI = dyn_cast<LoadInst>(&I))
-          return LI->getType()->isPointerTy();
+        if (auto *ITP = dyn_cast<IntToPtrInst>(&I)) {
+          Value *Op = ITP->getOperand(0);
+          // Skip benign ptr→int→ptr sequences lowered from address-space casts
+          if (isa<PtrToIntInst>(Op))
+            continue;
+          // Only treat as IGBA if the source is a true integer, not a pointer type
+          if (!Op->getType()->isIntegerTy())
+            continue;
+          {
+            LLVM_DEBUG(dbgs() << "Found genuine IntToPtrInst in function "
+                              << F.getName() << ": " << ITP << "\n");
+            return true;
+          }
+          // Old pointer-type check is now redundant and removed.
+        }
+        if (auto *LI = dyn_cast<LoadInst>(&I)) {
+          if (LI->getType()->isPointerTy()) {
+            LLVM_DEBUG(dbgs() << "Found pointer LoadInst in function " << F.getName()
+                              << ": " << *LI << "\n");
+            return true;
+          }
+        }
       }
+    }
+  }
   return false;
 }
 
