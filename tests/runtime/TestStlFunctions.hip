@@ -7,6 +7,7 @@
 #undef NDEBUG
 #endif
 #include <cassert>
+#include <iostream>
 
 #include <hip/hip_runtime.h>
 
@@ -123,5 +124,6 @@ int main() {
   launchBinaryFn<float>(
       [] __device__(auto x, auto y) { return std::nextafterf(x, y); });
 
+  std::cout << "PASSED\n";
   return 0;
 }

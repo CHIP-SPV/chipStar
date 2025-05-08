@@ -2150,8 +2150,7 @@ public:
    */
   template <class GraphNodeType, class... ArgTypes>
   bool captureIntoGraph(ArgTypes... ArgsPack) {
-    return false;
-    assert(getCaptureStatus() == hipStreamCaptureStatusNone);
+    return false; // TODO: fix this in graphs refactor
     if (getCaptureStatus() == hipStreamCaptureStatusActive) {
       auto Graph = getCaptureGraph();
       auto Node = new GraphNodeType(ArgsPack...);
@@ -2165,7 +2164,12 @@ public:
   void updateLastNode(CHIPGraphNode *NewNode);
   void initCaptureGraph();
 
-  hipStreamCaptureStatus getCaptureStatus() const { return CaptureStatus_; }
+  hipStreamCaptureStatus getCaptureStatus() const { 
+    //TODO: fix this in graphs refactor
+    // return CaptureStatus_; 
+    return hipStreamCaptureStatusNone;
+  }
+
   void setCaptureStatus(hipStreamCaptureStatus CaptureMode) {
     assert(CaptureStatus_ == hipStreamCaptureStatusNone);
     // CaptureStatus_ = CaptureMode;

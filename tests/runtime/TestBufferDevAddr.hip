@@ -23,14 +23,14 @@ void setupTest(int ArgC, char *ArgV[]) {
 
   auto *OclBE = dynamic_cast<CHIPBackendOpenCL *>(::Backend);
   if (!OclBE) {
-    printf("Skip: not running on OpenCL.\n");
+    printf("HIP_SKIP_THIS_TEST: not running on OpenCL.\n");
     exit(CHIP_SKIP_TEST);
   }
 
   auto *OclDev = static_cast<CHIPDeviceOpenCL *>(OclBE->getActiveDevice());
   std::string DevExts = OclDev->ClDevice->getInfo<CL_DEVICE_EXTENSIONS>();
   if (DevExts.find("cl_ext_buffer_device_address") == std::string::npos) {
-    printf("Skip: target does not have cl_ext_buffer_device_address.\n");
+    printf("HIP_SKIP_THIS_TEST: target does not have cl_ext_buffer_device_address.\n");
     exit(CHIP_SKIP_TEST);
   }
 
@@ -98,5 +98,6 @@ int main(int ArgC, char *ArgV[]) {
   CHECK(hipFree(SrcD) == hipSuccess);
   CHECK(hipHostFree(DstH) == hipSuccess);
 
+  printf("PASSED.\n");
   return 0;
 }

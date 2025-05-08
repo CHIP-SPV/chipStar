@@ -1,4 +1,5 @@
 #include "hip/hip_runtime.h"
+#include <iostream>
 
 // CHIP-SPV/chipStar#302
 __global__ static void repro_kernel(double *address, double val) {
@@ -15,5 +16,10 @@ int main() {
   repro_kernel<<<1, 1>>>(mem_d, 1.0);
   (void)hipMemcpy(&mem_h, mem_d, sizeof(double), hipMemcpyDeviceToHost);
   (void)hipFree(mem_d);
-  return !(mem_h == 2.5f);
+  bool passed = (mem_h == 2.5f);
+  if (passed)
+    std::cout << "PASSED\n";
+  else
+    std::cout << "FAILED\n";
+  return !passed;
 }

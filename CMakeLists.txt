@@ -233,10 +233,9 @@ option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires Clang with patch at https://github.com/CHIP-SPV/llvm-project/commit/8e7d42c1562f9961e5c8cdeef6490e0670b27409" OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
-option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
-option(CHIP_BUILD_SAMPLES "Build samples" ON)
+option(CHIP_BUILD_TESTS "Enable build_tests target" OFF)
+option(CHIP_BUILD_SAMPLES "Build samples" OFF)
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
-option(CHIP_FAST_MATH "Use native_ OpenCL functions which are fast but their precision is implementation defined" OFF)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
 option(CHIP_BUILD_HIPBLAS "When enabled, hipBLAS will be built and installed along chipStar" OFF)
 option(CHIP_BUILD_HIPFFT "When enabled, hipFFT will be built and installed along chipStar" OFF)
@@ -437,9 +436,10 @@ add_custom_target(hipInfoBin ALL
 )
 
 execute_process(
-  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py 
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
-  --generate ${CMAKE_BINARY_DIR}/test_lists
+  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
+    --generate ${CMAKE_BINARY_DIR}/test_lists
+    --target-llvm-major-version ${LLVM_VERSION_MAJOR}
   RESULT_VARIABLE result_var
   ERROR_VARIABLE error_var
 )
@@ -457,8 +457,65 @@ endif()
 target_compile_definitions(
   CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
-find_package(SPIRV-Tools REQUIRED)
-target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS} SPIRV-Tools)
+find_package(SPIRV-Tools)
+if (NOT SPIRV-Tools_FOUND)
+  message(STATUS "spirv-tools not found, building...")
+  # Download and build SPIRV-Tools
+  include(ExternalProject)
+  
+  set(SPIRV_TOOLS_VERSION "v2023.2")
+  set(SPIRV_TOOLS_INSTALL_DIR "${CMAKE_BINARY_DIR}/external/spirv-tools")
+  
+  # Create the include directory before it's referenced
+  file(MAKE_DIRECTORY "${SPIRV_TOOLS_INSTALL_DIR}/include")
+  file(MAKE_DIRECTORY "${SPIRV_TOOLS_INSTALL_DIR}/lib")
+  
+  set(CHIPSTAR_C_COMPILER ${CMAKE_C_COMPILER})
+  set(CHIPSTAR_CXX_COMPILER ${CMAKE_CXX_COMPILER})
+  message(STATUS "CHIPSTAR_C_COMPILER: ${CHIPSTAR_C_COMPILER}")
+  message(STATUS "CHIPSTAR_CXX_COMPILER: ${CHIPSTAR_CXX_COMPILER}")
+  ExternalProject_Add(SPIRV-Tools-External
+    GIT_REPOSITORY    https://github.com/KhronosGroup/SPIRV-Tools.git
+    GIT_TAG          ${SPIRV_TOOLS_VERSION}
+    GIT_SHALLOW      TRUE
+    SOURCE_SUBDIR    "."
+    CMAKE_ARGS
+      -DCMAKE_INSTALL_PREFIX=${SPIRV_TOOLS_INSTALL_DIR}
+      -DSPIRV_SKIP_TESTS=ON
+      -DCMAKE_C_COMPILER=${CHIPSTAR_C_COMPILER}
+      -DCMAKE_CXX_COMPILER=${CHIPSTAR_CXX_COMPILER}
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DSPIRV_TOOLS_INSTALL_HEADERS=ON
+      -DSPIRV_TOOLS_BUILD_STATIC=ON
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    UPDATE_COMMAND   ${CMAKE_COMMAND} -E chdir <SOURCE_DIR> python3 utils/git-sync-deps
+    LOG_DOWNLOAD ON
+    LOG_UPDATE ON
+    LOG_CONFIGURE ON
+    LOG_BUILD ON
+    LOG_INSTALL ON
+    BUILD_BYPRODUCTS 
+      ${SPIRV_TOOLS_INSTALL_DIR}/lib/libSPIRV-Tools.a
+      ${SPIRV_TOOLS_INSTALL_DIR}/lib/libSPIRV-Tools-opt.a
+      ${SPIRV_TOOLS_INSTALL_DIR}/lib/libSPIRV-Tools-link.a
+      ${SPIRV_TOOLS_INSTALL_DIR}/lib/libSPIRV-Tools-reduce.a
+  )
+
+  # Create an imported target for SPIRV-Tools
+  add_library(SPIRV-Tools STATIC IMPORTED GLOBAL)
+  add_dependencies(SPIRV-Tools SPIRV-Tools-External)
+  
+  set_target_properties(SPIRV-Tools PROPERTIES
+    IMPORTED_LOCATION "${SPIRV_TOOLS_INSTALL_DIR}/lib/libSPIRV-Tools.a"
+    INTERFACE_INCLUDE_DIRECTORIES "${SPIRV_TOOLS_INSTALL_DIR}/include"
+  )
+else()
+  message(STATUS "spirv-tools: ${SPIRV-Tools_FOUND}")
+endif()
+
+target_link_libraries(CHIP PRIVATE SPIRV-Tools)
+
+target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS})
 
 if(HAS_EXPERIMENTAL_FILESYSTEM)
   target_link_libraries(CHIP PUBLIC stdc++fs)
@@ -724,7 +781,12 @@ add_to_config(_hipInfo_build
   HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
   "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_BINARY_DIR}")
 
-INSTALL(TARGETS CHIP host device deviceRDC
+add_library(hip::host ALIAS host)
+add_library(hip::device ALIAS device)
+add_library(hiprtc-lib INTERFACE)
+add_library(hiprtc::hiprtc ALIAS hiprtc-lib)
+
+INSTALL(TARGETS CHIP host device deviceRDC hiprtc-lib
   EXPORT hip-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION lib
@@ -732,12 +794,6 @@ INSTALL(TARGETS CHIP host device deviceRDC
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 INSTALL(EXPORT hip-targets DESTINATION ${CONFIG_PACKAGE_INSTALL_DIR} NAMESPACE hip::)
 # export(EXPORT hip-targets FILE "${CHIP_BUILD_DIR}/hip-targets.cmake" NAMESPACE hip::)
-
-add_library(hip::host ALIAS host)
-add_library(hip::device ALIAS device)
-add_library(hiprtc-lib INTERFACE)
-add_library(hiprtc::hiprtc ALIAS hiprtc-lib)
-
 
 # hip-config.cmake generation
 include(CMakePackageConfigHelpers)

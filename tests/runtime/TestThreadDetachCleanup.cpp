@@ -29,5 +29,6 @@ int main() {
     threads[i].detach();
   }
 
+  std::cout << "PASSED\n";
   return 0;
 }

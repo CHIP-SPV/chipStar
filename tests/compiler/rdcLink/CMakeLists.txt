@@ -1,0 +1,1 @@
+add_shell_test(TestStaticLibRDC.bash)

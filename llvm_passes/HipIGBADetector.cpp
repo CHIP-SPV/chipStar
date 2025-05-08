@@ -48,18 +48,56 @@
 
 using namespace llvm;
 
+// Iterates through all instructions in the module to find potential
+// Indirect Global Buffer Accesses (IGBAs).
+// An IGBA is considered potential if:
+//  1. An IntToPtrInst is found where the source operand is a true integer
+//     (not resulting from a PtrToIntInst, which often indicates an
+//     address-space cast or similar benign transformation).
+//  2. A LoadInst is found that loads a pointer type from memory.
 static bool hasPotentialIGBAs(Module &M) {
-  for (auto &F : M)
-    for (auto &BB : F)
+  for (auto &F : M) {
+    for (auto &BB : F) {
       for (auto &I : BB) {
-        if (isa<IntToPtrInst>(&I))
-          return true;
-        if (auto *LI = dyn_cast<LoadInst>(&I))
-          return LI->getType()->isPointerTy();
+        if (auto *ITP = dyn_cast<IntToPtrInst>(&I)) {
+          Value *Op = ITP->getOperand(0);
+          // Skip benign ptr→int→ptr sequences lowered from address-space casts
+          // or other pointer manipulations where an integer representation is
+          // temporarily used.
+          if (isa<PtrToIntInst>(Op))
+            continue;
+          // Only treat as IGBA if the source is a true integer, not a pointer
+          // type that was cast to integer and then back to pointer (which is
+          // covered by the above check typically, but this is an additional guard).
+          if (!Op->getType()->isIntegerTy())
+            continue;
+          {
+            LLVM_DEBUG(dbgs() << "Found genuine IntToPtrInst in function "
+                              << F.getName() << ": " << ITP << "\n");
+            return true;
+          }
+          // Old pointer-type check is now redundant and removed.
+        }
+        if (auto *LI = dyn_cast<LoadInst>(&I)) {
+          // If an instruction loads a pointer from memory, it's a potential IGBA.
+          if (LI->getType()->isPointerTy()) {
+            LLVM_DEBUG(dbgs() << "Found pointer LoadInst in function " << F.getName()
+                              << ": " << *LI << "\n");
+            return true;
+          }
+        }
       }
+    }
+  }
   return false;
 }
 
+// Detects potential IGBAs in the module and sets a magic global variable
+// "__chip_module_has_no_IGBAs" to indicate the result.
+// '1' means no potential IGBAs were found.
+// '0' means potential IGBAs were found.
+// Returns true if the module was modified (i.e., the global variable was added),
+// false otherwise (e.g., if the variable already existed).
 static bool detectIGBAs(Module &M) {
   constexpr auto *MagicVarName = "__chip_module_has_no_IGBAs";
 
@@ -69,6 +107,9 @@ static bool detectIGBAs(Module &M) {
   bool Result = hasPotentialIGBAs(M);
   LLVM_DEBUG(dbgs() << "Has IGBAs: " << Result << "\n");
 
+  // The magic variable stores the *opposite* of the detection result:
+  // If Result is true (IGBAs found), store 0.
+  // If Result is false (no IGBAs found), store 1.
   auto *Init = ConstantInt::get(IntegerType::get(M.getContext(), 8), !Result);
   (void)new GlobalVariable(
       M, Init->getType(), true,

@@ -1,4 +1,4 @@
 #include <hip/hip_runtime.h>
-#ifndef __FAST_MATH__
-#error "__FAST_MATH__ macro is not defined with -ffast-math"
+#ifndef CHIP_FAST_MATH
+#error "CHIP_FAST_MATH macro is not defined with -ffast-math"
 #endif

@@ -2545,11 +2545,41 @@ static inline hipError_t hipMemcpyAsyncInternal(void *Dst, const void *Src,
   }
 
   if (Kind == hipMemcpyHostToHost) {
+    // Host-to-Host is always synchronous via memcpy
     memcpy(Dst, Src, SizeBytes);
     return hipSuccess;
-  } else {
+  } else if (Kind == hipMemcpyDeviceToDevice) {
+    // Device-to-Device is always asynchronous
     ChipQueue->memCopyAsync(Dst, Src, SizeBytes, Kind);
     return hipSuccess;
+  } else {
+    // Host-to-Device or Device-to-Host: Check if host memory is pageable
+    bool isPageable = false;
+    const void *hostPtr = nullptr;
+
+    if (Kind == hipMemcpyHostToDevice) {
+      hostPtr = Src;
+    } else { // hipMemcpyDeviceToHost
+      hostPtr = Dst;
+    }
+
+    auto AllocTracker = Backend->getActiveDevice()->AllocTracker;
+    auto AllocInfo = AllocTracker->getAllocInfo(hostPtr);
+
+    if (!AllocInfo || (AllocInfo->MemoryType != hipMemoryTypeHost &&
+                       !AllocInfo->IsHostRegistered)) {
+      isPageable = true;
+    }
+
+    if (isPageable) {
+      // Use synchronous copy for pageable host memory
+      logDebug("Using synchronous memCopy for pageable host memory transfer.");
+      return ChipQueue->memCopy(Dst, Src, SizeBytes, Kind);
+    } else {
+      // Use asynchronous copy for pinned host memory or device memory
+      ChipQueue->memCopyAsync(Dst, Src, SizeBytes, Kind);
+      return hipSuccess;
+    }
   }
 }
 

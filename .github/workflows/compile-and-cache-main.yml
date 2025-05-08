@@ -26,20 +26,15 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
 
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-
-      - name: Cache build artifacts
-        uses: actions/cache@v3
-        with:
-          path: |
-            build
-            ~/.cache/ccache
-          key: ${{ runner.os }}-build-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-build-
-
-      - name: Build
+      - name: Build chipStar main
         shell: bash
         run: |
-          ./scripts/unit_tests.sh release llvm-19 --build-only && cp -r build /space/chipStar/build
+          source /home/pvelesko/install/modules/init/bash
+          module use /home/pvelesko/modulefiles
+          module load llvm/19.0
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=~/install/chipStar/main
+          make -j$(nproc)
+          rm -rf ~/install/chipStar/main
+          make install

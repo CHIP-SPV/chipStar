@@ -18,6 +18,9 @@ public:
 
   // Get the promoted type for a given type
   static Type* getPromotedType(Type* TypeToPromote);
+
+  static SmallPtrSet<Instruction *, 32> GlobalVisited;
+
 };
 
 } // namespace llvm

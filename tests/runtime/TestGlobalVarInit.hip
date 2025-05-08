@@ -3,6 +3,7 @@
 #endif
 #include <cassert>
 #include <hip/hip_runtime.h>
+#include <iostream>
 
 struct FooT {
   char a;
@@ -30,5 +31,6 @@ int main() {
   (void)hipMemcpy(&OutH, OutD, sizeof(int) * NumElts, hipMemcpyDeviceToHost);
   for (unsigned i = 0; i < NumElts; i++)
     assert(OutH[i] == i + 1);
+  std::cout << "PASSED\n";
   return 0;
 }

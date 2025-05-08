@@ -35,7 +35,7 @@ build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
 # Check if the second argument starts with "llvm-" and is followed by a valid version number
 if [[ ! "$2" =~ ^llvm-(1[6-9]|[2-9][0-9])$ ]]; then
-  echo "Error: Invalid LLVM version. Must be llvm-16, llvm-17, llvm-18, or higher."
+  echo "Error: Invalid LLVM version. Must be llvm-16, llvm-17, llvm-18, llvm-19, or higher."
   exit 1
 fi
 
@@ -141,9 +141,9 @@ if [ $skip_build ]; then
   cd build
 else
   if [ "$host" = "salami" ]; then
-    CHIP_OPTIONS="-DCHIP_MALI_GPU_WORKAROUNDS=ON -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON"
+    CHIP_OPTIONS="-DCHIP_MALI_GPU_WORKAROUNDS=ON -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON"
   else
-    CHIP_OPTIONS="-DCHIP_BUILD_HIPBLAS=ON -DCHIP_BUILD_HIPFFT=ON"
+    CHIP_OPTIONS="-DCHIP_BUILD_HIPBLAS=ON -DCHIP_BUILD_HIPFFT=ON -DCHIP_BUILD_HIPSOLVER=ON -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON"
   fi
   # Build the project
   echo "Building project..."

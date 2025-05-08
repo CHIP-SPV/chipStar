@@ -216,7 +216,7 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
   return std::string_view();
 }
 
-std::string_view disassembleSPIRV(const std::string_view &spirvBinary) {
+std::string disassembleSPIRV(const std::string_view &spirvBinary) {
   spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
   spv_text text = nullptr;
   spv_diagnostic diagnostic = nullptr;
@@ -236,10 +236,10 @@ std::string_view disassembleSPIRV(const std::string_view &spirvBinary) {
       &text, &diagnostic);
 
   if (result == SPV_SUCCESS) {
-    std::string_view sv(text->str, text->length);
+    std::string spirvText(text->str, text->length);
     spvTextDestroy(text);
     spvContextDestroy(context);
-    return sv;
+    return spirvText;
   } else {
     std::cerr << "Failed to disassemble SPIR-V: " << diagnostic->error
               << std::endl;
@@ -250,8 +250,8 @@ std::string_view disassembleSPIRV(const std::string_view &spirvBinary) {
   return "";
 }
 
-bool usesDoubles(const std::string_view &spirvHumanReadable) {
-  std::istringstream iss(spirvHumanReadable.data());
+bool usesDoubles(const std::string &spirvHumanReadable) {
+  std::istringstream iss(spirvHumanReadable);
   std::string line;
   while (std::getline(iss, line)) {
     if (line.find("OpTypeFloat 64") != std::string::npos) {

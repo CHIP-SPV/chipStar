@@ -142,6 +142,8 @@ add_shell_test(TestHipccFp16Include.bash)
 add_shell_test(TestHipcc692Regression.bash)
 add_shell_test(TestHipccFileOrderPreservation.bash)
 add_shell_test(TestHipcc945MacroSpace.bash)
+add_shell_test(TestHipccArgOrder.bash)
+add_subdirectory(rdcLink)
 add_test(NAME "TestHipccMultiSource" COMMAND 
   ${CMAKE_BINARY_DIR}/bin/hipcc ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
 
@@ -149,9 +151,10 @@ add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
-add_hipcc_test_run(TestHipccInvalidBitWidth.cpp HIPCC_OPTIONS -O2)
-# Check __FAST_MATH__ is set for -ffast-math and preprocessor guards
+# Check CHIP_FAST_MATH is set for -ffast-math and preprocessor guards
 # using it are not hiding errors.
 add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)
-add_hipcc_test(invalid-bitwidth-128.hip)
 add_hipcc_test(TestDim3Cast.hip HIPCC_OPTIONS -fsyntax-only)
+
+# Add the promoteInt tests
+add_subdirectory(promoteInt)

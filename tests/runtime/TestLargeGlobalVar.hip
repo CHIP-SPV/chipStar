@@ -6,6 +6,7 @@
 #endif
 #include <cassert>
 #include <hip/hip_runtime.h>
+#include <iostream>
 
 constexpr size_t NumElts = 1000000;
 __device__ float A[NumElts];
@@ -23,5 +24,6 @@ int main() {
   // Global variables without initializer should be zero initialized.
   assert(OutH == 0.0f);
 
+  std::cout << "PASSED\n";
   return 0;
 }

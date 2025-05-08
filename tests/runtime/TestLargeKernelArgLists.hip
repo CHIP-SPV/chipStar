@@ -4,6 +4,7 @@
 #include <hip/hip_runtime.h>
 #include <cstring>
 #include <set>
+#include <iostream>
 
 constexpr unsigned NumThreads = 10;
 
@@ -73,5 +74,6 @@ int main() {
       return 1;
   }
 
+  std::cout << "PASSED\n";
   return 0;
 }

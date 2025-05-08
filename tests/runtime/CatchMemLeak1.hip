@@ -3,6 +3,7 @@
 // a pass with this test does not mean the absence of memory leaks.
 #include <hip/hip_runtime.h>
 #include <sys/resource.h>
+#include <iostream>
 
 __global__ void k() {}
 
@@ -48,5 +49,6 @@ int main() {
   }
 
   printf("Didn't detect memory leak.\n");
+  std::cout << "PASSED\n";
   return 0;
 }

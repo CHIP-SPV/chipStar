@@ -17,5 +17,6 @@ int main() {
   if (hipGetLastError() != hipSuccess)
     return 5;
 
+  std::cout << "PASSED\n";
   return 0;
 }
