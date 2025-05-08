@@ -1,71 +1,187 @@
 #include "HipPromoteInts.h"
+#include "llvm/ADT/SmallVector.h" // Include for SmallVector
+#include "llvm/ADT/SmallPtrSet.h" // Include for SmallPtrSet
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-
+#include <set>
+#include <functional>
+#include <list>
 #define DEBUG_TYPE "hip-promote-ints"
 
-/**
- * This pass promotes integer types to the next standard bit width.
- * During optimization of loops, LLVM generates non-standard integer types 
- * such as i33 or i56
- *
- * Algorithm Overview:
- * ------------------
- * The pass uses a two-phase approach to handle non-standard integer types:
- *
- * 1. Construction Phase:
- *    - When encountering a non-standard integer type (e.g., i33), the pass
- *      first creates a chain of replacement instructions that will eventually 
- *      replace the original ones
- *    - During this phase, intermediate instructions may temporarily use
- *      non-standard types. This is necessary because LLVM requires type 
- *      consistency when building instruction chains
- *    - The pass maintains a map (PromotedValues) tracking both the original and
- *      promoted versions of values to ensure consistent promotion throughout the
- *      chain
- *    - Intermediate zext instructions are created to establish a valid def-use
- *      chain, ensuring instructions get visited and processed later by
- *      promoteChain()
- *
- * 2. Replacement Phase:
- *    - After constructing all necessary instructions, the pass performs the
- *      actual replacements
- *    - All non-standard integer types are promoted to their next larger
- *      standard size (e.g., i33 -> i64)
- *    - The original instructions are replaced with their promoted versions
- *    - The intermediate zext instructions are cleaned up as part of the 
- *      replacement process
- *
- * This two-phase approach is necessary because:
- * 1. LLVM requires type consistency when building instructions
- * 2. We can't modify instructions in place while building their replacements
- * 3. We need to ensure all uses of a value are properly promoted before replacement
- *
- * Initial implementation of this pass used mutateType() which is dangerous and
- * likely to break code.
- *
- * Example kernel that generates non-standard types:
- * __global__ void testWarpCalc(int* debug) {
- *   int tid = threadIdx.x;
- *   int bid = blockIdx.x;
- *   int globalIdx = bid * blockDim.x + tid;
- *
- *   // Optimizations on this loop will generate i33 types.
- *   int result = 0;
- *   for(int i = 0; i < tid + 1; i++) {
- *     result += i * globalIdx;
- *   }
- *
- *   // Store using atomic operation
- *   atomicExch(&debug[globalIdx], result);
- * }
- *
- * https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/2823
- */
+// Define the static member
 
+/**
+ * @brief Promotes non-standard integer types (e.g., i33, i56) to the next standard width.
+ *
+ * LLVM's loop optimizations can generate integer types with bit widths that are
+ * not powers of two (or 1). These non-standard types can cause issues during
+ * later stages, particularly SPIR-V translation.
+ * Key Data Structures:
+ * -------------------- 
+ * - `PromotedValues`: Maps original `Value*` (instructions, constants) to their promoted `Value*` equivalents
+ *   within the context of a single `promoteChain` call.
+ * - `Replacements`: Stores pairs of `{original instruction, new value}` created during `promoteChain`.
+ * - `PendingPhiAdds`: Temporarily stores `{TargetPhi, OriginalValue, IncomingBlock}` tuples for PHI inputs
+ *   whose `OriginalValue` hadn't been processed yet when `processPhiNode` was called.
+ * Algorithm Overview:
+ */
 using namespace llvm;
+
+SmallPtrSet<Instruction *, 32> HipPromoteIntsPass::GlobalVisited;
+// Helper to check for non-standard integer types
+static bool isNonStandardInt(Type *T) {
+  if (auto *IntTy = dyn_cast<IntegerType>(T)) {
+    return !HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth());
+  }
+  return false;
+}
+
+/// @brief Given a linked list of instructions that begin with a non-standard type, 
+/// traverse the linked list from the beginning
+/// Find the first instruction that either zexts or truncates to the standard type and drop all from there to the end
+/// @param LL linked list of instructions
+/// @return back-pruned linked list
+static std::vector<Instruction *> backPruneLL(std::vector<Instruction *> LL){
+  for (int i = LL.size() - 1; i >= 0; --i) {
+    Instruction *Inst = LL[i];
+    bool NonStdFound = false;
+
+    // Check if the result type is non-standard
+    if (isNonStandardInt(Inst->getType())) {
+      NonStdFound = true;
+    } else {
+      // Check if any operand type is non-standard
+      for (Value *Op : Inst->operands()) {
+        if (isNonStandardInt(Op->getType())) {
+          NonStdFound = true;
+          break;
+        }
+      }
+    }
+
+    // If this instruction involves a non-standard type, it's the end of our relevant chain.
+    if (NonStdFound) {
+      // Return the sublist from the beginning up to and including this instruction.
+      return std::vector<Instruction *>(LL.begin(), LL.begin() + i + 1);
+    }
+  }
+
+  return LL;
+}
+
+
+
+/// @brief Given an instrucion, return a list of paths in its use-def chain
+/// @param I The instruction to get the use-def chain for
+/// @return A vector of vectors, where each inner vector represents a distinct path in the use-def chain
+static void getLinkedListsFromUseDefChain(Instruction *I, std::vector<std::vector<Instruction *>> &prunedChains) {
+  // Check if the instruction is already in a pruned chain
+  for (auto &chain : prunedChains) {
+    if (std::find(chain.begin(), chain.end(), I) != chain.end()) {
+      // LLVM_DEBUG(dbgs() << "Skipping instruction already in a pruned chain: " << *I << "\n");
+      // LLVM_DEBUG(dbgs() << "Found in this chain:\n");
+      // for (Instruction *Inst : chain) {
+      //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+      // }
+      return;
+    }
+  }
+
+  std::vector<std::vector<Instruction *>> Chains;
+  std::set<Instruction *> Visited;
+  
+  std::function<void(Instruction *, std::vector<Instruction *>)> traverseUsers = 
+      [&](Instruction *Inst, std::vector<Instruction *> CurrentChain) {
+    if (!Inst || Visited.count(Inst))
+      return;
+    
+    Visited.insert(Inst);
+    CurrentChain.push_back(Inst);
+    
+    // Check if this instruction has any users
+    if (Inst->users().empty()) {
+      // We've reached the end of a chain, add it to the list of chains
+      Chains.push_back(CurrentChain);
+      return;
+    }
+    
+    for (User *User : Inst->users()) {
+      if (Instruction *UserInst = dyn_cast<Instruction>(User)) {
+        // Create a new branch for each user
+        traverseUsers(UserInst, CurrentChain);
+      }
+    }
+  };
+  
+  // Start traversal from the users of I (not including I itself)
+  for (User *User : I->users()) {
+    if (Instruction *UserInst = dyn_cast<Instruction>(User)) {
+      std::vector<Instruction *> NewChain; 
+      NewChain.push_back(I);
+      traverseUsers(UserInst, NewChain);
+    }
+  }
+
+  // If no chains were found (e.g., instruction has no users), return an empty vector
+  if (Chains.empty()) {
+    // LLVM_DEBUG(dbgs() << "No chains found for: " << *I << "\n");
+    return;
+  }
+
+  // Print the linked lists
+  // LLVM_DEBUG(dbgs() << "Found " << Chains.size() << " chains for: " << *I << "\n");
+  for (unsigned i = 0; i < Chains.size(); ++i) {
+    auto CurrentChain = Chains[i];
+
+    // LLVM_DEBUG(dbgs() << "Chain " << i << ":\n");
+    // for (Instruction *Inst : CurrentChain) {
+    //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+    // }
+
+    // auto prunePossible = false;
+    // auto ChainBegin = Chains[i].begin();
+    // auto ChainEnd = Chains[i].end();
+    // for (auto prunedChain :prunedChains ) {
+    //   auto lastPrunedChainInstr = prunedChain.back();
+    //   auto found = std::find(ChainBegin, ChainEnd, lastPrunedChainInstr);
+    //   if (found != ChainEnd) {
+    //     LLVM_DEBUG(dbgs() << "Found pruning candidate for Chain " << i << " via instr: " << *lastPrunedChainInstr << "\n");
+    //     prunePossible = true;
+    //     LLVM_DEBUG(dbgs() << "Old ChainBegin first instr: " << **ChainBegin << "\n");
+    //     ChainBegin = found + 1;
+    //     LLVM_DEBUG(dbgs() << "New ChainBegin first instr: " << **ChainBegin << "\n");
+
+    //   }
+    // }
+    // // If we found a pruning candidate, increment ChainBegin until we found a non-standard instruction
+    // if (prunePossible) {
+    //   while (ChainBegin != ChainEnd && !isNonStandardInt((*ChainBegin)->getType())) {
+    //     ++ChainBegin;
+    //   }
+    //   if (ChainBegin == ChainEnd) {
+    //     LLVM_DEBUG(dbgs() << "Chain " << i << " was completely pruned\n");
+    //     continue;
+    //   }
+
+    //   CurrentChain = std::vector<Instruction *>(ChainBegin, ChainEnd);
+    // }
+
+    // LLVM_DEBUG(dbgs() << "Chain " << i << " after pruning:\n");
+    // for (Instruction *Inst : CurrentChain) {
+    //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+    // }
+
+    auto frontAndBackPrunedChain = backPruneLL(CurrentChain);
+    prunedChains.push_back(frontAndBackPrunedChain);
+    // LLVM_DEBUG(dbgs() << "Back-pruned chain " << i << ":\n");
+    // for (Instruction *Inst : frontAndBackPrunedChain) {
+    //   LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+    // }
+  }
+}
 
 bool HipPromoteIntsPass::isStandardBitWidth(unsigned BitWidth) {
   // TODO: 128 is not a standard bit width, will handle later as it's more
@@ -85,6 +201,7 @@ unsigned HipPromoteIntsPass::getPromotedBitWidth(unsigned Original) {
 }
 
 Type *HipPromoteIntsPass::getPromotedType(Type *TypeToPromote) {
+  assert(TypeToPromote && "TypeToPromote is nullptr");
   if (auto *IntTy = dyn_cast<IntegerType>(TypeToPromote)) {
     unsigned PromotedWidth = getPromotedBitWidth(IntTy->getBitWidth());
     return Type::getIntNTy(TypeToPromote->getContext(), PromotedWidth);
@@ -96,20 +213,80 @@ struct Replacement {
   Instruction *Old;
   Value *New;
   Replacement(Instruction *O, Value *N) : Old(O), New(N) {}
+  
+  // Add equality operator for comparison
+  bool operator==(const Replacement &Other) const {
+    return Old == Other.Old && New == Other.New;
+  }
 };
 
-// Structure to hold pending PHI node additions
-struct PendingPhiAdd {
-  PHINode *TargetPhi;
-  Value *OriginalValue;
-  BasicBlock *IncomingBlock;
-};
+// Helper to adjust value V to type TargetTy using Builder
+static Value* adjustType(Value *V, Type *TargetTy, IRBuilder<> &Builder, bool NeedsSignedExt = false, const std::string& Indent = "", const std::string& NameSuffix = "") {
+    // Handle no-op and constant-int extension/truncation
+    if (V->getType() == TargetTy)
+        return V;
+    if (auto *ConstInt = dyn_cast<ConstantInt>(V)) {
+        if (NeedsSignedExt)
+            return Builder.CreateSExt(ConstInt, TargetTy, V->getName() + ".sext");
+        else
+            return Builder.CreateZExt(ConstInt, TargetTy, V->getName() + ".zext");
+    }
 
-// Helper to get or create promoted value
+    // Example 1: Source i33, Target i64
+    //   adjustType(%val_i33, i64, builder) -> creates '%zext = zext i33 %val_i33 to i64'
+    // Example 2: Source i64, Target i32
+    //   adjustType(%val_i64, i32, builder) -> creates '%trunc = trunc i64 %val_i64 to i32'
+    // Example 3: Source i64, Target <64 x i1> (Different types, same size)
+    //   adjustType(%val_i64, <64 x i1>, builder) -> creates '%bitcast = bitcast i64 %val_i64 to <64 x i1>'
+
+    unsigned SrcBits = V->getType()->getPrimitiveSizeInBits();
+    unsigned DstBits = TargetTy->getPrimitiveSizeInBits();
+
+    LLVM_DEBUG(dbgs() << Indent << "Adjusting type of " << *V << " from " << *V->getType() << " to " << *TargetTy << "\n");
+
+    Value* AdjustedV = nullptr;
+    std::string Name = NameSuffix.empty() ? "" : V->getName().str() + NameSuffix;
+    
+    if (DstBits < SrcBits) {
+        AdjustedV = Builder.CreateTrunc(V, TargetTy, Name);
+        LLVM_DEBUG(dbgs() << Indent << "  Created Trunc: " << *AdjustedV << "\n");
+    } else if (DstBits > SrcBits) {
+        AdjustedV = Builder.CreateZExt(V, TargetTy, Name);
+        LLVM_DEBUG(dbgs() << Indent << "  Created ZExt: " << *AdjustedV << "\n");
+    } else {
+        AdjustedV = Builder.CreateBitCast(V, TargetTy, Name);
+        LLVM_DEBUG(dbgs() << Indent << "  Created BitCast: " << *AdjustedV << "\n");
+    }
+    if (AdjustedV) HipPromoteIntsPass::GlobalVisited.insert(dyn_cast<Instruction>(AdjustedV));
+    return AdjustedV;
+}
+
+/**
+ * Get or create promoted value
+ * 
+ * This helper function is called whenever an instruction processing function
+ * (e.g., `processBinaryOperator`, `processPhiNode`) needs an operand's value.
+ * It ensures that if the operand `V` is part of the non-standard type chain,
+ * an equivalent value with the `PromotedTy` is returned. It handles:
+ * 1. Returning cached results from `PromotedValues`.
+ * 2. Returning `V` directly if it's already the `PromotedTy`.
+ * 3. Promoting `ConstantInt`s of `NonStdType` directly to `PromotedTy`.
+ * 4. Creating `ZExt`/`Trunc`/`BitCast` instructions if `V` is an instruction
+ *    result of `NonStdType` to convert it to `PromotedTy`.
+ * 5. Returning other values (standard constants, arguments) directly.
+ * 
+ * @param V The original Value* operand
+ * @param NonStdType The specific non-standard type being processed in the current chain (e.g., i33)
+ * @param PromotedTy The target standard type for the current chain (e.g., i64)
+ * @param Builder IRBuilder positioned correctly to insert new instructions if needed
+ * @param Indent String for debug printing indentation
+ * @param PromotedValues Map to cache already promoted values
+ * @return The promoted value
+ */
 static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
                                IRBuilder<> &Builder, const std::string &Indent,
                                SmallDenseMap<Value *, Value *> &PromotedValues) {
-  LLVM_DEBUG(dbgs() << Indent << "    getPromotedValue for: " << *V << "\n");
+  LLVM_DEBUG(dbgs() << Indent << "    getPromotedValue for: " << *V << " NonStdType: " << *NonStdType << " PromotedTy: " << *PromotedTy << "\n");
 
   // First check if we already promoted this value
   if (PromotedValues.count(V)) {
@@ -125,23 +302,36 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
     return V;
   }
 
-  // If it's the non-standard type, promote it
-  if (V->getType() == NonStdType) {
-    // Make sure we don't try to extend a larger type to a smaller one
-    Value *NewV = nullptr;
-    if (V->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
-      NewV = Builder.CreateZExt(V, PromotedTy);
-      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with zext: " << *V
-                        << " to " << *NewV << "\n");
-    } else if (V->getType()->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
-      NewV = Builder.CreateTrunc(V, PromotedTy);
-      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with trunc: " << *V
-                        << " to " << *NewV << "\n");
-    } else {
-      NewV = Builder.CreateBitCast(V, PromotedTy);
-      LLVM_DEBUG(dbgs() << Indent << "      Promoting non-standard type with bitcast: " << *V
-                        << " to " << *NewV << "\n");
+  // Handle Constants specifically
+  // Example:
+  //   %c = add i33 %a, 1
+  // Becomes:
+  //   %c_promoted = add i64 %a_promoted, 1
+  if (auto *ConstInt = dyn_cast<ConstantInt>(V)) {
+    if (ConstInt->getType() == NonStdType) {
+      LLVM_DEBUG(dbgs() << Indent << "      Returning original NonStd ConstantInt: " << *V << "\n");
+      return V; // Return the original ConstantInt
     }
+    // If it's a constant of a different standard type, it might need zext/trunc later
+    // but we return the original constant for now. Adjustments happen in the instruction processing.
+     LLVM_DEBUG(dbgs() << Indent << "      Using original Standard ConstantInt: " << *V << "\n");
+     return V; // Return original standard-type constant
+  }
+
+
+  // If it's the non-standard type (and not a constant, handled above), promote it
+  // Example:
+  //   %res = add i33 %a, %b
+  // If %res (i33) is used later where an i64 is expected by a promoted instruction:
+  //   getPromotedValue(%res, i33, i64, ...) -> creates '%res.zext = zext i33 %res to i64'
+  // This %res.zext is then used by the promoted instruction.
+  if (V->getType() == NonStdType) {
+    // Sanity check if it's an instruction that should have been processed already
+    assert(isa<Instruction>(V) && !PromotedValues.count(V) && "Encountered unprocessed non-standard instruction");
+
+    // Use adjustType to handle the conversion
+    Value *NewV = adjustType(V, PromotedTy, Builder, false, Indent + "      ");
+
     PromotedValues[V] = NewV;
     return NewV;
   }
@@ -151,248 +341,167 @@ static Value *getPromotedValue(Value *V, Type *NonStdType, Type *PromotedTy,
   return V;
 };
 
-static void processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
-                           IRBuilder<> &Builder, const std::string &Indent,
-                           SmallVectorImpl<Replacement> &Replacements,
-                           SmallDenseMap<Value *, Value *> &PromotedValues,
-                           SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds) {
-  // Create new PHI node with the promoted type (e.g., i64) instead of
-  // original type
-  Type *PromotedType = HipPromoteIntsPass::getPromotedType(Phi->getType());
-  PHINode *NewPhi =
-      PHINode::Create(PromotedType, Phi->getNumIncomingValues(), "", Phi);
-
-  // Register the PHI node in the map BEFORE processing incoming values
-  // to handle circular references properly
-  LLVM_DEBUG(dbgs() << Indent << "  Creating promotion for PHI: " << *Phi
-                    << " to " << *NewPhi << "\n");
-  PromotedValues[Phi] = NewPhi;
-
-  // Copy all incoming values and blocks, potentially deferring some
-  for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
-    Value *IncomingValue = Phi->getIncomingValue(i);
-    BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
-
-    LLVM_DEBUG(dbgs() << Indent << "    Processing incoming value: " << *IncomingValue
-                      << " from block: " << IncomingBlock->getName() << "\n");
-
-    Value *NewIncomingValue = nullptr;
-
-    // Special handling for truncation instructions that convert from standard to non-standard types
-    if (auto *TruncI = dyn_cast<TruncInst>(IncomingValue)) {
-      Value *TruncSrc = TruncI->getOperand(0);
-      Type *SrcTy = TruncSrc->getType();
-      Type *DestTy = TruncI->getDestTy();
-
-      bool IsSrcStandard = false;
-      if (auto *SrcIntTy = dyn_cast<IntegerType>(SrcTy)) {
-        IsSrcStandard = HipPromoteIntsPass::isStandardBitWidth(SrcIntTy->getBitWidth());
-      }
-
-      bool IsDestNonStandard = false;
-      if (auto *DestIntTy = dyn_cast<IntegerType>(DestTy)) {
-        IsDestNonStandard = !HipPromoteIntsPass::isStandardBitWidth(DestIntTy->getBitWidth());
-      }
-
-      // Handle truncation from standard to non-standard specially
-      if (IsSrcStandard && IsDestNonStandard) {
-        LLVM_DEBUG(dbgs() << Indent << "      Found truncation from standard to non-standard type: " << *TruncI << "\n");
-
-        // Check if we already have a promoted value for this truncation
-        if (PromotedValues.count(IncomingValue)) {
-          NewIncomingValue = PromotedValues[IncomingValue];
-          LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value: " << *NewIncomingValue << "\n");
-        } else {
-          // If not already processed, get the promoted source directly
-          Value *PromotedSrc = PromotedValues.count(TruncSrc) ? PromotedValues[TruncSrc] : TruncSrc;
-
-          // For standard to non-standard truncation, we use the source value directly
-          // This makes the truncation effectively a no-op in our promotion chain
-          LLVM_DEBUG(dbgs() << Indent << "      Using source directly for standard-to-nonstandard trunc: "
-                            << *PromotedSrc << "\n");
-
-          NewIncomingValue = PromotedSrc; // Use the (potentially promoted) source
-
-          // Store this for future use (map the original trunc to the promoted source)
-          PromotedValues[IncomingValue] = NewIncomingValue;
-        }
-      } else if (!IsSrcStandard) {
-        // Check if the source operand has a non-standard type
-        LLVM_DEBUG(dbgs() << Indent << "      Found truncation from non-standard type: " << *TruncI << "\n");
-
-        // Instead of creating a new truncation chain, we need to handle the chain consistently
-        // Check if the truncation itself has already been processed/promoted
-        if (PromotedValues.count(IncomingValue)) {
-          NewIncomingValue = PromotedValues[IncomingValue];
-          LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for truncation: "
-                           << *NewIncomingValue << "\n");
-        } else {
-          // If this truncation hasn't been processed yet, it will be handled later by promoteChain.
-          // Defer adding it to the PHI.
-          LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed non-standard truncation\n");
-          PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
-          continue; // Skip the rest of the loop iteration
-        }
-      }
-    }
-    // Also handle zero-extension from non-standard types
-    else if (auto *ZExtI = dyn_cast<ZExtInst>(IncomingValue)) {
-      Value *ZExtSrc = ZExtI->getOperand(0);
-
-      // Check if the source operand has a non-standard type
-      if (auto *SrcTy = dyn_cast<IntegerType>(ZExtSrc->getType())) {
-        if (!HipPromoteIntsPass::isStandardBitWidth(SrcTy->getBitWidth())) {
-          LLVM_DEBUG(dbgs() << Indent << "      Found zero-extension from non-standard type: " << *ZExtI << "\n");
-
-          // Handle consistently with how we process ZExt instructions
-          if (PromotedValues.count(IncomingValue)) {
-            NewIncomingValue = PromotedValues[IncomingValue];
-            LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value for zext: "
-                             << *NewIncomingValue << "\n");
-          } else {
-            // If this zext hasn't been processed yet, let the normal processing handle it
-            LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed non-standard zext\n");
-            PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
-            continue; // Skip the rest of the loop iteration
-          }
-        }
-      }
-    }
-
-    // If not handled by special case above, use normal promotion
-    if (!NewIncomingValue) {
-      // Check if the incoming value is already promoted
-      if (PromotedValues.count(IncomingValue)) {
-        NewIncomingValue = PromotedValues[IncomingValue];
-         LLVM_DEBUG(dbgs() << Indent << "      Using existing promoted value: " << *NewIncomingValue << "\n");
-      } else if (isa<Instruction>(IncomingValue)) {
-        // If it's an instruction but not promoted yet, defer it
-        LLVM_DEBUG(dbgs() << Indent << "      Deferring PHI add for unprocessed instruction: " << *IncomingValue << "\n");
-        PendingPhiAdds.push_back({NewPhi, IncomingValue, IncomingBlock});
-        continue; // Skip the rest of the loop iteration
-      } else {
-        // Must be a constant, argument, or global - use directly
-        NewIncomingValue = IncomingValue;
-        LLVM_DEBUG(dbgs() << Indent << "      Using non-instruction value directly: " << *NewIncomingValue << "\n");
-      }
-    }
-
-    // If we have a value (either promoted or original non-instruction), add it now
-    // Ensure the type matches the promoted PHI type
-    if (NewIncomingValue->getType() != PromotedType) {
-      // Use a temporary builder placed before the original PHI
-      IRBuilder<> PhiBuilder(Phi);
-      if (NewIncomingValue->getType()->getPrimitiveSizeInBits() < PromotedType->getPrimitiveSizeInBits()) {
-        LLVM_DEBUG(dbgs() << Indent << "      zExting incoming value: " << *IncomingValue);
-        NewIncomingValue = PhiBuilder.CreateZExt(NewIncomingValue, PromotedType);
-        LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
-      } else if (NewIncomingValue->getType()->getPrimitiveSizeInBits() > PromotedType->getPrimitiveSizeInBits()) {
-        LLVM_DEBUG(dbgs() << Indent << "      truncing incoming value: " << *IncomingValue);
-        NewIncomingValue = PhiBuilder.CreateTrunc(NewIncomingValue, PromotedType);
-        LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
-      } else {
-        // Same bit width but different types
-        LLVM_DEBUG(dbgs() << Indent << "      bitcasting incoming value: " << *IncomingValue);
-        NewIncomingValue = PhiBuilder.CreateBitCast(NewIncomingValue, PromotedType);
-        LLVM_DEBUG(dbgs() << " ===> " << *NewIncomingValue << "\n");
-      }
-    }
-
-    NewPhi->addIncoming(NewIncomingValue, IncomingBlock);
+void addReplacement(Instruction *Old, Value *New, SmallVectorImpl<Replacement> &Replacements) {
+  LLVM_DEBUG(dbgs() << "addReplacement: " << *Old << " with " << *New << "\n");
+  // assert that none of the entries in Replacements have Old as an operand
+  for (auto &R : Replacements) {
+    if (R.Old == Old && R.New == New) return; // already exists
+    if (R.Old == Old) assert(R.New!= New && "Changing old instruction to different value");
   }
-
-  LLVM_DEBUG(dbgs() << Indent << "  " << *Phi << "   promoting PHI node: ====> " << *NewPhi
-                    << "\n");
-  Replacements.push_back(Replacement(Phi, NewPhi));
+  Replacements.push_back(Replacement(Old, New));
 }
 
-static void processZExtInst(ZExtInst *ZExtI, Type *NonStdType, Type *PromotedTy,
+/**
+ * Finalize promotion
+ * 
+ * This function finalizes the promotion of an instruction.
+ * It caches the promoted value and adds the replacement to the list.
+ * 
+ * @param Old The original instruction
+ * @param New The promoted value
+ * @param Replacements The list of replacements
+ * @param PromotedValues The map of already promoted values
+ */
+static inline void finalizePromotion(Instruction *Old, Value *New, 
+                                     SmallVectorImpl<Replacement> &Replacements,
+                                     SmallDenseMap<Value *, Value *> &PromotedValues) {
+    PromotedValues[Old] = New; 
+    addReplacement(Old, New, Replacements);
+}
+
+/**
+ * Handle incoming PHI value as TruncInst
+ * 
+ * This function handles the case where a PHI node has an incoming value that is a TruncInst.
+ * It checks if the source of the truncation is standard and the destination is non-standard.
+ * If so, it promotes the source value to the promoted type and adds it to the PHI node.
+ * 
+ * @param TruncI The TruncInst to handle
+ * @param NonStdType The non-standard type being promoted
+ * @param PromotedType The promoted type
+ * @param Indent The indent for debug printing
+ * @param PromotedValues The map of already promoted values
+ * @param PendingPhiAdds The list of pending PHI node additions
+ * @param NewPhi The new PHI node to add
+ */
+static Value *processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
+                           IRBuilder<> &Builder, const std::string &Indent,
+                           SmallVectorImpl<Replacement> &Replacements,
+                           SmallDenseMap<Value *, Value *> &PromotedValues) {
+  // Create new PHI node with the promoted type
+  Type *PromotedType = HipPromoteIntsPass::getPromotedType(Phi->getType());
+  
+    // Check if the incoming values are already promoted
+    for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
+      Value *OriginalValue = Phi->getIncomingValue(i);
+      LLVM_DEBUG(dbgs() << Indent << "    Processing incoming: " << *OriginalValue << "\n");
+      if(!PromotedValues.count(OriginalValue)) {
+        LLVM_DEBUG(dbgs() << Indent << "      Incoming value not yet promoted, deferring: " << *OriginalValue << "\n");
+        return nullptr;
+      }
+  }
+
+      
+  // Process incoming values
+  PHINode *NewPhi = PHINode::Create(PromotedType, Phi->getNumIncomingValues(), "", Phi);
+  unsigned PendingCount = 0;
+  for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
+      Value *OriginalValue = Phi->getIncomingValue(i);
+      BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
+      Value *NewIncomingValue = nullptr;
+      assert(PromotedValues.count(OriginalValue) && "Incoming value not yet promoted");
+      NewIncomingValue = PromotedValues[OriginalValue];
+      // Ensure the determined value matches the NewPhi's type
+      LLVM_DEBUG(dbgs() << Indent << "      Adjusting incoming value type if needed...\n");
+      Value *AdjustedValue = adjustType(NewIncomingValue, PromotedType, Builder, false, Indent + "        ");
+      LLVM_DEBUG(dbgs() << Indent << "      Adding incoming: [" << *AdjustedValue << ", " << IncomingBlock->getName() << "]\n");
+      NewPhi->addIncoming(AdjustedValue, IncomingBlock);
+  }
+  
+  PromotedValues[Phi] = NewPhi;
+  LLVM_DEBUG(dbgs() << Indent << "  " << *Phi
+                    << "   promoting PHI node: ====> " << *NewPhi << " ("
+                    << NewPhi->getNumIncomingValues() << " initial incoming, "
+                    << PendingCount << " pending)\n");
+
+  addReplacement(Phi, NewPhi, Replacements);
+  return NewPhi;
+}
+
+// Refined processZExtInst logic:
+static Value *processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being promoted, e.g. i56 */,
+                            Type *PromotedTy /* Type to promote to, e.g. i64 */,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
   Value *SrcOp = ZExtI->getOperand(0);
+  Type *SrcTy = SrcOp->getType();
+  Type *DestTy = ZExtI->getDestTy();
 
-  // Get promoted source if available
+  // Get the source value (might be original NonStd ConstantInt)
   Value *PromotedSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
-  // Handle zero extension based on source and destination types
-  if (SrcOp->getType() == NonStdType) {
-    // If the source is our non-standard type, we need to be careful with type consistency
-    LLVM_DEBUG(dbgs() << Indent << "  ZExt with non-standard source type: " << *ZExtI << "\n");
+  bool IsSrcNonStandard = isNonStandardInt(SrcTy);
+  bool IsDestNonStandard = isNonStandardInt(DestTy);
+  Type *PromotedDestTy = IsDestNonStandard ? HipPromoteIntsPass::getPromotedType(DestTy) : DestTy;
 
-    // Create a new zext with properly promoted types
-    Type *DestTy = ZExtI->getDestTy();
+  Value *NewValue = nullptr;
 
-    // If destination type is smaller than our promoted type, we need to truncate first
-    if (DestTy->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
-      Value *NewZExt = Builder.CreateTrunc(PromotedSrc, DestTy);
-      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (with trunc): ====> "
-                        << *NewZExt << "\n");
-      PromotedValues[ZExtI] = NewZExt;
-      Replacements.push_back(Replacement(ZExtI, NewZExt));
-    }
-    // If destination type is larger, create a proper zext
-    else if (DestTy->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
-      Value *NewZExt = Builder.CreateZExt(PromotedSrc, DestTy);
-      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (with zext): ====> "
-                        << *NewZExt << "\n");
-      PromotedValues[ZExtI] = NewZExt;
-      Replacements.push_back(Replacement(ZExtI, NewZExt));
-    }
-    // If destination is exactly our promoted type, just use the promoted source
-    else {
-      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (direct): ====> "
-                        << *PromotedSrc << "\n");
-      PromotedValues[ZExtI] = PromotedSrc;
-      Replacements.push_back(Replacement(ZExtI, PromotedSrc));
-    }
-  } else {
-    // For standard source types, check if destination type is non-standard
-    Type *DestTy = ZExtI->getDestTy();
-
-    if (auto *IntTy = dyn_cast<IntegerType>(DestTy)) {
-      if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
-        // Promote the destination type to standard width
-        Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy);
-
-        // Create a direct zext from source to promoted destination type
-        Value *NewZExt = Builder.CreateZExt(PromotedSrc, PromotedDestTy);
-
-        LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std dest): ====> "
-                       << *NewZExt << "\n");
-        PromotedValues[ZExtI] = NewZExt;
-        Replacements.push_back(Replacement(ZExtI, NewZExt));
-        return;
-      }
-    }
-
-    // For standard destination types, handle normally
-    // Ensure source is promoted if needed *before* casting to dest type
-    if (PromotedSrc->getType() != PromotedTy &&
-        PromotedSrc->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
-      PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
-      LLVM_DEBUG(dbgs() << Indent << "    Implicitly ZExting source for standard ZExt\n");
-    }
-
-    // Create a new zext/trunc/noop to the destination type
-    Value *NewZExt;
-
-    if (PromotedSrc->getType()->getPrimitiveSizeInBits() > DestTy->getPrimitiveSizeInBits()) {
-      NewZExt = Builder.CreateTrunc(PromotedSrc, DestTy);
-    } else if (PromotedSrc->getType()->getPrimitiveSizeInBits() < DestTy->getPrimitiveSizeInBits()) {
-      NewZExt = Builder.CreateZExt(PromotedSrc, DestTy);
-    } else {
-      NewZExt = PromotedSrc; // Same size, no conversion needed
-    }
-
-    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt: ====> "
-                     << *NewZExt << "\n");
-    PromotedValues[ZExtI] = NewZExt;
-    Replacements.push_back(Replacement(ZExtI, NewZExt));
+  // Check if SrcOp is a NonStd ConstantInt needing specific extension
+  if (isa<ConstantInt>(PromotedSrc) && IsSrcNonStandard) {
+      LLVM_DEBUG(dbgs() << Indent << "  Extending NonStd ConstantInt operand for ZExt: " << *PromotedSrc << "\n");
+      NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, false, Indent, ".constexpr.zext");
+      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std const src): ====> " << *NewValue << "\n");
+      finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
+      return NewValue;
   }
+
+  if (IsSrcNonStandard) {
+    // Case 1: Source is Non-Standard (e.g., zext i56 -> i64) (but not a ConstantInt, handled above)
+    // PromotedSrc should now have the PromotedTy (e.g., i64)
+    assert(PromotedSrc->getType() == PromotedTy && "Non-standard source operand was not promoted correctly in getPromotedValue");
+
+    // Adjust the PromotedSrc (which is i64) to match the promoted destination type (PromotedDestTy)
+    NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, false, Indent + "    Adjusting NonStd Src for ZExt: ");
+    if (NewValue == PromotedSrc) {
+      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std src, becomes no-op): ====> " << *NewValue << "\n");
+    } else {
+      LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std src, requires adjust): ====> " << *NewValue << "\n");
+    }
+
+    // Replace the original ZExt instruction with the NewValue.
+    finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
+
+  } else if (IsDestNonStandard) {
+    // Case 2: Destination is Non-Standard (e.g., zext i32 -> i56)
+    Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy); // e.g., i64
+
+    // Since the source is standard, getPromotedValue should have returned a value
+    // with the original source type SrcTy. No adjustment should be needed.
+    assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard ZExt source");
+
+    // Create ZExt using the standard source (PromotedSrc) to the *promoted* destination type.
+    NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, false, Indent);
+    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std dest): ====> " << *NewValue << "\n");
+    finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
+
+  } else {
+    // Case 3: Source and Destination are Standard (e.g., zext i32 -> i64)
+    // Recreate the instruction. Since the source is standard, getPromotedValue
+    // should have returned a value with the original source type SrcTy.
+    assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard ZExt source");
+
+    // Create the ZExt with the standard source (PromotedSrc) and original standard destination type.
+    NewValue = adjustType(PromotedSrc, DestTy, Builder, false, Indent);
+    LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (standard src/dest): ====> " << *NewValue << "\n");
+    // Map original ZExt result to new ZExt result. Both should have same standard type.
+    finalizePromotion(ZExtI, NewValue, Replacements, PromotedValues);
+  }
+  return NewValue;
 }
 
-static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *PromotedTy,
+
+static Value *processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *PromotedTy,
                              IRBuilder<> &Builder, const std::string &Indent,
                              SmallVectorImpl<Replacement> &Replacements,
                              SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -414,33 +523,40 @@ static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promoted
   // Special handling for truncation from standard type to non-standard type
   if (IsSrcStandard && IsDestNonStandard) {
     LLVM_DEBUG(dbgs() << Indent << "  " << *TruncI
-              << "   truncation from standard to non-standard becomes no-op: ====> "
-              << *PromotedSrc << "\n");
+              << "   processing truncation from standard to non-standard.\n");
 
-    // For internal use within our promotion chain, we use the source value directly
-    // (effectively making the truncation a no-op)
-    PromotedValues[TruncI] = PromotedSrc;
+    // Determine the promoted type for the non-standard destination
+    Type *PromotedDestTy = HipPromoteIntsPass::getPromotedType(DestTy);
+    LLVM_DEBUG(dbgs() << Indent << "      Promoted destination type: " << *PromotedDestTy << "\n");
 
-    // Replace the original instruction with its (promoted) input operand directly,
-    // effectively eliminating the non-standard type production.
-    Replacements.push_back(Replacement(TruncI, PromotedSrc));
-    return;
+    // Get the source operand (should be standard type)
+    // getPromotedValue should return the original standard source operand here
+    Value *StandardSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+    assert(StandardSrc == SrcOp && "Expected getPromotedValue to return original standard source");
+    assert(StandardSrc->getType() == SrcOp->getType() && "Source type mismatch");
+
+    // Adjust the standard source to the *promoted destination type*
+    Value* AdjustedSrc = adjustType(StandardSrc, PromotedDestTy, Builder, false, Indent + "      Adjusting std src to promoted dest type: ");
+    LLVM_DEBUG(dbgs() << Indent << "      Adjusted source value: " << *AdjustedSrc << "\n");
+
+    // Map the original trunc instruction to this adjusted source value
+    PromotedValues[TruncI] = AdjustedSrc;
+    LLVM_DEBUG(dbgs() << Indent << "      Mapped original trunc " << *TruncI << " to " << *AdjustedSrc << " in PromotedValues\n");
+
+    // Replace the original instruction with the adjusted source value.
+    // Users outside this promotion chain will use this adjusted value.
+    addReplacement(TruncI, AdjustedSrc, Replacements);
+    LLVM_DEBUG(dbgs() << Indent << "      Scheduled replacement of " << *TruncI << " with " << *AdjustedSrc << "\n");
+    return AdjustedSrc;
   }
+
+  // --- Original logic for other truncation cases ---
+  LLVM_DEBUG(dbgs() << Indent << "  Processing non-(standard->non-standard) truncation: " << *TruncI << "\n");
 
   // Verify the source is actually of our promoted type
   if (PromotedSrc->getType() != PromotedTy) {
-    // Check if we need to extend or truncate
-    if (PromotedSrc->getType()->getPrimitiveSizeInBits() < PromotedTy->getPrimitiveSizeInBits()) {
-      LLVM_DEBUG(dbgs() << Indent << "    ZExting source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
-      PromotedSrc = Builder.CreateZExt(PromotedSrc, PromotedTy);
-    } else if (PromotedSrc->getType()->getPrimitiveSizeInBits() > PromotedTy->getPrimitiveSizeInBits()) {
-      LLVM_DEBUG(dbgs() << Indent << "    Truncing source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
-      PromotedSrc = Builder.CreateTrunc(PromotedSrc, PromotedTy);
-    } else {
-      // Same bit width but different types, this should rarely happen
-      LLVM_DEBUG(dbgs() << Indent << "    Bitcasting source: " << *PromotedSrc << " to " << *PromotedTy << "\n");
-      PromotedSrc = Builder.CreateBitCast(PromotedSrc, PromotedTy);
-    }
+    // Use adjustType to ensure the source matches the promoted type
+    PromotedSrc = adjustType(PromotedSrc, PromotedTy, Builder, false, Indent + "    Adjusting source to promoted type: ");
   }
 
   // Check if we're truncating to a non-standard type
@@ -454,8 +570,8 @@ static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promoted
     }
   }
 
-  // Create a new trunc for external users
-  Value *NewTrunc = Builder.CreateTrunc(PromotedSrc, DestTy);
+  // Create a new trunc for external users using adjustType
+  Value *NewTrunc = adjustType(PromotedSrc, DestTy, Builder, false, Indent + "  Creating external trunc: ");
   LLVM_DEBUG(dbgs() << Indent << "  " << *TruncI << "   promoting Trunc: ====> "
                     << *NewTrunc << "\n");
 
@@ -470,160 +586,205 @@ static void processTruncInst(TruncInst *TruncI, Type *NonStdType, Type *Promoted
     }
   }
 
-  Replacements.push_back(Replacement(TruncI, NewTrunc));
+  addReplacement(TruncI, NewTrunc, Replacements);
+  return NewTrunc;
 }
 
-static void processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type *PromotedTy,
+static Value *processBinaryOperator(BinaryOperator *BinOp, Type *NonStdType, Type *PromotedTy,
                                   IRBuilder<> &Builder, const std::string &Indent,
                                   SmallVectorImpl<Replacement> &Replacements,
                                   SmallDenseMap<Value *, Value *> &PromotedValues) {
-  bool NeedsPromotion = (BinOp->getType() == NonStdType);
+  Value *OrigLHS = BinOp->getOperand(0);
+  Value *OrigRHS = BinOp->getOperand(1);
 
-  Value *LHS = getPromotedValue(BinOp->getOperand(0), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
-  Value *RHS = getPromotedValue(BinOp->getOperand(1), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  // Get potentially promoted operands
+  Value *LHS = getPromotedValue(OrigLHS, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *RHS = getPromotedValue(OrigRHS, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
-  Value *NewInst;
-  if (NeedsPromotion) {
-    // Create operation in promoted type
-    LLVM_DEBUG(dbgs() << Indent << "  Creating a binary operation Opcode: " << BinOp->getOpcodeName() << " LHS: " << *LHS << " and RHS: " << *RHS << "\n");
-    NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
-  } else {
-    // For operations that should stay in original type
-    Type* OriginalType = BinOp->getType();
-    if (LHS->getType() != OriginalType) {
-        if (LHS->getType()->getPrimitiveSizeInBits() > OriginalType->getPrimitiveSizeInBits())
-            LHS = Builder.CreateTrunc(LHS, OriginalType);
-        else if (LHS->getType()->getPrimitiveSizeInBits() < OriginalType->getPrimitiveSizeInBits())
-             LHS = Builder.CreateZExt(LHS, OriginalType);
-        else
-             LHS = Builder.CreateBitCast(LHS, OriginalType);
-    }
-    if (RHS->getType() != OriginalType) {
-         if (RHS->getType()->getPrimitiveSizeInBits() > OriginalType->getPrimitiveSizeInBits())
-            RHS = Builder.CreateTrunc(RHS, OriginalType);
-        else if (RHS->getType()->getPrimitiveSizeInBits() < OriginalType->getPrimitiveSizeInBits())
-             RHS = Builder.CreateZExt(RHS, OriginalType);
-        else
-             RHS = Builder.CreateBitCast(RHS, OriginalType);
-    }
-    NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
+  // --- IR Examples after getPromotedValue ---
+  // Assume NonStdType = i33, PromotedTy = i64
+  //
+  // Example 1: %orig_add = add i33 %inst_i33, i33 5
+  //   OrigLHS = %inst_i33 (result of some preceding non-std instruction)
+  //   OrigRHS = i33 5 (ConstantInt)
+  // After getPromotedValue:
+  //   LHS = result of adjustType(%inst_i33, i64, ...), likely a zext: '%inst_i33.zext = zext i33 %inst_i33 to i64'
+  //   RHS = original ConstantInt* for i33 5 (getPromotedValue no longer promotes constants)
+  // Later, adjustType will see RHS is i33 5 and create a 'zext i33 5 to i64' for the add.
+  //
+  // Example 2: %orig_sub = sub i64 %std_val, i64 %promoted_non_std
+  //   OrigLHS = %std_val (i64)
+  //   OrigRHS = %promoted_non_std (i64, already promoted from i33 earlier)
+  // After getPromotedValue:
+  //   LHS = %std_val (already i64)
+  //   RHS = %promoted_non_std (already i64)
+  // Later, adjustType will see types match TargetType (i64) and do nothing.
+  //
+  // Example 3: %orig_sdiv = sdiv i33 %another_inst, i33 -1
+  //   OrigLHS = %another_inst (i33)
+  //   OrigRHS = i33 -1 (ConstantInt)
+  // After getPromotedValue:
+  //   LHS = result of adjustType, e.g., '%another_inst.zext = zext i33 %another_inst to i64'
+  //   RHS = original ConstantInt* for i33 -1
+  // Later, adjustType will see RHS is i33 -1 and the opcode is SDiv,
+  // so it will create a 'sext i33 -1 to i64' for the sdiv.
+  // --- End IR Examples ---
+
+  // Determine the target type for the new binary operation
+  Type* TargetType = PromotedTy; // Default to promoted type
+  if (!isNonStandardInt(BinOp->getType())) { 
+      // If original result was standard, then operands must have been too.
+      // Use the original standard type for the new operation.
+      TargetType = BinOp->getType();
   }
+  LLVM_DEBUG(dbgs() << Indent << "    Determined BinOp TargetType: " << *TargetType << "\n");
+
+  bool NeedsSExt = false;
+  // Determine if operands require signed extension before the binary operation
+  switch (BinOp->getOpcode()) {
+    case Instruction::SDiv:
+    case Instruction::SRem:
+    case Instruction::AShr:
+      NeedsSExt = true;
+      break;
+    case Instruction::UDiv:
+    case Instruction::URem:
+    case Instruction::Add:
+    case Instruction::Sub:
+    case Instruction::Mul:
+    case Instruction::And:
+    case Instruction::Or:
+    case Instruction::Xor:
+    case Instruction::Shl:
+    case Instruction::LShr:
+      NeedsSExt = false;
+      break;
+    default:
+      assert(false && "Unsupported binary operator");
+  }
+  LHS = adjustType(LHS, TargetType, Builder, NeedsSExt, Indent + "      ");
+  RHS = adjustType(RHS, TargetType, Builder, NeedsSExt, Indent + "      ");
+
+  // Now LHS and RHS must have the same type
+  assert(LHS->getType() == RHS->getType() && "Operand types mismatch for BinOp after adjustment!");
+  Value *NewInst = Builder.CreateBinOp(BinOp->getOpcode(), LHS, RHS);
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *BinOp << "   promoting BinOp: ====> "
                     << *NewInst << "\n");
-  PromotedValues[BinOp] = NewInst;
-  Replacements.push_back(Replacement(BinOp, NewInst));
+  finalizePromotion(BinOp, NewInst, Replacements, PromotedValues);
+  return NewInst;
 }
 
-static void processSelectInst(SelectInst *SelI, Type *NonStdType, Type *PromotedTy,
+static Value *processSelectInst(SelectInst *SelI, Type *NonStdType, Type *PromotedTy,
                               IRBuilder<> &Builder, const std::string &Indent,
                               SmallVectorImpl<Replacement> &Replacements,
                               SmallDenseMap<Value *, Value *> &PromotedValues) {
-  bool NeedsPromotion = (SelI->getType() == NonStdType);
+  Value *OrigCond = SelI->getCondition();
+  Value *OrigTrue = SelI->getTrueValue();
+  Value *OrigFalse = SelI->getFalseValue();
 
-  // Get promoted operands
-  Value *Condition = getPromotedValue(SelI->getCondition(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
-  Value *TrueVal = getPromotedValue(SelI->getTrueValue(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
-  Value *FalseVal = getPromotedValue(SelI->getFalseValue(), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  // Get potentially promoted operands
+  Value *Condition = getPromotedValue(OrigCond, NonStdType, PromotedTy, Builder, Indent, PromotedValues); // Condition is usually i1
+  Value *TrueVal = getPromotedValue(OrigTrue, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *FalseVal = getPromotedValue(OrigFalse, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
   // Make sure condition is i1
-  if (Condition->getType() != Type::getInt1Ty(SelI->getContext())) {
+  Type *Int1Ty = Type::getInt1Ty(SelI->getContext());
+  if (Condition->getType() != Int1Ty) {
     LLVM_DEBUG(dbgs() << Indent << "    Converting condition to i1: " << *Condition << "\n");
-    Condition = Builder.CreateICmpNE(
-        Condition,
-        Constant::getNullValue(Condition->getType()),
-        "select.cond");
-  }
-
-  Value *NewSelect;
-  if (NeedsPromotion) {
-    // Create operation in promoted type
-    NewSelect = Builder.CreateSelect(Condition, TrueVal, FalseVal, SelI->getName());
-  } else {
-    // For operations that should stay in original type
-    Type *OriginalType = SelI->getType();
-
-    // True and false values must match the select's type
-    auto adjustType = [&](Value *V, const std::string& val_name) -> Value* {
-        if (V->getType() != OriginalType) {
-            if (V->getType()->getPrimitiveSizeInBits() > OriginalType->getPrimitiveSizeInBits()) {
-                V = Builder.CreateTrunc(V, OriginalType);
-                LLVM_DEBUG(dbgs() << Indent << "    Truncating " << val_name << " value to match select type\n");
-            } else if (V->getType()->getPrimitiveSizeInBits() < OriginalType->getPrimitiveSizeInBits()) {
-                V = Builder.CreateZExt(V, OriginalType);
-                LLVM_DEBUG(dbgs() << Indent << "    Extending " << val_name << " value to match select type\n");
-            } else {
-                V = Builder.CreateBitCast(V, OriginalType);
-                LLVM_DEBUG(dbgs() << Indent << "    Bitcasting " << val_name << " value to match select type\n");
-            }
+    // If condition itself was non-std, it needs promotion first
+    if (isNonStandardInt(Condition->getType())) {
+        Type* ConditionPromotedTy = Type::getIntNTy(Condition->getContext(), HipPromoteIntsPass::getPromotedBitWidth(Condition->getType()->getIntegerBitWidth()));
+        if (isa<ConstantInt>(Condition)) {
+             // Assume ZExt for condition constants, unlikely to be signed comparison result
+             Condition = adjustType(Condition, ConditionPromotedTy, Builder, false, Indent + "      ", ".zext");
+             LLVM_DEBUG(dbgs() << Indent << "      Created ZExt via adjustType: " << *Condition << "\n");
+        } else {
+            Condition = adjustType(Condition, ConditionPromotedTy, Builder, false, Indent + "  Adjusting NonStd Cond: ");
         }
-        return V;
-    };
-    TrueVal = adjustType(TrueVal, "true");
-    FalseVal = adjustType(FalseVal, "false");
-
-    NewSelect = Builder.CreateSelect(Condition, TrueVal, FalseVal, SelI->getName());
+    }
+    // Create comparison if necessary after potential promotion
+    if (Condition->getType() != Int1Ty) {
+         Condition = Builder.CreateICmpNE(
+            Condition,
+            Constant::getNullValue(Condition->getType()),
+            SelI->getName() + ".cond"); // Use Select name for clarity
+         LLVM_DEBUG(dbgs() << Indent << "      Created NE comparison: " << *Condition << "\n");
+    } else {
+         LLVM_DEBUG(dbgs() << Indent << "      Condition already i1 after promotion/adjustment." << "\n");
+    }
   }
+
+  // Determine the target type for the select result and true/false values
+  Type* TargetType = PromotedTy; // Default
+   if (!isNonStandardInt(SelI->getType())) { // Original Select result is standard
+      // If original result was standard, true/false values must also have been standard.
+      // Use the original standard type.
+      TargetType = SelI->getType();
+  }
+  // NOTE: Removed redundant check on operands and isStandardBitWidth call
+   LLVM_DEBUG(dbgs() << Indent << "    Determined Select TargetType: " << *TargetType << "\n");
+
+  // Extend or adjust TrueVal and FalseVal to the target type
+  TrueVal  = adjustType(TrueVal,  TargetType, Builder, false, Indent + "      ");
+  FalseVal = adjustType(FalseVal, TargetType, Builder, false, Indent + "      ");
+
+  // Now TrueVal and FalseVal must have the same type
+  assert(TrueVal->getType() == FalseVal->getType() && "Operand types mismatch for Select after adjustment!");
+  Value *NewSelect = Builder.CreateSelect(Condition, TrueVal, FalseVal, SelI->getName());
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *SelI << "   promoting Select: ====> "
                     << *NewSelect << "\n");
-  PromotedValues[SelI] = NewSelect;
-  Replacements.push_back(Replacement(SelI, NewSelect));
+  finalizePromotion(SelI, NewSelect, Replacements, PromotedValues);
+  return NewSelect;
 }
 
-static void processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
+static Value *processICmpInst(ICmpInst *CmpI, Type *NonStdType, Type *PromotedTy,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
-  // Get promoted operands
-  Value *LHS = getPromotedValue(CmpI->getOperand(0), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
-  Value *RHS = getPromotedValue(CmpI->getOperand(1), NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *OrigLHS = CmpI->getOperand(0);
+  Value *OrigRHS = CmpI->getOperand(1);
 
-  // Make sure operands are of same type for comparison
-  if (LHS->getType() != RHS->getType()) {
-    // Determine the common type (prefer promoted type if involved)
-    Type *CommonType = nullptr;
-    if (LHS->getType() == PromotedTy || RHS->getType() == PromotedTy) {
-        CommonType = PromotedTy;
-    } else {
-        // If neither is promoted type but they still differ, convert to largest type
-        CommonType = LHS->getType()->getPrimitiveSizeInBits() >
-                     RHS->getType()->getPrimitiveSizeInBits() ?
-                     LHS->getType() : RHS->getType();
-    }
+  // Get potentially promoted operands (getPromotedValue now returns original ConstInts)
+  Value *LHS = getPromotedValue(OrigLHS, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *RHS = getPromotedValue(OrigRHS, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
 
-    // Cast LHS if needed
-    if (LHS->getType() != CommonType) {
-        if (LHS->getType()->getPrimitiveSizeInBits() < CommonType->getPrimitiveSizeInBits())
-            LHS = Builder.CreateZExt(LHS, CommonType);
-        else if (LHS->getType()->getPrimitiveSizeInBits() > CommonType->getPrimitiveSizeInBits())
-            LHS = Builder.CreateTrunc(LHS, CommonType);
-        else
-            LHS = Builder.CreateBitCast(LHS, CommonType);
-        LLVM_DEBUG(dbgs() << Indent << "    Adjusting ICmp LHS type to " << *CommonType << "\n");
-    }
-    // Cast RHS if needed
-    if (RHS->getType() != CommonType) {
-         if (RHS->getType()->getPrimitiveSizeInBits() < CommonType->getPrimitiveSizeInBits())
-            RHS = Builder.CreateZExt(RHS, CommonType);
-        else if (RHS->getType()->getPrimitiveSizeInBits() > CommonType->getPrimitiveSizeInBits())
-            RHS = Builder.CreateTrunc(RHS, CommonType);
-        else
-            RHS = Builder.CreateBitCast(RHS, CommonType);
-        LLVM_DEBUG(dbgs() << Indent << "    Adjusting ICmp RHS type to " << *CommonType << "\n");
-    }
+  // Determine the common type for comparison. Usually PromotedTy if non-std involved.
+  Type *CompareType = PromotedTy; // Default to the wider promoted type
+  if (!isNonStandardInt(OrigLHS->getType()) && !isNonStandardInt(OrigRHS->getType())) {
+      // Both original operands are standard. Compare using the wider standard type if possible.
+      Type* LHSTy = LHS->getType(); // Type after getPromotedValue
+      Type* RHSTy = RHS->getType(); // Type after getPromotedValue
+      
+      // Check if both types are integers before comparing bit widths
+      if (LHSTy->isIntegerTy() && RHSTy->isIntegerTy()) {
+         unsigned LHSBits = LHSTy->getIntegerBitWidth();
+         unsigned RHSBits = RHSTy->getIntegerBitWidth();
+         CompareType = LHSBits >= RHSBits ? LHSTy : RHSTy;
+      } else {
+         assert(false && "Comparisons between non-integer types are not supported");
+      }
   }
+  // NOTE: Removed potentially unsafe call to getIntegerBitWidth on CompareType here.
+   LLVM_DEBUG(dbgs() << Indent << "    Determined ICmp CompareType: " << *CompareType << "\n");
 
-  // Create new comparison instruction
+  // Extend or adjust operands *to the determined comparison type*
+  LHS = adjustType(LHS, CompareType, Builder, CmpI->isSigned(), Indent + "      ");
+  RHS = adjustType(RHS, CompareType, Builder, CmpI->isSigned(), Indent + "      ");
+
+  // Now LHS and RHS must have the same type
+  assert(LHS->getType() == RHS->getType() && "Operand types mismatch for ICmp after adjustment!");
+  // Create new comparison instruction (result is always i1)
   Value *NewCmp = Builder.CreateICmp(CmpI->getPredicate(), LHS, RHS, CmpI->getName());
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *CmpI << "   promoting ICmp: ====> "
                     << *NewCmp << "\n");
-  PromotedValues[CmpI] = NewCmp;
-  Replacements.push_back(Replacement(CmpI, NewCmp));
+  finalizePromotion(CmpI, NewCmp, Replacements, PromotedValues);
+  return NewCmp;
 }
 
-static void processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedTy,
+static Value *processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedTy,
                             IRBuilder<> &Builder, const std::string &Indent,
                             SmallVectorImpl<Replacement> &Replacements,
                             SmallDenseMap<Value *, Value *> &PromotedValues) {
@@ -638,26 +799,9 @@ static void processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedT
     // we need to convert it back to the expected type
     Type *ExpectedType = OldCall->getFunctionType()->getParamType(i);
     if (NewArg->getType() != ExpectedType) {
-      // Check if we need to truncate or extend
-      if (auto *IntTy = dyn_cast<IntegerType>(ExpectedType)) {
-        if (auto *ArgIntTy = dyn_cast<IntegerType>(NewArg->getType())) {
-          // If expected type is smaller, truncate
-          if (IntTy->getBitWidth() < ArgIntTy->getBitWidth()) {
-            NewArg = Builder.CreateTrunc(NewArg, ExpectedType);
-            LLVM_DEBUG(dbgs() << Indent << "    Truncating argument " << i << " from "
-                     << *ArgIntTy << " to " << *IntTy << "\n");
-          }
-          // If expected type is larger, extend
-          else if (IntTy->getBitWidth() > ArgIntTy->getBitWidth()) {
-            NewArg = Builder.CreateZExt(NewArg, ExpectedType);
-            LLVM_DEBUG(dbgs() << Indent << "    Extending argument " << i << " from "
-                     << *ArgIntTy << " to " << *IntTy << "\n");
-          } else {
-            NewArg = Builder.CreateBitCast(NewArg, ExpectedType);
-            LLVM_DEBUG(dbgs() << Indent << "    Bitcasting argument " << i << " to " << *IntTy << "\n");
-          }
-        }
-      }
+      // Use adjustType to convert argument back to expected type
+      LLVM_DEBUG(dbgs() << Indent << "    Adjusting argument " << i << " from " << *NewArg->getType() << " to " << *ExpectedType << "\n");
+      NewArg = adjustType(NewArg, ExpectedType, Builder, false, Indent + "      Adjusting arg: ");
     }
 
     NewArgs.push_back(NewArg);
@@ -671,45 +815,72 @@ static void processCallInst(CallInst *OldCall, Type *NonStdType, Type *PromotedT
 
   LLVM_DEBUG(dbgs() << Indent << "  " << *OldCall << "   promoting Call: ====> "
                     << *NewCall << "\n");
-  PromotedValues[OldCall] = NewCall;
-  Replacements.push_back(Replacement(OldCall, NewCall));
+  finalizePromotion(OldCall, NewCall, Replacements, PromotedValues);
+  return NewCall;
 }
 
-static void processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedTy,
+static Value *processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedTy,
                              IRBuilder<> &Builder, const std::string &Indent,
                              SmallVectorImpl<Replacement> &Replacements,
                              SmallDenseMap<Value *, Value *> &PromotedValues) {
-  // Get the value being stored (possibly promoted)
-  Value *StoredValue = Store->getValueOperand();
-  Value *NewStoredValue = getPromotedValue(StoredValue, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Value *OrigValue = Store->getValueOperand();
+  Value *OrigPtr = Store->getPointerOperand();
 
-  // Get the pointer (we don't normally promote pointers)
-  Value *Ptr = Store->getPointerOperand();
-
-  // Check if the value type needs adjustment to match what's expected by the store
-  Type *ExpectedType = StoredValue->getType();
-  if (NewStoredValue->getType() != ExpectedType) {
-    // If the promoted value is larger, truncate it back
-    if (NewStoredValue->getType()->getPrimitiveSizeInBits() > ExpectedType->getPrimitiveSizeInBits()) {
-      LLVM_DEBUG(dbgs() << Indent << "    Truncating store value from "
-                       << *NewStoredValue->getType() << " to " << *ExpectedType << "\n");
-      NewStoredValue = Builder.CreateTrunc(NewStoredValue, ExpectedType);
-    }
-    // If it's smaller (unusual), extend it
-    else if (NewStoredValue->getType()->getPrimitiveSizeInBits() < ExpectedType->getPrimitiveSizeInBits()) {
-      LLVM_DEBUG(dbgs() << Indent << "    Extending store value from "
-                       << *NewStoredValue->getType() << " to " << *ExpectedType << "\n");
-      NewStoredValue = Builder.CreateZExt(NewStoredValue, ExpectedType);
-    }
-    // If same size but different types, bitcast
-    else {
-      LLVM_DEBUG(dbgs() << Indent << "    Bitcasting store value to match original type\n");
-      NewStoredValue = Builder.CreateBitCast(NewStoredValue, ExpectedType);
+  // Promote store of non-standard integer types by bitcasting pointer and storing promoted type.
+  if (auto *ValIntTy = dyn_cast<IntegerType>(OrigValue->getType())) {
+    unsigned BW = ValIntTy->getBitWidth();
+    if (!HipPromoteIntsPass::isStandardBitWidth(BW)) {
+      LLVM_DEBUG(dbgs() << Indent << "Promoting store of non-standard i" << BW << "\n");
+      // Determine the promoted integer type and address space
+      unsigned NewBW = HipPromoteIntsPass::getPromotedBitWidth(BW);
+      LLVMContext &Ctx = Store->getContext();
+      Type *PromTy = Type::getIntNTy(Ctx, NewBW);
+      unsigned AS = OrigPtr->getType()->getPointerAddressSpace();
+      PointerType *NewPtrTy = PointerType::get(PromTy, AS);
+      // Bitcast the pointer to the promoted pointer type
+      Value *CastPtr = Builder.CreateBitCast(OrigPtr, NewPtrTy, Store->getName() + ".promote_ptr");
+      // Obtain the promoted value (zero/sign extension handled by getPromotedValue)
+      Value *PromValue = getPromotedValue(OrigValue, OrigValue->getType(), PromTy, Builder, Indent, PromotedValues);
+      // Create the promoted store
+      StoreInst *NewStore = Builder.CreateStore(PromValue, CastPtr);
+      NewStore->setAlignment(Store->getAlign());
+      NewStore->setVolatile(Store->isVolatile());
+      NewStore->setOrdering(Store->getOrdering());
+      NewStore->setSyncScopeID(Store->getSyncScopeID());
+      addReplacement(Store, NewStore, Replacements);
+      return NewStore;
     }
   }
 
+  // Get the value being stored (possibly promoted)
+  Value *StoredValue = getPromotedValue(OrigValue, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+  // Get the pointer (we don't normally promote pointers)
+  Value *Ptr = getPromotedValue(OrigPtr, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+  // Determine the type expected by the store based on the pointer
+  Type *ExpectedType = Store->getValueOperand()->getType(); // Original value's type
+   // More robust way if pointer type changed (though unlikely here):
+   // Type *ExpectedType = cast<PointerType>(Ptr->getType())->getElementType();
+
+  // Check if the value is a NonStd ConstantInt needing specific extension
+  if (isa<ConstantInt>(StoredValue) && isNonStandardInt(StoredValue->getType())) {
+      LLVM_DEBUG(dbgs() << Indent << "    Extending NonStd ConstantInt for Store: " << *StoredValue << "\n");
+      // Store doesn't imply signedness, use ZExt before potential truncation
+      Value *ExtendedValue = adjustType(StoredValue, PromotedTy, Builder, false, Indent + "      ", ".store.zext");
+      LLVM_DEBUG(dbgs() << Indent << "      using ZExt to " << *PromotedTy << " -> " << *ExtendedValue << "\n");
+      StoredValue = ExtendedValue; // Use the extended value for further adjustment
+  }
+
+  // Check if the potentially extended value type needs adjustment to match what's expected by the store
+  if (StoredValue->getType() != ExpectedType) {
+    // Use adjustType to convert the stored value back to the expected type (e.g., truncate)
+    LLVM_DEBUG(dbgs() << Indent << "    Adjusting store value from " << *StoredValue->getType() << " to " << *ExpectedType << "\n");
+    StoredValue = adjustType(StoredValue, ExpectedType, Builder, false, Indent + "      Adjusting store val: ");
+  }
+
   // Create a new store instruction
-  StoreInst *NewStore = Builder.CreateStore(NewStoredValue, Ptr);
+  StoreInst *NewStore = Builder.CreateStore(StoredValue, Ptr);
 
   // Preserve the alignment and other attributes from the original store
   NewStore->setAlignment(Store->getAlign());
@@ -720,72 +891,55 @@ static void processStoreInst(StoreInst *Store, Type *NonStdType, Type *PromotedT
   LLVM_DEBUG(dbgs() << Indent << "  " << *Store << "   promoting Store: ====> "
                     << *NewStore << "\n");
   // Store instructions don't produce a value, so we don't put them in PromotedValues
-  Replacements.push_back(Replacement(Store, NewStore));
+  addReplacement(Store, NewStore, Replacements);
+  return NewStore;
 }
 
 
-static void processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy,
-                            IRBuilder<> &Builder, const std::string &Indent,
-                            SmallVectorImpl<Replacement> &Replacements,
-                            SmallDenseMap<Value *, Value *> &PromotedValues) {
-   // Get the pointer operand
+static Value *processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy,
+                              IRBuilder<> &Builder, const std::string &Indent,
+                              SmallVectorImpl<Replacement> &Replacements,
+                              SmallDenseMap<Value *, Value *> &PromotedValues) {
   Value *Ptr = Load->getPointerOperand();
-
-  // Create a new load instruction with the original type
+  // Promote non-standard integer loads by casting pointer and loading the promoted type.
+  if (auto *IntTy = dyn_cast<IntegerType>(Load->getType())) {
+    unsigned BW = IntTy->getBitWidth();
+    if (!HipPromoteIntsPass::isStandardBitWidth(BW)) {
+      LLVM_DEBUG(dbgs() << Indent << "Promoting load of non-standard i" << BW << "\n");
+      LLVMContext &Ctx = Load->getContext();
+      unsigned NewBW = HipPromoteIntsPass::getPromotedBitWidth(BW);
+      Type *NewIntTy = Type::getIntNTy(Ctx, NewBW);
+      // Bitcast the pointer to point to the promoted integer type
+      PointerType *NewPtrTy = PointerType::get(NewIntTy, 
+                                  Ptr->getType()->getPointerAddressSpace());
+      Value *CastPtr = Builder.CreateBitCast(Ptr, NewPtrTy, Load->getName() + ".promote_ptr");
+      // Create the promoted load
+      LoadInst *NewLoad = Builder.CreateLoad(NewIntTy, CastPtr, Load->getName() + ".promote");
+      NewLoad->setAlignment(Load->getAlign());
+      NewLoad->setVolatile(Load->isVolatile());
+      NewLoad->setOrdering(Load->getOrdering());
+      NewLoad->setSyncScopeID(Load->getSyncScopeID());
+      PromotedValues[Load] = NewLoad;
+      addReplacement(Load, NewLoad, Replacements);
+      return NewLoad;
+    }
+  }
+  // Fallback: standard-width load
   LoadInst *NewLoad = Builder.CreateLoad(Load->getType(), Ptr, Load->getName());
-
-  // Preserve the alignment and other attributes from the original load
   NewLoad->setAlignment(Load->getAlign());
   NewLoad->setVolatile(Load->isVolatile());
   NewLoad->setOrdering(Load->getOrdering());
   NewLoad->setSyncScopeID(Load->getSyncScopeID());
-
-  // Now, check if the loaded value is of a non-standard type that needs promotion
-  Value *ResultValue = NewLoad; // Default to the newly created load
-  if (auto *IntTy = dyn_cast<IntegerType>(Load->getType())) {
-    if (!HipPromoteIntsPass::isStandardBitWidth(IntTy->getBitWidth())) {
-      // Promote to standard width
-      Type *PromotedLoadType = HipPromoteIntsPass::getPromotedType(Load->getType());
-      Value *PromotedValue = nullptr;
-
-      // Use a temporary builder positioned *after* the NewLoad
-      IRBuilder<> AfterLoadBuilder(NewLoad->getNextNode());
-
-      if (Load->getType()->getPrimitiveSizeInBits() < PromotedLoadType->getPrimitiveSizeInBits()) {
-        LLVM_DEBUG(dbgs() << Indent << "    ZExting loaded value from non-standard type\n");
-        PromotedValue = AfterLoadBuilder.CreateZExt(NewLoad, PromotedLoadType, Load->getName() + ".promoted");
-      } else if (Load->getType()->getPrimitiveSizeInBits() > PromotedLoadType->getPrimitiveSizeInBits()) {
-        LLVM_DEBUG(dbgs() << Indent << "    Truncing loaded value from non-standard type\n");
-        PromotedValue = AfterLoadBuilder.CreateTrunc(NewLoad, PromotedLoadType, Load->getName() + ".promoted");
-      } else {
-        LLVM_DEBUG(dbgs() << Indent << "    Bitcasting loaded value from non-standard type\n");
-        PromotedValue = AfterLoadBuilder.CreateBitCast(NewLoad, PromotedLoadType, Load->getName() + ".promoted");
-      }
-
-      // For non-standard types, we want to use the promoted value internally
-      ResultValue = PromotedValue;
-      LLVM_DEBUG(dbgs() << Indent << "  " << *Load << "   promoting Load (non-standard): ====> "
-                       << *ResultValue << " (via " << *NewLoad << ")\n");
-    } else {
-        LLVM_DEBUG(dbgs() << Indent << "  " << *Load << "   promoting Load (standard): ====> "
-                         << *ResultValue << "\n");
-    }
-  } else {
-    // Non-integer types are not promoted
-    LLVM_DEBUG(dbgs() << Indent << "  " << *Load << "   promoting Load (non-int): ====> "
-                     << *ResultValue << "\n");
-  }
-
-  // Map the original load instruction to the potentially promoted value for internal use
-  PromotedValues[Load] = ResultValue;
-  // Replace the original load instruction with the new load instruction (which has the original type)
-  Replacements.push_back(Replacement(Load, NewLoad));
+  PromotedValues[Load] = NewLoad;
+  addReplacement(Load, NewLoad, Replacements);
+  return NewLoad;
 }
 
-static void processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *PromotedTy,
+static Value *processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *PromotedTy,
                               IRBuilder<> &Builder, const std::string &Indent,
                               SmallVectorImpl<Replacement> &Replacements,
                               SmallDenseMap<Value *, Value *> &PromotedValues) {
+  ReturnInst *NewRet = nullptr;
    // If there's a return value, check if it needs to be promoted/adjusted
   if (RetI->getNumOperands() > 0) {
     Value *RetVal = RetI->getReturnValue();
@@ -794,100 +948,282 @@ static void processReturnInst(ReturnInst *RetI, Type *NonStdType, Type *Promoted
     // Make sure the return value matches the function's return type
     Type *FuncRetType = RetI->getFunction()->getReturnType();
     if (NewRetVal->getType() != FuncRetType) {
-      // If the function return type is larger than the value type, extend it
-      if (NewRetVal->getType()->getPrimitiveSizeInBits() < FuncRetType->getPrimitiveSizeInBits()) {
-          LLVM_DEBUG(dbgs() << Indent << "    Extending return value for function type\n");
-          NewRetVal = Builder.CreateZExt(NewRetVal, FuncRetType);
-      }
-      // If the function return type is smaller, truncate it
-      else if (NewRetVal->getType()->getPrimitiveSizeInBits() > FuncRetType->getPrimitiveSizeInBits()) {
-           LLVM_DEBUG(dbgs() << Indent << "    Truncating return value for function type\n");
-           NewRetVal = Builder.CreateTrunc(NewRetVal, FuncRetType);
-      } else {
-           LLVM_DEBUG(dbgs() << Indent << "    Bitcasting return value for function type\n");
-           NewRetVal = Builder.CreateBitCast(NewRetVal, FuncRetType);
-      }
+      // Use adjustType to match the function's return type
+      LLVM_DEBUG(dbgs() << Indent << "    Adjusting return value to match function type\n");
+      NewRetVal = adjustType(NewRetVal, FuncRetType, Builder, false, Indent + "      Adjusting ret val: ");
     }
 
     // Create a new return instruction with the correctly typed value
-    ReturnInst *NewRet = Builder.CreateRet(NewRetVal);
+    NewRet = Builder.CreateRet(NewRetVal);
 
     LLVM_DEBUG(dbgs() << Indent << "  " << *RetI << "   promoting Return: ====> "
                       << *NewRet << "\n");
     // Return instructions don't produce a value, so we don't put them in PromotedValues
-    Replacements.push_back(Replacement(RetI, NewRet));
+    addReplacement(RetI, NewRet, Replacements);
   } else {
     // Handle void return
-    ReturnInst *NewRet = Builder.CreateRetVoid();
+    NewRet = Builder.CreateRetVoid();
     LLVM_DEBUG(dbgs() << Indent << "  " << *RetI << "   promoting Return: ====> "
                       << *NewRet << "\n");
     // Return instructions don't produce a value, so we don't put them in PromotedValues
-    Replacements.push_back(Replacement(RetI, NewRet));
+    addReplacement(RetI, NewRet, Replacements);
   }
+  return NewRet;
 }
 
-void processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
+// Add new handler for BitCastInst
+static Value *processBitCastInst(BitCastInst *BitCast, Type *NonStdType, Type *PromotedTy,
+                             IRBuilder<> &Builder, const std::string &Indent,
+                             SmallVectorImpl<Replacement> &Replacements,
+                             SmallDenseMap<Value *, Value *> &PromotedValues) {
+  Value *SrcOp = BitCast->getOperand(0);
+  Value *PromotedSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+  Type *DestTy = BitCast->getDestTy();
+  Type *TargetType = DestTy; // Default to original destination type
+
+  // If the destination type was non-standard, we need to cast to the *promoted* type instead.
+  if (isNonStandardInt(DestTy)) {
+    TargetType = HipPromoteIntsPass::getPromotedType(DestTy);
+     LLVM_DEBUG(dbgs() << Indent << "    Changing bitcast target from non-standard " << *DestTy << " to " << *TargetType << "\n");
+  }
+
+  // Adjust the source operand to the target type if necessary *before* creating the new BitCastInst
+  PromotedSrc = adjustType(PromotedSrc, TargetType, Builder, false, Indent + "  Adjusting BitCast Src: ");
+
+  Value *NewInst = Builder.CreateBitCast(PromotedSrc, TargetType);
+  LLVM_DEBUG(dbgs() << Indent << "  " << *BitCast << "   promoting BitCast: ====> "
+                    << *NewInst << "\n");
+  finalizePromotion(BitCast, NewInst, Replacements, PromotedValues);
+  return NewInst;
+}
+
+// Add new handler for ExtractElementInst
+static Value *processExtractElementInst(ExtractElementInst *ExtractI, Type *NonStdType, Type *PromotedTy,
+                                    IRBuilder<> &Builder, const std::string &Indent,
+                                    SmallVectorImpl<Replacement> &Replacements,
+                                    SmallDenseMap<Value *, Value *> &PromotedValues) {
+  Value *VecOp = ExtractI->getVectorOperand();
+  Value *IndexOp = ExtractI->getIndexOperand(); // Index type is usually standard (i32/i64)
+  Type *ElementTy = ExtractI->getType(); // The type of the element being extracted
+
+  // Get the potentially promoted vector operand
+  // Note: Promoting vectors themselves might be complex. For now, assume getPromotedValue handles it
+  // if the *element type* of the vector matches NonStdType. This might need refinement.
+  Value *PromotedVecOp = getPromotedValue(VecOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+  // Determine the target type for the extracted element
+  Type* TargetElementType = ElementTy;
+  if (isNonStandardInt(ElementTy)) {
+      TargetElementType = HipPromoteIntsPass::getPromotedType(ElementTy);
+      LLVM_DEBUG(dbgs() << Indent << "    Changing extractelement result type from non-standard " << *ElementTy << " to " << *TargetElementType << "\n");
+  }
+
+  // Check if the promoted vector operand's element type matches the target element type
+  Type* PromotedVecElementTy = cast<VectorType>(PromotedVecOp->getType())->getElementType();
+
+  // If the promoted vector's element type is different from the target type we need,
+  // we might need an intermediate bitcast of the vector or element-wise conversion.
+  // For simplicity, let's assume for now that getPromotedValue gave us a vector
+  // whose element type matches the *PromotedTy* if the original vector element was NonStdType.
+  // If the original element type was standard, PromotedVecOp should be the original vector.
+  if (isNonStandardInt(ElementTy) && PromotedVecElementTy != TargetElementType) {
+      // This case is complex. How did getPromotedValue handle the vector?
+      // Let's adjust the PromotedVecOp *if* its element type matches the global PromotedTy
+      if (PromotedVecElementTy == PromotedTy) {
+         // We have a vector of PromotedTy, but we need to extract TargetElementType.
+         // This usually implies the original extract was non-std -> non-std.
+         // We create the extract with PromotedTy elements first.
+         Value *ExtractPromoted = Builder.CreateExtractElement(PromotedVecOp, IndexOp);
+         // Then adjust the result.
+         Value* NewInst = adjustType(ExtractPromoted, TargetElementType, Builder, false, Indent + "  Adjusting Extracted Element: ");
+         LLVM_DEBUG(dbgs() << Indent << "  " << *ExtractI << "   promoting ExtractElement (adjusting result): ====> " << *NewInst << "\n");
+         finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
+         return NewInst;
+      } else {
+        // If PromotedVecElementTy is neither the original ElementTy nor the PromotedTy,
+        // this scenario needs more complex handling (potentially element-wise zext/trunc on vector).
+        // For now, assert or fallback to simpler logic.
+         LLVM_DEBUG(dbgs() << Indent << "WARN: Unhandled case in ExtractElement promotion. Vector element type mismatch." << *PromotedVecOp->getType() << " vs " << *TargetElementType << "\n");
+         // Fallback: Create extract with original types (might fail later)
+         Value *NewInst = Builder.CreateExtractElement(VecOp, IndexOp);
+         finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
+         return NewInst;
+      }
+
+  }
+
+  // Create the new ExtractElement instruction using the potentially promoted vector
+  // and the target element type.
+  Value *NewInst = Builder.CreateExtractElement(PromotedVecOp, IndexOp);
+
+  // Adjust the result if the element type needs changing from what CreateExtractElement produced.
+  if (NewInst->getType() != TargetElementType) {
+      NewInst = adjustType(NewInst, TargetElementType, Builder, false, Indent + "  Adjusting Extracted Element Type: ");
+  }
+
+  LLVM_DEBUG(dbgs() << Indent << "  " << *ExtractI << "   promoting ExtractElement: ====> " << *NewInst << "\n");
+  finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
+  return NewInst;
+}
+
+// Add new handler for InsertElementInst
+static Value *processInsertElementInst(InsertElementInst *InsertI, Type *NonStdType, Type *PromotedTy,
+                                     IRBuilder<> &Builder, const std::string &Indent,
+                                     SmallVectorImpl<Replacement> &Replacements,
+                                     SmallDenseMap<Value *, Value *> &PromotedValues) {
+    Value *VecOp = InsertI->getOperand(0); // The vector being inserted into
+    Value *ElementOp = InsertI->getOperand(1); // The element being inserted
+    Value *IndexOp = InsertI->getOperand(2); // The index
+    Type *ResultVecTy = InsertI->getType(); // Type of the resulting vector
+
+    assert(isa<VectorType>(ResultVecTy) && "InsertElement should produce a vector type");
+    Type *VecElementTy = cast<VectorType>(ResultVecTy)->getElementType();
+
+    // Get potentially promoted operands
+    Value *PromotedVecOp = getPromotedValue(VecOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+    Value *PromotedElementOp = getPromotedValue(ElementOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+    // Determine the target type for the resulting vector and its elements
+    Type *TargetVecTy = ResultVecTy;
+    Type *TargetElementTy = VecElementTy;
+
+    if (isNonStandardInt(VecElementTy)) {
+        TargetElementTy = HipPromoteIntsPass::getPromotedType(VecElementTy);
+        TargetVecTy = VectorType::get(TargetElementTy, cast<VectorType>(ResultVecTy)->getElementCount());
+        LLVM_DEBUG(dbgs() << Indent << "    Changing insertelement result vector type from non-standard element " << *ResultVecTy << " to " << *TargetVecTy << "\n");
+    }
+
+    // Ensure the vector operand has the correct TargetVecTy
+    // Note: This assumes getPromotedValue correctly handled vector promotion if necessary.
+    // If the original vector had non-std elements, PromotedVecOp should ideally have TargetVecTy.
+    if (PromotedVecOp->getType() != TargetVecTy) {
+         LLVM_DEBUG(dbgs() << Indent << "    Adjusting InsertElement Vector Operand Type: " << *PromotedVecOp->getType() << " -> " << *TargetVecTy << "\n");
+         PromotedVecOp = adjustType(PromotedVecOp, TargetVecTy, Builder, false, Indent + "      ");
+    }
+
+    // Ensure the element operand has the correct TargetElementTy
+    if (PromotedElementOp->getType() != TargetElementTy) {
+        LLVM_DEBUG(dbgs() << Indent << "    Adjusting InsertElement Element Operand Type: " << *PromotedElementOp->getType() << " -> " << *TargetElementTy << "\n");
+        PromotedElementOp = adjustType(PromotedElementOp, TargetElementTy, Builder, false, Indent + "      ");
+    }
+
+    // Create the new InsertElement instruction
+    Value *NewInst = Builder.CreateInsertElement(PromotedVecOp, PromotedElementOp, IndexOp, InsertI->getName());
+
+    // Finalize promotion
+    LLVM_DEBUG(dbgs() << Indent << "  " << *InsertI << "   promoting InsertElement: ====> " << *NewInst << "\n");
+    finalizePromotion(InsertI, NewInst, Replacements, PromotedValues);
+    return NewInst;
+}
+
+// Add new handler for SExtInst
+static Value *processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being promoted, e.g. i56 */,
+                            Type *PromotedTy /* Type to promote to, e.g. i64 */,
+                            IRBuilder<> &Builder, const std::string &Indent,
+                            SmallVectorImpl<Replacement> &Replacements,
+                            SmallDenseMap<Value *, Value *> &PromotedValues) {
+  Value *SrcOp = SExtI->getOperand(0);
+  Type *SrcTy = SrcOp->getType();
+  Type *DestTy = SExtI->getDestTy();
+
+  // Get the source value (might be original NonStd ConstantInt)
+  Value *PromotedSrc = getPromotedValue(SrcOp, NonStdType, PromotedTy, Builder, Indent, PromotedValues);
+
+  bool IsSrcNonStandard = isNonStandardInt(SrcTy);
+  bool IsDestNonStandard = isNonStandardInt(DestTy);
+  Type *PromotedDestTy = IsDestNonStandard ? HipPromoteIntsPass::getPromotedType(DestTy) : DestTy;
+
+  Value *NewValue = nullptr;
+
+  // Check if SrcOp is a NonStd ConstantInt needing specific extension
+  if (isa<ConstantInt>(PromotedSrc) && IsSrcNonStandard) {
+      LLVM_DEBUG(dbgs() << Indent << "  Extending NonStd ConstantInt operand for SExt: " << *PromotedSrc << "\n");
+      NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, true, Indent, ".constexpr.sext"); // Note: NeedsSignedExt = true
+      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std const src): ====> " << *NewValue << "\n");
+      finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
+      return NewValue;
+  }
+
+  // Original Logic (slightly adapted)
+  if (IsSrcNonStandard) {
+    // Case 1: Source is Non-Standard (but not a ConstantInt, handled above)
+    // PromotedSrc should now have the PromotedTy (e.g., i64) from recursive processing
+    assert(PromotedSrc->getType() == PromotedTy && "Non-standard instruction source operand was not promoted correctly");
+
+    // Adjust the PromotedSrc (which is i64) to match the promoted destination type (PromotedDestTy)
+    LLVM_DEBUG(dbgs() << Indent << "    Adjusting NonStd Src for SExt: " << *PromotedSrc << " to " << *PromotedDestTy << "\n");
+    NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, true, Indent + "    Adjusting NonStd Src for SExt: "); // Note: NeedsSignedExt = true
+    if (NewValue == PromotedSrc) {
+      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std inst src, becomes no-op): ====> " << *NewValue << "\n");
+    } else {
+      LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std inst src, requires adjust): ====> " << *NewValue << "\n");
+    }
+    finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
+
+  } else if (IsDestNonStandard) {
+    // Case 2: Destination is Non-Standard (Source is Standard)
+    // PromotedSrc should have the original standard source type SrcTy.
+    assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard SExt source");
+
+    // Create SExt using the standard source (PromotedSrc) to the *promoted* destination type.
+    LLVM_DEBUG(dbgs() << Indent << "    Adjusting NonStd Dest for SExt: " << *PromotedSrc << " to " << *PromotedDestTy << "\n");
+    NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, true, Indent); // Note: NeedsSignedExt = true
+    LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std dest): ====> " << *NewValue << "\n");
+    finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
+
+  } else {
+    // Case 3: Source and Destination are Standard
+    assert(PromotedSrc->getType() == SrcTy && "Promoted source type mismatch for standard SExt source");
+    LLVM_DEBUG(dbgs() << Indent << "    Creating SExt: " << *PromotedSrc << " to " << *DestTy << "\n");
+    NewValue = Builder.CreateSExt(PromotedSrc, DestTy); // Use SExt
+    LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (standard src/dest): ====> " << *NewValue << "\n");
+    finalizePromotion(SExtI, NewValue, Replacements, PromotedValues);
+  }
+  return NewValue;
+}
+
+Value*processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
                         const std::string &Indent,
                         SmallVectorImpl<Replacement> &Replacements,
-                        SmallDenseMap<Value *, Value *> &PromotedValues,
-                        SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds) {
+                        SmallDenseMap<Value *, Value *> &PromotedValues) {
   IRBuilder<> Builder(I);
+  Value *Result = nullptr;
 
   // Dispatch to the appropriate handler based on instruction type
   if (auto *Phi = dyn_cast<PHINode>(I)) {
-      processPhiNode(Phi, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues, PendingPhiAdds);
+      Result = processPhiNode(Phi, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *ZExtI = dyn_cast<ZExtInst>(I)) {
-      processZExtInst(ZExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processZExtInst(ZExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+  } else if (auto *SExtI = dyn_cast<SExtInst>(I)) { // Add handler for SExtInst
+      Result = processSExtInst(SExtI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *TruncI = dyn_cast<TruncInst>(I)) {
-      processTruncInst(TruncI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processTruncInst(TruncI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *BinOp = dyn_cast<BinaryOperator>(I)) {
-      processBinaryOperator(BinOp, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processBinaryOperator(BinOp, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *SelI = dyn_cast<SelectInst>(I)) {
-      processSelectInst(SelI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processSelectInst(SelI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *CmpI = dyn_cast<ICmpInst>(I)) {
-      processICmpInst(CmpI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processICmpInst(CmpI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *OldCall = dyn_cast<CallInst>(I)) {
-      processCallInst(OldCall, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processCallInst(OldCall, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *Store = dyn_cast<StoreInst>(I)) {
-      processStoreInst(Store, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processStoreInst(Store, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *Load = dyn_cast<LoadInst>(I)) {
-      processLoadInst(Load, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processLoadInst(Load, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else if (auto *RetI = dyn_cast<ReturnInst>(I)) {
-      processReturnInst(RetI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+      Result = processReturnInst(RetI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+  } else if (auto *BitCast = dyn_cast<BitCastInst>(I)) { // Add handler for BitCast
+      Result = processBitCastInst(BitCast, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+  } else if (auto *ExtractI = dyn_cast<ExtractElementInst>(I)) { // Add handler for ExtractElement
+      Result = processExtractElementInst(ExtractI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
+  } else if (auto *InsertI = dyn_cast<InsertElementInst>(I)) { // Add handler for InsertElement
+      Result = processInsertElementInst(InsertI, NonStdType, PromotedTy, Builder, Indent, Replacements, PromotedValues);
   } else {
-    LLVM_DEBUG(dbgs() << Indent << "  Unhandled instruction type: " << *I << "\n");
+    llvm::errs() << "HipPromoteIntsPass: Unhandled instruction type: " << I->getOpcodeName() << "\n";
     assert(false && "HipPromoteIntsPass: Unhandled instruction type");
   }
-}
-
-static void promoteChain(Instruction *OldI, Type *NonStdType, Type *PromotedTy,
-                         SmallPtrSetImpl<Instruction *> &Visited,
-                         SmallVectorImpl<Replacement> &Replacements,
-                         SmallDenseMap<Value *, Value *> &PromotedValues,
-                         SmallVectorImpl<PendingPhiAdd> &PendingPhiAdds,
-                         unsigned Depth = 0) {
-  // If we've already processed this instruction, just return
-  if (!Visited.insert(OldI).second) {
-    // If we have a promoted value for this instruction, use it
-    if (PromotedValues.count(OldI))
-      LLVM_DEBUG(dbgs() << std::string(Depth * 2, ' ')
-                        << "Already processed: " << *OldI << "\n");
-    return;
-  }
-
-  std::string Indent(Depth * 2, ' ');
-
-  // Process instruction
-  processInstruction(OldI, NonStdType, PromotedTy, Indent, Replacements,
-                     PromotedValues, PendingPhiAdds);
-
-  // Recursively process all users
-  for (User *U : OldI->users())
-    if (auto *UI = dyn_cast<Instruction>(U))
-      promoteChain(UI, NonStdType, PromotedTy, Visited, Replacements,
-                   PromotedValues, PendingPhiAdds, Depth + 1);
-
-  return;
+  
+  return Result;
 }
 
 PreservedAnalyses HipPromoteIntsPass::run(Module &M,
@@ -918,122 +1254,250 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
   }
 
   bool Changed = false;
-  SmallPtrSet<Instruction *, 32>
-      GlobalVisited; // Track all visited instructions across chains
+
 
   for (Function &F : M) {
     SmallVector<Instruction *, 16> WorkList;
 
     // First collect all instructions we need to promote
-    for (BasicBlock &BB : F)
-      for (Instruction &I : BB)
-        if (auto *IntTy = dyn_cast<IntegerType>(I.getType()))
-          if (!isStandardBitWidth(IntTy->getBitWidth()))
-            WorkList.push_back(&I);
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        bool NeedsPromotion = false;
+        // Check result type
+        if (auto *IntTy = dyn_cast<IntegerType>(I.getType())) {
+          if (!isStandardBitWidth(IntTy->getBitWidth())) {
+            NeedsPromotion = true;
+          }
+        }
+        // Check operand types
+        if (!NeedsPromotion) {
+          for (Value *Op : I.operands()) {
+            if (auto *OpIntTy = dyn_cast<IntegerType>(Op->getType())) {
+              if (!isStandardBitWidth(OpIntTy->getBitWidth())) {
+                NeedsPromotion = true;
+                break; // Found a non-standard operand, no need to check others
+              }
+            }
+          }
+        }
 
-    // Process the worklist
-    for (Instruction *I : WorkList) {
-      // Skip if we've already processed this instruction as part of another
-      // chain
-      if (GlobalVisited.count(I))
+        if (NeedsPromotion) {
+            // Check if it's already in the worklist to avoid duplicates
+            bool Found = false;
+            for(Instruction *ExistingI : WorkList) {
+                if (ExistingI == &I) {
+                    Found = true;
+                    break;
+                }
+            }
+            if (!Found) {
+                 LLVM_DEBUG(dbgs() << "Adding instruction to worklist due to non-standard type: " << I << "\n");
+                 WorkList.push_back(&I);
+            }
+        }
+      }
+    }
+
+    // Create a vector of truncated linked lists of instructions
+    std::vector<std::vector<Instruction *>> AllChains;
+    std::vector<std::vector<Instruction *>> prunedChains;
+    for (Instruction *I : WorkList)
+      getLinkedListsFromUseDefChain(I, prunedChains);
+
+    for (unsigned i = 0; i < prunedChains.size(); ++i) {
+      LLVM_DEBUG(dbgs() << "Pruned chain " << i << ":\n");
+      for (Instruction *Inst : prunedChains[i]) {
+        LLVM_DEBUG(dbgs() << "  " << *Inst << "\n");
+      }
+    }
+
+    auto longestChainNumInstructions = 0;
+    for (auto &chain : prunedChains) {
+      if (chain.size() > longestChainNumInstructions) {
+        longestChainNumInstructions = chain.size();
+      }
+    }
+
+    SmallVector<Replacement, 16> Replacements;
+    SmallDenseMap<Value *, Value *> PromotedValues;
+    std::list<Instruction *> DeferredInstructions;
+    for (unsigned i = 0; i < longestChainNumInstructions; i++) { // loop over instructions until no more
+      for (auto &chain : prunedChains) {
+        if (i >= chain.size()) continue;
+        auto I = chain[i];
+
+        LLVM_DEBUG(dbgs() << "Processing instruction: " << *I << "\n");
+        // Determine NonStdType and PromotedTy for the instruction I
+        Type* NonStdType = isNonStandardInt(I->getType()) ? I->getType() : nullptr;
+        for (Value *Op : I->operands()) {
+          if (isNonStandardInt(Op->getType())) {
+            NonStdType = Op->getType();
+            break;
+          }
+        }
+        if (!NonStdType) {
+          LLVM_DEBUG(dbgs() << "Instruction " << *I << " is standard type. Marking as visited & skipping.\n");
+          GlobalVisited.insert(I);
+          continue;
+        }
+        Type* PromotedTy = HipPromoteIntsPass::getPromotedType(NonStdType);
+        std::string Indent = ""; // Basic indent for now
+        auto processed = processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues);
+        if (!processed) {
+          LLVM_DEBUG(dbgs() << "Deferring instruction: " << *I << "\n");
+          // push if not already in DeferredInstructions
+          if (std::find(DeferredInstructions.begin(), DeferredInstructions.end(), I) == DeferredInstructions.end()) {
+            DeferredInstructions.push_back(I);
+          }
+        } else {
+          // Mark this instruction as visited
+          GlobalVisited.insert(I);
+
+          // remove from DeferredInstructions if it's in there
+          if (std::find(DeferredInstructions.begin(), DeferredInstructions.end(), I) != DeferredInstructions.end()) {
+            DeferredInstructions.remove(I);
+          }
+        }
+
+      } // End for (Instruction *I : chain)
+    } // End for (auto &chain : prunedChains)
+
+    LLVM_DEBUG(dbgs() << "Processing deferred instructions\n");
+    while (!DeferredInstructions.empty()) {
+      auto *I = DeferredInstructions.front();
+      LLVM_DEBUG(dbgs() << "Processing deferred instruction: " << *I << "\n");
+      Type* NonStdType = isNonStandardInt(I->getType()) ? I->getType() : nullptr;
+      Type* PromotedTy = HipPromoteIntsPass::getPromotedType(NonStdType);
+      std::string Indent = ""; // Basic indent for now
+      auto processed = processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues);
+      if (!processed) {
+        LLVM_DEBUG(dbgs() << "Deferring instruction: " << *I << "\n");
+        DeferredInstructions.push_back(I);
+      } else {
+        // Mark this instruction as visited
+        GlobalVisited.insert(I);
+      }
+      // Don't add duplicate replacements for successfully processed deferred instructions
+      if (!GlobalVisited.count(I)) {
+        addReplacement(I, processed, Replacements);
+        // Mark the instruction as visited right after adding it to Replacements
+        GlobalVisited.insert(I);
+      }
+      DeferredInstructions.pop_front();
+      LLVM_DEBUG(dbgs() << "Successfully processed deferred instruction: " << *I << "\n");
+    }
+
+    // Now perform the main replacements
+    LLVM_DEBUG(dbgs() << "\n\n\n\n\nPerforming main instruction replacements...\n");
+    
+    // Remove duplicates from Replacements
+    std::sort(Replacements.begin(), Replacements.end(), 
+              [](const Replacement &A, const Replacement &B) { 
+                return std::make_pair(A.Old, A.New) < std::make_pair(B.Old, B.New); 
+              });
+    Replacements.erase(std::unique(Replacements.begin(), Replacements.end()), Replacements.end());
+
+    
+    // Track which instructions have been replaced to avoid duplicates
+    SmallPtrSet<Instruction*, 32> ReplacedInstructions;
+    
+    for (const auto &R : Replacements) {
+      // Skip if we've already processed this instruction
+      if (!ReplacedInstructions.insert(R.Old).second) {
+        LLVM_DEBUG(dbgs() << "Skipping duplicate replacement for: " << *R.Old << " with " << *R.New << "\n");
         continue;
+      }
+      
+      LLVM_DEBUG(dbgs() << "Replacing uses of: " << *R.Old << "    with: " << *R.New << "\n");
+      // Make a copy of the users to avoid iterator invalidation
+      SmallVector<User*, 8> Users(R.Old->user_begin(), R.Old->user_end());
+      for (User *U : Users) {
+          // Replace uses only if the user instruction itself is part of the processed chain
+          // or if it's not an instruction (e.g. a constant expression using the old value).
+          LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
+          U->replaceUsesOfWith(R.Old, R.New);
+      }
+    }
 
-      if (auto *IntTy = dyn_cast<IntegerType>(I->getType())) {
-        if (!isStandardBitWidth(IntTy->getBitWidth())) {
-          unsigned PromotedBitWidth = getPromotedBitWidth(IntTy->getBitWidth());
-          Type *PromotedType =
-              Type::getIntNTy(M.getContext(), PromotedBitWidth);
+    std::set<Instruction *> InstructionsToDelete;
+    for (auto &R : Replacements) {
+      LLVM_DEBUG(dbgs() << "Will delete instruction: " << *R.Old << " which is replaced by " << *R.New << "\n");
+      InstructionsToDelete.insert(R.Old);
+    }
 
-          SmallVector<Replacement, 16> Replacements;
-          SmallDenseMap<Value *, Value *> PromotedValues;
-          SmallVector<PendingPhiAdd, 16> PendingPhiAdds;
 
-          // Use GlobalVisited instead of creating a new set
-          promoteChain(I, IntTy, PromotedType, GlobalVisited, Replacements,
-                       PromotedValues, PendingPhiAdds, 0);
+    // Finally, delete the original instructions in reverse order to handle dependencies
+    for (auto It = InstructionsToDelete.rbegin(); It != InstructionsToDelete.rend(); ++It) {
+      LLVM_DEBUG(dbgs() << "Deleting instruction: " << **It << "\n");
+      if (!(*It)->use_empty()) {
+        LLVM_DEBUG(dbgs() << "WARNING: Instruction still has uses before deletion: " << **It << "\n");
+        for (User *U : (*It)->users()) {
+          LLVM_DEBUG(dbgs() << "  User: " << *U << "\n");
+        }
+        // Force replacement again just in case
+        (*It)->replaceAllUsesWith((*It)->getOperand(0));
+      }
+      (*It)->eraseFromParent();
+    }
 
-          // Process pending PHI additions *before* main replacement
-          LLVM_DEBUG(dbgs() << "Processing " << PendingPhiAdds.size() << " pending PHI additions...\n");
-          for (const auto &Pending : PendingPhiAdds) {
-              PHINode *TargetPhi = Pending.TargetPhi;
-              Value *OriginalValue = Pending.OriginalValue;
-              BasicBlock *IncomingBlock = Pending.IncomingBlock;
+    Changed = true; // Mark that changes were made
+  } // End for (Function &F : M)
 
-              LLVM_DEBUG(dbgs() << "  Pending: Add " << *OriginalValue << " to " << *TargetPhi << " from block " << IncomingBlock->getName() << "\n");
 
-              // The original value should now be in PromotedValues
-              assert(PromotedValues.count(OriginalValue) && "Pending PHI value was not promoted!");
-              Value *PromotedValue = PromotedValues[OriginalValue];
-              LLVM_DEBUG(dbgs() << "    Found promoted value: " << *PromotedValue << "\n");
+  
 
-              // Adjust type if necessary, inserting before the PHI node
-              if (PromotedValue->getType() != TargetPhi->getType()) {
-                IRBuilder<> PhiBuilder(TargetPhi); // Place instructions before the PHI
-                if (PromotedValue->getType()->getPrimitiveSizeInBits() < TargetPhi->getType()->getPrimitiveSizeInBits()) {
-                  LLVM_DEBUG(dbgs() << "    Adjusting type (zext) for PHI add\n");
-                  PromotedValue = PhiBuilder.CreateZExt(PromotedValue, TargetPhi->getType());
-                } else if (PromotedValue->getType()->getPrimitiveSizeInBits() > TargetPhi->getType()->getPrimitiveSizeInBits()) {
-                  LLVM_DEBUG(dbgs() << "    Adjusting type (trunc) for PHI add\n");
-                  PromotedValue = PhiBuilder.CreateTrunc(PromotedValue, TargetPhi->getType());
-                } else {
-                  LLVM_DEBUG(dbgs() << "    Adjusting type (bitcast) for PHI add\n");
-                  PromotedValue = PhiBuilder.CreateBitCast(PromotedValue, TargetPhi->getType());
-                }
-                LLVM_DEBUG(dbgs() << "      ==> Adjusted value: " << *PromotedValue << "\n");
-              }
 
-              TargetPhi->addIncoming(PromotedValue, IncomingBlock);
+  // Print the final IR state before exiting
+
+
+    // Perform a final pass to remove any no-op casts
+  
+  LLVM_DEBUG(dbgs() << "\n\n\n\n\nRemoving no-op casts:\n");
+  for (Function &F : M) {
+    SmallVector<Instruction *, 16> DeadCasts; // Collect casts to remove
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        // Check for ZExt, SExt, Trunc, or BitCast where source and dest types are identical
+        if (auto *Cast = dyn_cast<CastInst>(&I)) {
+          if (Cast->getSrcTy() == Cast->getDestTy()) {
+             LLVM_DEBUG(dbgs() << "Found no-op cast: " << I << "\n");
+             DeadCasts.push_back(&I);
           }
+        }
+      }
+    }
+    // Remove the collected casts after iterating through the block
+    for (Instruction *DeadCast : DeadCasts) {
+       LLVM_DEBUG(dbgs() << "Removing no-op cast: " << *DeadCast << "\n");
+       DeadCast->replaceAllUsesWith(DeadCast->getOperand(0)); // Replace uses with the source operand
+       DeadCast->eraseFromParent();
+    }
+  }
 
-          // Now perform the main replacements
-          LLVM_DEBUG(dbgs() << "Performing main instruction replacements...\n");
-          for (const auto &R : Replacements) {
-            LLVM_DEBUG(dbgs() << "Replacing uses of: " << *R.Old << "\n"
-                             << "    with: " << *R.New << "\n");
-            // Make a copy of the users to avoid iterator invalidation
-            SmallVector<User*, 8> Users(R.Old->user_begin(), R.Old->user_end());
-            for (User *U : Users) {
-              if (auto *I = dyn_cast<Instruction>(U)) {
-                if (!GlobalVisited.count(I) || PromotedValues.count(I)) {
-                  LLVM_DEBUG(dbgs() << "  Updating use in: " << *U << "\n");
-                  U->replaceUsesOfWith(R.Old, R.New);
-                }
-              } else {
-                // Non-instruction users should be updated as well
-                LLVM_DEBUG(dbgs() << "  Updating non-instruction use in: " << *U << "\n");
-                U->replaceUsesOfWith(R.Old, R.New);
-              }
-            }
-          }
-          
-          // Then, for any instructions with remaining uses, we need a different approach
-          for (auto &R : Replacements) {
-            if (!R.Old->use_empty()) {
-              LLVM_DEBUG(dbgs() << "Instruction still has uses after replacement: " << *R.Old << "\n");
-              R.Old->replaceAllUsesWith(R.New);
-            }
-          }
-
-          // Finally, delete the original instructions in reverse order to handle dependencies
-          for (auto It = Replacements.rbegin(); It != Replacements.rend(); ++It) {
-            LLVM_DEBUG(dbgs() << "Deleting instruction: " << *(It->Old) << "\n");
-            if (!It->Old->use_empty()) {
-              LLVM_DEBUG(dbgs() << "WARNING: Instruction still has uses before deletion: " << *(It->Old) << "\n");
-              // Force replacement again to handle circular references
-              It->Old->replaceAllUsesWith(It->New);
-            }
-            It->Old->eraseFromParent();
-          }
-
-          Changed = true;
+  // print the first and the last instruction that contains non-std types
+  std::vector<Instruction *> NonStdTypes;
+  for (Function &F : M) {
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        if (isNonStandardInt(I.getType())) {
+          NonStdTypes.push_back(&I);
+          break;
         }
       }
     }
   }
 
-  // Print the final IR state before exiting
-  LLVM_DEBUG(dbgs() << "Final module IR after HipPromoteIntsPass:\n");
+  if (NonStdTypes.size() > 0) {
+    LLVM_DEBUG(dbgs() << "First non-std type instruction: " << *NonStdTypes[0] << "\n");
+    LLVM_DEBUG(dbgs() << "Last non-std type instruction: " << *NonStdTypes[NonStdTypes.size() - 1] << "\n");
+  }
+
+  LLVM_DEBUG(dbgs() << "\n\n\n\n\nFinal module IR after HipPromoteIntsPass:\n");
   LLVM_DEBUG(M.print(dbgs(), nullptr));
+  
+
+
+
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
