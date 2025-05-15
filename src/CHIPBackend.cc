@@ -84,6 +84,23 @@ static void queueVariableInitShadowKernel(chipstar::Queue *Q,
   queueKernel(Q, K);
 }
 
+static void initDeviceHeap(chipstar::Queue *Q, chipstar::Module *M) {
+  logTrace("initDeviceHeap()");
+  chipstar::DeviceVar *Var = M->getGlobalVar(ChipDeviceHeapName);
+  if (!Var)
+    return;
+  void *device_heap = Var->getDevAddr();
+  auto *Ctx = Q->getContext();
+  void *init_device_heap_ptr =
+      Ctx->allocate(sizeof(void *), 8, hipMemoryTypeDevice);
+  Var->setDevAddr(init_device_heap_ptr);
+  logInfo("initDeviceHeap() device_heap: {}", (void *)device_heap);
+  logInfo("initDeviceHeap() init_device_heap_ptr: {}",
+          (void *)init_device_heap_ptr);
+  queueVariableBindShadowKernel(Q, M, Var);
+  Q->finish();
+}
+
 chipstar::CallbackData::CallbackData(hipStreamCallback_t TheCallbackF,
                                      void *TheCallbackArgs,
                                      chipstar::Queue *TheChipQueue)
@@ -372,6 +389,9 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
     return;
   }
 
+  // Initialize device heap
+  initDeviceHeap(Queue, this);
+
   auto Err = allocateDeviceVariablesNoLock(Device, Queue);
   (void)Err;
 
@@ -410,10 +430,14 @@ void chipstar::Module::invalidateDeviceVariablesNoLock() {
 
 void chipstar::Module::deallocateDeviceVariablesNoLock(
     chipstar::Device *Device) {
+  if (!DeviceVariablesAllocated_)
+    return;
   invalidateDeviceVariablesNoLock();
   for (auto *Var : ChipVars_) {
-    auto Err = Device->getContext()->free(Var->getDevAddr());
-    (void)Err;
+    if (!::Backend->getReinitializeFlag()) {
+      auto Err = Device->getContext()->free(Var->getDevAddr());
+      (void)Err;
+    }
     Var->setDevAddr(nullptr);
   }
   DeviceVariablesAllocated_ = false;

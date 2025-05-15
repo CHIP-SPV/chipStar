@@ -46,6 +46,9 @@ extern "C" {
 // A global flag included in all HIP device modules for signaling
 // abort request.
 __attribute__((weak)) __device__ int32_t __chipspv_abort_called;
+ 
+// Global pointer for the device heap for device-side malloc/free
+__attribute__((weak)) __device__ void* __chipspv_device_heap;
 
 __device__ void __chipspv_abort(int32_t *abort_flag);
 
