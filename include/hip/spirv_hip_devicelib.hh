@@ -77,6 +77,13 @@ __device__ inline void* operator new[](size_t, void* ptr) noexcept { return ptr;
 __device__ inline void operator delete(void*, void*) noexcept {}
 __device__ inline void operator delete[](void*, void*) noexcept {}
 
+#ifdef __HIP_DEVICE_COMPILE__
+__device__ inline void* operator new(size_t, void* ptr) noexcept { return ptr; }
+__device__ inline void* operator new[](size_t, void* ptr) noexcept { return ptr; }
+__device__ inline void operator delete(void*, void*) noexcept {}
+__device__ inline void operator delete[](void*, void*) noexcept {}
+#endif
+
 extern "C" __device__ void * __chip_malloc(unsigned int size);
 extern "C" __device__ void __chip_free(void *ptr);
 extern "C" __device__ void __chip_init_device_heap(void* device_heap);
