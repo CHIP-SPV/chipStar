@@ -6086,6 +6086,8 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   if (SPIRVModuleSpan.empty())
     CHIPERR_LOG_AND_THROW(ErrorMsg, hipErrorInitializationError);
 
+  printSPIRVFunctionNames(SPIRVModuleSpan);
+
   SPVRegister::Handle ModHandle =
       getSPVRegister().registerSource(SPIRVModuleSpan);
 

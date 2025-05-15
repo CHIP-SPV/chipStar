@@ -6,6 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <spirv-tools/libspirv.hpp>
+#include <spirv/unified1/spirv.h>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -207,9 +208,9 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
   if (!extractedSpirvView.empty()) {
     std::string disassembled_spirv = disassembleSPIRV(extractedSpirvView);
     if (!disassembled_spirv.empty()) {
-      std::cout << "\\n--- Disassembled SPIR-V Start ---" << std::endl;
-      std::cout << disassembled_spirv << std::endl;
-      std::cout << "--- Disassembled SPIR-V End ---" << std::endl;
+      // std::cout << "\\n--- Disassembled SPIR-V Start ---" << std::endl;
+      // std::cout << disassembled_spirv << std::endl;
+      // std::cout << "--- Disassembled SPIR-V End ---" << std::endl;
     } else {
       // disassembleSPIRV prints its own errors to std::cerr.
       // No additional message here unless specifically needed.
@@ -269,4 +270,149 @@ bool usesDoubles(const std::string &spirvHumanReadable) {
     }
   }
   return false;
+}
+
+// Struct to hold data for the SPIR-V function parsing callback
+struct SPIRVFunctionParserData {
+  std::unordered_map<uint32_t, std::string> id_to_name_map;
+  // We could add more complex state here if needed, e.g., to avoid duplicate printing
+  // from OpEntryPoint and OpFunction if they refer to the same named entity.
+  // For now, distinct print statements will differentiate their origins.
+};
+
+// Forward declaration of the callback is not strictly necessary if defined before use,
+// but good practice if order might change. Placed before first use.
+
+// Callback function for spvBinaryParse to process each SPIR-V instruction
+static spv_result_t spirv_instruction_parser_callback(
+    void *user_data_ptr, const spv_parsed_instruction_t *parsed_instruction) {
+  SPIRVFunctionParserData *data =
+      static_cast<SPIRVFunctionParserData *>(user_data_ptr);
+
+  if (!parsed_instruction) {
+    return SPV_ERROR_INVALID_POINTER; // Should not happen with valid usage
+  }
+
+  switch (parsed_instruction->opcode) {
+  case SpvOpName:
+    // OpName <target_id> <name_string_literal>
+    // words[0] = Opcode + WordCount
+    // words[1] = target_id
+    // words[2...] = name_string_literal (null-terminated UTF-8 string)
+    if (parsed_instruction->num_words > 2) {
+      uint32_t target_id = parsed_instruction->words[1];
+      // The string literal starts at words[2]. It is null-terminated.
+      // The number of words it occupies depends on its length including the null terminator.
+      const char *name_str =
+          reinterpret_cast<const char *>(&parsed_instruction->words[2]);
+      data->id_to_name_map[target_id] = name_str;
+    }
+    break;
+
+  case SpvOpEntryPoint:
+    // OpEntryPoint <exec_model_id> <function_id> <name_string_literal> [Interface <id> ...]
+    // words[0] = Opcode + WordCount
+    // words[1] = exec_model_id
+    // words[2] = function_id (the <id> of an OpFunction)
+    // words[3...] = name_string_literal (null-terminated UTF-8 string for the entry point name)
+    if (parsed_instruction->num_words > 3) {
+      const char *name_str =
+          reinterpret_cast<const char *>(&parsed_instruction->words[3]);
+      std::cout << "Entry Point: " << name_str << std::endl;
+      // uint32_t function_id = parsed_instruction->words[2]; // ID of the OpFunction
+      // One could use function_id to correlate with OpFunction if needed.
+    }
+    break;
+
+  case SpvOpFunction:
+    // OpFunction <result_type_id> <result_id> <function_control_mask> <function_type_id>
+    // words[0] = Opcode + WordCount
+    // words[1] = result_type_id
+    // words[2] = result_id (this is the function's <id>)
+    // words[3] = function_control_mask
+    // words[4] = function_type_id
+    if (parsed_instruction->num_words > 2) { // Minimum words for OpFunction to have result_id
+      uint32_t function_id = parsed_instruction->words[2];
+      auto it = data->id_to_name_map.find(function_id);
+      if (it != data->id_to_name_map.end()) {
+        // This function has an OpName associated with its <id>.
+        // We print it, distinguishing it from an EntryPoint's literal name.
+        // It's possible an EntryPoint's function_id also has an OpName;
+        // current logic would print both: "Entry Point: <name>" and "Function (OpName): <name>"
+        // if the OpName matches the literal name, or potentially different names.
+        // This is generally informative.
+        std::cout << "Function (OpName): " << it->second << std::endl;
+      }
+      // else {
+      //   // Function does not have an OpName. Could print ID if desired for debugging.
+      //   // std::cout << "Function (ID: " << function_id << ") - No OpName found." << std::endl;
+      // }
+    }
+    break;
+
+  default:
+    // Other opcodes are not relevant for extracting function names directly.
+    break;
+  }
+  return SPV_SUCCESS;
+}
+
+// Parses the given SPIR-V module and prints all function names found.
+// Function names are extracted from OpEntryPoint instructions (literal names)
+// and from OpFunction instructions that have an associated OpName.
+void printSPIRVFunctionNames(const std::string_view &spirvModule) {
+  if (spirvModule.empty()) {
+    std::cerr << "Error: SPIR-V module is empty, cannot print function names."
+              << std::endl;
+    return;
+  }
+
+  if (spirvModule.size() % sizeof(uint32_t) != 0) {
+    std::cerr << "Error: SPIR-V binary size (" << spirvModule.size()
+              << " bytes) is not a multiple of " << sizeof(uint32_t)
+              << ". Cannot parse." << std::endl;
+    return;
+  }
+  if (spirvModule.size() < 20) { // Minimum size for a valid SPIR-V header (5 words)
+      std::cerr << "Error: SPIR-V module is too small to be valid." << std::endl;
+      return;
+  }
+
+
+  // Use the same environment as disassembleSPIRV for consistency.
+  spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
+  if (!context) {
+    std::cerr << "Error: Failed to create SPIR-V context." << std::endl;
+    return;
+  }
+
+  SPIRVFunctionParserData user_data;
+  spv_diagnostic diagnostic = nullptr;
+
+  // std::cout << "--- SPIR-V Function Names ---" << std::endl; // Optional header
+
+  spv_result_t result = spvBinaryParse(
+      context, &user_data,
+      reinterpret_cast<const uint32_t *>(spirvModule.data()),
+      spirvModule.size() / sizeof(uint32_t), // Number of words
+      nullptr, // No header parse function needed for this task
+      spirv_instruction_parser_callback, // Callback for each instruction
+      &diagnostic // For error reporting
+  );
+
+  if (result != SPV_SUCCESS) {
+    std::cerr << "Error: Failed to parse SPIR-V binary. Code: " << result << std::endl;
+    if (diagnostic && diagnostic->error && strlen(diagnostic->error) > 0) {
+      std::cerr << "Diagnostic: " << diagnostic->error << std::endl;
+    } else {
+      std::cerr << "No detailed diagnostic message available." << std::endl;
+    }
+  }
+  // std::cout << "--- End SPIR-V Function Names ---" << std::endl; // Optional footer
+
+
+  if (diagnostic) {
+    spvDiagnosticDestroy(diagnostic);
+  }
+  spvContextDestroy(context);
 }

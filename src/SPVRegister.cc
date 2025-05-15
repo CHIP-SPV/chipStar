@@ -50,6 +50,12 @@ SPVRegister::Handle SPVRegister::registerSource(std::string_view SourceModule) {
   auto Ins = Sources_.emplace(std::make_unique<SPVModule>());
   SPVModule *SrcMod = Ins.first->get();
   SrcMod->OriginalBinary_ = SourceModule;
+
+  // Dump SPIR-V Functions Names
+  auto assembly = SrcMod->getAssembly(SPVModule::sourceType::raw);
+  for (const auto &line : assembly) {
+    std::cout << line << std::endl;
+  }
   return Handle{reinterpret_cast<void *>(SrcMod)};
 }
 
