@@ -257,11 +257,6 @@ void chipstar::Module::compileOnce(chipstar::Device *ChipDevice) {
 }
 
 chipstar::Kernel *chipstar::Module::findKernel(const std::string &Name) {
-  // dump all kernels
-  logDebug("Listing all kernels in module: {}", (void *)this);
-  for (auto &Kernel : ChipKernels_) {
-    logDebug("Kernel: {}", Kernel->getName());
-  }
   auto KernelFound = std::find_if(ChipKernels_.begin(), ChipKernels_.end(),
                                   [&Name](chipstar::Kernel *Kernel) {
                                     return Kernel->getName().compare(Name) == 0;

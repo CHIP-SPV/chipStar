@@ -129,23 +129,22 @@ MagicResult seekToMagic(const void *Bundle) {
 
   return {nullptr, BinaryType::UNKNOWN};
 }
-
+std::string disassembleSPIRV(const std::string_view &spirvBinary);
 std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
+  std::string_view extractedSpirvView; // To hold the successfully extracted module
+
   // Use seekToMagic to find the start of the bundle or SPIR-V
   auto magicResult = seekToMagic(Bundle);
   if (!magicResult.ptr) {
     ErrorMsg = "Could not find CLANG_OFFLOAD_BUNDLER_MAGIC or SPIR-V magic "
                "number in the binary";
-    return std::string_view();
-  }
-
-  // If it's a direct SPIR-V binary, return it
-  if (magicResult.type == BinaryType::SPIRV_ONLY) {
+    // extractedSpirvView remains empty, will proceed to final return logic
+  } else if (magicResult.type == BinaryType::SPIRV_ONLY) {
     // Get the size by reading the SPIR-V header
     // SPIR-V header is 5 words (20 bytes): Magic, Version, Generator, Bound,
     // Reserved
     const uint32_t *words = static_cast<const uint32_t *>(magicResult.ptr);
-    size_t size = 0;
+    size_t determined_size; // Renamed from 'size' in original context
     // Scan through the SPIR-V binary to find its size
     // Each instruction's length is encoded in its first word
     size_t pos = 5;         // Start after header
@@ -155,65 +154,76 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
         break;
       pos += wordCount;
     }
-    size = pos * sizeof(uint32_t);
-    return std::string_view(static_cast<const char *>(magicResult.ptr), size);
-  }
+    determined_size = pos * sizeof(uint32_t);
+    extractedSpirvView = std::string_view(static_cast<const char *>(magicResult.ptr), determined_size);
+    // Proceed to final return logic
+  } else { // Handle as bundled binary (magicResult.type == BinaryType::BUNDLED)
+    // Bundle parameter is const, so assign magicResult.ptr to it to match original logic flow.
+    // The original code re-assigns 'Bundle' here.
+    const void* bundleStartPtr = magicResult.ptr;
+    std::string Magic(reinterpret_cast<const char *>(bundleStartPtr),
+                      sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1);
+    if (Magic != CLANG_OFFLOAD_BUNDLER_MAGIC) {
+      ErrorMsg = "The bundled binaries are not Clang bundled "
+                 "(CLANG_OFFLOAD_BUNDLER_MAGIC is missing)";
+      // extractedSpirvView remains empty, will proceed to final return logic
+    } else {
+      using HeaderT = __ClangOffloadBundleHeader;
+      using EntryT = __ClangOffloadBundleDesc;
+      const auto *Header = static_cast<const char *>(bundleStartPtr); // Start of the clang bundle structure
+      auto NumBundles = _copyAs<uint64_t>(Header, offsetof(HeaderT, numBundles));
 
-  // Otherwise handle as bundled binary
-  Bundle = magicResult.ptr;
-  std::string Magic(reinterpret_cast<const char *>(Bundle),
-                    sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1);
-  if (Magic != CLANG_OFFLOAD_BUNDLER_MAGIC) {
-    ErrorMsg = "The bundled binaries are not Clang bundled "
-               "(CLANG_OFFLOAD_BUNDLER_MAGIC is missing)";
-    return std::string_view();
-  }
+      const char *Desc = Header + offsetof(HeaderT, desc);
+      for (size_t i = 0; i < NumBundles; i++) {
+        auto Offset = _copyAs<uint64_t>(Desc, offsetof(EntryT, offset));
+        auto Size = _copyAs<uint64_t>(Desc, offsetof(EntryT, size));
+        auto TripleSize = _copyAs<uint64_t>(Desc, offsetof(EntryT, tripleSize));
+        const char *Triple = Desc + offsetof(EntryT, triple);
+        std::string_view EntryID(Triple, TripleSize);
 
-  using HeaderT = __ClangOffloadBundleHeader;
-  using EntryT = __ClangOffloadBundleDesc;
-  const auto *Header = (const char *)Bundle;
-  auto NumBundles = _copyAs<uint64_t>(Header, offsetof(HeaderT, numBundles));
-
-  // std::cout << "Number of bundles: " << NumBundles << std::endl;
-
-  const char *Desc = Header + offsetof(HeaderT, desc);
-  for (size_t i = 0; i < NumBundles; i++) {
-    auto Offset = _copyAs<uint64_t>(Desc, offsetof(EntryT, offset));
-    auto Size = _copyAs<uint64_t>(Desc, offsetof(EntryT, size));
-    auto TripleSize = _copyAs<uint64_t>(Desc, offsetof(EntryT, tripleSize));
-    const char *Triple = Desc + offsetof(EntryT, triple);
-    std::string_view EntryID(Triple, TripleSize);
-
-    // std::cout << "Bundle " << i << ":" << std::endl;
-    // std::cout << "  ID: " << EntryID << std::endl;
-    // std::cout << "  Offset: " << Offset << std::endl;
-    // std::cout << "  Size: " << Size << std::endl;
-
-    // SPIR-V bundle entry ID for HIP-Clang 14+. Additional components
-    // are ignored for now.
-    std::string_view SPIRVBundleID = "hip-spirv64";
-    if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID ||
-        // Legacy entry ID used during early development.
-        EntryID == "hip-spir64-unknown-unknown") {
-      // std::cout << "Found SPIR-V bundle" << std::endl;
-      const char *spirvData = Header + Offset;
-      uint32_t magic;
-      std::memcpy(&magic, spirvData, sizeof(uint32_t));
-      // std::cout << "Magic at offset: 0x" << std::hex << magic << std::dec
-                // << std::endl;
-      if (magic == SPIRV_MAGIC) {
-        // std::cout << "Valid SPIR-V magic number found" << std::endl;
-        return std::string_view(spirvData, Size);
+        std::string_view SPIRVBundleID = "hip-spirv64";
+        if (EntryID.substr(0, SPIRVBundleID.size()) == SPIRVBundleID ||
+            EntryID == "hip-spir64-unknown-unknown") {
+          const char *spirvData = Header + Offset;
+          uint32_t magic;
+          std::memcpy(&magic, spirvData, sizeof(uint32_t));
+          if (magic == SPIRV_MAGIC) {
+            extractedSpirvView = std::string_view(spirvData, Size);
+            break; // Found SPIR-V, exit loop
+          }
+        }
+        Desc = Triple + TripleSize; // Next bundle entry.
       }
-      // std::cout << "Invalid SPIR-V magic number" << std::endl;
-    }
 
-    // std::cout << "Not a SPIR-V triple, ignoring" << std::endl;
-    Desc = Triple + TripleSize; // Next bundle entry.
+      if (extractedSpirvView.empty() && ErrorMsg.empty()) { // Loop finished, SPIR-V not found, and no other error set
+        ErrorMsg = "Couldn't find SPIR-V binary in the bundle!";
+        // extractedSpirvView remains empty, will proceed to final return logic
+      }
+    }
   }
 
-  ErrorMsg = "Couldn't find SPIR-V binary in the bundle!";
-  return std::string_view();
+  // At this point, either extractedSpirvView is populated (success) or empty (failure, ErrorMsg should be set).
+
+  if (!extractedSpirvView.empty()) {
+    std::string disassembled_spirv = disassembleSPIRV(extractedSpirvView);
+    if (!disassembled_spirv.empty()) {
+      std::cout << "\\n--- Disassembled SPIR-V Start ---" << std::endl;
+      std::cout << disassembled_spirv << std::endl;
+      std::cout << "--- Disassembled SPIR-V End ---" << std::endl;
+    } else {
+      // disassembleSPIRV prints its own errors to std::cerr.
+      // No additional message here unless specifically needed.
+    }
+    return extractedSpirvView;
+  }
+
+  // If extractedSpirvView is empty, an error occurred.
+  // ErrorMsg should have been set by the relevant failure branch.
+  // If ErrorMsg is somehow still empty here, set a generic fallback.
+  if (ErrorMsg.empty()) {
+      ErrorMsg = "Failed to extract SPIR-V module for an unknown reason.";
+  }
+  return std::string_view(); // Return empty view indicating failure
 }
 
 std::string disassembleSPIRV(const std::string_view &spirvBinary) {

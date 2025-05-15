@@ -82,6 +82,10 @@ class SPVModule {
   SPVModuleInfo ModuleInfo_;
 
 public:
+  enum class sourceType {
+    raw,
+    processed
+  };
   // Using lists for iterator stability.
   std::list<SPVFunction> Kernels;
   std::list<SPVVariable> Variables;
@@ -95,19 +99,25 @@ public:
         FinalizedBinary_.size() * sizeof(uint32_t));
   }
 
-  std::vector<std::string> getAssembly() const {
-    assert(FinalizedBinary_.size() && "Has not finalized yet!");
-    
-    spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
+  std::vector<std::string> getAssembly(sourceType type) const {
+    if (type == sourceType::raw) {
+      assert(OriginalBinary_.size() && "original binary is empty!");
+    } else {
+      assert(FinalizedBinary_.size() && "finalized binary is empty!");
+    }
+    spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_4);
     spv_text text = nullptr;
     spv_diagnostic diagnostic = nullptr;
 
     std::vector<std::string> result;
+
+    auto data = type == sourceType::raw ? reinterpret_cast<const uint32_t *>(OriginalBinary_.data()) : FinalizedBinary_.data();
+    auto size = type == sourceType::raw ? OriginalBinary_.size() : FinalizedBinary_.size();
     
     spv_result_t status = spvBinaryToText(
         context, 
-        FinalizedBinary_.data(),
-        FinalizedBinary_.size(), // Number of 32-bit words
+        data,
+        size, // Number of 32-bit words
         SPV_BINARY_TO_TEXT_OPTION_INDENT | 
         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES,
         &text, 
@@ -134,6 +144,78 @@ public:
     return result;
   }
 
+  std::vector<std::string> getFuncNames(sourceType type) const {
+    std::vector<std::string> funcNamesList;
+    auto assembly = this->getAssembly(type);
+    if (assembly.empty() || (assembly.size() == 1 && assembly[0].find("SPIR-V disassembly error:") != std::string::npos)) {
+      // If assembly is empty or contains only an error message, return an empty list.
+      // Optionally, log an error or warning here if desired, e.g., using logDebug or similar from your project.
+      return funcNamesList;
+    }
+
+    std::unordered_map<std::string, std::string> spirvIdToNameMap;
+
+    // First pass: collect OpName declarations for functions
+    for (const auto &line : assembly) {
+      if (line.find("OpName") != std::string::npos) {
+        std::istringstream iss(line);
+        std::string opNameKeyword, id, nameInQuotes;
+        if (iss >> opNameKeyword >> id >> nameInQuotes) { // Expecting OpName %id "Name"
+          if (opNameKeyword == "OpName") {
+            // Remove quotes if present from the name
+            if (!nameInQuotes.empty() && nameInQuotes.length() >= 2 && nameInQuotes.front() == '"' && nameInQuotes.back() == '"') {
+              spirvIdToNameMap[id] = nameInQuotes.substr(1, nameInQuotes.size() - 2);
+            } else {
+              // Handle cases where name might not be quoted, though less common for OpName targets
+              spirvIdToNameMap[id] = nameInQuotes;
+            }
+          }
+        }
+      }
+    }
+
+    // Second pass: find OpFunction declarations and use their result IDs to get names
+    for (const auto &line : assembly) {
+      if (line.find("OpFunction") != std::string::npos) {
+        std::istringstream iss(line);
+        // Example OpFunction line: %func_id = OpFunction %return_type None %func_type
+        // We are interested in the %func_id which is the result ID of OpFunction
+        std::string token;
+        std::vector<std::string> tokens;
+        while(iss >> token) {
+            tokens.push_back(token);
+        }
+
+        // Expected format: %resultId = OpFunction ...
+        // Or sometimes: OpFunction %return_type %resultId %function_control %function_type_id
+        // The critical part is identifying the function's own ID, often the first operand after "OpFunction"
+        // if it's not an assignment, or the result ID if it is an assignment.
+        // Let's refine based on typical SPIR-V text format.
+        // An OpFunction definition typically looks like:
+        // %function_id = OpFunction %return_type_id %function_control %function_type_id
+        // Or, without direct assignment in some textual representations:
+        // OpFunction %return_type_id %function_id %function_control %function_type_id
+        // The code from CHIPBackendLevel0.cc was looking for: %resultId = OpFunction ...
+
+        if (tokens.size() >= 4 && tokens[1] == "=" && tokens[2] == "OpFunction") {
+            // Case: %resultId = OpFunction ...
+            std::string funcResultId = tokens[0];
+            if (spirvIdToNameMap.count(funcResultId)) {
+              funcNamesList.push_back(spirvIdToNameMap[funcResultId]);
+            }
+        } else if (tokens.size() >= 5 && tokens[0] == "OpFunction") {
+            // Case: OpFunction %return_type_id %function_id ... (less common for direct mapping)
+            // This case might need adjustment depending on how OpFunction lines are typically structured
+            // when not directly assigned for naming purposes. Usually, the ID named by OpName is the one used.
+            // The original code snippet implies an assignment form to get the ID.
+            // Let's stick to the pattern that worked in the original snippet primarily.
+            // If OpName names an ID, and that ID is later used as OpFunction's result ID, that's our target.
+        }
+      }
+    }
+    return funcNamesList;
+  }
+
   const SPVModuleInfo &getInfo() const {
     assert(FinalizedBinary_.size() && "Has not finalized yet!");
     return ModuleInfo_;
@@ -142,7 +224,7 @@ public:
 
 class SPVRegister {
 private:
-  std::mutex Mtx_; ///< Mutex for all of the members of this class
+  mutable std::mutex Mtx_; ///< Mutex for all of the members of this class
 
   std::set<std::unique_ptr<SPVModule>, PointerCmp<SPVModule>> Sources_;
   std::unordered_map<const void *, SPVGlobalObject *> HostPtrLookup_;
@@ -174,6 +256,16 @@ public:
   const SPVModule *getSource(HostPtr Ptr);
 
   size_t getNumSources() const { return Sources_.size(); }
+
+  std::vector<const SPVModule*> getAllModules() const {
+    std::lock_guard<std::mutex> guard(Mtx_);
+    std::vector<const SPVModule*> modules;
+    modules.reserve(Sources_.size());
+    for (const auto& mod_ptr : Sources_) {
+        modules.push_back(mod_ptr.get());
+    }
+    return modules;
+  }
 
 private:
   SPVModule *getFinalizedSource(SPVModule *Src);
