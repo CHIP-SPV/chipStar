@@ -25,6 +25,7 @@
 
 #include <fstream>
 #include <chrono>
+#include <sstream>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
@@ -2558,6 +2559,49 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
 
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(ChipDev);
 
+  logDebug("Dumping SPIR-V functions in module {}", (void *)this);
+  auto assembly = Src_->getAssembly();
+  
+  std::unordered_map<std::string, std::string> functionNames;
+  bool foundFunctions = false;
+  
+  // First pass: collect OpName declarations for functions
+  for (const auto &line : assembly) {
+    // Look for OpName instructions that might define function names
+    if (line.find("OpName") != std::string::npos) {
+      std::istringstream iss(line);
+      std::string opName, id, name;
+      if (iss >> opName >> id >> name) {
+        // Store the ID and name for later matching with OpFunction
+        // Remove quotes if present
+        if (!name.empty() && name.front() == '"' && name.back() == '"') {
+          name = name.substr(1, name.size() - 2);
+        }
+        functionNames[id] = name;
+      }
+    }
+  }
+  
+  // Second pass: find OpFunction declarations and print their names
+  logDebug("Available SPIR-V functions:");
+  for (const auto &line : assembly) {
+    if (line.find("OpFunction") != std::string::npos) {
+      std::istringstream iss(line);
+      std::string resultId, equal, opFunction;
+      if (iss >> resultId >> equal >> opFunction && equal == "=" && opFunction == "OpFunction") {
+        // Found a function definition
+        if (functionNames.count(resultId)) {
+          logDebug("  Function: {}", functionNames[resultId]);
+          foundFunctions = true;
+        }
+      }
+    }
+  }
+  
+  if (!foundFunctions) {
+    logDebug("  No functions found in the module");
+  }
+
   std::string_view SPIRVBin = Src_->getBinary();
   std::vector<size_t> ILSizes(1, SPIRVBin.size());
   std::vector<const uint8_t *> ILInputs(
@@ -2610,7 +2654,7 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   auto kernelCreationStart = std::chrono::high_resolution_clock::now();
   for (uint32_t i = 0; i < KernelCount; i++) {
     std::string HostFName = KernelNames[i];
-    logTrace("Registering kernel {}", HostFName);
+    logDebug("Registering kernel {} in module {}", HostFName, (void *)this);
 
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {

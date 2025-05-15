@@ -37,6 +37,8 @@ THE SOFTWARE.
 #include <cassert>
 #include <list>
 #include <mutex>
+#include <spirv-tools/libspirv.hpp>
+#include <sstream>
 
 class SPVModule;
 
@@ -91,6 +93,45 @@ public:
     return std::string_view(
         reinterpret_cast<const char *>(FinalizedBinary_.data()),
         FinalizedBinary_.size() * sizeof(uint32_t));
+  }
+
+  std::vector<std::string> getAssembly() const {
+    assert(FinalizedBinary_.size() && "Has not finalized yet!");
+    
+    spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
+    spv_text text = nullptr;
+    spv_diagnostic diagnostic = nullptr;
+
+    std::vector<std::string> result;
+    
+    spv_result_t status = spvBinaryToText(
+        context, 
+        FinalizedBinary_.data(),
+        FinalizedBinary_.size(), // Number of 32-bit words
+        SPV_BINARY_TO_TEXT_OPTION_INDENT | 
+        SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES,
+        &text, 
+        &diagnostic);
+
+    if (status == SPV_SUCCESS) {
+      // Split assembly text into lines
+      std::string spirvText(text->str, text->length);
+      std::string line;
+      std::istringstream lineStream(spirvText);
+      
+      while (std::getline(lineStream, line)) {
+        result.push_back(line);
+      }
+      
+      spvTextDestroy(text);
+    } else if (diagnostic) {
+      // Include error in result
+      result.push_back(std::string("SPIR-V disassembly error: ") + diagnostic->error);
+      spvDiagnosticDestroy(diagnostic);
+    }
+    
+    spvContextDestroy(context);
+    return result;
   }
 
   const SPVModuleInfo &getInfo() const {
