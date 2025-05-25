@@ -3,7 +3,7 @@
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     std::cerr << "Usage: " << argv[0]
-              << " [--check-for-doubles] [-o <output_filename>] [-h] "
+              << " [--check-for-doubles] [--verify] [-o <output_filename>] [-h] "
                  "<fatbinary_path> [<additional_args>...]"
               << std::endl;
     return 1;
@@ -12,6 +12,7 @@ int main(int argc, char *argv[]) {
   std::string outputFilename;
   bool dumpToFile = false;
   bool checkForDoubles = false;
+  bool verifySpirv = false;
   bool helpRequested = false;
   std::vector<std::string> additionalArgs;
 
@@ -27,6 +28,8 @@ int main(int argc, char *argv[]) {
       }
     } else if (std::string(argv[i]) == "--check-for-doubles") {
       checkForDoubles = true;
+    } else if (std::string(argv[i]) == "--verify") {
+      verifySpirv = true;
     } else if (std::string(argv[i]) == "-h") {
       helpRequested = true;
     } else {
@@ -37,9 +40,13 @@ int main(int argc, char *argv[]) {
 
   if (helpRequested) {
     std::cerr << "Usage: " << argv[0]
-              << " [--check-for-doubles] [-o <output_filename>] [-h] "
-                 "<fatbinary_path> [<additional_args>...]"
-              << std::endl;
+              << " [--check-for-doubles] [--verify] [-o <output_filename>] [-h] "
+                 "<fatbinary_path> [<additional_args>...]" << std::endl;
+    std::cerr << "Options:" << std::endl;
+    std::cerr << "  --check-for-doubles  Check if SPIR-V uses double precision and skip test if so" << std::endl;
+    std::cerr << "  --verify            Perform comprehensive SPIR-V verification" << std::endl;
+    std::cerr << "  -o <filename>       Output SPIR-V to specified file" << std::endl;
+    std::cerr << "  -h                  Show this help message" << std::endl;
     return 0;
   }
 
@@ -87,6 +94,26 @@ int main(int argc, char *argv[]) {
   bool hasDoubles = usesDoubles(spirvText);
 
   int exitCode = 0;
+  
+  // Perform SPIR-V verification if requested
+  if (verifySpirv) {
+    std::cout << "Performing SPIR-V verification..." << std::endl;
+    auto verificationResult = verifySPIRVBinary(spirvBinary);
+    
+    if (verificationResult.hasIssues()) {
+      verificationResult.printResults();
+    }
+    
+    if (!verificationResult.isValid) {
+      std::cerr << "SPIR-V verification failed!" << std::endl;
+      return 1;
+    } else if (verificationResult.hasIssues()) {
+      std::cout << "SPIR-V verification completed with warnings." << std::endl;
+    } else {
+      std::cout << "SPIR-V verification passed successfully." << std::endl;
+    }
+  }
+  
   if (checkForDoubles) {
     if (hasDoubles)
       std::cout << "HIP_SKIP_THIS_TEST: Kernel uses doubles" << std::endl;

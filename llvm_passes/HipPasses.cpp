@@ -32,6 +32,7 @@
 #include "HipPromoteInts.h"
 #include "HipFinalIRVerification.h"
 #include "HipFinalIRVerification.h"
+#include "HipSPIRVVerificationPass.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -171,6 +172,9 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // Final IR verification pass - must be the last pass
   MPM.addPass(createHipFinalIRVerificationPass());
+  // SPIR-V verification pass - converts IR to SPIR-V and verifies it
+  // This must be the absolute last pass in the pipeline
+  MPM.addPass(HipSPIRVVerificationPass());
 }
 
 #if LLVM_VERSION_MAJOR < 14
@@ -188,6 +192,11 @@ llvmGetPassPluginInfo() {
                    ArrayRef<PassBuilder::PipelineElement>) {
                   if (Name == PASS_ID) {
                     addFullLinkTimePasses(MPM);
+                    return true;
+                  }
+                  // Register HipSPIRVVerificationPass as a standalone pass
+                  if (Name == "hip-spirv-verify") {
+                    MPM.addPass(HipSPIRVVerificationPass());
                     return true;
                   }
                   return false;
