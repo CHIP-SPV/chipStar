@@ -158,3 +158,6 @@ add_hipcc_test(TestDim3Cast.hip HIPCC_OPTIONS -fsyntax-only)
 
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
+
+# Add the IR verification tests
+add_subdirectory(irVerification)

@@ -30,6 +30,8 @@
 #include "HipLowerMemset.h"
 #include "HipIGBADetector.h"
 #include "HipPromoteInts.h"
+#include "HipFinalIRVerification.h"
+#include "HipFinalIRVerification.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -98,6 +100,9 @@ public:
 };
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
+  // Initial IR verification pass - must be the first pass
+  MPM.addPass(createHipInitialIRVerificationPass());
+
   MPM.addPass(HipSanityChecksPass());
 
   /// For extracting name expression to lowered name expressions (hiprtc).
@@ -163,6 +168,9 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // Fix InvalidBitWidth errors due to non-standard integer types
   MPM.addPass(HipPromoteIntsPass());
+
+  // Final IR verification pass - must be the last pass
+  MPM.addPass(createHipFinalIRVerificationPass());
 }
 
 #if LLVM_VERSION_MAJOR < 14
@@ -184,5 +192,26 @@ llvmGetPassPluginInfo() {
                   }
                   return false;
                 });
+            
+            // Register individual IR verification passes
+            PB.registerPipelineParsingCallback(
+                [](StringRef Name, ModulePassManager &MPM,
+                   ArrayRef<PassBuilder::PipelineElement>) {
+                  if (Name == "hip-initial-ir-verification") {
+                    MPM.addPass(createHipInitialIRVerificationPass());
+                    return true;
+                  }
+                  return false;
+                });
+            
+            PB.registerPipelineParsingCallback(
+                [](StringRef Name, ModulePassManager &MPM,
+                   ArrayRef<PassBuilder::PipelineElement>) {
+                  if (Name == "hip-final-ir-verification") {
+                    MPM.addPass(createHipFinalIRVerificationPass());
+                    return true;
+                  }
+                  return false;
+                });
           }};
-}
+} 

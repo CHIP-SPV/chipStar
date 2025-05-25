@@ -102,13 +102,15 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipTextureLowering.cpp HipAbort.cpp
     HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
-    HipLowerMemset.cpp HipIGBADetector.cpp HipPromoteInts.cpp ${EXTRA_OBJS})
+    HipLowerMemset.cpp HipIGBADetector.cpp HipPromoteInts.cpp 
+    HipFinalIRVerification.cpp ${EXTRA_OBJS})
 
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
 target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipStripUsedIntrinsics PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipDefrost PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipPasses PRIVATE -I/${LLVM_INCLUDE_DIRS})
+target_compile_definitions(LLVMHipPasses PRIVATE CHIPSTAR_LLVM_BIN_DIR="${CLANG_ROOT_PATH_BIN}")
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES
