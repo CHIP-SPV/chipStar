@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstring>
 #include <elf.h>
 #include <filesystem>
@@ -259,4 +260,366 @@ bool usesDoubles(const std::string &spirvHumanReadable) {
     }
   }
   return false;
+}
+
+// SPIR-V Verification structures and functions
+struct SPIRVVerificationResult {
+  bool isValid;
+  std::vector<std::string> errors;
+  std::vector<std::string> warnings;
+  
+  void addError(const std::string& message) {
+    errors.push_back("ERROR: " + message);
+    isValid = false;
+  }
+  
+  void addWarning(const std::string& message) {
+    warnings.push_back("WARNING: " + message);
+  }
+  
+  bool hasIssues() const {
+    return !errors.empty() || !warnings.empty();
+  }
+  
+  void printResults() const {
+    for (const auto& error : errors) {
+      std::cerr << error << std::endl;
+    }
+    for (const auto& warning : warnings) {
+      std::cerr << warning << std::endl;
+    }
+  }
+};
+
+// SPIR-V verification functions
+SPIRVVerificationResult verifySPIRVBinary(const std::string_view& spirvBinary);
+SPIRVVerificationResult verifySPIRVText(const std::string& spirvText);
+bool validateSPIRVHeader(const std::string_view& spirvBinary, SPIRVVerificationResult& result);
+bool validateSPIRVInstructions(const std::string& spirvText, SPIRVVerificationResult& result);
+bool checkHIPSpecificConstraints(const std::string& spirvText, SPIRVVerificationResult& result);
+bool checkMemoryModel(const std::string& spirvText, SPIRVVerificationResult& result);
+bool checkAddressingModel(const std::string& spirvText, SPIRVVerificationResult& result);
+bool checkExecutionModel(const std::string& spirvText, SPIRVVerificationResult& result);
+bool checkCapabilities(const std::string& spirvText, SPIRVVerificationResult& result);
+
+// SPIR-V verification function implementations
+SPIRVVerificationResult verifySPIRVBinary(const std::string_view& spirvBinary) {
+  SPIRVVerificationResult result;
+  result.isValid = true;
+  
+  // First validate using SPIR-V Tools validator
+  spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
+  spv_diagnostic diagnostic = nullptr;
+  
+  spv_result_t validationResult = spvValidateBinary(
+    context,
+    reinterpret_cast<const uint32_t*>(spirvBinary.data()),
+    spirvBinary.size() / sizeof(uint32_t),
+    &diagnostic
+  );
+  
+  if (validationResult != SPV_SUCCESS) {
+    if (diagnostic) {
+      result.addError("SPIR-V validation failed: " + std::string(diagnostic->error));
+      spvDiagnosticDestroy(diagnostic);
+    } else {
+      result.addError("SPIR-V validation failed with unknown error");
+    }
+  }
+  
+  spvContextDestroy(context);
+  
+  // Validate header structure
+  if (!validateSPIRVHeader(spirvBinary, result)) {
+    return result;
+  }
+  
+  // Convert to text for additional checks
+  std::string spirvText = disassembleSPIRV(spirvBinary);
+  if (spirvText.empty()) {
+    result.addError("Failed to disassemble SPIR-V binary for text-based validation");
+    return result;
+  }
+  
+  // Perform text-based validation
+  return verifySPIRVText(spirvText);
+}
+
+SPIRVVerificationResult verifySPIRVText(const std::string& spirvText) {
+  SPIRVVerificationResult result;
+  result.isValid = true;
+  
+  // Perform various validation checks
+  validateSPIRVInstructions(spirvText, result);
+  checkHIPSpecificConstraints(spirvText, result);
+  checkMemoryModel(spirvText, result);
+  checkAddressingModel(spirvText, result);
+  checkExecutionModel(spirvText, result);
+  checkCapabilities(spirvText, result);
+  
+  return result;
+}
+
+bool validateSPIRVHeader(const std::string_view& spirvBinary, SPIRVVerificationResult& result) {
+  if (spirvBinary.size() < 20) { // SPIR-V header is 20 bytes (5 words)
+    result.addError("SPIR-V binary too small to contain valid header");
+    return false;
+  }
+  
+  const uint32_t* words = reinterpret_cast<const uint32_t*>(spirvBinary.data());
+  
+  // Check magic number
+  if (words[0] != SPIRV_MAGIC) {
+    result.addError("Invalid SPIR-V magic number: 0x" + 
+                   std::to_string(words[0]) + " (expected 0x07230203)");
+    return false;
+  }
+  
+  // Check version (word 1)
+  uint32_t version = words[1];
+  uint32_t major = (version >> 16) & 0xFF;
+  uint32_t minor = (version >> 8) & 0xFF;
+  
+  if (major < 1 || (major == 1 && minor < 0)) {
+    result.addWarning("SPIR-V version " + std::to_string(major) + "." + 
+                     std::to_string(minor) + " may not be supported");
+  }
+  
+  // Check generator magic number (word 2) - informational
+  uint32_t generator = words[2];
+  if (generator == 0) {
+    result.addWarning("Generator magic number is 0 (unknown generator)");
+  }
+  
+  // Check bound (word 3) - must be non-zero
+  uint32_t bound = words[3];
+  if (bound == 0) {
+    result.addError("Invalid bound value: 0 (must be non-zero)");
+    return false;
+  }
+  
+  // Word 4 is reserved and should be 0
+  if (words[4] != 0) {
+    result.addWarning("Reserved field in header is non-zero: " + std::to_string(words[4]));
+  }
+  
+  return true;
+}
+
+bool validateSPIRVInstructions(const std::string& spirvText, SPIRVVerificationResult& result) {
+  std::istringstream iss(spirvText);
+  std::string line;
+  bool hasOpEntryPoint = false;
+  bool hasOpMemoryModel = false;
+  int lineNumber = 0;
+  
+  while (std::getline(iss, line)) {
+    lineNumber++;
+    
+    // Trim whitespace
+    line.erase(0, line.find_first_not_of(" \t"));
+    line.erase(line.find_last_not_of(" \t") + 1);
+    
+    if (line.empty() || line[0] == ';') continue; // Skip comments and empty lines
+    
+    // Check for required instructions
+    if (line.find("OpEntryPoint") != std::string::npos) {
+      hasOpEntryPoint = true;
+    }
+    if (line.find("OpMemoryModel") != std::string::npos) {
+      hasOpMemoryModel = true;
+    }
+    
+    // Check for problematic patterns
+    if (line.find("OpUndef") != std::string::npos) {
+      result.addWarning("OpUndef instruction found at line " + std::to_string(lineNumber) + 
+                       " - may cause undefined behavior");
+    }
+    
+    // Check for deprecated instructions
+    if (line.find("OpTypePointer") != std::string::npos && 
+        line.find("Generic") != std::string::npos) {
+      result.addWarning("Generic address space usage at line " + std::to_string(lineNumber) + 
+                       " - consider using specific address spaces");
+    }
+  }
+  
+  // Check for required instructions
+  if (!hasOpEntryPoint) {
+    result.addError("Missing required OpEntryPoint instruction");
+  }
+  if (!hasOpMemoryModel) {
+    result.addError("Missing required OpMemoryModel instruction");
+  }
+  
+  return result.isValid;
+}
+
+bool checkHIPSpecificConstraints(const std::string& spirvText, SPIRVVerificationResult& result) {
+  std::istringstream iss(spirvText);
+  std::string line;
+  bool hasKernelExecutionModel = false;
+  int lineNumber = 0;
+  
+  while (std::getline(iss, line)) {
+    lineNumber++;
+    
+    // Check for HIP/OpenCL kernel execution model
+    if (line.find("OpEntryPoint") != std::string::npos && 
+        line.find("Kernel") != std::string::npos) {
+      hasKernelExecutionModel = true;
+    }
+    
+    // Check for unsupported HIP features
+    if (line.find("OpTypeImage") != std::string::npos) {
+      result.addWarning("Image types found at line " + std::to_string(lineNumber) + 
+                       " - ensure HIP runtime supports this feature");
+    }
+    
+    if (line.find("OpTypeSampler") != std::string::npos) {
+      result.addWarning("Sampler types found at line " + std::to_string(lineNumber) + 
+                       " - ensure HIP runtime supports this feature");
+    }
+    
+    // Check for atomic operations
+    if (line.find("OpAtomic") != std::string::npos) {
+      result.addWarning("Atomic operations found at line " + std::to_string(lineNumber) + 
+                       " - verify memory scope and semantics are HIP-compatible");
+    }
+    
+    // Check for barrier operations
+    if (line.find("OpControlBarrier") != std::string::npos || 
+        line.find("OpMemoryBarrier") != std::string::npos) {
+      result.addWarning("Barrier operations found at line " + std::to_string(lineNumber) + 
+                       " - verify scope and semantics are HIP-compatible");
+    }
+  }
+  
+  if (!hasKernelExecutionModel) {
+    result.addWarning("No kernel execution model found - this may not be a valid HIP kernel");
+  }
+  
+  return true;
+}
+
+bool checkMemoryModel(const std::string& spirvText, SPIRVVerificationResult& result) {
+  std::istringstream iss(spirvText);
+  std::string line;
+  bool foundMemoryModel = false;
+  
+  while (std::getline(iss, line)) {
+    if (line.find("OpMemoryModel") != std::string::npos) {
+      foundMemoryModel = true;
+      
+      // Check for supported memory models
+      if (line.find("OpenCL") != std::string::npos) {
+        // OpenCL memory model is expected for HIP
+        continue;
+      } else if (line.find("GLSL450") != std::string::npos) {
+        result.addWarning("GLSL450 memory model may not be fully compatible with HIP");
+      } else if (line.find("Vulkan") != std::string::npos) {
+        result.addWarning("Vulkan memory model may not be fully compatible with HIP");
+      } else {
+        result.addWarning("Unknown or unsupported memory model in: " + line);
+      }
+    }
+  }
+  
+  if (!foundMemoryModel) {
+    result.addError("No OpMemoryModel instruction found");
+  }
+  
+  return foundMemoryModel;
+}
+
+bool checkAddressingModel(const std::string& spirvText, SPIRVVerificationResult& result) {
+  std::istringstream iss(spirvText);
+  std::string line;
+  bool foundAddressingModel = false;
+  
+  while (std::getline(iss, line)) {
+    if (line.find("OpMemoryModel") != std::string::npos) {
+      foundAddressingModel = true;
+      
+      // Check for supported addressing models
+      if (line.find("Physical64") != std::string::npos) {
+        // Physical64 is expected for HIP on 64-bit systems
+        continue;
+      } else if (line.find("Physical32") != std::string::npos) {
+        result.addWarning("Physical32 addressing model - ensure this matches target architecture");
+      } else if (line.find("Logical") != std::string::npos) {
+        result.addWarning("Logical addressing model may not be optimal for HIP kernels");
+      } else {
+        result.addWarning("Unknown addressing model in: " + line);
+      }
+    }
+  }
+  
+  return foundAddressingModel;
+}
+
+bool checkExecutionModel(const std::string& spirvText, SPIRVVerificationResult& result) {
+  std::istringstream iss(spirvText);
+  std::string line;
+  bool foundKernelModel = false;
+  
+  while (std::getline(iss, line)) {
+    if (line.find("OpEntryPoint") != std::string::npos) {
+      if (line.find("Kernel") != std::string::npos) {
+        foundKernelModel = true;
+      } else if (line.find("Vertex") != std::string::npos || 
+                 line.find("Fragment") != std::string::npos ||
+                 line.find("Geometry") != std::string::npos) {
+        result.addError("Graphics execution models (Vertex/Fragment/Geometry) are not supported in HIP");
+      } else if (line.find("GLCompute") != std::string::npos) {
+        result.addWarning("GLCompute execution model may not be fully compatible with HIP");
+      }
+    }
+  }
+  
+  if (!foundKernelModel) {
+    result.addError("No Kernel execution model found - HIP requires kernel entry points");
+  }
+  
+  return foundKernelModel;
+}
+
+bool checkCapabilities(const std::string& spirvText, SPIRVVerificationResult& result) {
+  std::istringstream iss(spirvText);
+  std::string line;
+  std::vector<std::string> requiredCapabilities = {"Kernel", "Addresses"};
+  std::vector<std::string> foundCapabilities;
+  
+  while (std::getline(iss, line)) {
+    if (line.find("OpCapability") != std::string::npos) {
+      for (const auto& cap : requiredCapabilities) {
+        if (line.find(cap) != std::string::npos) {
+          foundCapabilities.push_back(cap);
+        }
+      }
+      
+      // Check for potentially problematic capabilities
+      if (line.find("Float64") != std::string::npos) {
+        result.addWarning("Float64 capability found - ensure target device supports double precision");
+      }
+      if (line.find("Int64") != std::string::npos) {
+        result.addWarning("Int64 capability found - ensure target device supports 64-bit integers");
+      }
+      if (line.find("ImageBasic") != std::string::npos || 
+          line.find("ImageReadWrite") != std::string::npos) {
+        result.addWarning("Image capabilities found - ensure HIP runtime supports image operations");
+      }
+    }
+  }
+  
+  // Check for missing required capabilities
+  for (const auto& required : requiredCapabilities) {
+    bool found = std::find(foundCapabilities.begin(), foundCapabilities.end(), required) 
+                 != foundCapabilities.end();
+    if (!found) {
+      result.addError("Missing required capability: " + required);
+    }
+  }
+  
+  return true;
 }
