@@ -100,7 +100,7 @@ public:
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Initial IR+SPIR-V validation pass - must be the first pass
-  MPM.addPass(createHipInitialIRSpirvValidationPass());
+  MPM.addPass(HipIRSpirvValidationPass("Pre-HIP passes IR+SPIR-V validation"));
 
   MPM.addPass(HipSanityChecksPass());
 
@@ -169,7 +169,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipPromoteIntsPass());
 
   // Final IR+SPIR-V validation pass - performs IR validation + SPIR-V validation and conversion
-  MPM.addPass(createHipFinalIRSpirvValidationPass());
+  MPM.addPass(HipIRSpirvValidationPass("Post-HIP passes IR+SPIR-V validation"));
 }
 
 #if LLVM_VERSION_MAJOR < 14
@@ -191,7 +191,7 @@ llvmGetPassPluginInfo() {
                   }
                   // Register merged IR+SPIR-V validation pass as standalone
                   if (Name == "ir-spirv-validate") {
-                    MPM.addPass(createHipFinalIRSpirvValidationPass());
+                    MPM.addPass(HipIRSpirvValidationPass("IR+SPIR-V validation"));
                     return true;
                   }
                   return false;

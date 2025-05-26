@@ -17,17 +17,14 @@
 
 #include "llvm/IR/PassManager.h"
 #include <vector>
+#include <string>
 
 using namespace llvm;
 
-enum class ValidationStage {
-  Initial,  // Before HIP passes - IR validation only
-  Final     // After HIP passes - IR validation + SPIR-V validation
-};
-
 class HipIRSpirvValidationPass : public PassInfoMixin<HipIRSpirvValidationPass> {
 public:
-  explicit HipIRSpirvValidationPass(ValidationStage Stage) : Stage(Stage) {}
+  explicit HipIRSpirvValidationPass(const std::string& StageMsg, bool EnableSPIRVValidation = false) 
+    : StageMsg(StageMsg), EnableSPIRVValidation(EnableSPIRVValidation) {}
   
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }
@@ -36,8 +33,8 @@ public:
   std::vector<uint32_t> convertIRToSPIRV(Module &M);
 
 private:
-  ValidationStage Stage;
   std::string StageMsg;
+  bool EnableSPIRVValidation;
   
   // IR validation methods
   bool runOptVerify(Module &M);
@@ -45,23 +42,6 @@ private:
   // SPIR-V validation methods
   bool verifySPIRVBinary(const std::vector<uint32_t> &spirvBinary);
   bool isCompileTimeVerificationEnabled();
-  
-  const char* getStageString() const {
-    return Stage == ValidationStage::Initial ? "before" : "after";
-  }
 };
-
-// Convenience aliases for the two validation stages
-using HipInitialIRSpirvValidationPass = HipIRSpirvValidationPass;
-using HipFinalIRSpirvValidationPass = HipIRSpirvValidationPass;
-
-// Factory functions for creating the passes
-inline HipInitialIRSpirvValidationPass createHipInitialIRSpirvValidationPass() {
-  return HipInitialIRSpirvValidationPass(ValidationStage::Initial);
-}
-
-inline HipFinalIRSpirvValidationPass createHipFinalIRSpirvValidationPass() {
-  return HipFinalIRSpirvValidationPass(ValidationStage::Final);
-}
 
 #endif // LLVM_PASSES_HIP_IR_SPIRV_VALIDATION_H 

@@ -29,25 +29,22 @@
 #include <algorithm>
 #include <sstream>
 #include <fstream>
+#include <optional>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "hip-ir-spirv-validation"
 
 PreservedAnalyses HipIRSpirvValidationPass::run(Module &M, ModuleAnalysisManager &AM) {
-  const char* StageStr = getStageString();
-  
-  // Set stage message for all error outputs
-  StageMsg = (Stage == ValidationStage::Initial) ? "[Pre chipStar LLVM Passes] " : "[Post chipStar LLVM Passes] ";
-  
-  LLVM_DEBUG(dbgs() << "Running IR-SPIR-V validation " << StageStr << " HIP passes\n");
+  StageMsg = "[" + StageMsg + "] ";
+  LLVM_DEBUG(dbgs() << "Running IR-SPIR-V validation with stage: " << StageMsg << "\n");
   
   // Always perform IR verification
   bool IRVerificationPassed = runOptVerify(M);
   
   if (!IRVerificationPassed) {
-    errs() << StageMsg << "FATAL: IR verification failed " << StageStr << " HIP passes. The IR is invalid.\n";
-    if (Stage == ValidationStage::Initial) {
+    errs() << StageMsg << "FATAL: IR verification failed. The IR is invalid.\n";
+    if (!EnableSPIRVValidation) {
       errs() << StageMsg << "This indicates the input IR has structural problems.\n";
     } else {
       errs() << StageMsg << "This indicates a bug in one of the HIP transformation passes.\n";
@@ -60,11 +57,11 @@ PreservedAnalyses HipIRSpirvValidationPass::run(Module &M, ModuleAnalysisManager
     #endif
     return PreservedAnalyses::all();
   } else {
-    LLVM_DEBUG(dbgs() << "SUCCESS: IR verification passed " << StageStr << " HIP passes\n");
+    LLVM_DEBUG(dbgs() << "SUCCESS: IR verification passed for stage: " << StageMsg << "\n");
   }
   
-  // Perform SPIR-V validation only at the final stage
-  if (Stage == ValidationStage::Final) {
+  // Perform SPIR-V validation only if enabled
+  if (EnableSPIRVValidation) {
     // Check if compile-time SPIR-V verification is enabled
     if (!isCompileTimeVerificationEnabled()) {
       LLVM_DEBUG(dbgs() << "Compile-time SPIR-V verification disabled, skipping\n");
@@ -222,8 +219,9 @@ std::vector<uint32_t> HipIRSpirvValidationPass::convertIRToSPIRV(Module &M) {
 
   // Run llvm-as
   std::string ErrMsg;
-  SmallVector<StringRef, 4> LLVMAsArgs{
+  SmallVector<StringRef, 6> LLVMAsArgs{
     LLVMAsPath,
+    "-opaque-pointers",
     LLTempFile,
     "-o", BCTempFile
   };
