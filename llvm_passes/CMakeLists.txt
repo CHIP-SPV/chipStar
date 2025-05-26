@@ -103,7 +103,7 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
     HipLowerMemset.cpp HipIGBADetector.cpp HipPromoteInts.cpp 
-    HipFinalIRVerification.cpp HipSPIRVVerificationPass.cpp
+    HipFinalIRVerification.cpp
     ${EXTRA_OBJS})
 
 # If trying to recompile with LLVM unloaded, the inlcude path is not found

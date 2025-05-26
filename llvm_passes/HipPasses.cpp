@@ -31,8 +31,6 @@
 #include "HipIGBADetector.h"
 #include "HipPromoteInts.h"
 #include "HipFinalIRVerification.h"
-#include "HipFinalIRVerification.h"
-#include "HipSPIRVVerificationPass.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -101,8 +99,8 @@ public:
 };
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
-  // Initial IR verification pass - must be the first pass
-  MPM.addPass(createHipInitialIRVerificationPass());
+  // Initial IR+SPIR-V validation pass - must be the first pass
+  MPM.addPass(createHipInitialIRSpirvValidationPass());
 
   MPM.addPass(HipSanityChecksPass());
 
@@ -170,11 +168,8 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Fix InvalidBitWidth errors due to non-standard integer types
   MPM.addPass(HipPromoteIntsPass());
 
-  // Final IR verification pass - must be the last pass
-  MPM.addPass(createHipFinalIRVerificationPass());
-  // SPIR-V verification pass - converts IR to SPIR-V and verifies it
-  // This must be the absolute last pass in the pipeline
-  MPM.addPass(HipSPIRVVerificationPass());
+  // Final IR+SPIR-V validation pass - performs IR validation + SPIR-V validation and conversion
+  MPM.addPass(createHipFinalIRSpirvValidationPass());
 }
 
 #if LLVM_VERSION_MAJOR < 14
@@ -194,33 +189,12 @@ llvmGetPassPluginInfo() {
                     addFullLinkTimePasses(MPM);
                     return true;
                   }
-                  // Register HipSPIRVVerificationPass as a standalone pass
-                  if (Name == "hip-spirv-verify") {
-                    MPM.addPass(HipSPIRVVerificationPass());
-                    return true;
-                  }
-                  return false;
-                });
-            
-            // Register individual IR verification passes
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &MPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-initial-ir-verification") {
-                    MPM.addPass(createHipInitialIRVerificationPass());
-                    return true;
-                  }
-                  return false;
-                });
-            
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &MPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-final-ir-verification") {
-                    MPM.addPass(createHipFinalIRVerificationPass());
+                  // Register merged IR+SPIR-V validation pass as standalone
+                  if (Name == "ir-spirv-validate") {
+                    MPM.addPass(createHipFinalIRSpirvValidationPass());
                     return true;
                   }
                   return false;
                 });
           }};
-} 
+}
