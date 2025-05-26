@@ -192,20 +192,12 @@ std::vector<uint32_t> HipIRSpirvValidationPass::convertIRToSPIRV(Module &M) {
   std::string LLVMAsPath;
   
   // First try LLVM bin directory
-  if (auto LLVMBinDir = std::getenv("CHIPSTAR_LLVM_BIN_DIR")) {
+  if (auto LLVMBinDir = CHIPSTAR_LLVM_BIN_DIR) {
     LLVMAsPath = std::string(LLVMBinDir) + "/llvm-as";
+    LLVM_DEBUG(errs() << "llvm-as found at: " << LLVMAsPath << "\n");
   } else {
-    // Try to find in PATH
-    auto LLVMAsExe = sys::findProgramByName("llvm-as");
-    if (LLVMAsExe) {
-      LLVMAsPath = LLVMAsExe.get();
-    } else {
-      errs() << StageMsg << "llvm-as not found. Make sure CHIPSTAR_LLVM_BIN_DIR is set.\n";
-      sys::fs::remove(LLTempFile);
-      sys::fs::remove(BCTempFile);
-      sys::fs::remove(SPVTempFile);
-      return {};
-    }
+    errs() << StageMsg << "llvm-as not at: " << LLVMAsPath << "\n";
+    assert(false && "llvm-as not found");
   }
 
   // Check if llvm-as exists
@@ -221,7 +213,6 @@ std::vector<uint32_t> HipIRSpirvValidationPass::convertIRToSPIRV(Module &M) {
   std::string ErrMsg;
   SmallVector<StringRef, 6> LLVMAsArgs{
     LLVMAsPath,
-    "-opaque-pointers",
     LLTempFile,
     "-o", BCTempFile
   };
@@ -255,20 +246,12 @@ std::vector<uint32_t> HipIRSpirvValidationPass::convertIRToSPIRV(Module &M) {
   std::string LLVMSpirvPath;
   
   // First try LLVM bin directory
-  if (auto LLVMBinDir = std::getenv("CHIPSTAR_LLVM_BIN_DIR")) {
+  if (auto LLVMBinDir = CHIPSTAR_LLVM_BIN_DIR) {
     LLVMSpirvPath = std::string(LLVMBinDir) + "/llvm-spirv";
+    LLVM_DEBUG(errs() << "llvm-spirv found at: " << LLVMSpirvPath << "\n");
   } else {
-    // Try to find in PATH
-    auto LLVMSpirvExe = sys::findProgramByName("llvm-spirv");
-    if (LLVMSpirvExe) {
-      LLVMSpirvPath = LLVMSpirvExe.get();
-    } else {
-      errs() << StageMsg << "llvm-spirv not found. Make sure CHIPSTAR_LLVM_BIN_DIR is set.\n";
-      sys::fs::remove(LLTempFile);
-      sys::fs::remove(BCTempFile);
-      sys::fs::remove(SPVTempFile);
-      return {};
-    }
+    errs() << StageMsg << "llvm-spirv not at: " << LLVMSpirvPath << "\n";
+    assert(false && "llvm-spirv not found");
   }
 
   // Check if llvm-spirv exists
