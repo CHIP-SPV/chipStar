@@ -369,6 +369,7 @@ ANY:
     hipKernelLaunchIsNonBlocking: ''
     Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
   OPENCL_POCL:
+    TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'
     TestStaticLibRDC: 'LLVM-16 still being tested but not recompiled to include the static library fix'
     cuda-reduction: 'timeout on LLVM16, enable to reproduce anywhere other than github runne'
     TestRecordEventBlocking: 'Segfault in the PoCL driver with module caching on'
