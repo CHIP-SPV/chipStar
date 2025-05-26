@@ -99,8 +99,10 @@ public:
 };
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
+  MPM.addPass(HipFixOpenCLMDPass()); // must be first or else we get OCL Version mismatch
   // Initial IR+SPIR-V validation pass - must be the first pass
-  MPM.addPass(HipIRSpirvValidationPass("Pre-HIP passes IR+SPIR-V validation"));
+  MPM.addPass(HipIRSpirvValidationPass("Pre-HIP passes IR+SPIR-V validation", true));
+
 
   MPM.addPass(HipSanityChecksPass());
 
@@ -161,7 +163,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(GlobalDCEPass());
 
   MPM.addPass(createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)));
-  MPM.addPass(HipFixOpenCLMDPass());
 
   MPM.addPass(HipIGBADetectorPass());
 
@@ -169,7 +170,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipPromoteIntsPass());
 
   // Final IR+SPIR-V validation pass - performs IR validation + SPIR-V validation and conversion
-  MPM.addPass(HipIRSpirvValidationPass("Post-HIP passes IR+SPIR-V validation"));
+  MPM.addPass(HipIRSpirvValidationPass("Post-HIP passes IR+SPIR-V validation", true));
 }
 
 #if LLVM_VERSION_MAJOR < 14
