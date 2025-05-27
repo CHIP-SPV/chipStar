@@ -40,7 +40,7 @@ foreach(IR_FILE ${TEST_IR_FILES})
     NAME hipIRVerification-${BASENAME}
     COMMAND ${CHIPSTAR_LLVM_BIN_DIR}/opt
       -load-pass-plugin ${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
-      -passes=hip-final-ir-verification
+      -passes=ir-spirv-validate
       -disable-output
       ${CMAKE_CURRENT_SOURCE_DIR}/${FILENAME}
   )
