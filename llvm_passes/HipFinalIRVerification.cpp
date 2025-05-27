@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "HipFinalIRVerification.h"
+#include "chipStarConfig.hh"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -116,11 +117,7 @@ bool HipIRSpirvValidationPass::runOptVerify(Module &M) {
   TempFile.close();
   
   // Run opt -verify on the temporary file
-#ifdef CHIPSTAR_LLVM_BIN_DIR
-  std::string OptPath = std::string(CHIPSTAR_LLVM_BIN_DIR) + "/opt";
-#else
-  std::string OptPath = "opt";
-#endif
+  std::string OptPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/opt";
   std::vector<StringRef> Args = {OptPath, "-passes=verify", "-disable-output", TempPath};
   
   std::string ErrorMsg;
@@ -200,12 +197,10 @@ std::vector<uint32_t> HipIRSpirvValidationPass::convertIRToSPIRV(Module &M) {
   LLVM_DEBUG(dbgs() << "Step 1: Stripping debug information using opt -strip-debug\n");
   
   // Find opt tool
-  std::string OptPath;
-  OptPath = std::string(CHIPSTAR_LLVM_BIN_DIR) + "/opt";
-
+  std::string OptPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/opt";
 
   // Check if opt exists
-  if (CHIPSTAR_LLVM_BIN_DIR && !sys::fs::exists(OptPath)) {
+  if (!sys::fs::exists(OptPath)) {
     errs() << StageMsg << "opt not found at: " << OptPath << "\n";
     sys::fs::remove(LLTempFile);
     sys::fs::remove(LLStrippedTempFile);
@@ -253,13 +248,8 @@ std::vector<uint32_t> HipIRSpirvValidationPass::convertIRToSPIRV(Module &M) {
   std::string LLVMAsPath;
   
   // First try LLVM bin directory
-  if (auto LLVMBinDir = CHIPSTAR_LLVM_BIN_DIR) {
-    LLVMAsPath = std::string(LLVMBinDir) + "/llvm-as";
-    LLVM_DEBUG(errs() << "llvm-as found at: " << LLVMAsPath << "\n");
-  } else {
-    errs() << StageMsg << "llvm-as not at: " << LLVMAsPath << "\n";
-    assert(false && "llvm-as not found");
-  }
+  LLVMAsPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/llvm-as";
+  LLVM_DEBUG(errs() << "llvm-as found at: " << LLVMAsPath << "\n");
 
   // Check if llvm-as exists
   if (!sys::fs::exists(LLVMAsPath)) {
@@ -307,13 +297,8 @@ std::vector<uint32_t> HipIRSpirvValidationPass::convertIRToSPIRV(Module &M) {
   std::string LLVMSpirvPath;
   
   // First try LLVM bin directory
-  if (CHIPSTAR_LLVM_BIN_DIR) {
-    LLVMSpirvPath = std::string(CHIPSTAR_LLVM_BIN_DIR) + "/llvm-spirv";
-    LLVM_DEBUG(errs() << "llvm-spirv found at: " << LLVMSpirvPath << "\n");
-  } else {
-    errs() << StageMsg << "llvm-spirv not at: " << LLVMSpirvPath << "\n";
-    assert(false && "llvm-spirv not found");
-  }
+  LLVMSpirvPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/llvm-spirv";
+  LLVM_DEBUG(errs() << "llvm-spirv found at: " << LLVMSpirvPath << "\n");
 
   // Check if llvm-spirv exists
   if (!sys::fs::exists(LLVMSpirvPath)) {
