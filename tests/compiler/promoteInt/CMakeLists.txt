@@ -21,9 +21,6 @@
 #
 #=============================================================================
 
-# Configure environment for the test script
-set(CHIPSTAR_LLVM_BIN_DIR "${LLVM_TOOLS_BINARY_DIR}")
-
 # Create directory for test outputs
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_outputs)
 
@@ -62,9 +59,9 @@ foreach(IR_FILE ${TEST_IR_FILES})
   add_test(
     NAME hipPromoteInt-${BASENAME}
     COMMAND env 
-      LLVM_OPT=${CHIPSTAR_LLVM_BIN_DIR}/opt
-      LLVM_SPIRV=${CHIPSTAR_LLVM_BIN_DIR}/llvm-spirv
-      LLVM_DIS=${CHIPSTAR_LLVM_BIN_DIR}/llvm-dis
+      LLVM_OPT=${LLVM_TOOLS_BINARY_DIR}/opt
+      LLVM_SPIRV=${LLVM_TOOLS_BINARY_DIR}/llvm-spirv
+      LLVM_DIS=${LLVM_TOOLS_BINARY_DIR}/llvm-dis
       HIP_SPV_PASSES_LIB=${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
       ${CMAKE_CURRENT_BINARY_DIR}/run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME}
   )
