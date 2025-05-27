@@ -111,7 +111,6 @@ target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipStripUsedIntrinsics PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipDefrost PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipPasses PRIVATE -I/${LLVM_INCLUDE_DIRS})
-target_compile_definitions(LLVMHipPasses PRIVATE CHIPSTAR_LLVM_BIN_DIR="${CLANG_ROOT_PATH_BIN}")
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
   set_target_properties(LLVMHipPasses PROPERTIES
