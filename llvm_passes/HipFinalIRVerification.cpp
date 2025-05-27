@@ -473,11 +473,11 @@ bool HipIRSpirvValidationPass::verifySPIRVBinary(const std::vector<uint32_t> &sp
   }
   
   SmallVector<StringRef, 4> Args{SpirvValPath, SPVTempFile};
-  SmallVector<std::optional<StringRef>, 3> Redirects{{}, {}, StringRef(StderrFile)};
   
   LLVM_DEBUG(dbgs() << "Running: " << SpirvValPath << " " << SPVTempFile << "\n");
   
-  int Result = sys::ExecuteAndWait(SpirvValPath, Args, {}, Redirects, 0, 0, &ErrMsg);
+  StringRef StderrFileRef(StderrFile);
+  int Result = sys::ExecuteAndWait(SpirvValPath, Args, {}, {{}, {}, StderrFileRef}, 0, 0, &ErrMsg);
   
   // Read stderr output
   std::string ValidationErrors;
