@@ -217,6 +217,37 @@ bool startsWith(std::string_view Str, std::string_view WithStr) {
          Str.substr(0, WithStr.size()) == WithStr;
 }
 
+std::string collectIGCEnvironmentVariables() {
+  std::vector<std::string> igcVars;
+  logDebug("Collecting IGC environment variables...");
+  
+  // Access the environment variables through the global environ variable
+  extern char **environ;
+  
+  for (char **env = environ; *env != nullptr; ++env) {
+    std::string envVar(*env);
+    if (startsWith(envVar, "IGC_")) {
+      logDebug("Found IGC variable: {}", envVar);
+      igcVars.push_back(envVar);
+    }
+  }
+  
+  // Sort to ensure consistent ordering for cache key generation
+  std::sort(igcVars.begin(), igcVars.end());
+  
+  // Concatenate all IGC_ variables into a single string
+  std::string result;
+  for (const auto& var : igcVars) {
+    if (!result.empty()) {
+      result += ";";
+    }
+    result += var;
+  }
+  
+  logDebug("Collected IGC variables string: '{}'", result);
+  return result;
+}
+
 /// Deep copies kernel arguments pointed by 'CopyArg'. Bytes of the
 /// argument values are stored in 'ArgData'. 'ArgList[I]' points to
 /// the argument value in 'ArgData' for Ith kernel argument.

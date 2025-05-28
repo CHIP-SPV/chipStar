@@ -2395,7 +2395,16 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
   // Add device name to the hash input
   combinedInput.append(device->getName());
 
+  // Include IGC_ environment variables in cache key
+  std::string igcVars = collectIGCEnvironmentVariables();
+  logDebug("Level0: IGC variables for cache key: '{}'", igcVars);
+  if (!igcVars.empty()) {
+    combinedInput.append(";");
+    combinedInput.append(igcVars);
+  }
+
   size_t hash = hasher(combinedInput);
+  logDebug("Level0: Generated cache hash: '{}'", std::to_string(hash));
 
   if (!ChipEnvVars.getModuleCacheDir().has_value()) {
     logTrace("Module caching is disabled");
@@ -2446,7 +2455,16 @@ bool load(ze_module_desc_t &desc, CHIPDeviceLevel0 *device) {
   // Add device name to the hash input
   combinedInput.append(device->getName());
 
+  // Include IGC_ environment variables in cache key
+  std::string igcVars = collectIGCEnvironmentVariables();
+  logDebug("Level0 load: IGC variables for cache key: '{}'", igcVars);
+  if (!igcVars.empty()) {
+    combinedInput.append(";");
+    combinedInput.append(igcVars);
+  }
+
   size_t hash = hasher(combinedInput);
+  logDebug("Level0 load: Generated cache hash: '{}'", std::to_string(hash));
 
   if (!ChipEnvVars.getModuleCacheDir().has_value()) {
     return false;

@@ -112,5 +112,10 @@ add_hip_runtime_test(TestEnvVars.hip)
 set_tests_properties(TestEnvVars PROPERTIES
   TIMEOUT 60)
 
+add_hip_runtime_test(TestIGCCaching.hip)
+set_tests_properties(TestIGCCaching PROPERTIES
+  TIMEOUT 60
+  ENVIRONMENT "CHIP_MODULE_CACHE_DIR=/tmp/chipstar_test_cache_igc")
+
 add_hip_runtime_test(host-math-funcs.hip)
 add_hip_runtime_test(TestMemcpyAsyncPageable.hip)

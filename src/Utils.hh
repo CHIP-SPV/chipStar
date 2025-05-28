@@ -151,4 +151,8 @@ template <class T> struct PointerCmp {
 void copyKernelArgs(std::vector<void *> &ArgList, std::vector<char> &ArgData,
                     void **CopyFrom, const SPVFuncInfo &FuncInfo);
 
+/// Collect all environment variables that start with "IGC_" and return them as a string
+/// for use in cache key generation
+std::string collectIGCEnvironmentVariables();
+
 #endif
