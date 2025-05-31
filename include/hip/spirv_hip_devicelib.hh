@@ -72,6 +72,10 @@ THE SOFTWARE.
 #pragma push_macro("__DEF_FLOAT_FUN2")
 #pragma push_macro("__HIP_OVERLOAD")
 #pragma push_macro("__HIP_OVERLOAD2")
+__device__ inline void* operator new(size_t, void* ptr) noexcept { return ptr; }
+__device__ inline void* operator new[](size_t, void* ptr) noexcept { return ptr; }
+__device__ inline void operator delete(void*, void*) noexcept {}
+__device__ inline void operator delete[](void*, void*) noexcept {}
 
 __device__ void *device_malloc(unsigned int size);
 __device__ void device_free(void *ptr);
