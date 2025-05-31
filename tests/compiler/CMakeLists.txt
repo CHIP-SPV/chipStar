@@ -155,6 +155,7 @@ add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # using it are not hiding errors.
 add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)
 add_hipcc_test(TestDim3Cast.hip HIPCC_OPTIONS -fsyntax-only)
+add_hipcc_test(TestPlacement.hip)
 
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
