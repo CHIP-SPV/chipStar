@@ -399,7 +399,7 @@ add_subdirectory(bitcode)
 
 # Embed HIP device built-in implementations which are linked into users' device
 # programs at runtime based on device capabilities.
-target_sources(CHIP PRIVATE $<TARGET_OBJECTS:rtdevlib>)
+# target_sources(CHIP PRIVATE $<TARGET_OBJECTS:rtdevlib>)
 
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory(HIPCC)

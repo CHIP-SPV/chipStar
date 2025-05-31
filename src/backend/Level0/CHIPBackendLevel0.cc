@@ -2528,21 +2528,21 @@ static void appendDeviceLibrarySources(
     BuildFlags.push_back("");
   };
 
-  if (FpAtomicProps.fp32Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_GLOBAL_ADD &&
-      FpAtomicProps.fp32Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_LOCAL_ADD)
-    AppendSource(chipstar::atomicAddFloat_native);
-  else
-    AppendSource(chipstar::atomicAddFloat_emulation);
+  // if (FpAtomicProps.fp32Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_GLOBAL_ADD &&
+  //     FpAtomicProps.fp32Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_LOCAL_ADD)
+  //   AppendSource(chipstar::atomicAddFloat_native);
+  // else
+  //   AppendSource(chipstar::atomicAddFloat_emulation);
 
-  if (FpAtomicProps.fp64Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_GLOBAL_ADD &&
-      FpAtomicProps.fp64Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_LOCAL_ADD)
-    AppendSource(chipstar::atomicAddDouble_native);
-  else
-    AppendSource(chipstar::atomicAddDouble_emulation);
+  // if (FpAtomicProps.fp64Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_GLOBAL_ADD &&
+  //     FpAtomicProps.fp64Flags & ZE_DEVICE_FP_ATOMIC_EXT_FLAG_LOCAL_ADD)
+  //   AppendSource(chipstar::atomicAddDouble_native);
+  // else
+  //   AppendSource(chipstar::atomicAddDouble_emulation);
 
-  // OpGroupNonUniformBallot instructions seems to compile and work
-  // despite not having ZE_extension_subgroups.
-  AppendSource(chipstar::ballot_native);
+  // // OpGroupNonUniformBallot instructions seems to compile and work
+  // // despite not having ZE_extension_subgroups.
+  // AppendSource(chipstar::ballot_native);
 
   assert(SrcSizes.size() == Sources.size() &&
          Sources.size() == BuildFlags.size());
@@ -2586,7 +2586,7 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
                                  // members when module program
                                  // description is provided.
                                  0, nullptr, nullptr, nullptr};
-
+  dumpSpirv(SPIRVBin);
   auto *ChipCtxLz = static_cast<CHIPContextLevel0 *>(ChipDev->getContext());
   auto start = std::chrono::high_resolution_clock::now();
   ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc, LzDev);

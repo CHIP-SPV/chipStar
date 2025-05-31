@@ -275,6 +275,7 @@ bool usesDoubles(const std::string &spirvHumanReadable) {
 // Struct to hold data for the SPIR-V function parsing callback
 struct SPIRVFunctionParserData {
   std::unordered_map<uint32_t, std::string> id_to_name_map;
+  std::vector<std::string> function_names; // To store extracted function names
   // We could add more complex state here if needed, e.g., to avoid duplicate printing
   // from OpEntryPoint and OpFunction if they refer to the same named entity.
   // For now, distinct print statements will differentiate their origins.
@@ -319,6 +320,7 @@ static spv_result_t spirv_instruction_parser_callback(
       const char *name_str =
           reinterpret_cast<const char *>(&parsed_instruction->words[3]);
       std::cout << "Entry Point: " << name_str << std::endl;
+      data->function_names.push_back(name_str);
       // uint32_t function_id = parsed_instruction->words[2]; // ID of the OpFunction
       // One could use function_id to correlate with OpFunction if needed.
     }
@@ -342,6 +344,7 @@ static spv_result_t spirv_instruction_parser_callback(
         // if the OpName matches the literal name, or potentially different names.
         // This is generally informative.
         std::cout << "Function (OpName): " << it->second << std::endl;
+        data->function_names.push_back(it->second);
       }
       // else {
       //   // Function does not have an OpName. Could print ID if desired for debugging.
@@ -357,39 +360,36 @@ static spv_result_t spirv_instruction_parser_callback(
   return SPV_SUCCESS;
 }
 
-// Parses the given SPIR-V module and prints all function names found.
+// Parses the given SPIR-V module, prints all function names found, and returns them as a vector.
 // Function names are extracted from OpEntryPoint instructions (literal names)
 // and from OpFunction instructions that have an associated OpName.
-void printSPIRVFunctionNames(const std::string_view &spirvModule) {
+std::vector<std::string> printSPIRVFunctionNames(const std::string_view &spirvModule) {
   if (spirvModule.empty()) {
-    std::cerr << "Error: SPIR-V module is empty, cannot print function names."
+    std::cerr << "Error: SPIR-V module is empty, cannot print/extract function names."
               << std::endl;
-    return;
+    return {};
   }
 
   if (spirvModule.size() % sizeof(uint32_t) != 0) {
     std::cerr << "Error: SPIR-V binary size (" << spirvModule.size()
               << " bytes) is not a multiple of " << sizeof(uint32_t)
               << ". Cannot parse." << std::endl;
-    return;
+    return {};
   }
   if (spirvModule.size() < 20) { // Minimum size for a valid SPIR-V header (5 words)
       std::cerr << "Error: SPIR-V module is too small to be valid." << std::endl;
-      return;
+      return {};
   }
 
-
-  // Use the same environment as disassembleSPIRV for consistency.
   spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
   if (!context) {
     std::cerr << "Error: Failed to create SPIR-V context." << std::endl;
-    return;
+    return {};
   }
 
   SPIRVFunctionParserData user_data;
   spv_diagnostic diagnostic = nullptr;
 
-  // std::cout << "--- SPIR-V Function Names ---" << std::endl; // Optional header
 
   spv_result_t result = spvBinaryParse(
       context, &user_data,
@@ -400,6 +400,9 @@ void printSPIRVFunctionNames(const std::string_view &spirvModule) {
       &diagnostic // For error reporting
   );
 
+  std::cout << "--- SPIR-V Function Names Total of: " << user_data.function_names.size() << " --- (from printSPIRVFunctionNames)" << std::endl;
+
+
   if (result != SPV_SUCCESS) {
     std::cerr << "Error: Failed to parse SPIR-V binary. Code: " << result << std::endl;
     if (diagnostic && diagnostic->error && strlen(diagnostic->error) > 0) {
@@ -407,12 +410,96 @@ void printSPIRVFunctionNames(const std::string_view &spirvModule) {
     } else {
       std::cerr << "No detailed diagnostic message available." << std::endl;
     }
+    // Errors are printed to cerr; return whatever names were collected so far, or empty if none.
   }
-  // std::cout << "--- End SPIR-V Function Names ---" << std::endl; // Optional footer
-
+  
+  std::cout << "--- End SPIR-V Function Names --- (from printSPIRVFunctionNames)" << std::endl;
 
   if (diagnostic) {
     spvDiagnosticDestroy(diagnostic);
   }
   spvContextDestroy(context);
+  return user_data.function_names; // Return the collected names
+}
+
+// Struct to hold data for the SPIR-V entry point counting callback
+struct SPIRVEntryPointCounterData {
+  size_t count = 0;
+};
+
+// Callback function for spvBinaryParse to count SPIR-V entry points
+static spv_result_t spirv_entry_point_counter_callback(
+    void *user_data_ptr, const spv_parsed_instruction_t *parsed_instruction) {
+  SPIRVEntryPointCounterData *data =
+      static_cast<SPIRVEntryPointCounterData *>(user_data_ptr);
+
+  if (!parsed_instruction) {
+    return SPV_ERROR_INVALID_POINTER;
+  }
+
+  if (parsed_instruction->opcode == SpvOpEntryPoint) {
+    data->count++;
+  }
+  return SPV_SUCCESS;
+}
+
+// Parses the given SPIR-V module and returns the count of OpEntryPoint instructions.
+size_t getSPIRVEntryPointCount(const std::string_view &spirvModule) {
+  if (spirvModule.empty()) {
+    std::cerr << "Error: SPIR-V module is empty, cannot count entry points."
+              << std::endl;
+    return 0;
+  }
+
+  if (spirvModule.size() % sizeof(uint32_t) != 0) {
+    std::cerr << "Error: SPIR-V binary size (" << spirvModule.size()
+              << " bytes) is not a multiple of " << sizeof(uint32_t)
+              << ". Cannot parse." << std::endl;
+    return 0;
+  }
+  if (spirvModule.size() < 20) { // Minimum size for a valid SPIR-V header (5 words)
+    std::cerr << "Error: SPIR-V module is too small to be valid for entry point counting."
+              << std::endl;
+    return 0;
+  }
+
+  spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
+  if (!context) {
+    std::cerr << "Error: Failed to create SPIR-V context for entry point counting."
+              << std::endl;
+    return 0;
+  }
+
+  SPIRVEntryPointCounterData user_data;
+  spv_diagnostic diagnostic = nullptr;
+
+  spv_result_t result = spvBinaryParse(
+      context, &user_data,
+      reinterpret_cast<const uint32_t *>(spirvModule.data()),
+      spirvModule.size() / sizeof(uint32_t), // Number of words
+      nullptr,                               // No header parse function needed
+      spirv_entry_point_counter_callback,    // Callback for each instruction
+      &diagnostic                            // For error reporting
+      );
+
+  if (result != SPV_SUCCESS) {
+    std::cerr << "Error: Failed to parse SPIR-V binary for entry point counting. Code: "
+              << result << std::endl;
+    if (diagnostic && diagnostic->error && strlen(diagnostic->error) > 0) {
+      std::cerr << "Diagnostic: " << diagnostic->error << std::endl;
+    } else {
+      std::cerr << "No detailed diagnostic message available for entry point counting."
+                << std::endl;
+    }
+    // Still return user_data.count as it might have partially counted before error
+    // or return 0 if a strict error policy is needed.
+    // For now, let's return what was counted, errors are on cerr.
+  }
+
+  if (diagnostic) {
+    spvDiagnosticDestroy(diagnostic);
+  }
+  spvContextDestroy(context);
+
+  return user_data.count;
 }

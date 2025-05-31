@@ -984,26 +984,30 @@ __SHFL_XOR_SYNC(double);
 
 
 // The definition is linked at runtime from one of the ballot*.cl files.
-EXPORT OVLD ulong __chip_ballot(int predicate);
+// EXPORT OVLD ulong __chip_ballot(int predicate);
 
 EXPORT OVLD int __chip_all(int predicate) {
-  return __chip_ballot(predicate) == ~0;
+  return 0;
+  // return __chip_ballot(predicate) == ~0;
 }
 
 EXPORT OVLD int __chip_any(int predicate) {
-  return __chip_ballot(predicate) != 0;
+  return 0;
+  // return __chip_ballot(predicate) != 0;
 }
 
 EXPORT OVLD unsigned __chip_ballot_sync(unsigned mask, int predicate) {
   if (mask == 0) {
     return 0;
   } else if (mask == 0xFFFFFFFF) {
-    return __chip_ballot(predicate);
+    return 0;
+    // return __chip_ballot(predicate);
   } else {
     if (get_sub_group_local_id() == 0) {
       printf("warning: Partial mask in __ballot_sync is not fully supported\n");
     }
-    return __chip_ballot(predicate) & mask;
+    return 0;
+    // return __chip_ballot(predicate) & mask;
   }
 }
 
@@ -1013,7 +1017,8 @@ EXPORT OVLD int __chip_any_sync(unsigned mask, int predicate) {
   } else if (mask == 0xFFFFFFFF) {
     return __chip_any(predicate);
   } else {
-    unsigned ballot = __chip_ballot(predicate) & mask;
+    unsigned ballot = 0;
+    // unsigned ballot = __chip_ballot(predicate) & mask;
     return ballot != 0;
   }
 }
@@ -1024,7 +1029,8 @@ EXPORT OVLD int __chip_all_sync(unsigned mask, int predicate) {
   } else if (mask == 0xFFFFFFFF) {
     return __chip_all(predicate);
   } else {
-    unsigned ballot = __chip_ballot(predicate);
+    unsigned ballot = 0;
+    // unsigned ballot = __chip_ballot(predicate);
     return (ballot & mask) == mask;
   }
 }

@@ -51,11 +51,11 @@ SPVRegister::Handle SPVRegister::registerSource(std::string_view SourceModule) {
   SPVModule *SrcMod = Ins.first->get();
   SrcMod->OriginalBinary_ = SourceModule;
 
-  // Dump SPIR-V Functions Names
-  auto assembly = SrcMod->getAssembly(SPVModule::sourceType::raw);
-  for (const auto &line : assembly) {
-    std::cout << line << std::endl;
-  }
+  // // Dump SPIR-V Functions Names
+  // auto assembly = SrcMod->getAssembly(SPVModule::sourceType::raw);
+  // for (const auto &line : assembly) {
+  //   std::cout << line << std::endl;
+  // }
   return Handle{reinterpret_cast<void *>(SrcMod)};
 }
 
@@ -196,7 +196,7 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
 
   if (!analyzeSPIRV(Binary.data(), Binary.size(), SrcMod->ModuleInfo_)) {
     logError("Failure in SPIR-V analysis.");
-    DumpBinary(Binary);
+    // DumpBinary(Binary);
     // Metadata is essential for chipStar's functionality. Bail out.
     CHIPERR_LOG_AND_THROW("SPIR-V analysis failure.", hipErrorTbd);
   }
@@ -204,12 +204,12 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
   // Strip chipStar runtime metadata.
   if (!postprocessSPIRV(Binary)) {
     logError("Failure in SPIR-V postprocessing.");
-    DumpBinary(Binary);
+    // DumpBinary(Binary);
     // Failing in postprocessing means we don't have valid SPIR-V. Bail out.
     CHIPERR_LOG_AND_THROW("SPIR-V postprocessing failure.", hipErrorTbd);
   }
 
-  DumpBinary(Binary);
+  // DumpBinary(Binary);
 
   SrcMod->FinalizedBinary_ = std::move(Binary);
   return SrcMod;

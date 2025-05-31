@@ -278,6 +278,10 @@ int main(int argc, char* argv[]) {
     std::cout << "Attempting to create Level Zero module..." << std::endl;
     ze_result_t moduleCreateStatus = zeModuleCreate(context, deviceHandle, &moduleDesc, &moduleHandle, &buildLog);
     
+    // IMPORTANT DIAGNOSTIC LINE:
+    std::cout << "zeModuleCreate returned: " << zeResultToString(moduleCreateStatus) 
+              << ". Build log handle is " << (buildLog ? "non-null" : "null") << "." << std::endl;
+
     dumpZeBuildLog(buildLog); // Dump log regardless of module creation status, then destroy it.
                              // buildLog is set to nullptr by dumpZeBuildLog if it was valid.
     

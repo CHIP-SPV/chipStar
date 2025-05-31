@@ -6086,7 +6086,7 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   if (SPIRVModuleSpan.empty())
     CHIPERR_LOG_AND_THROW(ErrorMsg, hipErrorInitializationError);
 
-  printSPIRVFunctionNames(SPIRVModuleSpan);
+  auto kernelNames = printSPIRVFunctionNames(SPIRVModuleSpan);
 
   SPVRegister::Handle ModHandle =
       getSPVRegister().registerSource(SPIRVModuleSpan);
@@ -6095,6 +6095,18 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
     logDebug("Lazy JIT disabled, compiling module now");
     const SPVModule *SMod = getSPVRegister().getSource(ModHandle);
     Backend->getActiveDevice()->getOrCreateModule(*SMod);
+    // This might be SMod->getKernelCount(), SMod->getEntryPointNames().size(),
+    // or similar, depending on SPVModule's interface.
+    // Replace SMod->getEntryPointNames().size() with the actual method.
+    size_t sModKernelCount = SMod->Kernels.size(); 
+    if (sModKernelCount != kernelNames.size()) {
+      logError("Kernel count mismatch for module {}: SMod has {} kernels, but SPIR-V has {} entry points.",
+              static_cast<const void *>(ModHandle.Module), sModKernelCount, kernelNames.size());
+      // Depending on strictness, this could be an error or just a warning.
+    } else {
+      logError("Kernel count mismatch for module {}: SMod has {} kernels, but SPIR-V has {} entry points.",
+              static_cast<const void *>(ModHandle.Module), sModKernelCount, kernelNames.size());
+    }
   }
 
   logDebug("Registered SPIR-V module {}, source-binary={}",

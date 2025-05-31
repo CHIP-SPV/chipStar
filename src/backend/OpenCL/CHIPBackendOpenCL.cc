@@ -898,20 +898,20 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
     Objects.push_back(compileIL(Ctx, ChipDev, Source));
   };
 
-  if (ChipDev.hasFP32AtomicAdd())
-    AppendSource(chipstar::atomicAddFloat_native);
-  else
-    AppendSource(chipstar::atomicAddFloat_emulation);
+  // if (ChipDev.hasFP32AtomicAdd())
+  //   AppendSource(chipstar::atomicAddFloat_native);
+  // else
+  //   AppendSource(chipstar::atomicAddFloat_emulation);
 
-  if (ChipDev.hasDoubles()) {
-    if (ChipDev.hasFP64AtomicAdd())
-      AppendSource(chipstar::atomicAddDouble_native);
-    else
-      AppendSource(chipstar::atomicAddDouble_emulation);
-  }
+  // if (ChipDev.hasDoubles()) {
+  //   if (ChipDev.hasFP64AtomicAdd())
+  //     AppendSource(chipstar::atomicAddDouble_native);
+  //   else
+  //     AppendSource(chipstar::atomicAddDouble_emulation);
+  // }
 
-  if (ChipDev.hasBallot())
-    AppendSource(chipstar::ballot_native);
+  // if (ChipDev.hasBallot())
+  //   AppendSource(chipstar::ballot_native);
 
   // No fall-back implementation for ballot - let linker raise an error.
 }

@@ -180,16 +180,18 @@ public:
   template <typename T> T interpretAs() const {
     assert(false && "Undefined accessor!");
   };
-
-  template <> uint64_t interpretAs() const {
-    assert(ConstantWords_.size() > 0 && "Invalid constant word count.");
-    assert(ConstantWords_.size() <= 2 && "Constant may not fit to uint64_t.");
-    if (ConstantWords_.size() == 1)
-      return static_cast<uint32_t>(ConstantWords_[0]);
-    // Copy the value in order to satisfy alignment requirement of the type.
-    return copyAs<uint64_t>(ConstantWords_.data());
-  }
 };
+
+// Explicit specialization of SPIRVConstant::interpretAs for uint64_t
+template <>
+inline uint64_t SPIRVConstant::interpretAs<uint64_t>() const {
+  assert(ConstantWords_.size() > 0 && "Invalid constant word count.");
+  assert(ConstantWords_.size() <= 2 && "Constant may not fit to uint64_t.");
+  if (ConstantWords_.size() == 1)
+    return static_cast<uint32_t>(ConstantWords_[0]);
+  // Copy the value in order to satisfy alignment requirement of the type.
+  return copyAs<uint64_t>(ConstantWords_.data());
+}
 
 typedef std::map<InstWord, SPIRVConstant *> SPIRVConstMap;
 
@@ -842,6 +844,7 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
     return false; // Invalid SPIR-V binary.
 
   Dst.insert(Dst.end(), WordsBegin, WordsPtr); // Copy the header.
+  logDebug("preprocessSPIRV: Added {} header words.", Dst.size());
 
   // Matches chipStar device library and SPIR-V translator symbols.
   auto CompilerMagicSymbol =
@@ -860,12 +863,14 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
     if (Insn.isEntryPoint())
       EntryPoints.insert(Insn.entryPointName());
 
-    if (Insn.isExtension() && Insn.getExtension() == "SPV_KHR_linkonce_odr")
+    if (Insn.isExtension() && Insn.getExtension() == "SPV_KHR_linkonce_odr") {
       // Drop SPV_KHR_linkonce_odr and LinkOnceODR linkage attributes
       // (below) for improving portability. They appear for inline and
       // template functions. Dealing with fully linked device code the
       // attribute is no longer needed.
+      logWarn("preprocessSPIRV: Dropped OpExtension SPV_KHR_linkonce_odr. Op: {}, Size: {} words", (int)Insn.getOpcode(), Insn.size());
       continue;
+    }
 
     // A workaround for https://github.com/CHIP-SPV/chipStar/issues/48.
     //
@@ -877,16 +882,22 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
     // the OpEntryPoint names, and all linkage attribute OpDecorations from the
     // binary we don't need to preserve. OpNames do not have semantical meaning
     // and we are not currently linking the SPIR-V modules with anything else.
-    if (Insn.isName() && EntryPoints.count(Insn.getName()))
-      continue;
+    // if (Insn.isName() && EntryPoints.count(Insn.getName())) {
+    //   logWarn("preprocessSPIRV: Dropped OpName for EntryPoint '{}'. Op: {}, TargetID: {}, Name: '{}'", Insn.getName(), (int)Insn.getOpcode(), Insn.getWord(1), Insn.getName());
+    //   continue;
+    // }
 
     if (Insn.isDecoration(spv::DecorationLinkageAttributes)) {
       auto LinkName = parseLinkageAttributeName(Insn);
-      if (EntryPoints.count(LinkName))
-        continue;
-      if (parseLinkageAttributeType(Insn) == spv::LinkageTypeLinkOnceODR)
+      if (EntryPoints.count(LinkName)) {
+        // logWarn("preprocessSPIRV: Dropped OpDecorate LinkageAttributes for EntryPoint '{}'. Op: {}, TargetID: {}, LinkName: '{}'", LinkName, (int)Insn.getOpcode(), Insn.getWord(1), LinkName);
+        // continue;
+      }
+      if (parseLinkageAttributeType(Insn) == spv::LinkageTypeLinkOnceODR) {
         // Drop because the SPV_KHR_linkonce_odr is dropped in the above.
+        logWarn("preprocessSPIRV: Dropped OpDecorate LinkageAttributes (LinkOnceODR). Op: {}, TargetID: {}, LinkName: '{}'", (int)Insn.getOpcode(), Insn.getWord(1), LinkName);
         continue;
+      }
       if (parseLinkageAttributeType(Insn) == spv::LinkageTypeImport)
         // We are currently supposed to receive only fully linked
         // device code (from the user perspective). The user probably
@@ -913,8 +924,10 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
     if (Insn.isDecoration(spv::DecorationFuncParamAttr)) {
       auto FnAttr = parseFunctionParameterAttribute(Insn);
       if (FnAttr == spv::FunctionParameterAttributeNoWrite ||
-          FnAttr == spv::FunctionParameterAttributeNoReadWrite)
+          FnAttr == spv::FunctionParameterAttributeNoReadWrite) {
+        logWarn("preprocessSPIRV: Dropped OpDecorate FuncParamAttr (NoWrite/NoReadWrite). Op: {}, TargetID: {}, Attr: {}", (int)Insn.getOpcode(), Insn.getWord(1), (int)FnAttr);
         continue;
+      }
     }
 #endif
 
@@ -924,25 +937,45 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
     default:
       assert(false && "Unknown instruction filter action!");
       // FALLTHROUGH
+    case FilterAction::Error: // Assuming Error means keep for now or should be handled
+        logError("preprocessSPIRV: Error action from workaroundLlvmSpirvIssue2008 for Insn Op: {}", (int)Insn.getOpcode());
+        // Decide if to continue or treat as Keep. Current code falls through to Keep.
+        // For safety, let's treat Error as Keep to match fallthrough.
     case FilterAction::Keep:
       break;
     case FilterAction::Drop:
+      logWarn("preprocessSPIRV (workaroundLlvmSpirvIssue2008): Dropped Insn. Op: {}, ResultID: {}", (int)Insn.getOpcode(), Insn.hasResultID() ? (int)Insn.getResultID() : -1);
       continue;
     case FilterAction::Replace: {
+      logDebug("preprocessSPIRV (workaroundLlvmSpirvIssue2008): Modifying Insn Op: {}, ResultID: {}. Will be replaced.", (int)Insn.getOpcode(), Insn.hasResultID() ? (int)Insn.getResultID() : -1);
       Dst.insert(Dst.end(), TransformedInst.begin(), TransformedInst.end());
+      if (!TransformedInst.empty()) {
+          SPIRVinst TempAddedInsn(TransformedInst.data());
+          logDebug("preprocessSPIRV: Added (as replacement from workaround) Op: {}, ResultID: {}, Size: {} words", (int)TempAddedInsn.getOpcode(), TempAddedInsn.hasResultID() ? (int)TempAddedInsn.getResultID() : -1, TempAddedInsn.size());
+      } else {
+          logDebug("preprocessSPIRV: Added (as replacement from workaround) an empty instruction vector.");
+      }
       continue;
     }
     }
 
     // see SPVRegister::PreventNameDemangling
     if (PreventNameDemangling && Insn.isEntryPoint()) {
+      logDebug("preprocessSPIRV (PreventNameDemangling): Modifying OpEntryPoint Op: {}, ID: {}, Name: '{}'", (int)Insn.getOpcode(), Insn.entryPointID(), Insn.entryPointName());
       TransformedInst.assign(&Insn.getWord(0), &Insn.getWord(0) + Insn.size());
       char *Temp = reinterpret_cast<char *>(TransformedInst.data() + 3);
       std::swap(Temp[0], Temp[1]);
       Dst.insert(Dst.end(), TransformedInst.begin(), TransformedInst.end());
+      if (!TransformedInst.empty()) {
+          SPIRVinst TempAddedInsn(TransformedInst.data());
+          logDebug("preprocessSPIRV: Added (as modification from PreventNameDemangling) Op: {}, ID: {}, Size: {} words", (int)TempAddedInsn.getOpcode(), TempAddedInsn.entryPointID(), TempAddedInsn.size());
+      } else {
+          logDebug("preprocessSPIRV: Added (as modification from PreventNameDemangling) an empty instruction vector.");
+      }
       continue;
     }
 
+    // logDebug("preprocessSPIRV: Added (copied) Insn. Op: {}, ResultID: {}, Size: {} words", (int)Insn.getOpcode(), (Insn.hasResultID() ? (int)Insn.getResultID() : -1), Insn.size());
     Dst.insert(Dst.end(), WordsPtr + I, WordsPtr + I + InsnSize);
   }
 

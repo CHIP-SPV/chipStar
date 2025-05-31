@@ -31,15 +31,16 @@
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
-extern "C++" __device__  uint64_t __chip_ballot(int predicate); // Custom
+// extern "C++" __device__  uint64_t __chip_ballot(int predicate); // Custom
 extern "C++" inline __device__ uint64_t __ballot(int predicate) {
-  return __chip_ballot(predicate);
+  // return __chip_ballot(predicate);
+  return 0;
 }
 
-extern "C++" __device__ uint64_t __chip_ballot_sync(unsigned mask, int predicate); // Custom
-extern "C++" inline __device__ uint64_t __ballot_sync(unsigned mask, int predicate) {
-  return __chip_ballot_sync(mask, predicate);
-}
+// extern "C++" __device__ uint64_t __chip_ballot_sync(unsigned mask, int predicate); // Custom
+// extern "C++" inline __device__ uint64_t __ballot_sync(unsigned mask, int predicate) {
+//   return __chip_ballot_sync(mask, predicate);
+// }
 
 extern "C++" __device__  int __chip_all(int predicate); // Custom
 extern "C++" inline __device__ int __all(int predicate) {
