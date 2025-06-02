@@ -24,6 +24,7 @@
 #define HIP_INCLUDE_DEVICELIB_SP_MATH_H
 
 #include <hip/devicelib/macros.hh>
+#include <cmath>
 
 /**
  * @brief Declare as extern - we state that these funcitons are implemented and
@@ -623,12 +624,29 @@ namespace std {
 // Clang does provide device side std:: functions via HIP include
 // wrappers but, alas, the wrappers won't compile on chipStar due to
 // presence of AMD specific built-ins.
+
+// These are not available in the standard library, so we need to provide them
+inline __host__ __device__ float ceilf(float x) {
+#ifdef __CUDA_ARCH__
+  return ::ceilf(x);
+#else
+  return ::ceilf(x);
+#endif
+}
+
+inline __host__ __device__ float floorf(float x) {
+#ifdef __CUDA_ARCH__
+  return ::floorf(x);
+#else
+  return ::floorf(x);
+#endif
+}
+
 using ::acos;
 using ::acosh;
 using ::asin;
 using ::atan;
 using ::ceil;
-using ::ceilf;
 using ::copysign;
 using ::copysignf;
 using ::cos;
@@ -642,7 +660,6 @@ using ::exp;
 using ::expf;
 using ::expm1;
 using ::floor;
-using ::floorf;
 using ::lgamma;
 using ::lgammaf;
 using ::log;
