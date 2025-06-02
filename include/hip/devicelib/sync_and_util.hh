@@ -77,6 +77,24 @@ extern "C" __device__  void __chip_threadfence_block(); // Custom
 extern "C" __device__  void __chip_threadfence(); // Custom
 extern "C" __device__  void __chip_threadfence_system(); // Custom
 
+// AMD GCN builtin function placeholders
+inline __device__ void __builtin_amdgcn_fence(int order, const char* scope) {
+  // Placeholder: no-op for now
+}
+
+inline __device__ int __builtin_amdgcn_readfirstlane(int value) {
+  // Placeholder: return input value
+  return value;
+}
+
+inline __device__ void __builtin_amdgcn_s_sleep(int cycles) {
+  // Placeholder: no-op for now
+}
+
+inline __device__ void __builtin_amdgcn_s_waitcnt(int mask) {
+  // Placeholder: no-op for now
+}
+
 extern "C" __device__  int __chip_group_all(int predicate); // Custom
 extern "C" __device__  int __chip_group_any(int predicate); // Custom
 extern "C" __device__  ulong __chip_group_ballot(int predicate); // Custom
