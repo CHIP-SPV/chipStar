@@ -157,6 +157,9 @@ add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)
 add_hipcc_test(TestDim3Cast.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestPlacement.hip)
 
+# Test for math header conflicts between system cmath and HIP device math
+add_hipcc_test(TestMathHeaderConsolidated.hip HIPCC_OPTIONS -fsyntax-only)
+
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
 
