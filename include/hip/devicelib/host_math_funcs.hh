@@ -1,4 +1,3 @@
-
 #ifndef HIP_INCLUDE_DEVICELIB_HOST_MATH_FUNCS_H
 #define HIP_INCLUDE_DEVICELIB_HOST_MATH_FUNCS_H
 
@@ -60,6 +59,7 @@ inline float normcdfinvf(float x) { return __ocml_ncdfinv_f32(x); }
 inline double rcbrt(double x) { return __ocml_rcbrt_f64(x); }
 
 inline float rcbrtf(float x) { return __ocml_rcbrt_f32(x); }
+
 // Sine and cosine of pi times x
 inline void sincospi(double x, double* psin, double* pcos) { 
     *psin = __ocml_sincospi_f64(x, pcos);
@@ -68,14 +68,6 @@ inline void sincospi(double x, double* psin, double* pcos) {
 inline void sincospif(float x, float* psin, float* pcos) { 
     *psin = __ocml_sincospi_f32(x, pcos);
 }
-
-// Integer max/min functions
-inline long long llmax(long long a, long long b) { return std::max(a, b); }
-inline long long llmin(long long a, long long b) { return std::min(a, b); }
-inline unsigned long long ullmax(unsigned long long a, unsigned long long b) { return std::max(a, b); }
-inline unsigned long long ullmin(unsigned long long a, unsigned long long b) { return std::min(a, b); }
-inline unsigned int umax(unsigned int a, unsigned int b) { return std::max(a, b); }
-inline unsigned int umin(unsigned int a, unsigned int b) { return std::min(a, b); }
 
 // Sign bit
 inline int signbit(double x) { return __ocml_signbit_f64(x); }
