@@ -185,6 +185,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
 
   Backend->initializeFromNative(NativeHandles, NumHandles);
   Backend->getActiveDevice()->addFromModuleState(ModuleState);
+  Backend->setReinitializeFlag(true);
 
   return hipSuccess;
 }
