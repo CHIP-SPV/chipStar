@@ -715,6 +715,30 @@ DEF_CHIP_ATOMIC3_ORDER_SCOPE (cmpxchg_system, compare_exchange_strong, relaxed,
 DEF_CHIP_ATOMIC3_ORDER_SCOPE (cmpxchg_block, compare_exchange_strong, relaxed,
                               work_group)
 
+EXPORT unsigned long __chip_atomic_min_ul(DEFAULT_AS unsigned long *address, unsigned long val) {
+  return (unsigned long)__chip_atomic_min_l((DEFAULT_AS ulong *)address, (ulong)val);
+}
+
+EXPORT unsigned long __chip_atomic_min_system_ul(DEFAULT_AS unsigned long *address, unsigned long val) {
+  return (unsigned long)__chip_atomic_min_system_l((DEFAULT_AS ulong *)address, (ulong)val);
+}
+
+EXPORT unsigned long __chip_atomic_max_ul(DEFAULT_AS unsigned long *address, unsigned long val) {
+  return (unsigned long)__chip_atomic_max_l((DEFAULT_AS ulong *)address, (ulong)val);
+}
+
+EXPORT unsigned long __chip_atomic_max_system_ul(DEFAULT_AS unsigned long *address, unsigned long val) {
+  return (unsigned long)__chip_atomic_max_system_l((DEFAULT_AS ulong *)address, (ulong)val);
+}
+
+EXPORT unsigned long __chip_atomic_cmpxchg_ul(DEFAULT_AS unsigned long *address, unsigned long compare, unsigned long val) {
+  return (unsigned long)__chip_atomic_cmpxchg_l((DEFAULT_AS ulong *)address, (ulong)compare, (ulong)val);
+}
+
+EXPORT unsigned long __chip_atomic_cmpxchg_system_ul(DEFAULT_AS unsigned long *address, unsigned long compare, unsigned long val) {
+  return (unsigned long)__chip_atomic_cmpxchg_system_l((DEFAULT_AS ulong *)address, (ulong)compare, (ulong)val);
+}
+
 /**************************************************************************************/
 /**************************************************************************************/
 /**************************************************************************************/
