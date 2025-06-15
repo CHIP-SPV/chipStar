@@ -2180,6 +2180,12 @@ void CHIPBackendOpenCL::initializeImpl() {
   logTrace("{}", StrStream.str());
   int SelectedPlatformIdx = ChipEnvVars.getPlatformIdx();
 
+  if (SelectedPlatformIdx >= Platforms.size()) {
+    logCritical("Selected OpenCL platform {} is out of range",
+                SelectedPlatformIdx);
+    std::exit(1);
+  }
+
   cl::Platform SelectedPlatform = Platforms[SelectedPlatformIdx];
   logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx,
            SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
