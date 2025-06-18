@@ -42,11 +42,13 @@ extern __device__ int abs(int a);
 extern __device__ long int abs(long int a);
 }
 
-static inline __host__ __device__ long long int abs(long long int a) { return abs((long int)a); }
+static inline __host__ __device__ long long int abs(long long int a) { 
+  return (a < 0) ? -a : a; 
+}
 
 // error: __host__ __device__ function 'labs' cannot overload __host__ function 'labs'
 static inline __device__ long int labs(long int a) { return abs(a); }
-static inline __device__ long long int llabs(long long int a) { return abs((long int)a); }
+static inline __device__ long long int llabs(long long int a) { return abs(a); }
 
 static inline __host__ __device__ unsigned long int max(const unsigned long int a, const long int b) {
   return (b < 0) ? a : max(a, (unsigned long)b);
@@ -86,30 +88,30 @@ static inline __host__ __device__ unsigned int umin(const unsigned int a, const 
 
 static inline __host__ __device__ unsigned long long int max(unsigned long long int a,
                                       unsigned long long int b) {
-  return max((unsigned long)a, (unsigned long)b);
+  return (a > b) ? a : b;
 }
 
 static inline __host__ __device__ unsigned long long int min(unsigned long long int a,
                                       unsigned long long int b) {
-  return min((unsigned long)a, (unsigned long)b);
+  return (a < b) ? a : b;
 }
 
 static inline __host__ __device__ unsigned long long int ullmax(const unsigned long long int a,
                                          const unsigned long long int b) {
-  return max((unsigned long)a, (unsigned long)b);
+  return (a > b) ? a : b;
 }
 
 static inline __host__ __device__ unsigned long long int ullmin(const unsigned long long int a,
                                          const unsigned long long int b) {
-  return min((unsigned long)a, (unsigned long)b);
+  return (a < b) ? a : b;
 }
 
 static inline __host__ __device__ long long int llmax(const long long int a, const long long int b) {
-  return max((long)a, (long)b);
+  return (a > b) ? a : b;
 }
 
 static inline __host__ __device__ long long int llmin(const long long int a, const long long int b) {
-  return min((long)a, (long)b);
+  return (a < b) ? a : b;
 }
 
 namespace std {
