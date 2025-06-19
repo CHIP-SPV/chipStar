@@ -22,6 +22,12 @@
 #   THE SOFTWARE.
 #
 #=============================================================================
+
+# Ensure CMAKE_INSTALL_LIBDIR is defined
+if(NOT CMAKE_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR "lib")
+endif()
+
 if(DEFINED LLVM_CONFIG_BIN)
   # if it was cached to NOT_FOUND, unset it
   if(LLVM_CONFIG_BIN STREQUAL "LLVM_CONFIG_BIN-NOTFOUND")
