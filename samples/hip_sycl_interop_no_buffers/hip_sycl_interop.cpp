@@ -38,7 +38,7 @@ const int WIDTH = 10;
 
 bool ValueSame(float a, float b) { return std::fabs(a - b) < 1.0e-08; }
 
-void VerifyResult(float *c_A, float *c_B) {
+bool VerifyResult(float *c_A, float *c_B) {
   bool MismatchFound = false;
 
   for (size_t i = 0; i < WIDTH; i++) {
@@ -47,7 +47,6 @@ void VerifyResult(float *c_A, float *c_B) {
         std::cout << "fail - The result is incorrect for element: [" << i
                   << ", " << j << "], expected: " << c_A[i * WIDTH + j]
                   << " , but got: " << c_B[i * WIDTH + j] << std::endl;
-        //	exit(1);
         MismatchFound = true;
       }
     }
@@ -55,8 +54,8 @@ void VerifyResult(float *c_A, float *c_B) {
 
   if (!MismatchFound) {
     std::cout << "SUCCESS - The results are correct!" << std::endl;
-    return;
   }
+  return MismatchFound;
 }
 
 int main() {
@@ -126,7 +125,9 @@ int main() {
 
   // check results
   std::cout << "Verify results between OneMKL & Serial: ";
-  VerifyResult(C, C_serial);
-
-  return 0;
+  bool MismatchFound=VerifyResult(C, C_serial);
+  if (MismatchFound)
+    return 1;
+  else
+    return 0;
 }
