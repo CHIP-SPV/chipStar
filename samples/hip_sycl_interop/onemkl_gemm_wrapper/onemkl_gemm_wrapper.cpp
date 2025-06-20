@@ -149,14 +149,16 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, float *A,
 
     std::vector<sycl::device> sycl_devices(1);
     sycl_devices[0] = sycl_device;
+    // this passes in all devices to make the context since it looks like MKL needs all devices in the context
     sycl::context sycl_context = 
-        sycl::detail::make_context((ur_native_handle_t)hContext, {}, sycl::backend::ext_oneapi_level_zero, false, sycl_devices);
+        sycl::detail::make_context((ur_native_handle_t)hContext, {}, sycl::backend::ext_oneapi_level_zero, false,
+        sycl::device::get_devices());
 
     if (isImmCmdList) {
-        sycl_queue = sycl::detail::make_queue((ur_native_handle_t)hCommandList, true, sycl_context, &sycl_device, false, 
+        sycl_queue = sycl::detail::make_queue((ur_native_handle_t)hCommandList, true, sycl_context, &sycl_device, true, 
                                              {sycl::property::queue::in_order()}, {}, sycl::backend::ext_oneapi_level_zero);
     } else {
-        sycl_queue = sycl::detail::make_queue((ur_native_handle_t)hQueue, false, sycl_context, &sycl_device, false, 
+        sycl_queue = sycl::detail::make_queue((ur_native_handle_t)hQueue, false, sycl_context, &sycl_device, true, 
                                              {sycl::property::queue::in_order()}, {}, sycl::backend::ext_oneapi_level_zero);
     }
 #elif __INTEL_LLVM_COMPILER >= 20240000
