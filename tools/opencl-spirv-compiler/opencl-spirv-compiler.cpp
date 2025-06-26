@@ -21,6 +21,17 @@ private:
     };
     
     SPIRVFileType getSPIRVFileType(const std::string& filename) {
+        // First check file extension
+        fs::path filePath(filename);
+        std::string extension = filePath.extension().string();
+        
+        if (extension == ".spv") {
+            return SPIRVFileType::Binary;
+        } else if (extension == ".spvasm") {
+            return SPIRVFileType::Assembly;
+        }
+        
+        // Fall back to file command for files without proper extensions
         std::string cmd = "file " + filename;
         FILE* pipe = popen(cmd.c_str(), "r");
         if (!pipe) {
@@ -163,9 +174,10 @@ public:
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cout << "Usage: " << argv[0] << " <file(s) or directory>" << std::endl;
+        std::cout << "Supported file types: .spv (SPIR-V binary), .spvasm (SPIR-V assembly)" << std::endl;
         std::cout << "Examples:" << std::endl;
         std::cout << "  " << argv[0] << " kernel.spv" << std::endl;
-        std::cout << "  " << argv[0] << " kernel.txt" << std::endl;
+        std::cout << "  " << argv[0] << " kernel.spvasm" << std::endl;
         std::cout << "  " << argv[0] << " /path/to/directory" << std::endl;
         return 1;
     }

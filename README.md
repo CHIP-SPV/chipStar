@@ -23,7 +23,7 @@ The name chipStar comes from `c`uda and `hip` and the word `Star` which means as
 
 The following libraries have been ported to work on Intel GPUs via MKL:
 - [hipBLAS](https://github.com/CHIP-SPV/H4I-HipBLAS) (Can be built as a part of chipStar by adding `-DCHIP_BUILD_HIPBLAS=ON`)
-- [hipFTT](https://github.com/CHIP-SPV/H4I-HipFFT) (Can be built as a part of chipStar by adding `-DCHIP_BUILD_HIPFTT=ON`)
+- [hipFFT](https://github.com/CHIP-SPV/H4I-HipFFT) (Can be built as a part of chipStar by adding `-DCHIP_BUILD_HIPFFT=ON`)
 - [hipSOLVER](https://github.com/CHIP-SPV/H4I-HipSOLVER)
 - [hipCUB](https://github.com/CHIP-SPV/hipCUB)
 
@@ -54,11 +54,11 @@ Release notes for [1.1](docs/release_notes/chipStar_1.1.rst), [1.0](docs/release
 ## Prerequisites
 
 * Cmake >= 3.20.0
-* Clang and LLVM 17 (Clang/LLVM 15 and 16 might also work)
+* Clang and LLVM 17, 18, or 19 (Clang/LLVM 15 and 16 might also work)
   * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-17 llvm-17 clang-tools-17'.
   * For the best results, install Clang/LLVM from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-17) which has fixes that are not yet in the LLVM upstream project. See below for a scripted way to build and install the patched versions.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
-  (e.g. llvm\_release\_170 for LLVM 17)
+  (e.g. llvm\_release\_170 for LLVM 17, llvm\_release\_180 for LLVM 18, llvm\_release\_190 for LLVM 19)
 ,  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
 * SPIRV-Tools and SPIRV-Headers:
@@ -72,8 +72,8 @@ For this you can use a script included in the chipStar repository:
 
 ```bash
 ./scripts/configure_llvm.sh
-Usage: ./configure_llvm.sh --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>
---version: LLVM version 15, 16, 17, 18, 19
+Usage: ./scripts/configure_llvm.sh --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>
+--version: LLVM version 17, 18, 19 or 20
 --install-dir: installation directory
 --link-type: static or dynamic (default: static)
 --only-necessary-spirv-exts: on or off (default: off)
@@ -146,7 +146,7 @@ cmake .. \
 make all build_tests install -j8
 ```
 
-| You can also compile and install hipBLAS by adding `-DCHIP_BUILD_HIPBLAS=ON`
+You can also compile and install hipBLAS by adding `-DCHIP_BUILD_HIPBLAS=ON`
 
 NOTE: If you don't have libOpenCL.so (for example from the `ocl-icd-opencl-dev` package), but only libOpenCL.so.1 installed, CMake fails to find it and disables the OpenCL backend. This [issue](https://github.com/CHIP-SPV/chipStar/issues/542) describes a workaround.
 
@@ -208,6 +208,88 @@ python3 $SOURCE_DIR/scripts/check.py $BUILD_DIR $DEVICE $BACKEND
 ```
 
 Please refer to the [user documentation](docs/Using.md) for instructions on how to use the installed chipStar to build CUDA/HIP programs.
+
+## Tools
+
+chipStar includes several utility tools for working with SPIR-V binaries and OpenCL compilation. These tools are built as part of the chipStar build process and installed in the `bin` directory.
+
+### SPIR-V Extractor Tool
+
+The `spirv-extractor` tool extracts and validates SPIR-V binaries from HIP fatbinaries.
+
+#### Usage
+
+```bash
+spirv-extractor [--check-for-doubles] [--validate] [-o <output_filename>] [-h] <fatbinary_path> [<additional_args>...]
+```
+
+#### Options
+
+- `--check-for-doubles`: Check if SPIR-V uses double precision and skip test if so
+- `--validate`: Perform comprehensive SPIR-V verification (syntax) and validation (spec compliance)
+- `-o <filename>`: Output SPIR-V to specified file (both binary .spv and text .txt formats)
+- `-h`: Show help message
+
+#### Examples
+
+Extract SPIR-V from a fatbinary and display as text:
+```bash
+./build/bin/spirv-extractor my_kernel.fatbin
+```
+
+Extract and save SPIR-V to files:
+```bash
+./build/bin/spirv-extractor -o kernel.spv my_kernel.fatbin
+```
+
+Validate SPIR-V compliance:
+```bash
+./build/bin/spirv-extractor --validate my_kernel.fatbin
+```
+
+Check for double precision usage (used internally by test framework):
+```bash
+./build/bin/spirv-extractor --check-for-doubles my_kernel.fatbin
+```
+
+The validation feature performs both SPIR-V specification validation and HIP-specific constraint checking, including verification of memory models, execution models, capabilities, and other requirements for HIP kernel compatibility.
+
+### OpenCL SPIR-V Compiler Tool
+
+The `opencl-spirv-compiler` tool compiles SPIR-V binaries or assembly files using the OpenCL runtime to generate device-specific binaries.
+
+#### Usage
+
+```bash
+opencl-spirv-compiler <file(s) or directory>
+```
+
+#### Features
+
+- Accepts both SPIR-V binary files (.spv) and SPIR-V assembly files (.spvasm)
+- Automatically detects file type using the `file` command
+- Can process individual files or entire directories recursively
+- Generates device-specific binary files with `_device.bin` suffix
+- Provides detailed error messages including OpenCL build logs
+
+#### Examples
+
+Compile a single SPIR-V binary:
+```bash
+./build/bin/opencl-spirv-compiler kernel.spv
+```
+
+Compile a SPIR-V assembly file:
+```bash
+./build/bin/opencl-spirv-compiler kernel.spvasm
+```
+
+Process all SPIR-V files in a directory:
+```bash
+./build/bin/opencl-spirv-compiler /path/to/spirv/files/
+```
+
+The tool will create output files with the naming pattern `<input_filename>_device.bin` containing the compiled device-specific binary code.
 
 ## Environment Variables
 
