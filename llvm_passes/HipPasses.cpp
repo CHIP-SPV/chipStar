@@ -30,8 +30,8 @@
 #include "HipLowerMemset.h"
 #include "HipIGBADetector.h"
 #include "HipPromoteInts.h"
-#include "HipFinalIRVerification.h"
-#include "HipFinalIRVerification.h"
+#include "HipSpirvFunctionReorderPass.h"
+#include "HipVerify.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -42,6 +42,9 @@
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 #include "llvm/Transforms/IPO/Internalize.h"
+
+#include <string>
+#include <utility>
 
 using namespace llvm;
 
@@ -99,78 +102,92 @@ public:
   static bool isRequired() { return true; }
 };
 
-static void addFullLinkTimePasses(ModulePassManager &MPM) {
-  // Initial IR verification pass - must be the first pass
-  MPM.addPass(createHipInitialIRVerificationPass());
+// Insert a helper that adds a pass with HipVerify validation
+template <typename PassT>
+static void addPassWithVerification(ModulePassManager &MPM, PassT &&P,
+                                    const std::string &Name) {
+  MPM.addPass(std::forward<PassT>(P));
+  // Use HipVerify pass with the name of the pass that just ran (no summary printing)
+  // This will always run even if the previous pass failed
+  MPM.addPass(HipVerifyPass(Name, false));
+}
 
-  MPM.addPass(HipSanityChecksPass());
+static void addFullLinkTimePasses(ModulePassManager &MPM) {
+  MPM.addPass(HipFixOpenCLMDPass()); // must be first or else we get OCL Version mismatch
+  
+  // Clear any previous results at the start of a new pipeline
+  HipVerifyPass::clearResults();
+
+  // Initial verification
+  MPM.addPass(HipVerifyPass("Pre-HIP passes", false)); // false = don't print summary yet
+
+  // Use HipVerify for intermediate passes without printing summary
+  addPassWithVerification(MPM, HipSanityChecksPass(), "HipSanityChecksPass");
 
   /// For extracting name expression to lowered name expressions (hiprtc).
-  MPM.addPass(HipEmitLoweredNamesPass());
+  addPassWithVerification(MPM, HipEmitLoweredNamesPass(), "HipEmitLoweredNamesPass");
 
   // Remove attributes that may prevent the device code from being optimized.
-  MPM.addPass(RemoveNoInlineOptNoneAttrsPass());
+  addPassWithVerification(MPM, RemoveNoInlineOptNoneAttrsPass(), "RemoveNoInlineOptNoneAttrsPass");
 
-  MPM.addPass(createModuleToFunctionPassAdaptor(HipLowerSwitchPass()));
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerSwitchPass()), "HipLowerSwitchPass");
 
   // Run a collection of passes run at device link time.
-  MPM.addPass(HipDynMemExternReplaceNewPass());
+  addPassWithVerification(MPM, HipDynMemExternReplaceNewPass(), "HipDynMemExternReplaceNewPass");
   // Should be after the HipDynMemExternReplaceNewPass which relies on detecting
   // dynamic shared memories being modeled as zero length arrays.
-  MPM.addPass(HipLowerZeroLengthArraysPass());
+  addPassWithVerification(MPM, HipLowerZeroLengthArraysPass(), "HipLowerZeroLengthArraysPass");
 
   // Prepare device code for texture function lowering which does not yet work
   // on non-inlined code and local variables of hipTextureObject_t type.
-  MPM.addPass(RemoveNoInlineOptNoneAttrsPass());
+  addPassWithVerification(MPM, RemoveNoInlineOptNoneAttrsPass(), "RemoveNoInlineOptNoneAttrsPass-2");
   // Increase getInlineParams argument for more aggressive inlining.
-  MPM.addPass(ModuleInlinerWrapperPass(getInlineParams(1000)));
+  addPassWithVerification(MPM, ModuleInlinerWrapperPass(getInlineParams(1000)), "ModuleInlinerWrapperPass");
 #if LLVM_VERSION_MAJOR < 14
-  MPM.addPass(createModuleToFunctionPassAdaptor(SROA()));
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(SROA()), "SROA");
 #elif LLVM_VERSION_MAJOR < 16
-  MPM.addPass(createModuleToFunctionPassAdaptor(SROAPass()));
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(SROAPass()), "SROAPass");
 #else
-  MPM.addPass(
-      createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::PreserveCFG)));
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::PreserveCFG)), "SROAPass-PreserveCFG");
 #endif
 
-  MPM.addPass(HipTextureLoweringPass());
+  addPassWithVerification(MPM, HipTextureLoweringPass(), "HipTextureLoweringPass");
 
   // TODO: Update printf pass for HIP-Clang 14+. It now triggers an assert:
   //
   //  Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"'
   //  failed.
-  MPM.addPass(HipPrintfToOpenCLPrintfPass());
-  MPM.addPass(createModuleToFunctionPassAdaptor(HipDefrostPass()));
-  MPM.addPass(createModuleToFunctionPassAdaptor(HipLowerMemsetPass()));
-  MPM.addPass(HipAbortPass());
+  addPassWithVerification(MPM, HipPrintfToOpenCLPrintfPass(), "HipPrintfToOpenCLPrintfPass");
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipDefrostPass()), "HipDefrostPass");
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemsetPass()), "HipLowerMemsetPass");
+  addPassWithVerification(MPM, HipAbortPass(), "HipAbortPass");
   // This pass must appear after HipDynMemExternReplaceNewPass.
-  MPM.addPass(HipGlobalVariablesPass());
+  addPassWithVerification(MPM, HipGlobalVariablesPass(), "HipGlobalVariablesPass");
 
-  MPM.addPass(HipWarpsPass());
+  addPassWithVerification(MPM, HipWarpsPass(), "HipWarpsPass");
 
   // This pass must be last one that modifies kernel parameter list.
-  MPM.addPass(HipKernelArgSpillerPass());
+  addPassWithVerification(MPM, HipKernelArgSpillerPass(), "HipKernelArgSpillerPass");
 
   // Remove dead code left over by HIP lowering passes and kept alive by
   // llvm.used and llvm.compiler.used intrinsic variable.
-  MPM.addPass(HipStripUsedIntrinsicsPass());
+  addPassWithVerification(MPM, HipStripUsedIntrinsicsPass(), "HipStripUsedIntrinsicsPass");
 
   // Internalize all __device__ functions (spir_kernels) so the follow-up DCE
   // passes cleans-ups the unused ones.
-  MPM.addPass(InternalizePass(internalizeSPIRVFunctions));
-  MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
-  MPM.addPass(GlobalDCEPass());
+  addPassWithVerification(MPM, InternalizePass(internalizeSPIRVFunctions), "InternalizePass");
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(DCEPass()), "DCEPass");
+  addPassWithVerification(MPM, GlobalDCEPass(), "GlobalDCEPass");
 
-  MPM.addPass(createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)));
-  MPM.addPass(HipFixOpenCLMDPass());
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)), "InferAddressSpacesPass");
 
-  MPM.addPass(HipIGBADetectorPass());
+  addPassWithVerification(MPM, HipIGBADetectorPass(), "HipIGBADetectorPass");
 
   // Fix InvalidBitWidth errors due to non-standard integer types
-  MPM.addPass(HipPromoteIntsPass());
+  addPassWithVerification(MPM, HipPromoteIntsPass(), "HipPromoteIntsPass");
 
-  // Final IR verification pass - must be the last pass
-  MPM.addPass(createHipFinalIRVerificationPass());
+  // Final verification pass with summary printing
+  MPM.addPass(HipVerifyPass("Post-HIP passes", true)); // true = print final summary
 }
 
 #if LLVM_VERSION_MAJOR < 14
@@ -190,28 +207,32 @@ llvmGetPassPluginInfo() {
                     addFullLinkTimePasses(MPM);
                     return true;
                   }
-                  return false;
-                });
-            
-            // Register individual IR verification passes
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &MPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-initial-ir-verification") {
-                    MPM.addPass(createHipInitialIRVerificationPass());
+                  // Register IR-only validation pass as standalone (legacy - use hip-verify instead)
+                  if (Name == "ir-validate") {
+                    MPM.addPass(HipVerifyPass("IR validation"));
                     return true;
                   }
-                  return false;
-                });
-            
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &MPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-final-ir-verification") {
-                    MPM.addPass(createHipFinalIRVerificationPass());
+                  // Register separate SPIR-V validation pass as standalone (legacy - use hip-verify instead)
+                  if (Name == "spirv-validate") {
+                    MPM.addPass(HipVerifyPass("SPIR-V validation"));
+                    return true;
+                  }
+                  // Register merged IR+SPIR-V validation pass as standalone (legacy - use hip-verify instead)
+                  if (Name == "ir-spirv-validate") {
+                    MPM.addPass(HipVerifyPass("IR+SPIR-V validation"));
+                    return true;
+                  }
+                  // Register SPIR-V function reorder pass as standalone
+                  if (Name == "hip-spirv-function-reorder") {
+                    MPM.addPass(HipSpirvFunctionReorderPass());
+                    return true;
+                  }
+                  // Register unified HipVerify pass
+                  if (Name == "hip-verify") {
+                    MPM.addPass(HipVerifyPass());
                     return true;
                   }
                   return false;
                 });
           }};
-} 
+}
