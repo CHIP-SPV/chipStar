@@ -21,9 +21,6 @@
 #
 #=============================================================================
 
-# Configure environment for the tests
-set(CHIPSTAR_LLVM_BIN_DIR "${LLVM_TOOLS_BINARY_DIR}")
-
 # Create directory for test outputs
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_outputs)
 
@@ -38,9 +35,9 @@ foreach(IR_FILE ${TEST_IR_FILES})
   # Run opt with HIP passes and verification
   add_test(
     NAME hipIRVerification-${BASENAME}
-    COMMAND ${CHIPSTAR_LLVM_BIN_DIR}/opt
+    COMMAND ${LLVM_TOOLS_BINARY_DIR}/opt
       -load-pass-plugin ${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
-      -passes=hip-final-ir-verification
+      -passes=ir-spirv-validate
       -disable-output
       ${CMAKE_CURRENT_SOURCE_DIR}/${FILENAME}
   )

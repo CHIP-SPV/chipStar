@@ -475,7 +475,7 @@ if (NOT SPIRV-Tools_FOUND)
   message(STATUS "CHIPSTAR_C_COMPILER: ${CHIPSTAR_C_COMPILER}")
   message(STATUS "CHIPSTAR_CXX_COMPILER: ${CHIPSTAR_CXX_COMPILER}")
   ExternalProject_Add(SPIRV-Tools-External
-    GIT_REPOSITORY    https://github.com/KhronosGroup/SPIRV-Tools.git
+    GIT_REPOSITORY   https://github.com/CHIP-SPV/SPIRV-Tools.git
     GIT_TAG          ${SPIRV_TOOLS_VERSION}
     GIT_SHALLOW      TRUE
     SOURCE_SUBDIR    "."
