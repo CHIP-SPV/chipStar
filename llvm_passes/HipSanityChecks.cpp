@@ -12,16 +12,19 @@
 //===----------------------------------------------------------------------===//
 #include "HipSanityChecks.h"
 
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/Debug.h"
+#define DEBUG_TYPE "hip-sanity-checks"
 
 using namespace llvm;
 
 namespace {
 enum Check { IndirectCall, NumChecks };
 }
+
 
 static void checkCallInst(CallInst *CI, BitVector &CaughtChecks) {
   assert(CI);
@@ -54,6 +57,18 @@ static void checkCallInst(CallInst *CI, BitVector &CaughtChecks) {
 #ifndef NDEBUG
       // Fail visibly, but only for debug build, so issues like these won't slip
       // in silently only to be detected very much later in an obscure way.
+      dbgs() << "Aborting (chipStar debug build mode policy)\n";
+      abort();
+#endif
+    } else if (const InlineAsm *IA = dyn_cast<InlineAsm>(CallValue)) {
+      dbgs() << "Warning: Use of inline assemblis is unsupported with SPIRV!\n"
+             << "None or broken code may be generated!\n"
+             << "asm: " << IA->getAsmString() << "\n"
+             << "caller type: " << *CI->getFunctionType() << "\n"
+             << "Call origin: " << CI->getParent()->getParent()->getName()
+             << "\n";
+
+#ifndef NDEBUG
       dbgs() << "Aborting (chipStar debug build mode policy)\n";
       abort();
 #endif

@@ -300,6 +300,10 @@ static Function *getCalledFunction(CallInst *CI) {
 
   // A call with mismatched call signature.
   auto *Callee = CI->getCalledOperand()->stripPointerCasts();
+  // ... is it inline asm?
+  if (isa<InlineAsm>(Callee))
+     return nullptr;
+
   assert(isa<Function>(Callee)); // ... or something more exotic?
   return cast<Function>(Callee);
 }
