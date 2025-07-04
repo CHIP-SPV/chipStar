@@ -23,6 +23,7 @@
 #ifndef SRC_SPIRV_FUNCINFO_H
 #define SRC_SPIRV_FUNCINFO_H
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <vector>
