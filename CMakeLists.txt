@@ -463,15 +463,15 @@ if (NOT SPIRV-Tools_FOUND)
   # Download and build SPIRV-Tools
   include(ExternalProject)
   
-  set(SPIRV_TOOLS_VERSION "v2023.2")
+  set(SPIRV_TOOLS_VERSION "main")
   set(SPIRV_TOOLS_INSTALL_DIR "${CMAKE_BINARY_DIR}/external/spirv-tools")
   
   # Create the include directory before it's referenced
   file(MAKE_DIRECTORY "${SPIRV_TOOLS_INSTALL_DIR}/include")
   file(MAKE_DIRECTORY "${SPIRV_TOOLS_INSTALL_DIR}/lib")
   
-  set(CHIPSTAR_C_COMPILER ${CMAKE_C_COMPILER})
-  set(CHIPSTAR_CXX_COMPILER ${CMAKE_CXX_COMPILER})
+  set(CHIPSTAR_C_COMPILER gcc)
+  set(CHIPSTAR_CXX_COMPILER g++)
   message(STATUS "CHIPSTAR_C_COMPILER: ${CHIPSTAR_C_COMPILER}")
   message(STATUS "CHIPSTAR_CXX_COMPILER: ${CHIPSTAR_CXX_COMPILER}")
   ExternalProject_Add(SPIRV-Tools-External
