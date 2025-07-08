@@ -3507,11 +3507,14 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT)
     RETURN(hipSuccess);
 
-  std::shared_ptr<chipstar::Event> ChipEventShared =
-      Backend->userEventLookup(ChipEvent);
-  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
-  if (ChipEventShared.get())
-    EventsToWaitOn.push_back(ChipEventShared);
+  // Build an explicit wait list that contains the actual event the user
+  // passed in.  We create a non-owning shared_ptr so that we do not affect
+  // the lifetime semantics of user-managed events.  This guarantees that the
+  // barrier we enqueue really waits for the foreign-stream event instead of
+  // falling back to implicit intra-stream synchronization.
+  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn{
+      std::shared_ptr<chipstar::Event>(ChipEvent, [](chipstar::Event *) {})};
+
   auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
   BarrierEvent->Msg = "hipStreamWaitEvent-enqueueBarrier";
 
