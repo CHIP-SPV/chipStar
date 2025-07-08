@@ -1553,10 +1553,6 @@ LZEventPool::~LZEventPool() {
   if (Backend->Events.size())
     logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
             "destruction");
-  if (Backend->UserEvents.size())
-    logWarn("CHIPUserEventLevel0 objects still exist at the time of EventPool "
-            "destruction");
-
   while (Events_.size()) {
     delete Events_.top();
     Events_.pop();

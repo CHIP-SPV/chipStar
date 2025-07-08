@@ -1841,16 +1841,6 @@ public:
   chipstar::Context *PrimaryContext = nullptr;
   std::stack<chipstar::Context *> ChipCtxStack;
 
-  std::shared_ptr<chipstar::Event> userEventLookup(chipstar::Event *EventPtr) {
-    std::lock_guard<std::mutex> Lock(UserEventsMtx);
-    for (auto &UserEvent : UserEvents) {
-      if (UserEvent.get() == EventPtr) {
-        return UserEvent;
-      }
-    }
-    return nullptr;
-  }
-
   /**
    * @brief Add event to the backend's event list for monitoring, if necessary
    *
@@ -1867,9 +1857,7 @@ public:
   mutable std::mutex ActiveCtxMtx;
   std::mutex CallbackQueueMtx;
   std::vector<std::shared_ptr<chipstar::Event>> Events;
-  std::vector<std::shared_ptr<chipstar::Event>> UserEvents;
   std::mutex EventsMtx;
-  std::mutex UserEventsMtx;
 
   std::queue<chipstar::CallbackData *> CallbackQueue;
 
