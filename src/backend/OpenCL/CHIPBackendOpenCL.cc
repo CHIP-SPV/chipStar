@@ -1914,6 +1914,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     for (auto WaitEvent : EventsToWaitFor) {
       Events.push_back(
           std::static_pointer_cast<CHIPEventOpenCL>(WaitEvent)->getNativeRef());
+      // Add dependency tracking to match Level0 backend behavior
+      Event->addDependency(WaitEvent);
     }
     // clStatus = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
     auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
