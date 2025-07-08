@@ -73,8 +73,20 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // Check if the path is a directory
+  if (std::filesystem::is_directory(fatbinaryPath)) {
+    std::cerr << "Error: " << fatbinaryPath << " is a directory, not a file" << std::endl;
+    return 1;
+  }
+
   file.seekg(0, std::ios::end);
-  size_t fileSize = file.tellg();
+  std::streampos pos = file.tellg();
+  if (pos == -1 || !file.good()) {
+    std::cerr << "Failed to get file size for: " << fatbinaryPath 
+              << " (possibly a directory or invalid file)" << std::endl;
+    return 1;
+  }
+  size_t fileSize = static_cast<size_t>(pos);
   file.seekg(0, std::ios::beg);
 
   std::vector<char> buffer(fileSize);
