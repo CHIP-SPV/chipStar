@@ -272,7 +272,7 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   LLVM_DEBUG(dbgs() << "HipVerify: Converting LLVM IR to SPIR-V\n");
   
   // Apply function reordering for SPIR-V compliance
-  reorderFunctionsForSPIRV(M);
+  // reorderFunctionsForSPIRV(M);
   
   // Create temporary files
   SmallString<256> LLTempFile;
@@ -550,78 +550,6 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   sys::fs::remove(SPVTempFile);
   
   return SPIRVBinary;
-}
-
-void HipVerifyPass::reorderFunctionsForSPIRV(Module &M) {
-  if (!isSPIRVTarget(M)) {
-    return;
-  }
-  
-  if (!needsReordering(M)) {
-    return;
-  }
-  
-  LLVM_DEBUG(dbgs() << "HipVerify: Reordering functions for SPIR-V compliance\n");
-  
-  // Collect functions by type
-  std::vector<Function*> declarations;
-  std::vector<Function*> regularDefinitions;
-  std::vector<Function*> kernelDefinitions;
-  
-  for (Function &F : M) {
-    if (F.isDeclaration()) {
-      declarations.push_back(&F);
-    } else if (F.getCallingConv() == CallingConv::SPIR_KERNEL) {
-      kernelDefinitions.push_back(&F);
-    } else {
-      regularDefinitions.push_back(&F);
-    }
-  }
-  
-  // Store all functions
-  std::vector<Function*> allFunctions;
-  for (Function &F : M) {
-    allFunctions.push_back(&F);
-  }
-  
-  // Remove all functions from module
-  auto &FunctionList = M.getFunctionList();
-  for (Function *F : allFunctions) {
-    F->removeFromParent();
-  }
-  
-  // Re-add in correct order: kernels, declarations, regular definitions
-  for (Function *F : kernelDefinitions) {
-    FunctionList.push_back(F);
-  }
-  for (Function *F : declarations) {
-    FunctionList.push_back(F);
-  }
-  for (Function *F : regularDefinitions) {
-    FunctionList.push_back(F);
-  }
-}
-
-bool HipVerifyPass::needsReordering(Module &M) {
-  bool seenDeclaration = false;
-  bool seenRegularDefinition = false;
-  
-  for (Function &F : M) {
-    if (F.getCallingConv() == CallingConv::SPIR_KERNEL && !F.isDeclaration()) {
-      if (seenDeclaration || seenRegularDefinition) {
-        return true;
-      }
-    } else if (F.isDeclaration()) {
-      if (seenRegularDefinition) {
-        return true;
-      }
-      seenDeclaration = true;
-    } else {
-      seenRegularDefinition = true;
-    }
-  }
-  
-  return false;
 }
 
 bool HipVerifyPass::isSPIRVTarget(Module &M) {
