@@ -449,12 +449,13 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   
   /*
    Use the same flags as the actual HIP compilation process
-   llvm-spirv --spirv-max-version=1.2 --spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups
+   Based on bitcode/CMakeLists.txt: SPIRV_EXTENSIONS "+SPV_EXT_shader_atomic_float_add"
+   Plus printf extension and function pointer extension to avoid validation errors
   */
   SmallVector<StringRef, 8> Args{
     LLVMSpirvPath,
     "--spirv-max-version=1.2",
-    "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups",
+    "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add,+SPV_EXT_relaxed_printf_string_address_space",
     "-o", SPVTempFile,
     BCTempFile
   };
