@@ -447,10 +447,14 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
     // errs() << "HipVerify: Failed to get llvm-spirv version: " << VersionErrMsg << "\n";
   }
   
+  /*
+   Use the same flags as the actual HIP compilation process
+   llvm-spirv --spirv-max-version=1.2 --spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups
+  */
   SmallVector<StringRef, 8> Args{
     LLVMSpirvPath,
-    "--spirv-max-version=1.1",
-    "--spirv-ext=+all",
+    "--spirv-max-version=1.2",
+    "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups",
     "-o", SPVTempFile,
     BCTempFile
   };
