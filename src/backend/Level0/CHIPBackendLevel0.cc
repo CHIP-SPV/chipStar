@@ -23,8 +23,8 @@
 #include "CHIPBackendLevel0.hh"
 #include "Utils.hh"
 
-#include <fstream>
 #include <chrono>
+#include <fstream>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"

@@ -26,8 +26,8 @@
 #include <sstream>
 
 #include "Utils.hh"
-#include <fstream>
 #include <chrono>
+#include <fstream>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
@@ -1120,15 +1120,16 @@ std::string generateCacheName(const std::string &strIn,
                               const std::string &deviceName) {
   std::hash<std::string> hasher;
   std::string combinedStr = strIn + deviceName;
-  
+
   // Include IGC_ environment variables in cache key
   std::string igcVars = collectIGCEnvironmentVariables();
   logDebug("IGC variables for cache key: '{}'", igcVars);
   if (!igcVars.empty()) {
     combinedStr += ";" + igcVars;
   }
-  
-  logDebug("Combined string for cache key: '{}'", combinedStr.substr(0, 200) + "...");
+
+  logDebug("Combined string for cache key: '{}'",
+           combinedStr.substr(0, 200) + "...");
   size_t hash = hasher(combinedStr);
   std::string cacheKey = std::to_string(hash);
   logDebug("Generated cache key: '{}'", cacheKey);
