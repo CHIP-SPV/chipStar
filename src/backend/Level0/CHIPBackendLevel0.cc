@@ -383,7 +383,9 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
                                  1, &TimestampMemcpyCompleteLz->get());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
-  executeCommandList(CommandList, TimestampMemcpyCompleteLz);
+  std::shared_ptr<chipstar::Event> BarrierComplete(ChipEvent,[](chipstar::Event* p){});
+  
+  executeCommandList(CommandList, BarrierComplete);
 
   ChipEventLz->setRecording();
   ChipEventLz->Msg = "recordEvent";
