@@ -686,7 +686,7 @@ protected:
   bool UserEvent_ = false;
   event_status_e EventStatus_;
   chipstar::EventFlags Flags_;
-
+  bool SignalEnqueued_ = false;
   bool Deleted_ = false;
 
   /**
@@ -2040,7 +2040,8 @@ public:
    */
   virtual std::shared_ptr<chipstar::Event>
   createEventShared(chipstar::Context *ChipCtx,
-                    chipstar::EventFlags Flags = chipstar::EventFlags()) = 0;
+                    chipstar::EventFlags Flags,
+                    std::string Msg) = 0;
 
   /**
    * @brief Create an unmanaged chipstar::Event.
@@ -2318,6 +2319,12 @@ public:
    */
 
   virtual void finish() = 0;
+  
+  /**
+   * @brief Wait for this queue to finish, assuming EventsMtx is already held
+   * Default implementation just calls finish()
+   */
+  virtual void finishWithoutEventsMtx() { finish(); }
   /**
    * @brief Check if the queue is still actively executing
    *

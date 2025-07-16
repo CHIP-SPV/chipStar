@@ -3507,13 +3507,32 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT)
     RETURN(hipSuccess);
 
-  // Build an explicit wait list that contains the actual event the user
-  // passed in.  We create a non-owning shared_ptr so that we do not affect
-  // the lifetime semantics of user-managed events.  This guarantees that the
-  // barrier we enqueue really waits for the foreign-stream event instead of
-  // falling back to implicit intra-stream synchronization.
-  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn{
-      std::shared_ptr<chipstar::Event>(ChipEvent, [](chipstar::Event *) {})};
+  // Instead of depending on the user event directly (which might get reset),
+  // extract its dependencies and depend on those instead. This way:
+  // 1. User event can be reset freely without creating circular dependencies
+  // 2. Barrier fires when the original dependencies complete (correct timing)
+  // 3. We avoid the circular dependency issue with event reuse
+  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+  
+  if (ChipEvent->isFinished())
+    RETURN(hipSuccess);
+
+  if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT) {
+    logError("hipStreamWaitEventInternal: trying to enqueue a wait on an event that hasn't been recorded yet",
+             (void *)ChipEvent);
+    std::abort();
+  }
+
+  if (ChipEvent->getEventStatus() == EVENT_STATUS_RECORDING && ChipEvent->DependsOnList.empty()) {
+    logError("hipStreamWaitEventInternal: trying to enqueue a wait on an event that is recording but has no dependencies",
+             (void *)ChipEvent);
+    std::abort();
+  }
+
+  for (const auto& dep : ChipEvent->DependsOnList) {
+    ChipEvent->isDeletedSanityCheck();
+    EventsToWaitOn.push_back(dep);
+  }
 
   auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
   BarrierEvent->Msg = "hipStreamWaitEvent-enqueueBarrier";
