@@ -38,10 +38,26 @@ int main() {
   
   if (lastEventB) {
     // Check if the barrier event has the correct dependency
+    // First try direct dependency (old behavior)
     for (const auto &dep : lastEventB->DependsOnList) {
       if (dep.get() == chipEventA) {
         foundCorrectDependency = true;
         break;
+      }
+    }
+    
+    // If not found directly, check if barrier depends on the same things as the user event
+    // (new circular dependency prevention behavior)
+    if (!foundCorrectDependency && !chipEventA->DependsOnList.empty()) {
+      // Check if barrier's dependencies match the user event's dependencies
+      for (const auto &userEventDep : chipEventA->DependsOnList) {
+        for (const auto &barrierDep : lastEventB->DependsOnList) {
+          if (userEventDep.get() == barrierDep.get()) {
+            foundCorrectDependency = true;
+            break;
+          }
+        }
+        if (foundCorrectDependency) break;
       }
     }
   }

@@ -697,9 +697,14 @@ CHIPEventOpenCL::~CHIPEventOpenCL() {
 
 std::shared_ptr<chipstar::Event>
 CHIPBackendOpenCL::createEventShared(chipstar::Context *ChipCtx,
-                                     chipstar::EventFlags Flags) {
+                                     chipstar::EventFlags Flags,
+                                     std::string Msg) {
   CHIPEventOpenCL *Event =
       new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags);
+
+  if (!Msg.empty()) {
+    Event->Msg = Msg;
+  }
 
   return std::shared_ptr<chipstar::Event>(Event);
 }
@@ -734,6 +739,7 @@ void CHIPEventOpenCL::recordEventCopy(
   this->Msg = "recordEventCopy: " + Other->Msg;
   this->HostTimeStamp =
       std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  this->addDependency(Other);
 }
 
 bool CHIPEventOpenCL::wait() {
@@ -1407,7 +1413,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
 
   auto MemMapEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_);
+          ChipContext_, chipstar::EventFlags(), "memMap");
   auto MemMapEventNative =
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
 
@@ -1443,7 +1449,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
 void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
   auto MemMapEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_);
+          ChipContext_, chipstar::EventFlags(), "memUnmap");
   CHIPContextOpenCL *C = static_cast<CHIPContextOpenCL *>(ChipContext_);
   if (C->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
     CHIPERR_LOG_AND_THROW("Insufficient device memory capabilities for MemMap.",
@@ -1494,7 +1500,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 
   std::shared_ptr<chipstar::Event> CallbackEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_);
+          ChipContext_, chipstar::EventFlags(), "callback");
 
   std::static_pointer_cast<CHIPEventOpenCL>(CallbackEvent)->ClEvent =
       clCreateUserEvent(ClContext_->get(), &Err);
@@ -1533,7 +1539,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_);
+          ChipContext_, chipstar::EventFlags(), "marker");
 
   auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(MarkerEvent, false);
   std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
@@ -1553,7 +1559,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   std::shared_ptr<chipstar::Event>(LaunchEvent) =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(OclContext);
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(OclContext, chipstar::EventFlags(), "kernelLaunch");
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   cl_kernel KernelHandle = ChipOclExecItem->getKernelHandle();
@@ -1696,7 +1702,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                                   hipMemcpyKind Kind) {
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_);
+          ChipContext_, chipstar::EventFlags(), "memCopyAsync");
 
   if (Dst == Src) {
     // Although ROCm API ref says that Dst and Src should not overlap,
@@ -1807,7 +1813,7 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_);
+          ChipContext_, chipstar::EventFlags(), "memFillAsync");
 
   auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
   std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
@@ -1905,7 +1911,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          this->ChipContext_);
+          this->ChipContext_, chipstar::EventFlags(), "barrier");
   cl_int RefCount;
   clGetEventInfo(
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(),

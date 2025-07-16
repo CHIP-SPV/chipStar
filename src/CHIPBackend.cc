@@ -221,6 +221,7 @@ chipstar::Event::Event(chipstar::Context *Ctx, chipstar::EventFlags Flags)
 
 void chipstar::Event::addDependency(
     const std::shared_ptr<chipstar::Event> &Event) {
+  SignalEnqueued_ = true;
   isDeletedSanityCheck();
   logDebug("Event {} Msg {} now depends on event {} msg:{}", (void *)this, Msg,
            (void *)Event.get(), Event->Msg);
@@ -1256,7 +1257,7 @@ void chipstar::Backend::waitForThreadExit() {
       }
       for (auto &Queue : Dev->getQueuesNoLock()) {
         logDebug("Destroying queue {}", (void *)Queue);
-        Queue->finish();
+        Queue->finishWithoutEventsMtx();
         Queue->updateLastEvent(nullptr);
         Dev->removeQueue(Queue);
       }
