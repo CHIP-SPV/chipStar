@@ -808,6 +808,23 @@ std::vector<ze_event_handle_t> CHIPQueueLevel0::getEventListHandles(
 CHIPQueueLevel0::~CHIPQueueLevel0() {
   logTrace("~CHIPQueueLevel0() {}", (void *)this);
 
+  if (SharedBuf_) {
+    ChipCtxLz_->freeImpl(SharedBuf_);
+    SharedBuf_ = nullptr;
+  }
+
+  bool isSameCmdList = ZeCmdListImm_ == ZeCmdListImmCopy_;
+
+  zeStatus = zeCommandListDestroy(ZeCmdListImm_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListDestroy);
+  ZeCmdListImm_ = nullptr;
+
+  if (!isSameCmdList) {
+    zeStatus = zeCommandListDestroy(ZeCmdListImmCopy_);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListDestroy);
+    ZeCmdListImmCopy_ = nullptr;
+  }
+
   // From destructor post query only when queue is owned by CHIP
   // Non-owned command queues can be destroyed independently by the owner
   if (zeCmdQOwnership_) {

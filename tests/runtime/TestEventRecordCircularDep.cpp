@@ -20,6 +20,12 @@ void test(int i) {
     hipEventRecord(e2, s2);
     hipStreamWaitEvent(s1, e2, 0);
     hipEventRecord(e1, s1);  // Reuse triggers issue
+    hipDeviceSynchronize();
+
+    hipEventDestroy(e1);
+    hipEventDestroy(e2);
+    hipStreamDestroy(s1);
+    hipStreamDestroy(s2);
 }
 
 int main() {
