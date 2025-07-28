@@ -390,7 +390,6 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 }
 
 bool CHIPEventLevel0::wait() {
-  LOCK(EventMtx); // chipstar::Event::EventStatus_
   isDeletedSanityCheck();
   logTrace("CHIPEventLevel0::wait(timeout: {}) {} Msg: {} Handle: {}",
            ChipEnvVars.getL0EventTimeout(), (void *)this, Msg, (void *)Event_);
@@ -401,13 +400,13 @@ bool CHIPEventLevel0::wait() {
 
   if (zeStatus == ZE_RESULT_NOT_READY) {
     logError("CHIPEventLevel0::wait() {} Msg {} handle {} timed out after {} "
-	     "seconds.\n"
-	     "Aborting now... segfaults, illegal instructions and other "
-	     "undefined behavior may follow.",
-	     (void *)this, Msg, (void *)Event_, timeout / 1e9);
+             "seconds.\n"
+             "Aborting now... segfaults, illegal instructions and other "
+             "undefined behavior may follow.",
+             (void *)this, Msg, (void *)Event_, timeout / 1e9);
     std::abort();
   }
-
+  LOCK(EventMtx); // chipstar::Event::EventStatus_                                                                                                                    
   EventStatus_ = EVENT_STATUS_RECORDED;
   return true;
 }
