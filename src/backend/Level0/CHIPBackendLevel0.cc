@@ -387,7 +387,19 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
   ChipEventLz->addDependency(TimestampMemcpyCompleteLz);
-  executeCommandList(CommandList, TimestampMemcpyCompleteLz);
+
+  auto RecordEventComplete = Backend->createEventShared(
+      ChipCtxLz_, chipstar::EventFlags(), "recordEvent:complete");
+  auto RecordEventCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(
+      RecordEventComplete);
+  zeStatus = zeCommandListAppendBarrier(CommandList->getCmdList(),
+                                        RecordEventCompleteLz->get(), 1,
+                                        &TimestampMemcpyCompleteLz->get());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  RecordEventCompleteLz->addDependency(TimestampWriteCompleteLz);
+  RecordEventCompleteLz->addDependency(TimestampMemcpyCompleteLz);
+
+  executeCommandList(CommandList, RecordEventCompleteLz);
 
   ChipEventLz->setRecording();
   ChipEventLz->Msg = "recordEvent:userEvent";
@@ -1599,6 +1611,19 @@ LZEventPool::~LZEventPool() {
   if (Backend->Events.size())
     logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
             "destruction");
+
+  // Make sure all events are unique
+  std::set<CHIPEventLevel0 *> UniqueEvents;
+  while (Events_.size()) {
+    auto Event = Events_.top();
+    if (UniqueEvents.find(Event) != UniqueEvents.end()) {
+      logWarn("CHIPEventLevel0 object {} is not unique", (void *)Event);
+      std::abort();
+    }
+    UniqueEvents.insert(Event);
+    Events_.pop();
+  }
+
   while (Events_.size()) {
     delete Events_.top();
     Events_.pop();
