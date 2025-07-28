@@ -1870,8 +1870,9 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
   logTrace("{} CHIPContextLevel0::freeImpl({})", (void *)this, Ptr);
   // The application must not call this function from
   // simultaneous threads with the same pointer.
-  // Done via ContextMtx. Too broad?
-  zeStatus = zeMemFree(this->ZeCtx, Ptr);
+  // Done via ContextMtx.
+  if (ownsZeContext) // if we don't own the context, ZeCtx could possibly already be destroyed
+    zeStatus = zeMemFree(this->ZeCtx, Ptr);
 }
 
 CHIPContextLevel0::~CHIPContextLevel0() {
