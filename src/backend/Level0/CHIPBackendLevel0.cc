@@ -453,6 +453,7 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
   if (duration.count() > 100) {  // more than 100 microseconds
     logCritical("zeEventQueryStatus took {} microseconds (>{} microseconds threshold)", 
                 duration.count(), 100);
+    std::abort();
   }
   
   auto StatusStr = ZE_RESULT_SUCCESS == zeStatus ? "SUCCESS" : "NOT_READY";
