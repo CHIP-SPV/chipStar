@@ -31,6 +31,7 @@
 #include "zeHipErrorConversion.hh"
 #include <algorithm>
 #include <set>
+#include <unordered_map>
 
 static thread_local ze_result_t zeStatus; // instantiated in CHIPBackendLevel0.cc
 
@@ -462,7 +463,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   size_t CmdListsReused_ = 0;
   size_t EventsRequested_ = 0;
   size_t EventsReused_ = 0;
-  size_t EventPoolSize_ = 1;
+  size_t EventPoolSize_ = 1000;
   std::mutex FencedCmdListsMtx_;
   std::stack<std::unique_ptr<FencedCmdList>> FencedCmdListsPool_;
 
@@ -711,6 +712,10 @@ class CHIPBackendLevel0 : public chipstar::Backend {
   // Set to true if the driver supports ZE_extension_float_atomics extension.
   bool hasFloatAtomics_ = false;
 
+  // Map to track user events created from pool for proper lifecycle management
+  std::unordered_map<chipstar::Event*, std::shared_ptr<chipstar::Event>> UserEventsMap;
+  std::mutex UserEventsMtx;
+
 public:
   std::mutex ActiveCmdListsMtx;
   /**
@@ -753,6 +758,8 @@ public:
   virtual chipstar::Event *
   createEvent(chipstar::Context *ChipCtx,
               chipstar::EventFlags Flags = chipstar::EventFlags()) override;
+
+  virtual void destroyUserEvent(chipstar::Event *Event) override;
 
   virtual chipstar::CallbackData *
   createCallbackData(hipStreamCallback_t Callback, void *UserData,

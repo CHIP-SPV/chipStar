@@ -711,10 +711,16 @@ CHIPBackendOpenCL::createEventShared(chipstar::Context *ChipCtx,
 
 chipstar::Event *CHIPBackendOpenCL::createEvent(chipstar::Context *ChipCtx,
                                                 chipstar::EventFlags Flags) {
-  CHIPEventOpenCL *Event =
-      new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags);
-  Event->setUserEvent(true);
-  return Event;
+  auto EventShared = createEventShared(ChipCtx, Flags, "userEvent");
+  EventShared->setUserEvent(true);
+  
+  // For user events, we need to maintain the shared_ptr somewhere to ensure proper lifecycle
+  // Store the shared_ptr in a map keyed by the raw pointer for later cleanup
+  auto RawEvent = EventShared.get();
+  LOCK(UserEventsMtx);
+  UserEventsMap[RawEvent] = EventShared;
+  
+  return RawEvent;
 }
 
 void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
@@ -2449,4 +2455,27 @@ std::string resultToString(int clStatus) {
   default:
     return "CL_UNKNOWN_ERROR";
   }
+}
+
+void CHIPBackendOpenCL::destroyUserEvent(chipstar::Event *Event) {
+  LOCK(UserEventsMtx);
+  auto it = UserEventsMap.find(Event);
+  if (it != UserEventsMap.end()) {
+    // Remove from map - this will release the shared_ptr reference
+    UserEventsMap.erase(it);
+  } else {
+    // All user events should be in the map if created through createEvent
+    logError("destroyUserEvent: Event {} not found in UserEventsMap", (void*)Event);
+  }
+}
+
+void CHIPBackendOpenCL::uninitialize() { 
+  // Clean up any remaining user events before destroying the backend
+  {
+    LOCK(UserEventsMtx);
+    logTrace("Cleaning up {} remaining user events", UserEventsMap.size());
+    UserEventsMap.clear();
+  }
+  
+  waitForThreadExit(); 
 }

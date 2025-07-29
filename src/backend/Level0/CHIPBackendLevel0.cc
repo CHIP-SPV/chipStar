@@ -297,38 +297,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  chipstar::EventFlags Flags)
     : chipstar::Event((chipstar::Context *)(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr), EventPoolIndex(0) {
-  CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
-
-  unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-  // if (!flags.isDisableTiming())
-  //   pool_flags = pool_flags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
-
-  ze_event_pool_desc_t EventPoolDesc = {
-      ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
-      nullptr,                           // pNext
-      PoolFlags,                         // Flags
-      1                                  // count
-  };
-
-  zeStatus = zeEventPoolCreate(ZeCtx->get(), &EventPoolDesc, 0, nullptr,
-                               &EventPoolHandle_);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventPoolCreate);
-
-  ze_event_desc_t EventDesc = {
-      ZE_STRUCTURE_TYPE_EVENT_DESC, // stype
-      nullptr,                      // pNext
-      0,                            // index
-      ZE_EVENT_SCOPE_FLAG_HOST,     // ensure memory/cache coherency required on
-                                    // signal
-      ZE_EVENT_SCOPE_FLAG_HOST      // ensure memory coherency across device and
-                                    // Host after Event_ completes
-  };
-  // The application must not call this function from
-  // simultaneous threads with the same event pool handle.
-  // Done. chipstar::Event pool handle is local to this event + this is
-  // constructor
-  zeStatus = zeEventCreate(EventPoolHandle_, &EventDesc, &Event_);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventCreate);
+  assert(false && "creating event pools is not supported");
 }
 
 CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
@@ -1722,11 +1691,35 @@ CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
 
 chipstar::Event *CHIPBackendLevel0::createEvent(chipstar::Context *ChipCtx,
                                                 chipstar::EventFlags Flags) {
-  auto Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
-  Event->setUserEvent(true);
+  auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
+  auto EventShared = ZeCtx->getEventFromPool();
+  assert(EventShared && "LZEventPool returned a null event");
+  
+  std::static_pointer_cast<CHIPEventLevel0>(EventShared)->reset();
+  EventShared->setUserEvent(true);
   logDebug("CHIPBackendLevel0::createEvent: Context {} Event {}",
-           (void *)ChipCtx, (void *)Event);
-  return Event;
+           (void *)ChipCtx, (void *)EventShared.get());
+  
+  // For user events, we need to maintain the shared_ptr somewhere to ensure proper lifecycle
+  // Store the shared_ptr in a map keyed by the raw pointer for later cleanup
+  auto RawEvent = EventShared.get();
+  LOCK(UserEventsMtx);
+  UserEventsMap[RawEvent] = EventShared;
+  
+  return RawEvent;
+}
+
+void CHIPBackendLevel0::destroyUserEvent(chipstar::Event *Event) {
+  LOCK(UserEventsMtx);
+  auto it = UserEventsMap.find(Event);
+  if (it != UserEventsMap.end()) {
+    // Remove from map - this will release the shared_ptr reference
+    // and trigger the custom deleter to return the event to the pool
+    UserEventsMap.erase(it);
+  } else {
+    // All user events should be in the map if created through createEvent
+    logError("destroyUserEvent: Event {} not found in UserEventsMap", (void*)Event);
+  }
 }
 
 void CHIPBackendLevel0::uninitialize() {
@@ -1738,6 +1731,14 @@ void CHIPBackendLevel0::uninitialize() {
    *
    * To be safe, we iterate through all the queues and update their last event.
    */
+  
+  // Clean up any remaining user events before destroying the backend
+  {
+    LOCK(UserEventsMtx);
+    logTrace("Cleaning up {} remaining user events", UserEventsMap.size());
+    UserEventsMap.clear();
+  }
+  
   waitForThreadExit();
   logTrace("Backend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");

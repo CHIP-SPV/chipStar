@@ -2053,6 +2053,14 @@ public:
   virtual chipstar::Event *
   createEvent(chipstar::Context *ChipCtx,
               chipstar::EventFlags Flags = chipstar::EventFlags()) = 0;
+  
+  /**
+   * @brief Destroy a user event that was created from an event pool.
+   * 
+   * @param Event The user event to destroy
+   */
+  virtual void destroyUserEvent(chipstar::Event *Event) = 0;
+  
   /**
    * @brief Create a Callback Obj object
    * Each backend must implement this function which calls a derived

@@ -53,6 +53,8 @@
 
 #include "clHipErrorConversion.hh"
 
+#include <unordered_map>
+
 static thread_local cl_int clStatus;
 
 #define OCL_DEFAULT_QUEUE_PRIORITY CL_QUEUE_PRIORITY_MED_KHR
@@ -552,6 +554,10 @@ public:
 };
 
 class CHIPBackendOpenCL : public chipstar::Backend {
+  // Map to track user events created from createEventShared for proper lifecycle management
+  std::unordered_map<chipstar::Event*, std::shared_ptr<chipstar::Event>> UserEventsMap;
+  std::mutex UserEventsMtx;
+
 public:
   /// OpenCL events don't require tracking so override and do nothing
   virtual void
@@ -560,7 +566,7 @@ public:
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;
 
-  virtual void uninitialize() override { waitForThreadExit(); }
+  virtual void uninitialize() override;
   virtual void initializeImpl() override;
   virtual void initializeFromNative(const uintptr_t *NativeHandles,
                                     int NumHandles) override;
@@ -577,6 +583,7 @@ public:
   virtual chipstar::Event *
   createEvent(chipstar::Context *ChipCtx,
               chipstar::EventFlags Flags = chipstar::EventFlags()) override;
+  virtual void destroyUserEvent(chipstar::Event *Event) override;
   virtual chipstar::CallbackData *
   createCallbackData(hipStreamCallback_t Callback, void *UserData,
                      chipstar::Queue *ChipQueue) override;

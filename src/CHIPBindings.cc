@@ -3716,7 +3716,14 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
-  delete Event;
+  
+  chipstar::Event *ChipEvent = static_cast<chipstar::Event *>(Event);
+  if (ChipEvent->isUserEvent()) {
+    // For user events created from pool, clean up the reference map
+    Backend->destroyUserEvent(ChipEvent);
+  } else {
+    delete Event;
+  }
 
   RETURN(hipSuccess);
 
