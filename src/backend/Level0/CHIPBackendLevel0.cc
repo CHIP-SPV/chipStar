@@ -351,7 +351,6 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 
   auto [EventsToWaitOn, EventLocks] =
       addDependenciesQueueSync(TimestampWriteCompleteLz);
-
   assert(TimestampWriteCompleteLz->SignalEnqueued_ == true);
 
   zeStatus = zeDeviceGetGlobalTimestamps(ChipDevLz_->get(),
@@ -359,12 +358,13 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
                                          &ChipEventLz->getDeviceTimestamp());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetGlobalTimestamps);
 
-  Borrowed<FencedCmdList> CommandList = ChipCtxLz_->getCmdListReg();
+  auto CommandList = getCmdListImm();
+
 
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   zeStatus = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList->getCmdList(), (uint64_t *)getSharedBufffer(),
+      CommandList, (uint64_t *)getSharedBufffer(),
       TimestampWriteCompleteLz->peek(), EventsToWaitOn.size(),
       EventsToWaitOn.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendWriteGlobalTimestamp);
@@ -372,7 +372,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   zeStatus = zeCommandListAppendMemoryCopy(
-      CommandList->getCmdList(), &ChipEventLz->getTimestamp(),
+      CommandList, &ChipEventLz->getTimestamp(),
       getSharedBufffer(), sizeof(uint64_t), TimestampMemcpyCompleteLz->peek(),
       1, &TimestampWriteCompleteLz->peek());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopy);
@@ -382,7 +382,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   Backend->trackEvent(TimestampWriteCompleteLz);
 
   zeStatus =
-      zeCommandListAppendBarrier(CommandList->getCmdList(), ChipEventLz->get(),
+      zeCommandListAppendBarrier(CommandList, ChipEventLz->get(),
                                  1, &TimestampMemcpyCompleteLz->get());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
@@ -392,7 +392,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
       ChipCtxLz_, chipstar::EventFlags(), "recordEvent:complete");
   auto RecordEventCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(
       RecordEventComplete);
-  zeStatus = zeCommandListAppendBarrier(CommandList->getCmdList(),
+  zeStatus = zeCommandListAppendBarrier(CommandList,
                                         RecordEventCompleteLz->get(), 1,
                                         &TimestampMemcpyCompleteLz->get());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
@@ -413,7 +413,6 @@ bool CHIPEventLevel0::wait() {
   zeStatus = ZE_RESULT_NOT_READY;
   uint64_t timeout = ChipEnvVars.getL0EventTimeout() * 1e9;
   zeStatus = zeEventHostSynchronize(Event_, timeout);
-
   if (zeStatus == ZE_RESULT_NOT_READY) {
     logError("CHIPEventLevel0::wait() {} Msg {} handle {} timed out after {} "
              "seconds.\n"
@@ -427,19 +426,41 @@ bool CHIPEventLevel0::wait() {
   return true;
 }
 
+void CHIPEventLevel0::printDependencyTree(const std::shared_ptr<chipstar::Event> &event, 
+                                         std::set<void*> &visited, 
+                                         const std::string &prefix) {
+  if (!event || visited.count(event.get())) {
+    return;  // avoid cycles
+  }
+  
+  visited.insert(event.get());
+  logError("{}Event {} ({})", prefix, (void*)event.get(), event->Msg.c_str());
+  
+  for (auto &dep : event->DependsOnList) {
+    printDependencyTree(dep, visited, prefix + "  ");
+  }
+}
+
 bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
-  isDeletedSanityCheck();
+  // isDeletedSanityCheck();
 
   auto EventStatusOld = EventStatus_;
 
   zeStatus = zeEventQueryStatus(Event_);
+  auto StatusStr = ZE_RESULT_SUCCESS == zeStatus ? "SUCCESS" : "NOT_READY";
+  logError("CHIPEventLevel0 COMPLETE {} Msg {} handle {} status {}", (void *)this, Msg, (void *)Event_, StatusStr);
   if (zeStatus == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
     CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
   }
   if (zeStatus == ZE_RESULT_SUCCESS) {
     EventStatus_ = EVENT_STATUS_RECORDED;
-    releaseDependencies();
-    doActions();
+    // print the DFS dependencies recursively
+    logError("CHIPEventLevel0 DFS dependency tree for event {} ({})", (void *)this, Msg.c_str());
+    std::set<void*> visited;
+    auto thisEvent = std::shared_ptr<chipstar::Event>(this, [](chipstar::Event*){});  // non-owning shared_ptr
+    printDependencyTree(thisEvent, visited, "");
+    // releaseDependencies();
+    // doActions();
   }
 
   return EventStatusOld != EventStatus_;
@@ -477,7 +498,8 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
   LOCK(Backend->EventsMtx); // chipstar::Backend::Events_
   this->updateFinishStatus(false);
-  Other->updateFinishStatus(false);
+  if (this != Other)
+    Other->updateFinishStatus(false);
   if (this->getEventStatus() != EVENT_STATUS_RECORDED) {
     if (Other->getEventStatus() != EVENT_STATUS_RECORDED) {
       CHIPERR_LOG_AND_THROW("CHIPEventLevel0::getElapsedTime() neither start "
@@ -736,7 +758,7 @@ void CHIPEventMonitorLevel0::monitor() {
   while (true) {
     usleep(200);
     checkCallbacks();
-    checkEvents();
+    // checkEvents();
     checkCmdLists();
     checkExit();
   } // endless loop

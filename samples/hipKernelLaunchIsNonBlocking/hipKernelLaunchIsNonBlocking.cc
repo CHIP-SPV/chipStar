@@ -84,7 +84,7 @@ int main() {
 
   size_t sharedMem = 0;
   hipEvent_t start, stop;
-  int count = 10000;
+  int count = 50000;
 
   CHECK(hipEventCreate(&start));
   CHECK(hipEventCreate(&stop));

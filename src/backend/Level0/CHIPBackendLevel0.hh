@@ -30,6 +30,7 @@
 #include "../src/common.hh"
 #include "zeHipErrorConversion.hh"
 #include <algorithm>
+#include <set>
 
 static thread_local ze_result_t zeStatus; // instantiated in CHIPBackendLevel0.cc
 
@@ -93,6 +94,11 @@ private:
   ze_event_pool_handle_t EventPoolHandle_;
 
   std::vector<ActionFn> Actions_;
+
+  /// Recursively print the dependency tree starting from the given event
+  void printDependencyTree(const std::shared_ptr<chipstar::Event> &event,
+                           std::set<void*> &visited,
+                           const std::string &prefix);
 
 public:
   ze_event_handle_t &get() { return Event_; }

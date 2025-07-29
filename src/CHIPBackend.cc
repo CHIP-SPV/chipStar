@@ -1579,6 +1579,11 @@ chipstar::Queue::getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> Event,
       }
     }
   }
+  // print events to wait on
+  logError("CHIPEventLevel0::getSyncQueuesLastEvents() events to wait on for target event {}", Event->Msg.c_str());
+  for (auto &E : EventsToWaitOn) {
+    logError("  - {}", E->Msg.c_str());
+  }
 
   return {EventsToWaitOn, std::move(EventLocks)};
 }
