@@ -150,7 +150,7 @@ bool HipVerifyPass::runSPIRVConversion(Module &M, std::vector<uint32_t> &spirvBi
   LLVM_DEBUG(dbgs() << "HipVerify: Attempting SPIR-V conversion\n");
   
   std::string errorMsg;
-  spirvBinary = convertIRToSPIRV(M, errorMsg);
+  spirvBinary = convertIRToSPIRV(M, errorMsg, result);
   
   bool passed = !spirvBinary.empty();
   result.SPIRVCompilePass = passed;
@@ -219,6 +219,7 @@ bool HipVerifyPass::runSPIRVValidation(const std::vector<uint32_t> &spirvBinary,
     } else if (sys::fs::exists("/usr/bin/spirv-val")) {
       SpirvValPath = "/usr/bin/spirv-val";
     } else {
+      result.SpirvValPath = "not found";
       sys::fs::remove(SPVTempFile);
       result.SPIRVValidatePass = true; // Basic validation passed
       result.SPIRVValidateError = "";
@@ -226,6 +227,9 @@ bool HipVerifyPass::runSPIRVValidation(const std::vector<uint32_t> &spirvBinary,
       return true;
     }
   }
+  
+  // Store the spirv-val path that was found
+  result.SpirvValPath = SpirvValPath;
   
   // Run spirv-val
   std::string ErrMsg;
@@ -268,11 +272,11 @@ bool HipVerifyPass::runSPIRVValidation(const std::vector<uint32_t> &spirvBinary,
   return result.SPIRVValidatePass;
 }
 
-std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &errorMsg) {
+std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &errorMsg, VerificationResult &result) {
   LLVM_DEBUG(dbgs() << "HipVerify: Converting LLVM IR to SPIR-V\n");
   
   // Apply function reordering for SPIR-V compliance
-  reorderFunctionsForSPIRV(M);
+  // reorderFunctionsForSPIRV(M);
   
   // Create temporary files
   SmallString<256> LLTempFile;
@@ -328,6 +332,7 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   
   // Step 1: Strip debug information using opt
   std::string OptPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/opt";
+  result.OptPath = OptPath;
   if (!sys::fs::exists(OptPath)) {
     errorMsg = "opt not found";
     sys::fs::remove(LLTempFile);
@@ -375,6 +380,7 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   
   // Step 2: Convert to bitcode using llvm-as
   std::string LLVMAsPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/llvm-as";
+  result.LLVMAsPath = LLVMAsPath;
   if (!sys::fs::exists(LLVMAsPath)) {
     errorMsg = "llvm-as not found";
     sys::fs::remove(LLTempFile);
@@ -419,6 +425,7 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   
   // Step 3: Convert to SPIR-V using llvm-spirv
   std::string LLVMSpirvPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/llvm-spirv";
+  result.LLVMSpirvPath = LLVMSpirvPath;
   if (!sys::fs::exists(LLVMSpirvPath)) {
     errorMsg = "llvm-spirv not found";
     sys::fs::remove(LLTempFile);
@@ -447,10 +454,15 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
     // errs() << "HipVerify: Failed to get llvm-spirv version: " << VersionErrMsg << "\n";
   }
   
+  /*
+   Use the same flags as the actual HIP compilation process
+   Based on bitcode/CMakeLists.txt: SPIRV_EXTENSIONS "+SPV_EXT_shader_atomic_float_add"
+   Plus printf extension and function pointer extension to avoid validation errors
+  */
   SmallVector<StringRef, 8> Args{
     LLVMSpirvPath,
-    "--spirv-max-version=1.1",
-    "--spirv-ext=+all",
+    "--spirv-max-version=1.2",
+    "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add,+SPV_EXT_relaxed_printf_string_address_space",
     "-o", SPVTempFile,
     BCTempFile
   };
@@ -545,78 +557,6 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   sys::fs::remove(SPVTempFile);
   
   return SPIRVBinary;
-}
-
-void HipVerifyPass::reorderFunctionsForSPIRV(Module &M) {
-  if (!isSPIRVTarget(M)) {
-    return;
-  }
-  
-  if (!needsReordering(M)) {
-    return;
-  }
-  
-  LLVM_DEBUG(dbgs() << "HipVerify: Reordering functions for SPIR-V compliance\n");
-  
-  // Collect functions by type
-  std::vector<Function*> declarations;
-  std::vector<Function*> regularDefinitions;
-  std::vector<Function*> kernelDefinitions;
-  
-  for (Function &F : M) {
-    if (F.isDeclaration()) {
-      declarations.push_back(&F);
-    } else if (F.getCallingConv() == CallingConv::SPIR_KERNEL) {
-      kernelDefinitions.push_back(&F);
-    } else {
-      regularDefinitions.push_back(&F);
-    }
-  }
-  
-  // Store all functions
-  std::vector<Function*> allFunctions;
-  for (Function &F : M) {
-    allFunctions.push_back(&F);
-  }
-  
-  // Remove all functions from module
-  auto &FunctionList = M.getFunctionList();
-  for (Function *F : allFunctions) {
-    F->removeFromParent();
-  }
-  
-  // Re-add in correct order: kernels, declarations, regular definitions
-  for (Function *F : kernelDefinitions) {
-    FunctionList.push_back(F);
-  }
-  for (Function *F : declarations) {
-    FunctionList.push_back(F);
-  }
-  for (Function *F : regularDefinitions) {
-    FunctionList.push_back(F);
-  }
-}
-
-bool HipVerifyPass::needsReordering(Module &M) {
-  bool seenDeclaration = false;
-  bool seenRegularDefinition = false;
-  
-  for (Function &F : M) {
-    if (F.getCallingConv() == CallingConv::SPIR_KERNEL && !F.isDeclaration()) {
-      if (seenDeclaration || seenRegularDefinition) {
-        return true;
-      }
-    } else if (F.isDeclaration()) {
-      if (seenRegularDefinition) {
-        return true;
-      }
-      seenDeclaration = true;
-    } else {
-      seenRegularDefinition = true;
-    }
-  }
-  
-  return false;
 }
 
 bool HipVerifyPass::isSPIRVTarget(Module &M) {
@@ -852,6 +792,25 @@ void HipVerifyPass::printFinalSummary() {
   
   if (verifyMode == "failures" && resultsToShow.size() < AllResults.size()) {
     errs() << "Showing " << resultsToShow.size() << " entries with failures\n";
+  }
+  
+  // Print tool paths used (from the first result that has them)
+  if (!AllResults.empty()) {
+    const auto &firstResult = AllResults[0];
+    errs() << "\n=== Tool Paths Used ===\n";
+    if (!firstResult.OptPath.empty()) {
+      errs() << "opt: " << firstResult.OptPath << "\n";
+    }
+    if (!firstResult.LLVMAsPath.empty()) {
+      errs() << "llvm-as: " << firstResult.LLVMAsPath << "\n";
+    }
+    if (!firstResult.LLVMSpirvPath.empty()) {
+      errs() << "llvm-spirv: " << firstResult.LLVMSpirvPath << "\n";
+    }
+    if (!firstResult.SpirvValPath.empty()) {
+      errs() << "spirv-val: " << firstResult.SpirvValPath << "\n";
+    }
+    errs() << "========================\n";
   }
   
   errs() << "==========================\n\n";

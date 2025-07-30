@@ -572,7 +572,8 @@ public:
   virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) override;
   virtual std::shared_ptr<chipstar::Event> createEventShared(
       chipstar::Context *ChipCtx,
-      chipstar::EventFlags Flags = chipstar::EventFlags()) override;
+      chipstar::EventFlags Flags,
+      std::string Msg) override;
   virtual chipstar::Event *
   createEvent(chipstar::Context *ChipCtx,
               chipstar::EventFlags Flags = chipstar::EventFlags()) override;

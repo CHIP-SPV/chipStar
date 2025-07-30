@@ -32,6 +32,11 @@ public:
     std::string SPIRVCompileError;
     bool SPIRVValidatePass;
     std::string SPIRVValidateError;
+    // Tool paths used during verification
+    std::string OptPath;
+    std::string LLVMAsPath;
+    std::string LLVMSpirvPath;
+    std::string SpirvValPath;
   };
 
   explicit HipVerifyPass(const std::string& PassName = "HipVerify", 
@@ -56,7 +61,7 @@ private:
   bool runSPIRVValidation(const std::vector<uint32_t> &spirvBinary, VerificationResult &result);
   
   // SPIR-V conversion helpers
-  std::vector<uint32_t> convertIRToSPIRV(Module &M, std::string &errorMsg);
+  std::vector<uint32_t> convertIRToSPIRV(Module &M, std::string &errorMsg, VerificationResult &result);
   
   // Function reordering for SPIR-V compliance
   void reorderFunctionsForSPIRV(Module &M);
