@@ -273,7 +273,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  chipstar::EventFlags Flags)
     : chipstar::Event((chipstar::Context *)(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr) {
-  LOCK(TheEventPool->EventPoolMtx); // CHIPEventPool::EventPool_ via get()
+  // Note: Caller already holds TheEventPool->EventPoolMtx, so don't lock again
   EventPoolIndex = ThePoolIndex;
   EventPoolHandle_ = TheEventPool->get();
 
@@ -1584,7 +1584,7 @@ void CHIPQueueLevel0::executeCommandList(
 // EventPool
 // ***********************************************************************
 LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
-    : Ctx_(Ctx), Size_(Size) {
+    : Ctx_(Ctx), Size_(Size), NextEventIndex_(0) {
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
   // if (!flags.isDisableTiming())
@@ -1601,11 +1601,9 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
       zeEventPoolCreate(Ctx_->get(), &EventPoolDesc, 0, nullptr, &EventPool_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventPoolCreate);
 
-  for (unsigned i = 0; i < Size_; i++) {
-    chipstar::EventFlags Flags;
-    Events_.push(new CHIPEventLevel0(Ctx_, this, i, Flags));
-  }
-};
+  // Lazy creation - don't pre-create any events, create them one at a time as needed
+  logTrace("Created LZEventPool with capacity {} (lazy creation)", Size_);
+}
 
 LZEventPool::~LZEventPool() {
   if (Backend->Events.size())
@@ -1638,16 +1636,32 @@ LZEventPool::~LZEventPool() {
 };
 
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
+  // Note: Caller already holds EventPoolMtx lock, so don't lock again to avoid deadlock
   auto Deleter = [this](CHIPEventLevel0 *Ptr) { returnEvent(Ptr); };
 
-  if (!Events_.size())
-    return nullptr;
+  // First check if we have any returned events to reuse
+  if (Events_.size() > 0) {
+    auto Event = Events_.top();
+    Events_.pop();
+    logTrace("Reusing returned event from pool, index {}", Event->EventPoolIndex);
+    return std::shared_ptr<CHIPEventLevel0>(Event, Deleter);
+  }
 
-  auto Event = Events_.top();
-  Events_.pop();
+  // Create exactly 1 new event if we haven't reached capacity
+  if (NextEventIndex_ < Size_) {
+    unsigned int IndexToUse = NextEventIndex_++;
+    
+    logTrace("Creating single new event with index {}", IndexToUse);
+    chipstar::EventFlags Flags;
+    auto Event = new CHIPEventLevel0(Ctx_, this, IndexToUse, Flags);
+    
+    return std::shared_ptr<CHIPEventLevel0>(Event, Deleter);
+  }
 
-  return std::shared_ptr<CHIPEventLevel0>(Event, Deleter);
-};
+  // Pool is exhausted
+  logTrace("EventPool is full, no events available");
+  return nullptr;
+}
 
 void LZEventPool::returnEvent(CHIPEventLevel0 *Event) {
   Event->isDeletedSanityCheck();
