@@ -26,12 +26,13 @@
 #define L0_DEFAULT_QUEUE_PRIORITY ZE_COMMAND_QUEUE_PRIORITY_NORMAL
 
 #include "../../CHIPBackend.hh"
-#include "ze_api.h"
 #include "../src/common.hh"
 #include "zeHipErrorConversion.hh"
+#include "ze_api.h"
 #include <algorithm>
 
-static thread_local ze_result_t zeStatus; // instantiated in CHIPBackendLevel0.cc
+static thread_local ze_result_t
+    zeStatus; // instantiated in CHIPBackendLevel0.cc
 
 std::string resultToString(ze_result_t zeStatus);
 
@@ -87,7 +88,7 @@ private:
   /// two events, we store host timestamp as well to correct for this
   uint64_t HostTimestamp_ = 0, DeviceTimestamp_ = 0;
   friend class CHIPEventLevel0;
-  friend class CHIPQueueLevel0;  // Allow access to SignalEnqueued_ field
+  friend class CHIPQueueLevel0; // Allow access to SignalEnqueued_ field
   // The handler of event_pool and event
   ze_event_handle_t Event_;
   ze_event_pool_handle_t EventPoolHandle_;
@@ -139,59 +140,66 @@ public:
   void isDeletedSanityCheck() {
 #ifndef NDEBUG
     chipstar::Event::isDeletedSanityCheck();
-    
+
     if (!SignalEnqueued_ && DependsOnList.size() > 0) {
-      // If this event has never been enqueued for signaling but has dependencies,
-      // this might indicate a problem
-      logWarn("Event {} (Msg: '{}') has dependencies but SignalEnqueued=false", 
-              (void*)this, Msg);
+      // If this event has never been enqueued for signaling but has
+      // dependencies, this might indicate a problem
+      logWarn("Event {} (Msg: '{}') has dependencies but SignalEnqueued=false",
+              (void *)this, Msg);
     }
-    
+
     // Recursively check all dependencies for SignalEnqueued issues
-    std::set<chipstar::Event*> visited;
-    std::vector<chipstar::Event*> currentPath;
-    
-    std::function<void(chipstar::Event*)> validateDependencies = 
-      [&](chipstar::Event* event) {
-        if (!event) return;
-        
-        // Check for circular dependency
-        auto it = std::find(currentPath.begin(), currentPath.end(), event);
-        if (it != currentPath.end()) {
-          // Found circular dependency - print the entire chain
-          std::string chainStr = "Circular dependency chain: ";
-          for (auto pathIt = it; pathIt != currentPath.end(); ++pathIt) {
-            chainStr += std::to_string((uintptr_t)*pathIt) + " ('" + (*pathIt)->Msg + "')";
-            if (pathIt + 1 != currentPath.end()) {
-              chainStr += " -> ";
+    std::set<chipstar::Event *> visited;
+    std::vector<chipstar::Event *> currentPath;
+
+    std::function<void(chipstar::Event *)> validateDependencies =
+        [&](chipstar::Event *event) {
+          if (!event)
+            return;
+
+          // Check for circular dependency
+          auto it = std::find(currentPath.begin(), currentPath.end(), event);
+          if (it != currentPath.end()) {
+            // Found circular dependency - print the entire chain
+            std::string chainStr = "Circular dependency chain: ";
+            for (auto pathIt = it; pathIt != currentPath.end(); ++pathIt) {
+              chainStr += std::to_string((uintptr_t)*pathIt) + " ('" +
+                          (*pathIt)->Msg + "')";
+              if (pathIt + 1 != currentPath.end()) {
+                chainStr += " -> ";
+              }
+            }
+            chainStr += " -> " + std::to_string((uintptr_t)event) + " ('" +
+                        event->Msg + "')";
+
+            logError("Circular dependency detected: {}", chainStr);
+          }
+
+          if (visited.count(event))
+            return;
+
+          currentPath.push_back(event);
+          visited.insert(event);
+
+          // Check if this is a Level0 event and validate SignalEnqueued
+          if (auto *eventLz = dynamic_cast<CHIPEventLevel0 *>(event)) {
+            if (!eventLz->SignalEnqueued_ &&
+                eventLz->EventStatus_ != EVENT_STATUS_INIT) {
+              logError("Event {} (Msg: '{}') in dependency chain has "
+                       "SignalEnqueued=false but is not in INIT state, "
+                       "indicating use-after-reset",
+                       (void *)eventLz, eventLz->Msg);
+            }
+
+            // Recursively check this event's dependencies
+            for (auto &dep : eventLz->DependsOnList) {
+              validateDependencies(dep.get());
             }
           }
-          chainStr += " -> " + std::to_string((uintptr_t)event) + " ('" + event->Msg + "')";
-          
-          logError("Circular dependency detected: {}", chainStr);
-        }
-        
-        if (visited.count(event)) return;
-        
-        currentPath.push_back(event);
-        visited.insert(event);
-        
-        // Check if this is a Level0 event and validate SignalEnqueued
-        if (auto* eventLz = dynamic_cast<CHIPEventLevel0*>(event)) {
-          if (!eventLz->SignalEnqueued_ && eventLz->EventStatus_ != EVENT_STATUS_INIT) {
-            logError("Event {} (Msg: '{}') in dependency chain has SignalEnqueued=false but is not in INIT state, indicating use-after-reset", 
-                     (void*)eventLz, eventLz->Msg);
-          }
-          
-          // Recursively check this event's dependencies
-          for (auto &dep : eventLz->DependsOnList) {
-            validateDependencies(dep.get());
-          }
-        }
-        
-        currentPath.pop_back();
-      };
-    
+
+          currentPath.pop_back();
+        };
+
     // Start validation from this event
     validateDependencies(this);
 #endif
@@ -340,7 +348,6 @@ protected:
   ze_command_queue_group_properties_t QueuePropertiesCopy_;
   ze_command_queue_desc_t QueueDescriptorCopy_;
   ze_command_list_desc_t CommandListDescCopy_;
-
 
   ze_command_queue_handle_t ZeCmdQ_ = 0;
   ze_command_list_handle_t ZeCmdListImm_ = 0;
@@ -740,10 +747,9 @@ public:
     return Q;
   }
 
-  virtual std::shared_ptr<chipstar::Event> createEventShared(
-      chipstar::Context *ChipCtx,
-      chipstar::EventFlags Flags,
-      std::string Msg) override;
+  virtual std::shared_ptr<chipstar::Event>
+  createEventShared(chipstar::Context *ChipCtx, chipstar::EventFlags Flags,
+                    std::string Msg) override;
 
   virtual chipstar::Event *
   createEvent(chipstar::Context *ChipCtx,
