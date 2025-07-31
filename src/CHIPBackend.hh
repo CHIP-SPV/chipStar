@@ -35,17 +35,17 @@
 #ifndef CHIP_BACKEND_H
 #define CHIP_BACKEND_H
 
-#include "spirv.hh"
 #include "common.hh"
-#include "hip/spirv_hip_runtime.h"
 #include "hip/spirv_hip.hh"
+#include "hip/spirv_hip_runtime.h"
+#include "spirv.hh"
 
 #include "CHIPDriver.hh"
+#include "CHIPException.hh"
 #include "logging.hh"
 #include "macros.hh"
-#include "CHIPException.hh"
-#include <utility>
 #include <atomic>
+#include <utility>
 
 #include "SPVRegister.hh"
 
@@ -2040,8 +2040,7 @@ public:
    * @return std::shared_ptr<chipstar::Event>
    */
   virtual std::shared_ptr<chipstar::Event>
-  createEventShared(chipstar::Context *ChipCtx,
-                    chipstar::EventFlags Flags,
+  createEventShared(chipstar::Context *ChipCtx, chipstar::EventFlags Flags,
                     std::string Msg) = 0;
 
   /**
@@ -2154,9 +2153,9 @@ public:
   void updateLastNode(CHIPGraphNode *NewNode);
   void initCaptureGraph();
 
-  hipStreamCaptureStatus getCaptureStatus() const { 
-    //TODO: fix this in graphs refactor
-    // return CaptureStatus_; 
+  hipStreamCaptureStatus getCaptureStatus() const {
+    // TODO: fix this in graphs refactor
+    //  return CaptureStatus_;
     return hipStreamCaptureStatusNone;
   }
 
@@ -2320,7 +2319,7 @@ public:
    */
 
   virtual void finish() = 0;
-  
+
   /**
    * @brief Wait for this queue to finish, assuming EventsMtx is already held
    * Default implementation just calls finish()

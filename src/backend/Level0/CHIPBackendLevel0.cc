@@ -344,9 +344,11 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   }
 
   auto TimestampWriteCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(
-      Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(), "recordEvent:timestampWrite"));
+      Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(),
+                                 "recordEvent:timestampWrite"));
   auto TimestampMemcpyCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(
-      Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(), "recordEvent:timestampMemcpy"));
+      Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(),
+                                 "recordEvent:timestampMemcpy"));
 
   auto [EventsToWaitOn, EventLocks] =
       addDependenciesQueueSync(TimestampWriteCompleteLz);
@@ -409,7 +411,7 @@ bool CHIPEventLevel0::wait() {
              (void *)this, Msg, (void *)Event_, timeout / 1e9);
     std::abort();
   }
-  LOCK(EventMtx); // chipstar::Event::EventStatus_                                                                                                                    
+  LOCK(EventMtx); // chipstar::Event::EventStatus_
   EventStatus_ = EVENT_STATUS_RECORDED;
   return true;
 }
@@ -555,7 +557,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   Borrowed<FencedCmdList> CommandList = ChipContextLz->getCmdListReg();
 
   // GpuReady syncs with previous events
-  GpuReady = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "GpuReady");
+  GpuReady = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(),
+                                          "GpuReady");
   auto GpuReadyLz = std::static_pointer_cast<CHIPEventLevel0>(GpuReady);
   auto [QueueSyncEvents, EventLocks] =
       ChipQueueLz->addDependenciesQueueSync(GpuReady);
@@ -566,12 +569,14 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
   // This will get triggered manually
-  CpuCallbackComplete = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "CpuCallbackComplete");
+  CpuCallbackComplete = BackendLz->createEventShared(
+      ChipContextLz, chipstar::EventFlags(), "CpuCallbackComplete");
   auto CpuCallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CpuCallbackComplete);
 
   // This will get triggered when the CPU is done
-  GpuAck = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "GpuAck");
+  GpuAck = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(),
+                                        "GpuAck");
   auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
   zeStatus =
       zeCommandListAppendBarrier(CommandList->getCmdList(), GpuAckLz->get(), 1,
@@ -580,7 +585,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 
   // Need to create another event as GpuAck will be destroyed once callback is
   // complete
-  auto CallbackComplete = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "CallbackComplete");
+  auto CallbackComplete = BackendLz->createEventShared(
+      ChipContextLz, chipstar::EventFlags(), "CallbackComplete");
   auto CallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
   zeStatus = zeCommandListAppendBarrier(CommandList->getCmdList(),
@@ -663,7 +669,7 @@ void CHIPEventMonitorLevel0::checkEvents() {
     if (ChipEventLz->DependsOnList.size() == 0) {
       // Use sanity check which includes dependency validation
       ChipEventLz->isDeletedSanityCheck();
-      
+
       Backend->Events.erase(Backend->Events.begin() + EventIdx);
     }
   } // done collecting events to delete
@@ -871,13 +877,15 @@ CHIPQueueLevel0::addDependenciesQueueSync(
   std::vector<ze_event_handle_t> EventHandles =
       getEventListHandles(EventsToWaitOn);
 
-  // Use sanity check which includes DFS validation for SignalEnqueued and circular dependencies
+  // Use sanity check which includes DFS validation for SignalEnqueued and
+  // circular dependencies
   for (auto &Event : EventsToWaitOn) {
     auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
     EventLz->isDeletedSanityCheck();
   }
 
-  // Set SignalEnqueued for the target event since it will be signaled by the upcoming operation
+  // Set SignalEnqueued for the target event since it will be signaled by the
+  // upcoming operation
   auto TargetEventLz = std::static_pointer_cast<CHIPEventLevel0>(TargetEvent);
   TargetEventLz->SignalEnqueued_ = true;
 
@@ -1157,7 +1165,8 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPKernelLevel0 *ChipKernel = (CHIPKernelLevel0 *)ExecItem->getKernel();
   std::shared_ptr<chipstar::Event> LaunchEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe, chipstar::EventFlags(), "launch " + ChipKernel->getName());
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipCtxZe, chipstar::EventFlags(), "launch " + ChipKernel->getName());
   ze_kernel_handle_t KernelZe = ChipKernel->get();
   logTrace("Launching Kernel {}", ChipKernel->getName());
 
@@ -1219,7 +1228,8 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemFillEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe, chipstar::EventFlags(), "memFill");
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipCtxZe, chipstar::EventFlags(), "memFill");
 
   // Check that requested pattern is a power of 2
   if (std::ceil(log2(PatternSize)) != std::floor(log2(PatternSize))) {
@@ -1266,7 +1276,8 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
                                     size_t Depth, hipMemcpyKind Kind) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyRegionEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe, chipstar::EventFlags(), "memCopy3DAsync");
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipCtxZe, chipstar::EventFlags(), "memCopy3DAsync");
 
   ze_copy_region_t DstRegion;
   DstRegion.originX = 0;
@@ -1308,7 +1319,8 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
   logTrace("CHIPQueueLevel0::memCopyToImage");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> ImageCopyEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe, chipstar::EventFlags(), "memCopyToImage");
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipCtxZe, chipstar::EventFlags(), "memCopyToImage");
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(ImageCopyEvent);
   if (!SrcRegion.isPitched()) {
     LOCK(CommandListMtx);
@@ -1461,7 +1473,8 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(ChipCtxZe, chipstar::EventFlags(), "memCopyAsync");
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipCtxZe, chipstar::EventFlags(), "memCopyAsync");
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from simultaneous threads with
@@ -1615,7 +1628,8 @@ std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
     // Create a new event if we haven't reached the pool size limit
     if (AllocatedCount_ < Size_) {
       chipstar::EventFlags Flags;
-      CHIPEventLevel0 *NewEvent = new CHIPEventLevel0(Ctx_, this, AllocatedCount_, Flags);
+      CHIPEventLevel0 *NewEvent =
+          new CHIPEventLevel0(Ctx_, this, AllocatedCount_, Flags);
       AllocatedCount_++;
       return std::shared_ptr<CHIPEventLevel0>(NewEvent, Deleter);
     }
@@ -1649,10 +1663,8 @@ chipstar::ExecItem *CHIPBackendLevel0::createExecItem(dim3 GirdDim,
   return ExecItem;
 };
 
-std::shared_ptr<chipstar::Event>
-CHIPBackendLevel0::createEventShared(chipstar::Context *ChipCtx,
-                                     chipstar::EventFlags Flags,
-                                     std::string Msg) {
+std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
+    chipstar::Context *ChipCtx, chipstar::EventFlags Flags, std::string Msg) {
   std::shared_ptr<chipstar::Event> Event;
 
   auto ZeCtx = (CHIPContextLevel0 *)ChipCtx;
@@ -1865,7 +1877,8 @@ void CHIPContextLevel0::freeImpl(void *Ptr) {
   // The application must not call this function from
   // simultaneous threads with the same pointer.
   // Done via ContextMtx.
-  if (ownsZeContext) // if we don't own the context, ZeCtx could possibly already be destroyed
+  if (ownsZeContext) // if we don't own the context, ZeCtx could possibly
+                     // already be destroyed
     zeStatus = zeMemFree(this->ZeCtx, Ptr);
 }
 
