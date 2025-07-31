@@ -35,17 +35,17 @@
 #ifndef CHIP_BACKEND_H
 #define CHIP_BACKEND_H
 
-#include "common.hh"
-#include "hip/spirv_hip.hh"
-#include "hip/spirv_hip_runtime.h"
 #include "spirv.hh"
+#include "common.hh"
+#include "hip/spirv_hip_runtime.h"
+#include "hip/spirv_hip.hh"
 
 #include "CHIPDriver.hh"
-#include "CHIPException.hh"
 #include "logging.hh"
 #include "macros.hh"
-#include <atomic>
+#include "CHIPException.hh"
 #include <utility>
+#include <atomic>
 
 #include "SPVRegister.hh"
 
