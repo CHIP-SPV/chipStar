@@ -222,14 +222,12 @@ chipstar::Event::Event(chipstar::Context *Ctx, chipstar::EventFlags Flags)
 void chipstar::Event::addDependency(
     const std::shared_ptr<chipstar::Event> &Event) {
   SignalEnqueued_ = true;
-  isDeletedSanityCheck();
   logDebug("Event {} Msg {} now depends on event {} msg:{}", (void *)this, Msg,
            (void *)Event.get(), Event->Msg);
   DependsOnList.push_back(Event);
 }
 
 void chipstar::Event::releaseDependencies() {
-  isDeletedSanityCheck();
   for (auto &Dep : DependsOnList)
     logDebug("Event {} msg: {} no longer depends on event {}", (void *)this,
              Msg, (void *)Dep.get(), Dep->Msg);

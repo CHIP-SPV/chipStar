@@ -244,6 +244,7 @@ private:
   CHIPContextLevel0 *Ctx_;
   ze_event_pool_handle_t EventPool_;
   unsigned int Size_;
+  unsigned int AllocatedCount_;
   std::stack<CHIPEventLevel0 *> Events_;
 
 public:
@@ -456,7 +457,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   size_t CmdListsReused_ = 0;
   size_t EventsRequested_ = 0;
   size_t EventsReused_ = 0;
-  size_t EventPoolSize_ = 1;
+  size_t EventPoolSize_ = 1000;
   std::mutex FencedCmdListsMtx_;
   std::stack<std::unique_ptr<FencedCmdList>> FencedCmdListsPool_;
 

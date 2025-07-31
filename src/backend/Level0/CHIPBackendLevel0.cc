@@ -273,7 +273,6 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
                                  chipstar::EventFlags Flags)
     : chipstar::Event((chipstar::Context *)(ChipCtx), Flags), Event_(nullptr),
       EventPoolHandle_(nullptr) {
-  LOCK(TheEventPool->EventPoolMtx); // CHIPEventPool::EventPool_ via get()
   EventPoolIndex = ThePoolIndex;
   EventPoolHandle_ = TheEventPool->get();
 
@@ -908,15 +907,15 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListImmCopy() {
 
 std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
   // go through all pools and try to get an allocated event
-  LOCK(ContextMtx); // Context::EventPools
+  LOCK(ContextMtx); // Context::EventPool
   EventsRequested_++;
   std::shared_ptr<CHIPEventLevel0> Event;
 
   for (auto EventPool : EventPools_) {
-    LOCK(EventPool->EventPoolMtx); // LZEventPool::FreeSlots_
-    if (EventPool->EventAvailable()) {
+    auto Event = EventPool->getEvent();
+    if (Event) {
       EventsReused_++;
-      return EventPool->getEvent();
+      return Event;
     }
   }
 
@@ -1572,7 +1571,7 @@ void CHIPQueueLevel0::executeCommandList(
 // EventPool
 // ***********************************************************************
 LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
-    : Ctx_(Ctx), Size_(Size) {
+    : Ctx_(Ctx), Size_(Size), AllocatedCount_(0) {
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
   // if (!flags.isDisableTiming())
@@ -1589,10 +1588,7 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
       zeEventPoolCreate(Ctx_->get(), &EventPoolDesc, 0, nullptr, &EventPool_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventPoolCreate);
 
-  for (unsigned i = 0; i < Size_; i++) {
-    chipstar::EventFlags Flags;
-    Events_.push(new CHIPEventLevel0(Ctx_, this, i, Flags));
-  }
+  // Events are now created lazily in getEvent()
 };
 
 LZEventPool::~LZEventPool() {
@@ -1615,9 +1611,18 @@ LZEventPool::~LZEventPool() {
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
   auto Deleter = [this](CHIPEventLevel0 *Ptr) { returnEvent(Ptr); };
 
-  if (!Events_.size())
+  if (!Events_.size()) {
+    // Create a new event if we haven't reached the pool size limit
+    if (AllocatedCount_ < Size_) {
+      chipstar::EventFlags Flags;
+      CHIPEventLevel0 *NewEvent = new CHIPEventLevel0(Ctx_, this, AllocatedCount_, Flags);
+      AllocatedCount_++;
+      return std::shared_ptr<CHIPEventLevel0>(NewEvent, Deleter);
+    }
     return nullptr;
+  }
 
+  LOCK(EventPoolMtx); // LZEventPool::Events_
   auto Event = Events_.top();
   Events_.pop();
 
