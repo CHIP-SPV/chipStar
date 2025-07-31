@@ -555,6 +555,10 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
 
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
   if (!PerThreadDefaultQueue.get()) {
+    if (!::Backend) {
+      logWarn("Backend is null during per-thread queue creation. Thread may be running after backend destruction.");
+      return nullptr;
+    }
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
         std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
@@ -1439,6 +1443,10 @@ chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
+  if (!::Backend) {
+    logWarn("Backend is null during queue lookup. Thread may be running after backend destruction.");
+    return nullptr;
+  }
   auto Dev = ::Backend->getActiveDevice();
   LOCK(Dev->QueueAddRemoveMtx);
 
