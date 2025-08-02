@@ -1214,7 +1214,7 @@ void chipstar::Backend::waitForThreadExit() {
   // libCHIP.so!hipMemcpyAsyncInternal
   // libCHIP.so!hipMemcpyAsync
   pthread_yield();
-  unsigned long long int sleepMicroSeconds = 500000;
+  unsigned long long int sleepMicroSeconds = 700000;
   usleep(sleepMicroSeconds);
 
   // go through all devices checking their NumQueuesAlive until all they're all
@@ -1441,6 +1441,10 @@ chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 }
 
 chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
+  if (!::Backend) {
+    logWarn("Backend is null during queue lookup. Thread may be running after backend destruction.");
+    return nullptr;
+  }
   auto Dev = ::Backend->getActiveDevice();
   LOCK(Dev->QueueAddRemoveMtx);
 

@@ -2039,8 +2039,7 @@ public:
    * @return std::shared_ptr<chipstar::Event>
    */
   virtual std::shared_ptr<chipstar::Event>
-  createEventShared(chipstar::Context *ChipCtx,
-                    chipstar::EventFlags Flags,
+  createEventShared(chipstar::Context *ChipCtx, chipstar::EventFlags Flags,
                     std::string Msg) = 0;
 
   /**
@@ -2153,9 +2152,9 @@ public:
   void updateLastNode(CHIPGraphNode *NewNode);
   void initCaptureGraph();
 
-  hipStreamCaptureStatus getCaptureStatus() const { 
-    //TODO: fix this in graphs refactor
-    // return CaptureStatus_; 
+  hipStreamCaptureStatus getCaptureStatus() const {
+    // TODO: fix this in graphs refactor
+    //  return CaptureStatus_;
     return hipStreamCaptureStatusNone;
   }
 
@@ -2319,7 +2318,7 @@ public:
    */
 
   virtual void finish() = 0;
-  
+
   /**
    * @brief Wait for this queue to finish, assuming EventsMtx is already held
    * Default implementation just calls finish()
