@@ -222,12 +222,14 @@ chipstar::Event::Event(chipstar::Context *Ctx, chipstar::EventFlags Flags)
 void chipstar::Event::addDependency(
     const std::shared_ptr<chipstar::Event> &Event) {
   SignalEnqueued_ = true;
+  isDeletedSanityCheck();
   logDebug("Event {} Msg {} now depends on event {} msg:{}", (void *)this, Msg,
            (void *)Event.get(), Event->Msg);
   DependsOnList.push_back(Event);
 }
 
 void chipstar::Event::releaseDependencies() {
+  isDeletedSanityCheck();
   for (auto &Dep : DependsOnList)
     logDebug("Event {} msg: {} no longer depends on event {}", (void *)this,
              Msg, (void *)Dep.get(), Dep->Msg);
@@ -555,10 +557,6 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
 
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
   if (!PerThreadDefaultQueue.get()) {
-    if (!::Backend) {
-      logWarn("Backend is null during per-thread queue creation. Thread may be running after backend destruction.");
-      return nullptr;
-    }
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
         std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));

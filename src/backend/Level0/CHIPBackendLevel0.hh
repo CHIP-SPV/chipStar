@@ -26,9 +26,9 @@
 #define L0_DEFAULT_QUEUE_PRIORITY ZE_COMMAND_QUEUE_PRIORITY_NORMAL
 
 #include "../../CHIPBackend.hh"
+#include "ze_api.h"
 #include "../src/common.hh"
 #include "zeHipErrorConversion.hh"
-#include "ze_api.h"
 #include <algorithm>
 
 static thread_local ze_result_t
