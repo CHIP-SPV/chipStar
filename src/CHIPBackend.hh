@@ -45,7 +45,6 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 #include <utility>
-#include <atomic>
 
 #include "SPVRegister.hh"
 
@@ -688,7 +687,7 @@ protected:
   event_status_e EventStatus_;
   chipstar::EventFlags Flags_;
   bool SignalEnqueued_ = false;
-  std::atomic<bool> Deleted_{false};
+  bool Deleted_ = false;
 
   /**
    * @brief Events are always created with a context
@@ -819,12 +818,12 @@ public:
 
   void markDeleted(bool State = true) {
 #ifndef NDEBUG
-    Deleted_.store(State);
+    Deleted_ = State;
 #endif
   }
   void isDeletedSanityCheck() {
 #ifndef NDEBUG
-    if (Deleted_.load()) {
+    if (Deleted_) {
       logError("chipstar::Event use after delete!");
       std::abort();
     }
