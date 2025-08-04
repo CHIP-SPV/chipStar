@@ -3874,9 +3874,17 @@ static inline hipError_t hipHostMallocInternal(void **Ptr, size_t Size,
   ERROR_IF((!RetVal), hipErrorMemoryAllocation);
 
   int PageLockSuccess = mlock(RetVal, Size);
-  if (PageLockSuccess != 0)
-    logCritical("Page Lock failure {}", errno);
-  assert(PageLockSuccess == 0 && "Failed to page lock memory");
+  if (PageLockSuccess != 0) {
+    if (errno == EPERM) {
+      logWarn("Page Lock failure: insufficient privileges (CAP_IPC_LOCK required) - continuing without locked memory");
+    } else if (errno == ENOMEM) {
+      logWarn("Page Lock failure: memory limit exceeded (ulimit -l {}) - continuing without locked memory", Size);
+    } else {
+      logWarn("Page Lock failure, errno: {} - continuing without locked memory", errno);
+    }
+    // Note: Memory allocation still works, just won't be page-locked
+    // This can happen in constrained environments like CI runners or containers
+  }
 
   *Ptr = RetVal;
   return hipSuccess;
