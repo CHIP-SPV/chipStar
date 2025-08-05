@@ -357,14 +357,14 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
                                          &ChipEventLz->getDeviceTimestamp());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetGlobalTimestamps);
 
-  LOCK(CommandListMtx)
-  auto CommandList = getCmdListImm();
-
+  LOCK(CommandListMtx);
+  auto CommandList = this->getCmdListImm();
+  auto CommandListCopy = this->getCmdListImmCopy();
 
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   zeStatus = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList, (uint64_t *)getSharedBufffer(),
+      CommandListCopy, (uint64_t *)getSharedBufffer(),
       TimestampWriteCompleteLz->peek(), EventsToWaitOn.size(),
       EventsToWaitOn.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendWriteGlobalTimestamp);
@@ -372,7 +372,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   zeStatus = zeCommandListAppendMemoryCopy(
-      CommandList, &ChipEventLz->getTimestamp(),
+      CommandListCopy, &ChipEventLz->getTimestamp(),
       getSharedBufffer(), sizeof(uint64_t), TimestampMemcpyCompleteLz->peek(),
       1, &TimestampWriteCompleteLz->peek());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopy);
