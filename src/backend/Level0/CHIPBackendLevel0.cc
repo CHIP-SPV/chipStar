@@ -344,15 +344,12 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   }
 
   auto TimestampWriteCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(
-      Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(),
-                                 "recordEvent:timestampWrite"));
+      Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(), "recordEvent:timestampWrite"));
   auto TimestampMemcpyCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(
-      Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(),
-                                 "recordEvent:timestampMemcpy"));
+      Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(), "recordEvent:timestampMemcpy"));
 
   auto [EventsToWaitOn, EventLocks] =
       addDependenciesQueueSync(TimestampWriteCompleteLz);
-
   assert(TimestampWriteCompleteLz->SignalEnqueued_ == true);
 
   zeStatus = zeDeviceGetGlobalTimestamps(ChipDevLz_->get(),
@@ -360,12 +357,14 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
                                          &ChipEventLz->getDeviceTimestamp());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetGlobalTimestamps);
 
-  Borrowed<FencedCmdList> CommandList = ChipCtxLz_->getCmdListReg();
+  LOCK(CommandListMtx)
+  auto CommandList = getCmdListImm();
+
 
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   zeStatus = zeCommandListAppendWriteGlobalTimestamp(
-      CommandList->getCmdList(), (uint64_t *)getSharedBufffer(),
+      CommandList, (uint64_t *)getSharedBufffer(),
       TimestampWriteCompleteLz->peek(), EventsToWaitOn.size(),
       EventsToWaitOn.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendWriteGlobalTimestamp);
@@ -373,7 +372,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   zeStatus = zeCommandListAppendMemoryCopy(
-      CommandList->getCmdList(), &ChipEventLz->getTimestamp(),
+      CommandList, &ChipEventLz->getTimestamp(),
       getSharedBufffer(), sizeof(uint64_t), TimestampMemcpyCompleteLz->peek(),
       1, &TimestampWriteCompleteLz->peek());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopy);
@@ -383,12 +382,24 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   Backend->trackEvent(TimestampWriteCompleteLz);
 
   zeStatus =
-      zeCommandListAppendBarrier(CommandList->getCmdList(), ChipEventLz->get(),
+      zeCommandListAppendBarrier(CommandList, ChipEventLz->get(),
                                  1, &TimestampMemcpyCompleteLz->get());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
   ChipEventLz->addDependency(TimestampMemcpyCompleteLz);
-  executeCommandList(CommandList, TimestampMemcpyCompleteLz);
+
+  auto RecordEventComplete = Backend->createEventShared(
+      ChipCtxLz_, chipstar::EventFlags(), "recordEvent:complete");
+  auto RecordEventCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(
+      RecordEventComplete);
+  zeStatus = zeCommandListAppendBarrier(CommandList,
+                                        RecordEventCompleteLz->get(), 1,
+                                        &TimestampMemcpyCompleteLz->get());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  RecordEventCompleteLz->addDependency(TimestampWriteCompleteLz);
+  RecordEventCompleteLz->addDependency(TimestampMemcpyCompleteLz);
+
+  executeCommandList(CommandList, RecordEventCompleteLz);
 
   ChipEventLz->setRecording();
   ChipEventLz->Msg = "recordEvent:userEvent";
@@ -466,7 +477,8 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
   CHIPEventLevel0 *Other = (CHIPEventLevel0 *)OtherIn;
   LOCK(Backend->EventsMtx); // chipstar::Backend::Events_
   this->updateFinishStatus(false);
-  Other->updateFinishStatus(false);
+  if (this != Other)
+    Other->updateFinishStatus(false);
   if (this->getEventStatus() != EVENT_STATUS_RECORDED) {
     if (Other->getEventStatus() != EVENT_STATUS_RECORDED) {
       CHIPERR_LOG_AND_THROW("CHIPEventLevel0::getElapsedTime() neither start "
@@ -1608,10 +1620,10 @@ LZEventPool::~LZEventPool() {
   if (Backend->Events.size())
     logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
             "destruction");
-  while (Events_.size()) {
-    delete Events_.top();
-    Events_.pop();
-  }
+  // while (Events_.size()) {
+  //   delete Events_.top();
+  //   Events_.pop();
+  // }
 
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
