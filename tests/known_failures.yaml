@@ -350,6 +350,8 @@ ANY:
     Unit_hipEvent: 'zeEventQueryStatus() is blocking'
     hipKernelLaunchIsNonBlocking: 'zeEventQueryStatus() is blocking'
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'False positives from L0 helper thread'
+    Unit_hipEvent: 'zeEventQueryStatus took 100us, exceeded 100us threshold'
+    hipKernelLaunchIsNonBlocking: 'zeEventQueryStatus took 100us, exceeded 100us threshold'
   OPENCL_CPU:
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'
     h4i-hipblas_basic_context_test: 'Backend mismatch'
