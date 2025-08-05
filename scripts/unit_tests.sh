@@ -2,6 +2,10 @@
 
 set -e
 
+echo '#include <sys/mman.h>
+#include <stdlib.h>
+int main() { void *p = malloc(4096); return mlock(p, 4096); }' | gcc -x c - -o /tmp/mlocktest && /tmp/mlocktest && echo "Page locking works" || { echo "Page locking failed"; exit 1; }
+
 export CHIP_MODULE_CACHE_DIR=""
 host=`hostname`
 echo "Running on ${host}"
