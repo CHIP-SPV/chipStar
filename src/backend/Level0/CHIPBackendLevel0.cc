@@ -432,7 +432,14 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
 
   auto EventStatusOld = EventStatus_;
 
+  auto startTime = std::chrono::high_resolution_clock::now();
   zeStatus = zeEventQueryStatus(Event_);
+  auto endTime = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+  if (duration.count() > 100) {
+    logError("zeEventQueryStatus took {}us, exceeded 100us threshold", duration.count());
+  }
+
   if (zeStatus == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
     CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
   }
