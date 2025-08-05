@@ -1049,10 +1049,12 @@ void CHIPQueueLevel0::initializeCmdListImm() {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
 
   if (QueueDescriptorCopy_.ordinal < 0) {
+    logTrace("Creating immediate command list for copy");
     zeStatus = zeCommandListCreateImmediate(
         ZeCtx_, ZeDev_, &QueueDescriptorCopy_, &ZeCmdListImmCopy_);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
   } else {
+    logTrace("Using same command list for copy");
     ZeCmdListImmCopy_ = ZeCmdListImm_;
   }
 }
