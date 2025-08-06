@@ -659,7 +659,12 @@ void CHIPDeviceOpenCL::resetImpl() { UNIMPLEMENTED(); }
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  cl_event ClEvent, chipstar::EventFlags Flags)
     : chipstar::Event((chipstar::Context *)(ChipContext), Flags),
-      ClEvent(ClEvent) {}
+      ClEvent(ClEvent) {
+  // Retain the cl_event if one was provided to prevent race conditions
+  if (ClEvent) {
+    clRetainEvent(ClEvent);
+  }
+}
 
 CHIPEventOpenCL::CHIPEventOpenCL(CHIPContextOpenCL *ChipContext,
                                  chipstar::EventFlags Flags)
@@ -691,8 +696,12 @@ size_t CHIPEventOpenCL::getRefCount() {
 
 CHIPEventOpenCL::~CHIPEventOpenCL() {
   this->RecordedEvent = nullptr;
-  if (ClEvent)
+  if (ClEvent) {
+    // Protect against Intel OpenCL driver threading issues
+    static std::mutex release_mutex;
+    std::lock_guard<std::mutex> lock(release_mutex);
     clReleaseEvent(ClEvent);
+  }
 }
 
 std::shared_ptr<chipstar::Event>
@@ -734,7 +743,20 @@ void CHIPEventOpenCL::recordEventCopy(
   logTrace("CHIPEventOpenCL::recordEventCopy");
   std::shared_ptr<CHIPEventOpenCL> Other =
       std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
-  this->ClEvent = Other->ClEvent;
+  
+  // Release our current event if we have one
+  if (this->ClEvent) {
+    clReleaseEvent(this->ClEvent);
+  }
+  
+  // Properly retain the OpenCL event to prevent premature destruction
+  if (Other->ClEvent) {
+    clRetainEvent(Other->ClEvent);
+    this->ClEvent = Other->ClEvent;
+  } else {
+    this->ClEvent = nullptr;
+  }
+  
   this->RecordedEvent = Other;
   this->Msg = "recordEventCopy: " + Other->Msg;
   this->HostTimeStamp =
