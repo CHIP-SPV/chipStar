@@ -111,20 +111,31 @@ chipstar::AllocationTracker::AllocationTracker(size_t GlobalMemSize,
 }
 
 chipstar::AllocationTracker::~AllocationTracker() {
-  for (auto *Member : AllocInfos_)
-    delete Member;
+  LOCK(AllocationTrackerMtx); // Protect against concurrent access during cleanup
+  
+  // Clear the maps first to prevent double-deletion
+  PtrToAllocInfo_.clear();
+  
+  for (auto *Member : AllocInfos_) {
+    if (Member) {
+      delete Member;
+    }
+  }
+  AllocInfos_.clear();
 }
 
 chipstar::AllocationInfo *
 chipstar::AllocationTracker::getAllocInfo(const void *Ptr) {
-  {
-    LOCK( // chipstar::AllocTracker::PtrToAllocInfo_
-        AllocationTrackerMtx);
-    // In case that Ptr is the base of the allocation, check hash map directly
-    auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
-    if (Found)
-      return PtrToAllocInfo_[const_cast<void *>(Ptr)];
+  if (!Ptr) {
+    return nullptr;
   }
+  
+  LOCK(AllocationTrackerMtx); // chipstar::AllocTracker::PtrToAllocInfo_
+  
+  // In case that Ptr is the base of the allocation, check hash map directly
+  auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
+  if (Found)
+    return PtrToAllocInfo_[const_cast<void *>(Ptr)];
 
   // Ptr can be offset from the base pointer. In this case, iterate through all
   // allocations, and check if Ptr falls within any of these allocation ranges
@@ -203,7 +214,7 @@ void chipstar::AllocationTracker::recordAllocation(
 
 chipstar::AllocationInfo *
 chipstar::AllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
-  LOCK(AllocationTrackerMtx); // chipstar::AllocTracker::PtrToAllocInfo_
+  // Note: This function is called from within a locked context
   for (auto &Info : PtrToAllocInfo_) {
     chipstar::AllocationInfo *AllocInfo = Info.second;
     void *Start = AllocInfo->DevPtr;
@@ -1154,6 +1165,10 @@ void chipstar::Context::reset() {
 }
 
 hipError_t chipstar::Context::free(void *Ptr) {
+  if (!Ptr) {
+    return hipErrorInvalidValue;
+  }
+  
   chipstar::Device *ChipDev = ::Backend->getActiveDevice();
   chipstar::AllocationInfo *AllocInfo =
       ChipDev->AllocTracker->getAllocInfo(Ptr);
