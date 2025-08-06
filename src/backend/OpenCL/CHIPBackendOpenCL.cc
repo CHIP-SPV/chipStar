@@ -2179,6 +2179,38 @@ std::string CHIPBackendOpenCL::getDefaultJitFlags() {
   return std::string("-cl-kernel-arg-info -cl-std=CL3.0");
 }
 
+void CHIPBackendOpenCL::uninitialize() {
+  /**
+   * Proper shutdown sequence similar to Level0 backend.
+   * Wait for all threads to exit, then clean up event monitors and queues
+   * to prevent race conditions during context destruction.
+   */
+  waitForThreadExit();
+  logTrace("CHIPBackendOpenCL::uninitialize(): Setting LastEvent to null for all queues");
+  
+  // Clean up event monitor if it exists
+  if (EventMonitor_) {
+    {
+      logTrace("CHIPBackendOpenCL::uninitialize(): Killing EventMonitor");
+      LOCK(EventMonitor_->EventMonitorMtx);
+      EventMonitor_->Stop = true;
+    }
+    EventMonitor_->join();
+  }
+  
+  // Ensure all queues have their last events cleared to prevent dangling references
+  {
+    LOCK(BackendMtx);
+    for (auto Dev : getDevices()) {
+      LOCK(Dev->QueueAddRemoveMtx);
+      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
+      for (auto &Queue : Dev->getQueuesNoLock()) {
+        Queue->updateLastEvent(nullptr);
+      }
+    }
+  }
+}
+
 void CHIPBackendOpenCL::initializeImpl() {
   logTrace("CHIPBackendOpenCL Initialize");
   MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
