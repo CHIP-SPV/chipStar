@@ -560,14 +560,15 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
 }
 
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
-  if (!PerThreadDefaultQueue.get()) {
+  thread_local static std::once_flag PerThreadQueueFlag;
+  std::call_once(PerThreadQueueFlag, [this]() {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
         std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
-  }
+  });
 
   return PerThreadDefaultQueue.get();
 }
@@ -1279,6 +1280,9 @@ void chipstar::Backend::setActiveDevice(chipstar::Device *ChipDevice) {
 }
 
 chipstar::Context *chipstar::Backend::getActiveContext() {
+  if (!::Backend) {
+    CHIPERR_LOG_AND_THROW("Backend not initialized", hipErrorInitializationError);
+  }
   LOCK(::Backend->ActiveCtxMtx); // reading Backend::ChipCtxStack
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
@@ -1289,6 +1293,9 @@ chipstar::Context *chipstar::Backend::getActiveContext() {
 };
 
 chipstar::Device *chipstar::Backend::getActiveDevice() {
+  if (!::Backend) {
+    CHIPERR_LOG_AND_THROW("Backend not initialized", hipErrorInitializationError);
+  }
   chipstar::Context *Ctx = getActiveContext();
   return Ctx->getDevice();
 };
@@ -1435,8 +1442,7 @@ chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
   if (!::Backend) {
-    logWarn("Backend is null during queue lookup. Thread may be running after backend destruction.");
-    return nullptr;
+    CHIPERR_LOG_AND_THROW("Backend not initialized", hipErrorInitializationError);
   }
   auto Dev = ::Backend->getActiveDevice();
   LOCK(Dev->QueueAddRemoveMtx);
