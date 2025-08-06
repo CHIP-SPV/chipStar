@@ -610,12 +610,8 @@ public:
     LOCK(AllocationTrackerMtx); // CHIPAllocationTracker::PtrToAllocInfo_
                                 // CHIPAllocationTracker::AllocInfos_
     assert(AllocInfo && "Null pointer passed to eraseRecord");
-    
-    // Check if allocation was already freed
-    if (AllocInfos_.count(AllocInfo) == 0) {
-      logWarn("Attempting to free already freed allocation: {}", (void*)AllocInfo);
-      return;
-    }
+    assert(AllocInfos_.count(AllocInfo) &&
+           "Not a member of the allocation tracker!");
 
     switch (AllocInfo->MemoryType) {
     default:
