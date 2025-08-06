@@ -247,8 +247,10 @@ public:
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {
     logTrace("CHIPContextOpenCL::~CHIPContextOpenCL");
+    LOCK(ContextMtx); // Ensure exclusive access during destruction
     MemManager_.clear();
     delete ChipDevice_;
+    ChipDevice_ = nullptr;
   }
   void *allocateImpl(
       size_t Size, size_t Alignment, hipMemoryType MemType,
