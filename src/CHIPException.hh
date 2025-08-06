@@ -40,6 +40,7 @@
 #include <execinfo.h>
 #include <cxxabi.h>
 #include <dlfcn.h>
+#include <atomic>
 
 class CHIPError {
   std::string Msg_;
@@ -85,7 +86,28 @@ public:
     std::abort();                                                              \
   } while (0)
 
-#define CHIP_TRY try {
+// Global counter for threads that have called HIP APIs
+// This is used to prevent the main thread from exiting before all other threads have finished
+extern std::atomic<int> GlobalActiveThreads;
+
+// Function to track thread entry  
+inline void trackThreadEntry() {
+  thread_local static struct ThreadTracker {
+    bool counted = false;
+    ~ThreadTracker() {
+      if (counted) {
+        GlobalActiveThreads.fetch_sub(1, std::memory_order_relaxed);
+      }
+    }
+  } tracker;
+  
+  if (!tracker.counted) {
+    GlobalActiveThreads.fetch_add(1, std::memory_order_relaxed);
+    tracker.counted = true;
+  }
+}
+
+#define CHIP_TRY try { trackThreadEntry();
 #define CHIP_CATCH                                                             \
   }                                                                            \
   catch (CHIPError _status) {                                                  \
