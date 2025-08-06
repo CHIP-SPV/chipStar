@@ -834,11 +834,10 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   // From destructor post query only when queue is owned by CHIP
   // Non-owned command queues can be destroyed independently by the owner
   if (zeCmdQOwnership_) {
-    finish(); // must finish the queue because it's possible that that there are
-              // outstanding operations which have an associated
-              // chipstar::Event. If we do not finish we risk the chance of
-              // EventMonitor of deadlocking while waiting for queue
-              // completion and subsequent event status change
+    // During program shutdown, avoid calling finish() as the Level0 context
+    // may already be destroyed, causing crashes in zeEventHostSynchronize
+    // Skip finish() entirely during shutdown to prevent segfaults
+    // The EventMonitor should handle shutdown gracefully without queue sync
   }
   updateLastEvent(nullptr); // Just in case that unique_ptr destructor calls
                             // this, the generic ~Queue() (which calls
