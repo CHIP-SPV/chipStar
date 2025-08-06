@@ -32,6 +32,9 @@
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
 
+// Global mutex to protect against Intel OpenCL driver threading issues
+static std::mutex g_intel_opencl_driver_mutex;
+
 std::vector<cl_event>
 getOpenCLHandles(const chipstar::SharedEventVector &ChipEvents) {
   std::vector<cl_event> Result;
@@ -698,8 +701,7 @@ CHIPEventOpenCL::~CHIPEventOpenCL() {
   this->RecordedEvent = nullptr;
   if (ClEvent) {
     // Protect against Intel OpenCL driver threading issues
-    static std::mutex release_mutex;
-    std::lock_guard<std::mutex> lock(release_mutex);
+    std::lock_guard<std::mutex> lock(g_intel_opencl_driver_mutex);
     clReleaseEvent(ClEvent);
   }
 }
@@ -1755,10 +1757,14 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     case AllocationStrategy::CoarseGrainSVM:
     case AllocationStrategy::FineGrainSVM: {
       logTrace("clSVMmemcpy {} -> {} / {} B\n", Src, Dst, Size);
-      clStatus = ::clEnqueueSVMMemcpy(
-          get()->get(), CL_FALSE, Dst, Src, Size, SyncQueuesEventHandles.size(),
-          SyncQueuesEventHandles.data(),
-          std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+      {
+        // Protect against Intel OpenCL driver threading issues
+        std::lock_guard<std::mutex> lock(g_intel_opencl_driver_mutex);
+        clStatus = ::clEnqueueSVMMemcpy(
+            get()->get(), CL_FALSE, Dst, Src, Size, SyncQueuesEventHandles.size(),
+            SyncQueuesEventHandles.data(),
+            std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+      }
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueSVMMemcpy);
       break;
     }
