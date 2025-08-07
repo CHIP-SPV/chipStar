@@ -1235,6 +1235,7 @@ void chipstar::Backend::trackEvent(
 
 void chipstar::Backend::waitForThreadExit() {
   // Check if any threads called HIP APIs
+  usleep(100000);
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
   
   if (activeThreads <= 1) {
