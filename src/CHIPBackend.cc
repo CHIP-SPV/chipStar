@@ -1152,11 +1152,23 @@ void chipstar::Context::setFlags(unsigned int Flags) { Flags_ = Flags; }
 
 void chipstar::Context::reset() {
   logDebug("Resetting Context: deleting allocations");
-  // Free all allocations in this context
-  for (auto &Ptr : AllocatedPtrs_)
-    freeImpl(Ptr);
-
+  
   auto Dev = getDevice();
+  
+  // Properly free all allocations and clean up AllocationTracker
+  for (auto &Ptr : AllocatedPtrs_) {
+    // Get allocation info before freeing
+    chipstar::AllocationInfo *AllocInfo = Dev->AllocTracker->getAllocInfo(Ptr);
+    
+    // Free the memory
+    freeImpl(Ptr);
+    
+    // Remove from AllocationTracker to prevent double-allocation errors
+    if (AllocInfo) {
+      Dev->AllocTracker->eraseRecord(AllocInfo);
+    }
+  }
+
   // Free all the memory reservations on each device
   Dev->AllocTracker->releaseMemReservation(Dev->AllocTracker->TotalMemSize);
   AllocatedPtrs_.clear();
