@@ -22,6 +22,8 @@ num_tries=1
 timeout=1800
 build_only=false
 
+rm -rf ~/.cache/chipStar
+
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
   echo "Usage: $0 <debug|release> <llvm-16|llvm-17|llvm-18|llvm-19> [--skip-build] [--build-only] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
