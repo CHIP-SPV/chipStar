@@ -1334,7 +1334,7 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
 
 void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
                                      hipExtent Extent) {
-  logTrace("CHIPQueueLevel0::memFillAsync3D - using region copy implementation");
+  logTrace("CHIPQueueLevel0::memFillAsync3D - using zeCommandListAppendMemoryCopyRegion implementation");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   
   size_t Width = Extent.width;
@@ -1353,13 +1353,15 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
     return;
   }
   
-  // For non-contiguous memory, use region copy strategy
-  // Create a temporary source buffer filled with the pattern
-  const size_t PatternSize = 4096; // Use 4KB pattern buffer for efficiency
-  const size_t EffectiveWidth = std::min(Width, PatternSize);
+  // For non-contiguous memory, use 3D region copy strategy
+  // Create a temporary 3D source buffer with the same layout filled with the pattern
+  size_t PatternDepth = std::min(Depth, (size_t)4); // Use up to 4 layers as pattern
+  size_t PatternHeight = std::min(Height, (size_t)16); // Use up to 16 rows as pattern
   
-  // Allocate temporary pattern buffer
-  void *PatternBuffer = ChipCtxLz_->allocateImpl(PatternSize, 1, hipMemoryType::hipMemoryTypeDevice);
+  // Allocate pitched pattern buffer with same pitch structure as destination
+  size_t PatternBufferSize = Pitch * PatternHeight * PatternDepth;
+  void *PatternBuffer = ChipCtxLz_->allocateImpl(PatternBufferSize, 1, hipMemoryType::hipMemoryTypeDevice);
+  
   if (!PatternBuffer) {
     // Fallback to old implementation if allocation fails
     std::shared_ptr<chipstar::Event> ChipEvent;
@@ -1373,10 +1375,10 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
     return;
   }
   
-  // Fill the pattern buffer
+  // Fill the pattern buffer with the desired value
   std::shared_ptr<chipstar::Event> FillEvent = 
-      memFillAsyncImpl(PatternBuffer, PatternSize, &Value, 1);
-  FillEvent->Msg = "pattern_fill";
+      memFillAsyncImpl(PatternBuffer, PatternBufferSize, &Value, 1);
+  FillEvent->Msg = "pattern_fill_3d";
   
   std::shared_ptr<chipstar::Event> CopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
@@ -1384,7 +1386,6 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImmCopy();
-  
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(CopyEvent);
   
   // Wait for pattern buffer to be filled
@@ -1393,36 +1394,55 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   std::vector<ze_event_handle_t> AllEventHandles = EventHandles;
   AllEventHandles.push_back(PatternEventHandle);
   
-  // Use region copy to efficiently fill the 3D memory
-  for (size_t i = 0; i < Depth; i++) {
-    char *PlanePtr = (char *)Dst + i * (Pitch * PitchedDevPtr.ysize);
+  // Use 3D region copy to efficiently replicate the pattern across the entire 3D space
+  size_t RemainingDepth = Depth;
+  size_t DstOffsetZ = 0;
+  
+  while (RemainingDepth > 0) {
+    size_t CurrentDepth = std::min(RemainingDepth, PatternDepth);
+    size_t RemainingHeight = Height;
+    size_t DstOffsetY = 0;
     
-    for (size_t j = 0; j < Height; j++) {
-      char *RowPtr = PlanePtr + j * Pitch;
+    while (RemainingHeight > 0) {
+      size_t CurrentHeight = std::min(RemainingHeight, PatternHeight);
       
-      // Copy in chunks if row is larger than pattern buffer
-      size_t Remaining = Width;
-      size_t Offset = 0;
+      // Set up destination region
+      ze_copy_region_t DstRegion;
+      DstRegion.originX = 0;
+      DstRegion.originY = DstOffsetY;
+      DstRegion.originZ = DstOffsetZ;
+      DstRegion.width = Width;
+      DstRegion.height = CurrentHeight;
+      DstRegion.depth = CurrentDepth;
       
-      while (Remaining > 0) {
-        size_t ChunkSize = std::min(Remaining, EffectiveWidth);
-        
-        // Only signal completion on the very last copy
-        bool IsLastCopy = (i == Depth - 1) && (j == Height - 1) && (Remaining == ChunkSize);
-        
-        zeStatus = zeCommandListAppendMemoryCopy(
-            CommandList, RowPtr + Offset, PatternBuffer, ChunkSize,
-            IsLastCopy ? std::static_pointer_cast<CHIPEventLevel0>(CopyEvent)->peek() : nullptr,
-            AllEventHandles.size(), AllEventHandles.data());
-        CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopy);
-        
-        // Clear event dependencies after first copy
-        AllEventHandles.clear();
-        
-        Offset += ChunkSize;
-        Remaining -= ChunkSize;
-      }
+      // Set up source region (always starts from origin of pattern)
+      ze_copy_region_t SrcRegion;
+      SrcRegion.originX = 0;
+      SrcRegion.originY = 0;
+      SrcRegion.originZ = 0;
+      SrcRegion.width = Width;
+      SrcRegion.height = CurrentHeight;
+      SrcRegion.depth = CurrentDepth;
+      
+      // Only signal completion on the very last region copy
+      bool IsLastCopy = (RemainingDepth == CurrentDepth) && (RemainingHeight == CurrentHeight);
+      
+      zeStatus = zeCommandListAppendMemoryCopyRegion(
+          CommandList, Dst, &DstRegion, Pitch, Pitch * PitchedDevPtr.ysize,
+          PatternBuffer, &SrcRegion, Pitch, Pitch * PatternHeight,
+          IsLastCopy ? std::static_pointer_cast<CHIPEventLevel0>(CopyEvent)->peek() : nullptr,
+          AllEventHandles.size(), AllEventHandles.data());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopyRegion);
+      
+      // Clear event dependencies after first copy
+      AllEventHandles.clear();
+      
+      RemainingHeight -= CurrentHeight;
+      DstOffsetY += CurrentHeight;
     }
+    
+    RemainingDepth -= CurrentDepth;
+    DstOffsetZ += CurrentDepth;
   }
   
   executeCommandList(CommandList, CopyEvent);
