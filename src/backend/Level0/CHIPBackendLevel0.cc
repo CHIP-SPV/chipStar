@@ -2019,6 +2019,11 @@ CHIPDeviceLevel0 *CHIPDeviceLevel0::create(ze_device_handle_t ZeDev,
                                            CHIPContextLevel0 *ChipCtx,
                                            int Idx) {
   CHIPDeviceLevel0 *Dev = new CHIPDeviceLevel0(ZeDev, ChipCtx, Idx);
+  // Ensure the context knows its device before any initialization that may
+  // call back into the context (e.g. memory allocation paths during queue
+  // creation in Device::init()). This prevents use of an uninitialized
+  // Context::ChipDevice_ pointer.
+  ChipCtx->setDevice(Dev);
   Dev->init();
   return Dev;
 }
