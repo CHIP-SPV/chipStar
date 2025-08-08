@@ -1384,9 +1384,11 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipCtxZe, chipstar::EventFlags(), "memFillAsync3D_region");
   
+  // Get dependencies before acquiring command list lock to avoid deadlock
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync(CopyEvent);
+  
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImmCopy();
-  auto [EventHandles, EventLocks] = addDependenciesQueueSync(CopyEvent);
   
   // Wait for pattern buffer to be filled
   ze_event_handle_t PatternEventHandle = 
