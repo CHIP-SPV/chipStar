@@ -1436,8 +1436,11 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
           AllEventHandles.size(), AllEventHandles.data());
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopyRegion);
       
-      // Clear event dependencies after first copy
-      AllEventHandles.clear();
+      // Only clear queue sync dependencies after first copy, but keep pattern fill dependency
+      if (!AllEventHandles.empty() && AllEventHandles.size() > 1) {
+        // Keep only the pattern fill event dependency for subsequent copies
+        AllEventHandles = {PatternEventHandle};
+      }
       
       RemainingHeight -= CurrentHeight;
       DstOffsetY += CurrentHeight;
