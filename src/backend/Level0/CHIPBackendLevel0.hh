@@ -435,6 +435,9 @@ public:
                      size_t Spitch, size_t Sspitch, size_t Width, size_t Height,
                      size_t Depth, hipMemcpyKind Kind) override;
 
+  virtual void memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
+                              hipExtent Extent) override;
+
   virtual std::shared_ptr<chipstar::Event>
   memCopyToImage(ze_image_handle_t TexStorage, const void *Src,
                  const chipstar::RegionDesc &SrcRegion);

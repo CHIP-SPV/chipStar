@@ -1332,6 +1332,48 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
   return MemCopyRegionEvent;
 };
 
+void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
+                                     hipExtent Extent) {
+  logTrace("CHIPQueueLevel0::memFillAsync3D - using optimized Level Zero implementation");
+  
+  size_t Width = Extent.width;
+  size_t Height = Extent.height;
+  size_t Depth = Extent.depth;
+  
+  auto Pitch = PitchedDevPtr.pitch;
+  auto Dst = PitchedDevPtr.ptr;
+  
+  // If the pitch equals width, we can fill the entire 3D region as one contiguous block
+  if (Pitch == Width) {
+    size_t TotalSize = Width * Height * Depth;
+    std::shared_ptr<chipstar::Event> ChipEvent = 
+        memFillAsyncImpl(Dst, TotalSize, &Value, 1);
+    ChipEvent->Msg = "memFillAsync3D";
+    return;
+  }
+  
+  // For non-contiguous memory, we can optimize by filling entire planes at once
+  // if the data within each plane is contiguous
+  std::shared_ptr<chipstar::Event> ChipEvent;
+  for (size_t i = 0; i < Depth; i++) {
+    char *PlanePtr = (char *)Dst + i * (Pitch * PitchedDevPtr.ysize);
+    
+    if (Pitch == Width) {
+      // Fill the entire plane as one contiguous block
+      size_t PlaneSize = Width * Height;
+      ChipEvent = memFillAsyncImpl(PlanePtr, PlaneSize, &Value, 1);
+      ChipEvent->Msg = "memFillAsync3D";
+    } else {
+      // Fill each row in the plane separately
+      for (size_t j = 0; j < Height; j++) {
+        char *RowPtr = PlanePtr + j * Pitch;
+        ChipEvent = memFillAsyncImpl(RowPtr, Width, &Value, 1);
+        ChipEvent->Msg = "memFillAsync3D";
+      }
+    }
+  }
+}
+
 // Memory copy to texture object, i.e. image
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
