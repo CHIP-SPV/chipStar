@@ -330,6 +330,13 @@ protected:
 
   // The shared memory buffer
   void *SharedBuf_;
+  
+  // Lazy-allocated pattern buffer for 3D memset operations
+  void *PatternBuffer3D_;
+  static constexpr size_t PATTERN_BUFFER_SIZE = 4096; // 4KB pattern buffer
+  
+  // Ensure pattern buffer is allocated (lazy initialization)
+  void ensurePatternBufferAllocated();
 
   // In case of interop queue may or may not be owned by chipStar
   // Ownership indicator helps during teardown
