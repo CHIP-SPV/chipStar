@@ -1452,11 +1452,9 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   
   executeCommandList(CommandList, CopyEvent);
   
-  // Schedule cleanup of pattern buffer after copy completes
-  std::static_pointer_cast<CHIPEventLevel0>(CopyEvent)
-      ->addAction([=]() -> void { 
-        ChipCtxLz_->freeImpl(PatternBuffer); 
-      });
+  // Note: Pattern buffer cleanup deferred to avoid Level Zero driver race conditions
+  // The buffer will be cleaned up when the context is destroyed
+  // Analysis with Helgrind shows async cleanup triggers races in the Level Zero driver
 }
 
 // Memory copy to texture object, i.e. image
@@ -1943,6 +1941,16 @@ void CHIPBackendLevel0::initializeImpl() {
   ZeDevices.resize(DeviceCount);
   zeStatus = zeDeviceGet(ZeDriver, &DeviceCount, ZeDevices.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGet);
+  
+  logTrace("Found {} Level0 devices", DeviceCount);
+
+  // Check if requested device index is valid
+  if (ChipEnvVars.getDeviceIdx() >= DeviceCount) {
+    CHIPERR_LOG_AND_THROW("CHIP_DEVICE index " + std::to_string(ChipEnvVars.getDeviceIdx()) + 
+                          " is invalid. Only " + std::to_string(DeviceCount) + 
+                          " devices available under this Level Zero driver/platform.",
+                          hipErrorInvalidDevice);
+  }
 
   const ze_context_desc_t CtxDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr,
                                      0};
