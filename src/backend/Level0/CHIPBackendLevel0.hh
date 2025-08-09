@@ -330,6 +330,13 @@ protected:
 
   // The shared memory buffer
   void *SharedBuf_;
+  
+  // Lazy-allocated pattern buffer for 3D memset operations
+  void *PatternBuffer3D_;
+  static constexpr size_t PATTERN_BUFFER_SIZE = 4096; // 4KB pattern buffer
+  
+  // Ensure pattern buffer is allocated (lazy initialization)
+  void ensurePatternBufferAllocated();
 
   // In case of interop queue may or may not be owned by chipStar
   // Ownership indicator helps during teardown
@@ -434,6 +441,9 @@ public:
   memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch, const void *Src,
                      size_t Spitch, size_t Sspitch, size_t Width, size_t Height,
                      size_t Depth, hipMemcpyKind Kind) override;
+
+  virtual void memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
+                              hipExtent Extent) override;
 
   virtual std::shared_ptr<chipstar::Event>
   memCopyToImage(ze_image_handle_t TexStorage, const void *Src,

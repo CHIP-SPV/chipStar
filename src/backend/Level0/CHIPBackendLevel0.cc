@@ -825,6 +825,11 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
     ChipCtxLz_->freeImpl(SharedBuf_);
     SharedBuf_ = nullptr;
   }
+  
+  if (PatternBuffer3D_) {
+    ChipCtxLz_->freeImpl(PatternBuffer3D_);
+    PatternBuffer3D_ = nullptr;
+  }
 
   bool isSameCmdList = ZeCmdListImm_ == ZeCmdListImmCopy_;
 
@@ -1013,6 +1018,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   // Initialize the uint64_t part as 0
   *(uint64_t *)this->SharedBuf_ = 0;
+  
+  // Pattern buffer will be allocated lazily on first use
+  PatternBuffer3D_ = nullptr;
 
   ZeCtx_ = ChipCtxLz_->get();
   ZeDev_ = ChipDevLz_->get();
@@ -1034,6 +1042,15 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   QueueProperties_ = ChipDev->getComputeQueueProps();
   QueueDescriptor_ = ChipDev->getNextComputeQueueDesc();
   CommandListDesc_ = ChipDev->getCommandListComputeDesc();
+  
+  SharedBuf_ =
+      ChipCtxLz_->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
+
+  // Initialize the uint64_t part as 0
+  *(uint64_t *)this->SharedBuf_ = 0;
+  
+  // Pattern buffer will be allocated lazily on first use
+  PatternBuffer3D_ = nullptr;
 
   ZeCtx_ = ChipCtxLz_->get();
   ZeDev_ = ChipDevLz_->get();
@@ -1041,6 +1058,15 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   ZeCmdQ_ = ZeCmdQ;
 
   initializeCmdListImm();
+}
+
+void CHIPQueueLevel0::ensurePatternBufferAllocated() {
+  if (!PatternBuffer3D_) {
+    PatternBuffer3D_ = ChipCtxLz_->allocateImpl(PATTERN_BUFFER_SIZE, 1, hipMemoryType::hipMemoryTypeDevice);
+    if (!PatternBuffer3D_) {
+      CHIPERR_LOG_AND_THROW("Failed to allocate pattern buffer for 3D memset operations", hipErrorMemoryAllocation);
+    }
+  }
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
@@ -1331,6 +1357,141 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
 
   return MemCopyRegionEvent;
 };
+
+void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
+                                     hipExtent Extent) {
+  logTrace("CHIPQueueLevel0::memFillAsync3D - using zeCommandListAppendMemoryCopyRegion implementation");
+  CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
+  
+  size_t Width = Extent.width;
+  size_t Height = Extent.height;
+  size_t Depth = Extent.depth;
+  
+  auto Pitch = PitchedDevPtr.pitch;
+  auto Dst = PitchedDevPtr.ptr;
+  
+  // If the pitch equals width, we can fill the entire 3D region as one contiguous block
+  if (Pitch == Width) {
+    size_t TotalSize = Width * Height * Depth;
+    std::shared_ptr<chipstar::Event> ChipEvent = 
+        memFillAsyncImpl(Dst, TotalSize, &Value, 1);
+    ChipEvent->Msg = "memFillAsync3D_contiguous";
+    return;
+  }
+  
+    // For non-contiguous memory, use 3D region copy strategy using pattern buffer
+  // Ensure pattern buffer is allocated
+  ensurePatternBufferAllocated();
+  
+  // Calculate pattern dimensions that fit within our pattern buffer
+  size_t PatternDepth = std::min(Depth, (size_t)4); // Use up to 4 layers as pattern
+  size_t PatternHeight = std::min(Height, (size_t)16); // Use up to 16 rows as pattern
+  
+  // Calculate required pattern buffer size
+  size_t PatternBufferSizeNeeded = Pitch * PatternHeight * PatternDepth;
+  
+  // If pattern size exceeds our pattern buffer, adjust dimensions
+  if (PatternBufferSizeNeeded > PATTERN_BUFFER_SIZE) {
+    // Reduce pattern dimensions to fit in our buffer
+    PatternHeight = std::min(PatternHeight, PATTERN_BUFFER_SIZE / (Pitch * PatternDepth));
+    if (PatternHeight == 0) {
+      PatternDepth = 1;
+      PatternHeight = std::min(Height, PATTERN_BUFFER_SIZE / Pitch);
+      if (PatternHeight == 0) {
+        // Pattern buffer too small, fallback to old implementation
+        std::shared_ptr<chipstar::Event> ChipEvent;
+        for (size_t i = 0; i < Depth; i++) {
+          char *PlanePtr = (char *)Dst + i * (Pitch * PitchedDevPtr.ysize);
+          for (size_t j = 0; j < Height; j++) {
+            char *RowPtr = PlanePtr + j * Pitch;
+            ChipEvent = memFillAsyncImpl(RowPtr, Width, &Value, 1);
+          }
+        }
+        return;
+      }
+    }
+    PatternBufferSizeNeeded = Pitch * PatternHeight * PatternDepth;
+  }
+
+  // Fill the pattern buffer with the desired value
+  std::shared_ptr<chipstar::Event> FillEvent =
+      memFillAsyncImpl(PatternBuffer3D_, PatternBufferSizeNeeded, &Value, 1);
+  FillEvent->Msg = "pattern_fill_3d";
+  
+  std::shared_ptr<chipstar::Event> CopyEvent =
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipCtxZe, chipstar::EventFlags(), "memFillAsync3D_region");
+  
+  // Get dependencies before acquiring command list lock to avoid deadlock
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync(CopyEvent);
+  
+  LOCK(CommandListMtx);
+  auto CommandList = this->getCmdListImmCopy();
+  
+  // Wait for pattern buffer to be filled
+  ze_event_handle_t PatternEventHandle = 
+      std::static_pointer_cast<CHIPEventLevel0>(FillEvent)->peek();
+  std::vector<ze_event_handle_t> AllEventHandles = EventHandles;
+  AllEventHandles.push_back(PatternEventHandle);
+  
+  // Use 3D region copy to efficiently replicate the pattern across the entire 3D space
+  size_t RemainingDepth = Depth;
+  size_t DstOffsetZ = 0;
+  
+  while (RemainingDepth > 0) {
+    size_t CurrentDepth = std::min(RemainingDepth, PatternDepth);
+    size_t RemainingHeight = Height;
+    size_t DstOffsetY = 0;
+    
+    while (RemainingHeight > 0) {
+      size_t CurrentHeight = std::min(RemainingHeight, PatternHeight);
+      
+      // Set up destination region
+      ze_copy_region_t DstRegion;
+      DstRegion.originX = 0;
+      DstRegion.originY = DstOffsetY;
+      DstRegion.originZ = DstOffsetZ;
+      DstRegion.width = Width;
+      DstRegion.height = CurrentHeight;
+      DstRegion.depth = CurrentDepth;
+      
+      // Set up source region (always starts from origin of pattern)
+      ze_copy_region_t SrcRegion;
+      SrcRegion.originX = 0;
+      SrcRegion.originY = 0;
+      SrcRegion.originZ = 0;
+      SrcRegion.width = Width;
+      SrcRegion.height = CurrentHeight;
+      SrcRegion.depth = CurrentDepth;
+      
+      // Only signal completion on the very last region copy
+      bool IsLastCopy = (RemainingDepth == CurrentDepth) && (RemainingHeight == CurrentHeight);
+      
+                zeStatus = zeCommandListAppendMemoryCopyRegion(
+              CommandList, Dst, &DstRegion, Pitch, Pitch * PitchedDevPtr.ysize,
+              PatternBuffer3D_, &SrcRegion, Pitch, Pitch * PatternHeight,
+              IsLastCopy ? std::static_pointer_cast<CHIPEventLevel0>(CopyEvent)->peek() : nullptr,
+              AllEventHandles.size(), AllEventHandles.data());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopyRegion);
+      
+      // Only clear queue sync dependencies after first copy, but keep pattern fill dependency
+      if (!AllEventHandles.empty() && AllEventHandles.size() > 1) {
+        // Keep only the pattern fill event dependency for subsequent copies
+        AllEventHandles = {PatternEventHandle};
+      }
+      
+      RemainingHeight -= CurrentHeight;
+      DstOffsetY += CurrentHeight;
+    }
+    
+    RemainingDepth -= CurrentDepth;
+    DstOffsetZ += CurrentDepth;
+  }
+  
+  executeCommandList(CommandList, CopyEvent);
+  
+  // Pattern buffer is reused and will be cleaned up in queue destructor
+}
 
 // Memory copy to texture object, i.e. image
 std::shared_ptr<chipstar::Event>
@@ -1816,6 +1977,16 @@ void CHIPBackendLevel0::initializeImpl() {
   ZeDevices.resize(DeviceCount);
   zeStatus = zeDeviceGet(ZeDriver, &DeviceCount, ZeDevices.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGet);
+  
+  logTrace("Found {} Level0 devices", DeviceCount);
+
+  // Check if requested device index is valid
+  if (ChipEnvVars.getDeviceIdx() >= DeviceCount) {
+    CHIPERR_LOG_AND_THROW("CHIP_DEVICE index " + std::to_string(ChipEnvVars.getDeviceIdx()) + 
+                          " is invalid. Only " + std::to_string(DeviceCount) + 
+                          " devices available under this Level Zero driver/platform.",
+                          hipErrorInvalidDevice);
+  }
 
   const ze_context_desc_t CtxDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr,
                                      0};
