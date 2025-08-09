@@ -825,6 +825,11 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
     ChipCtxLz_->freeImpl(SharedBuf_);
     SharedBuf_ = nullptr;
   }
+  
+  if (PatternBuffer3D_) {
+    ChipCtxLz_->freeImpl(PatternBuffer3D_);
+    PatternBuffer3D_ = nullptr;
+  }
 
   bool isSameCmdList = ZeCmdListImm_ == ZeCmdListImmCopy_;
 
@@ -1013,6 +1018,9 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
 
   // Initialize the uint64_t part as 0
   *(uint64_t *)this->SharedBuf_ = 0;
+  
+  // Pattern buffer will be allocated lazily on first use
+  PatternBuffer3D_ = nullptr;
 
   ZeCtx_ = ChipCtxLz_->get();
   ZeDev_ = ChipDevLz_->get();
@@ -1034,6 +1042,15 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   QueueProperties_ = ChipDev->getComputeQueueProps();
   QueueDescriptor_ = ChipDev->getNextComputeQueueDesc();
   CommandListDesc_ = ChipDev->getCommandListComputeDesc();
+  
+  SharedBuf_ =
+      ChipCtxLz_->allocateImpl(32, 8, hipMemoryType::hipMemoryTypeUnified);
+
+  // Initialize the uint64_t part as 0
+  *(uint64_t *)this->SharedBuf_ = 0;
+  
+  // Pattern buffer will be allocated lazily on first use
+  PatternBuffer3D_ = nullptr;
 
   ZeCtx_ = ChipCtxLz_->get();
   ZeDev_ = ChipDevLz_->get();
@@ -1041,6 +1058,15 @@ CHIPQueueLevel0::CHIPQueueLevel0(CHIPDeviceLevel0 *ChipDev,
   ZeCmdQ_ = ZeCmdQ;
 
   initializeCmdListImm();
+}
+
+void CHIPQueueLevel0::ensurePatternBufferAllocated() {
+  if (!PatternBuffer3D_) {
+    PatternBuffer3D_ = ChipCtxLz_->allocateImpl(PATTERN_BUFFER_SIZE, 1, hipMemoryType::hipMemoryTypeDevice);
+    if (!PatternBuffer3D_) {
+      CHIPERR_LOG_AND_THROW("Failed to allocate pattern buffer for 3D memset operations", hipErrorMemoryAllocation);
+    }
+  }
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
@@ -1353,31 +1379,43 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
     return;
   }
   
-  // For non-contiguous memory, use 3D region copy strategy
-  // Create a temporary 3D source buffer with the same layout filled with the pattern
+    // For non-contiguous memory, use 3D region copy strategy using pattern buffer
+  // Ensure pattern buffer is allocated
+  ensurePatternBufferAllocated();
+  
+  // Calculate pattern dimensions that fit within our pattern buffer
   size_t PatternDepth = std::min(Depth, (size_t)4); // Use up to 4 layers as pattern
   size_t PatternHeight = std::min(Height, (size_t)16); // Use up to 16 rows as pattern
   
-  // Allocate pitched pattern buffer with same pitch structure as destination
-  size_t PatternBufferSize = Pitch * PatternHeight * PatternDepth;
-  void *PatternBuffer = ChipCtxLz_->allocateImpl(PatternBufferSize, 1, hipMemoryType::hipMemoryTypeDevice);
+  // Calculate required pattern buffer size
+  size_t PatternBufferSizeNeeded = Pitch * PatternHeight * PatternDepth;
   
-  if (!PatternBuffer) {
-    // Fallback to old implementation if allocation fails
-    std::shared_ptr<chipstar::Event> ChipEvent;
-    for (size_t i = 0; i < Depth; i++) {
-      char *PlanePtr = (char *)Dst + i * (Pitch * PitchedDevPtr.ysize);
-      for (size_t j = 0; j < Height; j++) {
-        char *RowPtr = PlanePtr + j * Pitch;
-        ChipEvent = memFillAsyncImpl(RowPtr, Width, &Value, 1);
+  // If pattern size exceeds our pattern buffer, adjust dimensions
+  if (PatternBufferSizeNeeded > PATTERN_BUFFER_SIZE) {
+    // Reduce pattern dimensions to fit in our buffer
+    PatternHeight = std::min(PatternHeight, PATTERN_BUFFER_SIZE / (Pitch * PatternDepth));
+    if (PatternHeight == 0) {
+      PatternDepth = 1;
+      PatternHeight = std::min(Height, PATTERN_BUFFER_SIZE / Pitch);
+      if (PatternHeight == 0) {
+        // Pattern buffer too small, fallback to old implementation
+        std::shared_ptr<chipstar::Event> ChipEvent;
+        for (size_t i = 0; i < Depth; i++) {
+          char *PlanePtr = (char *)Dst + i * (Pitch * PitchedDevPtr.ysize);
+          for (size_t j = 0; j < Height; j++) {
+            char *RowPtr = PlanePtr + j * Pitch;
+            ChipEvent = memFillAsyncImpl(RowPtr, Width, &Value, 1);
+          }
+        }
+        return;
       }
     }
-    return;
+    PatternBufferSizeNeeded = Pitch * PatternHeight * PatternDepth;
   }
-  
+
   // Fill the pattern buffer with the desired value
-  std::shared_ptr<chipstar::Event> FillEvent = 
-      memFillAsyncImpl(PatternBuffer, PatternBufferSize, &Value, 1);
+  std::shared_ptr<chipstar::Event> FillEvent =
+      memFillAsyncImpl(PatternBuffer3D_, PatternBufferSizeNeeded, &Value, 1);
   FillEvent->Msg = "pattern_fill_3d";
   
   std::shared_ptr<chipstar::Event> CopyEvent =
@@ -1429,11 +1467,11 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
       // Only signal completion on the very last region copy
       bool IsLastCopy = (RemainingDepth == CurrentDepth) && (RemainingHeight == CurrentHeight);
       
-      zeStatus = zeCommandListAppendMemoryCopyRegion(
-          CommandList, Dst, &DstRegion, Pitch, Pitch * PitchedDevPtr.ysize,
-          PatternBuffer, &SrcRegion, Pitch, Pitch * PatternHeight,
-          IsLastCopy ? std::static_pointer_cast<CHIPEventLevel0>(CopyEvent)->peek() : nullptr,
-          AllEventHandles.size(), AllEventHandles.data());
+                zeStatus = zeCommandListAppendMemoryCopyRegion(
+              CommandList, Dst, &DstRegion, Pitch, Pitch * PitchedDevPtr.ysize,
+              PatternBuffer3D_, &SrcRegion, Pitch, Pitch * PatternHeight,
+              IsLastCopy ? std::static_pointer_cast<CHIPEventLevel0>(CopyEvent)->peek() : nullptr,
+              AllEventHandles.size(), AllEventHandles.data());
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryCopyRegion);
       
       // Only clear queue sync dependencies after first copy, but keep pattern fill dependency
@@ -1452,9 +1490,7 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   
   executeCommandList(CommandList, CopyEvent);
   
-  // Note: Pattern buffer cleanup deferred to avoid Level Zero driver race conditions
-  // The buffer will be cleaned up when the context is destroyed
-  // Analysis with Helgrind shows async cleanup triggers races in the Level Zero driver
+  // Pattern buffer is reused and will be cleaned up in queue destructor
 }
 
 // Memory copy to texture object, i.e. image
