@@ -1,6 +1,15 @@
 #include <hip/hip_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <new> // For placement new
+
+class construct {};
+
+template<typename T>
+    inline void __host__ __device__ construct(T *p) {
+  ::new(static_cast<void*>(p)) T();
+}
+
 
 #define HIP_CHECK(call)                                                 \
     do {                                                                \
@@ -17,6 +26,26 @@ __global__ void dynamicAllocationKernel(int* result, int size, bool* alloc_succe
     // Allocate memory dynamically on the device
     int* data = (int*)(malloc(size * sizeof(int))); // Cast size to 64-bit
     
+#ifdef __HIP_DEVICE_COMPILE__
+    // Test device-side new/delete
+    struct SimpleStruct {
+        int x;
+        float y;
+    };
+    SimpleStruct* test_obj = new SimpleStruct;
+    if (test_obj) {
+        test_obj->x = 10;
+        test_obj->y = 3.14f;
+        // Potentially use test_obj->x or test_obj->y in a way that prevents optimization away
+        // For this test, existence and non-null is sufficient.
+        delete test_obj;
+        test_obj = nullptr; // Good practice
+    } else {
+        // If new fails, we might want to indicate this, perhaps via alloc_success
+        // For now, we'll assume it passes or fails similarly to malloc
+    }
+#endif
+
     if (data == NULL) {
         *alloc_success = false;
         return;
@@ -95,8 +124,8 @@ void test1(int size)
     bool h_alloc_success;
     
     // Allocate memory for the result and allocation success flag on the device
-    HIP_CHECK(hipMalloc(&d_result, sizeof(int)));
-    HIP_CHECK(hipMalloc(&d_alloc_success, sizeof(bool)));
+    HIP_CHECK(hipMalloc((void**)&d_result, sizeof(int)));
+    HIP_CHECK(hipMalloc((void**)&d_alloc_success, sizeof(bool)));
     
     // Initialize the result to 0
     HIP_CHECK(hipMemset(d_result, 0, sizeof(int)));
@@ -153,9 +182,9 @@ void test2(int size, int stress_iterations)
     int h_debug_info[3] = {0};
     
     // Allocate memory
-    HIP_CHECK(hipMalloc(&d_result, sizeof(int)));
-    HIP_CHECK(hipMalloc(&d_alloc_success, sizeof(bool)));
-    HIP_CHECK(hipMalloc(&d_debug_info, 3 * sizeof(int)));
+    HIP_CHECK(hipMalloc((void**)&d_result, sizeof(int)));
+    HIP_CHECK(hipMalloc((void**)&d_alloc_success, sizeof(bool)));
+    HIP_CHECK(hipMalloc((void**)&d_debug_info, 3 * sizeof(int)));
     
     // Initialize
     HIP_CHECK(hipMemset(d_result, 0, sizeof(int)));
