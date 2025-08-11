@@ -683,9 +683,12 @@ void CHIPEventMonitorLevel0::checkCmdLists() {
 
 void CHIPEventMonitorLevel0::checkEvents() {
   LOCK(Backend->EventsMtx);
-  for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
+  
+  // Use iterator-based removal to safely handle element deletion during iteration
+  auto it = Backend->Events.begin();
+  while (it != Backend->Events.end()) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
-        std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
+        std::static_pointer_cast<CHIPEventLevel0>(*it);
     ChipEventLz->isDeletedSanityCheck();
     LOCK(ChipEventLz->EventMtx); // chipstar::Event::EventStatus_
 
@@ -700,7 +703,11 @@ void CHIPEventMonitorLevel0::checkEvents() {
       // Use sanity check which includes dependency validation
       ChipEventLz->isDeletedSanityCheck();
 
-      Backend->Events.erase(Backend->Events.begin() + EventIdx);
+      // erase returns iterator to the next element
+      it = Backend->Events.erase(it);
+    } else {
+      // Move to next element only if we didn't erase
+      ++it;
     }
   } // done collecting events to delete
 }
@@ -1171,7 +1178,7 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getQueueDesc_(int Priority) {
                                        nullptr, // pNext
                                        0,       // ordinal
                                        0,       // index
-                                       0,       // flags
+                                       ZE_COMMAND_QUEUE_FLAG_IN_ORDER,       // flags
                                        ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
                                        ZE_COMMAND_QUEUE_PRIORITY_NORMAL};
 
