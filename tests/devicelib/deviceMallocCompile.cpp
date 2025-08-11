@@ -4,3 +4,5 @@ __global__ void testNew(int* num) {
   volatile int* i = (int*)malloc(sizeof(int));
   *num = *i;
 }
+
+int main() {}
