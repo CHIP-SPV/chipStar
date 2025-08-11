@@ -343,7 +343,6 @@ ANY:
     Unit_printf_specifier: ''
     constant_fold_lgamma_r: ''
     cuda-simpleCallback: ''
-    deviceMallocCompile: ''
     hipMultiThreadAddCallback: ''
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
   LEVEL0_GPU:
