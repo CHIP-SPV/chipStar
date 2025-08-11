@@ -51,6 +51,7 @@ void unlock(__global volatile atomic_int* mutex) {
 
 
 void* __chip_malloc(unsigned int size) {
+    // DEBUG_PRINT("__chip_malloc called with size: %u", size);
     __global void* result = NULL;
 
     // Ensure only the first thread in the 3D workgroup performs malloc
@@ -73,26 +74,47 @@ void* __chip_malloc(unsigned int size) {
             __global block_header_t* first_header = (__global block_header_t*)heap;
             first_header->size = real_heap_size - sizeof(block_header_t);
             first_header->used = 0;
+            
+            // Ensure all writes are visible before marking as initialized
+            atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release, memory_scope_device);
             *initialized = 1;
-            DEBUG_PRINT("Heap initialized with size %d", first_header->size);
+            // DEBUG_PRINT("Heap initialized with size %d", first_header->size);
         }
+        
+        // Ensure initialization is visible to all threads
+        atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_acquire, memory_scope_device);
 
         // Start of malloc algorithm
         __global uchar* heap_end = heap + real_heap_size;
         __global uchar* ptr = heap;
 
-        DEBUG_PRINT("Attempting to allocate %zu bytes", size);
+        // DEBUG_PRINT("Attempting to allocate %u bytes in heap [%p-%p], real_heap_size=%d", 
+        //             size, heap, heap_end, real_heap_size);
 
         while (ptr + sizeof(block_header_t) <= heap_end) {
             __global block_header_t* header = (__global block_header_t*)ptr;
-
-            // Add error checking
+            
+            // Add robust error checking
             if (header == NULL) {
                 ERROR_PRINT("Invalid header pointer");
                 break;
             }
-
-            DEBUG_PRINT("Checking block at %p, size: %d, used: %d", (void*)ptr, header->size, header->used);
+            
+            // Check for corrupted header
+            if (header->size == 0 || header->size > real_heap_size) {
+                ERROR_PRINT("Corrupted block header at %p: size=%d", ptr, header->size);
+                break;
+            }
+            
+            // Check if next block would exceed heap bounds
+            __global uchar* next_ptr = ptr + sizeof(block_header_t) + header->size;
+            if (next_ptr > heap_end) {
+                ERROR_PRINT("Block extends beyond heap: ptr=%p, size=%d, heap_end=%p", 
+                           ptr, header->size, heap_end);
+                break;
+            }
+            
+            // DEBUG_PRINT("Checking block at %p: size=%d, used=%d", ptr, header->size, header->used);
 
             if (header->used == 0 && header->size >= size) {
                 // Found a suitable block
@@ -112,8 +134,8 @@ void* __chip_malloc(unsigned int size) {
                 DEBUG_PRINT("Allocated block at %p with size %d", result, size);
                 break;
             }
-            // Move to the next block
-            ptr = ptr + sizeof(block_header_t) + header->size;
+            // Move to the next block using the pre-calculated safe pointer
+            ptr = next_ptr;
         }
 
         if (result == NULL) {
@@ -123,10 +145,14 @@ void* __chip_malloc(unsigned int size) {
 
         unlock(mutex);
     }
+    
+    // DEBUG_PRINT("malloc result: %p, size requested: %u", result, size);
 
-    // Broadcast the result to all threads in the workgroup
-    result = (__global void*)work_group_broadcast((uintptr_t)result, 0);
-    barrier(CLK_LOCAL_MEM_FENCE);
+    // Broadcast the result to all threads in the workgroup (if there are multiple threads)
+    if (get_local_size(0) * get_local_size(1) * get_local_size(2) > 1) {
+        result = (__global void*)work_group_broadcast((uintptr_t)result, 0);
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
     return result;
 }
 
@@ -153,14 +179,29 @@ void __chip_free(void* ptr) {
             }
 
             // Attempt to coalesce with previous block if it's free
+            __global uchar* device_heap = (__global uchar*)__chipspv_device_heap + sizeof(atomic_int) + sizeof(int);
             __global block_header_t* prev_header = (__global block_header_t*)device_heap;
+            int real_heap_size = DEVICE_HEAP_SIZE - sizeof(atomic_int) - sizeof(int);
+            
             while (((__global uchar*)prev_header + sizeof(block_header_t) + prev_header->size) < (__global uchar*)header) {
-                if (!prev_header->used && ((__global uchar*)prev_header + sizeof(block_header_t) + prev_header->size == (__global uchar*)header)) {
+                // Bounds and sanity checking for free coalescing
+                if (prev_header->size == 0 || prev_header->size > real_heap_size) {
+                    ERROR_PRINT("Corrupted block in free coalescing at %p: size=%d", prev_header, prev_header->size);
+                    break;
+                }
+                
+                __global uchar* next_prev = (__global uchar*)prev_header + sizeof(block_header_t) + prev_header->size;
+                if (next_prev >= device_heap + real_heap_size) {
+                    ERROR_PRINT("Block extends beyond heap in free coalescing");
+                    break;
+                }
+                
+                if (!prev_header->used && (next_prev == (__global uchar*)header)) {
                     prev_header->size += sizeof(block_header_t) + header->size;
                     DEBUG_PRINT("Coalesced with previous block, new size: %d", prev_header->size);
                     break;
                 }
-                prev_header = (__global block_header_t*)((__global uchar*)prev_header + sizeof(block_header_t) + prev_header->size);
+                prev_header = (__global block_header_t*)next_prev;
             }
         } else {
             ERROR_PRINT("Attempted to free an already free block at %p", ptr);
@@ -168,5 +209,8 @@ void __chip_free(void* ptr) {
         unlock(mutex);
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    // Only use barrier if there are multiple threads in the workgroup
+    if (get_local_size(0) * get_local_size(1) * get_local_size(2) > 1) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
 }
