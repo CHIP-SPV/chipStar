@@ -1631,3 +1631,49 @@ EXPORT _Float16 __ocml_cvtrtz_f16_f32(float x) {
     vstore_half_rtz(x, 0, (void*)&result);
     return result;
 }
+
+// Device memory allocation functions
+extern void* __chip_malloc(unsigned int size);
+extern void __chip_free(void* ptr);
+
+// Wrapper functions for device_malloc and device_free
+EXPORT void* device_malloc(unsigned int size) {
+    return __chip_malloc(size);
+}
+
+EXPORT void device_free(void* ptr) {
+    __chip_free(ptr);
+}
+
+// C++ operator new and delete - using mangled names for compatibility
+// _Znwm is mangled name for operator new(size_t)
+EXPORT void* _Znwm(size_t size) {
+    return __chip_malloc((unsigned int)size);
+}
+
+// _ZdlPv is mangled name for operator delete(void*)
+EXPORT void _ZdlPv(void* ptr) {
+    __chip_free(ptr);
+}
+
+// _Znam is mangled name for operator new[](size_t)
+EXPORT void* _Znam(size_t size) {
+    return __chip_malloc((unsigned int)size);
+}
+
+// _ZdaPv is mangled name for operator delete[](void*)
+EXPORT void _ZdaPv(void* ptr) {
+    __chip_free(ptr);
+}
+
+// _ZdlPvm is mangled name for operator delete(void*, size_t) - sized delete
+EXPORT void _ZdlPvm(void* ptr, size_t size) {
+    // Size is ignored for our simple implementation
+    __chip_free(ptr);
+}
+
+// _ZdaPvm is mangled name for operator delete[](void*, size_t) - sized array delete
+EXPORT void _ZdaPvm(void* ptr, size_t size) {
+    // Size is ignored for our simple implementation
+    __chip_free(ptr);
+}
