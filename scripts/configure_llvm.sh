@@ -97,11 +97,9 @@ export LLVM_DIR=`pwd`/llvm-project/llvm
 if [ "$EMIT_ONLY" != "on" ]; then
   # check if llvm-project exists, if not clone it
   if [ ! -d llvm-project ]; then
-    git clone https://github.com/CHIP-SPV/llvm-project.git -b ${LLVM_BRANCH} \
-      --depth 1
+    git clone https://github.com/CHIP-SPV/llvm-project.git -b ${LLVM_BRANCH}
     cd ${LLVM_DIR}/projects
-    git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git \
-      -b ${TRANSLATOR_BRANCH} --depth 1
+    git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b ${TRANSLATOR_BRANCH}
     cd ${LLVM_DIR}
   else
     # Warn the user.
