@@ -283,10 +283,10 @@ jobs:
         run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4
         working-directory: build
       - name: Build Tests
-        run: ${{ env.OPENCL_ENV }} CHIP_DEVICE_TYPE=cpu cmake --build . --parallel 4 --target build_tests
+        run: ${{ env.OPENCL_ENV }} CHIP_DEVICE_TYPE=pocl cmake --build . --parallel 4 --target build_tests
         working-directory: build
       - name: Test OpenCL
-        run: ${{ env.OPENCL_ENV }} POCL_KERNEL_CACHE=0 CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
+        run: ${{ env.OPENCL_ENV }} POCL_KERNEL_CACHE=0 CHIP_DEVICE_TYPE=pocl ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
         working-directory: build
       - uses: actions/upload-artifact@v4
         if: failure()
