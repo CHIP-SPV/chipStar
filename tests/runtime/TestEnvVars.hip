@@ -220,6 +220,73 @@ void testInvalidValues() {
     }
 }
 
+void testMutualExclusionValidation() {
+    // Test mutual exclusion between CHIP_DEVICE_TYPE and CHIP_PLATFORM/CHIP_DEVICE
+    {
+        bool exceptionThrown;
+
+        // Test CHIP_DEVICE_TYPE with CHIP_PLATFORM (should fail)
+        setEnvVar("CHIP_DEVICE_TYPE", "cpu");
+        setEnvVar("CHIP_PLATFORM", "0");
+        exceptionThrown = false;
+        try {
+            EnvVars envVars;
+        } catch (const CHIPError&) {
+            exceptionThrown = true;
+        }
+        assert(exceptionThrown && "Expected CHIPError exception due to CHIP_DEVICE_TYPE + CHIP_PLATFORM");
+        unsetEnvVar("CHIP_DEVICE_TYPE");
+        unsetEnvVar("CHIP_PLATFORM");
+
+        // Test CHIP_DEVICE_TYPE with CHIP_DEVICE (should fail)
+        setEnvVar("CHIP_DEVICE_TYPE", "gpu");
+        setEnvVar("CHIP_DEVICE", "1");
+        exceptionThrown = false;
+        try {
+            EnvVars envVars;
+        } catch (const CHIPError&) {
+            exceptionThrown = true;
+        }
+        assert(exceptionThrown && "Expected CHIPError exception due to CHIP_DEVICE_TYPE + CHIP_DEVICE");
+        unsetEnvVar("CHIP_DEVICE_TYPE");
+        unsetEnvVar("CHIP_DEVICE");
+
+        // Test CHIP_DEVICE_TYPE with both CHIP_PLATFORM and CHIP_DEVICE (should fail)
+        setEnvVar("CHIP_DEVICE_TYPE", "accel");
+        setEnvVar("CHIP_PLATFORM", "2");
+        setEnvVar("CHIP_DEVICE", "0");
+        exceptionThrown = false;
+        try {
+            EnvVars envVars;
+        } catch (const CHIPError&) {
+            exceptionThrown = true;
+        }
+        assert(exceptionThrown && "Expected CHIPError exception due to CHIP_DEVICE_TYPE + CHIP_PLATFORM + CHIP_DEVICE");
+        unsetEnvVar("CHIP_DEVICE_TYPE");
+        unsetEnvVar("CHIP_PLATFORM");
+        unsetEnvVar("CHIP_DEVICE");
+    }
+}
+
+void testPoclDeviceType() {
+    // Test pocl device type validation
+    {
+        bool exceptionThrown;
+
+        // Test valid pocl device type
+        setEnvVar("CHIP_DEVICE_TYPE", "pocl");
+        exceptionThrown = false;
+        try {
+            EnvVars envVars;
+            assertEqual(static_cast<int>(DeviceType::POCL), static_cast<int>(envVars.getDevice().getType()), "POCL device type");
+        } catch (const CHIPError&) {
+            exceptionThrown = true;
+        }
+        assert(!exceptionThrown && "POCL device type should be valid");
+        unsetEnvVar("CHIP_DEVICE_TYPE");
+    }
+}
+
 int main() {
     try {
         // Refactor test cases into separate functions for better clarity
@@ -228,6 +295,8 @@ int main() {
         testPartialEnvironmentVariableSetting();
         testEnvironmentVariableOverriding();
         testInvalidValues();
+        testMutualExclusionValidation();
+        testPoclDeviceType();
 
         std::cout << "PASSED!" << std::endl;
         return 0;
