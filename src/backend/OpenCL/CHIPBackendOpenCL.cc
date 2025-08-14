@@ -2271,19 +2271,30 @@ void CHIPBackendOpenCL::initializeImpl() {
   logTrace("CHIPBackendOpenCL Initialize");
   MinQueuePriority_ = CL_QUEUE_PRIORITY_MED_KHR;
 
-  // transform device type string into CL
-  cl_bitfield SelectedDevType = 0;
-  if (ChipEnvVars.getDevice().getType() == DeviceType::CPU)
-    SelectedDevType = CL_DEVICE_TYPE_CPU;
-  else if (ChipEnvVars.getDevice().getType() == DeviceType::GPU)
-    SelectedDevType = CL_DEVICE_TYPE_GPU;
-  else if (ChipEnvVars.getDevice().getType() == DeviceType::Accelerator)
-    SelectedDevType = CL_DEVICE_TYPE_ACCELERATOR;
-  else if (ChipEnvVars.getDevice().getType() == DeviceType::Default)
-    SelectedDevType = CL_DEVICE_TYPE_GPU;
-  else
-    throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
-  logTrace("Using Devices of type {}", ChipEnvVars.getDevice().str());
+  // For manual device selection, get all devices; otherwise filter by type
+  cl_bitfield SelectedDevType = CL_DEVICE_TYPE_ALL;
+  std::string deviceSelectionMode = "all";
+  
+  if (!ChipEnvVars.isManualDeviceSelection()) {
+    // transform device type string into CL
+    if (ChipEnvVars.getDevice().getType() == DeviceType::CPU)
+      SelectedDevType = CL_DEVICE_TYPE_CPU;
+    else if (ChipEnvVars.getDevice().getType() == DeviceType::GPU)
+      SelectedDevType = CL_DEVICE_TYPE_GPU;
+    else if (ChipEnvVars.getDevice().getType() == DeviceType::Accelerator)
+      SelectedDevType = CL_DEVICE_TYPE_ACCELERATOR;
+    else if (ChipEnvVars.getDevice().getType() == DeviceType::POCL)
+      SelectedDevType = CL_DEVICE_TYPE_CPU;
+    else if (ChipEnvVars.getDevice().getType() == DeviceType::Default)
+      SelectedDevType = CL_DEVICE_TYPE_GPU;
+    else
+      throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
+    deviceSelectionMode = std::string(ChipEnvVars.getDevice().str());
+  }
+  logTrace("Using {} device selection", ChipEnvVars.isManualDeviceSelection() ? "manual" : "type-based");
+  if (!ChipEnvVars.isManualDeviceSelection()) {
+    logTrace("Using Devices of type {}", ChipEnvVars.getDevice().str());
+  }
 
   std::vector<cl::Platform> Platforms;
   clStatus = cl::Platform::get(&Platforms);
@@ -2297,55 +2308,139 @@ void CHIPBackendOpenCL::initializeImpl() {
     StrStream << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
   logTrace("{}", StrStream.str());
-  int SelectedPlatformIdx = ChipEnvVars.getPlatformIdx();
-
-  if (SelectedPlatformIdx >= Platforms.size()) {
-    logCritical("Selected OpenCL platform {} is out of range",
-                SelectedPlatformIdx);
-    std::exit(1);
-  }
-
-  cl::Platform SelectedPlatform = Platforms[SelectedPlatformIdx];
-  logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx,
-           SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
-
-  StrStream.str("");
-
-  StrStream << "OpenCL Devices of type " << ChipEnvVars.getDevice().str()
-            << " with SPIR-V_1 support:\n";
+  
+  cl::Platform SelectedPlatform;
+  int SelectedPlatformIdx;
   std::vector<cl::Device> SupportedDevices;
-  std::vector<cl::Device> Dev;
-  clStatus = SelectedPlatform.getDevices(SelectedDevType, &Dev);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(
-      clGetDeviceIDs); // C equivalent of getDevices
-
-  for (auto D : Dev) {
-
-    std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
-
-    StrStream << DeviceName << " ";
-    std::string SPIRVVer = D.getInfo<CL_DEVICE_IL_VERSION>(&clStatus);
-    if ((clStatus != CL_SUCCESS) ||
-        (SPIRVVer.rfind("SPIR-V_1.", 0) == std::string::npos)) {
-      StrStream << " no SPIR-V support.\n";
-      continue;
+  
+  if (ChipEnvVars.isManualDeviceSelection()) {
+    // Manual device selection: use specified platform and get all devices
+    SelectedPlatformIdx = ChipEnvVars.getPlatformIdx();
+    
+    if (SelectedPlatformIdx >= Platforms.size()) {
+      logCritical("Selected OpenCL platform {} is out of range",
+                  SelectedPlatformIdx);
+      std::exit(1);
     }
-
-    // We require at least CG SVM, Device USM or cl_ext_buffer_device_address.
-    std::string DevExts = D.getInfo<CL_DEVICE_EXTENSIONS>();
-    cl_device_svm_capabilities SVMCapabilities =
-        D.getInfo<CL_DEVICE_SVM_CAPABILITIES>();
-
-    if ((SVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0 &&
-        DevExts.find("cl_intel_unified_shared_memory") == std::string::npos &&
-        DevExts.find("cl_ext_buffer_device_address") == std::string::npos) {
-      StrStream << " insufficient device memory capabilities.\n";
-      continue;
+    
+    SelectedPlatform = Platforms[SelectedPlatformIdx];
+    logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx,
+             SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
+    
+    StrStream.str("");
+    StrStream << "OpenCL Devices with SPIR-V_1 support:\n";
+    
+    std::vector<cl::Device> Dev;
+    clStatus = SelectedPlatform.getDevices(SelectedDevType, &Dev);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetDeviceIDs);
+    
+    // Process devices from the selected platform
+    for (auto D : Dev) {
+      std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
+      StrStream << DeviceName << " ";
+      
+      std::string SPIRVVer = D.getInfo<CL_DEVICE_IL_VERSION>(&clStatus);
+      if ((clStatus != CL_SUCCESS) ||
+          (SPIRVVer.rfind("SPIR-V_1.", 0) == std::string::npos)) {
+        StrStream << " no SPIR-V support.\n";
+        continue;
+      }
+      
+      std::string DevExts = D.getInfo<CL_DEVICE_EXTENSIONS>();
+      cl_device_svm_capabilities SVMCapabilities =
+          D.getInfo<CL_DEVICE_SVM_CAPABILITIES>();
+      
+      if ((SVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0 &&
+          DevExts.find("cl_intel_unified_shared_memory") == std::string::npos &&
+          DevExts.find("cl_ext_buffer_device_address") == std::string::npos) {
+        StrStream << " insufficient device memory capabilities.\n";
+        continue;
+      }
+      
+      StrStream << " is supported.\n";
+      SupportedDevices.push_back(D);
     }
-
-    StrStream << " is supported.\n";
-    SupportedDevices.push_back(D);
+  } else {
+    // Device type selection: search across all platforms for devices of the requested type
+    StrStream.str("");
+    StrStream << "OpenCL Devices of type " << ChipEnvVars.getDevice().str()
+              << " with SPIR-V_1 support across all platforms:\n";
+    
+    int foundPlatformIdx = -1;
+    bool isPoclSpecific = (ChipEnvVars.getDevice().getType() == DeviceType::POCL);
+    bool isCpuSpecific = (ChipEnvVars.getDevice().getType() == DeviceType::CPU);
+    
+    for (int platformIdx = 0; platformIdx < Platforms.size(); platformIdx++) {
+      std::string platformName = Platforms[platformIdx].getInfo<CL_PLATFORM_NAME>();
+      bool isPoclPlatform = (platformName.find("Portable Computing Language") != std::string::npos);
+      
+      // For POCL device type, only consider POCL platforms
+      if (isPoclSpecific && !isPoclPlatform) {
+        continue; // Skip non-POCL platforms when POCL is specifically requested
+      }
+      
+      // For CPU device type, skip POCL platforms (let POCL be handled by CHIP_DEVICE_TYPE=pocl)
+      if (isCpuSpecific && isPoclPlatform) {
+        continue; // Skip POCL platforms when CPU is specifically requested
+      }
+      
+      std::vector<cl::Device> Dev;
+      cl_int status = Platforms[platformIdx].getDevices(SelectedDevType, &Dev);
+      if (status != CL_SUCCESS) {
+        // No devices of this type on this platform, continue
+        continue;
+      }
+      
+      std::vector<cl::Device> PlatformSupportedDevices;
+      
+      // Process devices from this platform
+      for (auto D : Dev) {
+        std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
+        StrStream << "Platform " << platformIdx << ": " << DeviceName << " ";
+        
+        std::string SPIRVVer = D.getInfo<CL_DEVICE_IL_VERSION>(&clStatus);
+        if ((clStatus != CL_SUCCESS) ||
+            (SPIRVVer.rfind("SPIR-V_1.", 0) == std::string::npos)) {
+          StrStream << " no SPIR-V support.\n";
+          continue;
+        }
+        
+        std::string DevExts = D.getInfo<CL_DEVICE_EXTENSIONS>();
+        cl_device_svm_capabilities SVMCapabilities =
+            D.getInfo<CL_DEVICE_SVM_CAPABILITIES>();
+        
+        if ((SVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0 &&
+            DevExts.find("cl_intel_unified_shared_memory") == std::string::npos &&
+            DevExts.find("cl_ext_buffer_device_address") == std::string::npos) {
+          StrStream << " insufficient device memory capabilities.\n";
+          continue;
+        }
+        
+        StrStream << " is supported.\n";
+        PlatformSupportedDevices.push_back(D);
+      }
+      
+      // Use devices from the first platform that has suitable devices
+      if (!PlatformSupportedDevices.empty() && foundPlatformIdx == -1) {
+        foundPlatformIdx = platformIdx;
+        SelectedPlatform = Platforms[platformIdx];
+        SupportedDevices = PlatformSupportedDevices;
+        break; // Stop searching after finding the first suitable platform
+      }
+    }
+    
+    if (foundPlatformIdx == -1) {
+      logCritical("No OpenCL platforms found with devices of type {} that support SPIR-V",
+                  ChipEnvVars.getDevice().str());
+      std::exit(1);
+    }
+    
+    SelectedPlatformIdx = foundPlatformIdx;
+    logDebug("Auto-selected platform {} for device type {}: {}", 
+             SelectedPlatformIdx, ChipEnvVars.getDevice().str(),
+             SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
   }
+  
   logInfo("{}", StrStream.str());
 
   if (ChipEnvVars.getDeviceIdx() >= SupportedDevices.size()) {

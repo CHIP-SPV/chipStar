@@ -123,7 +123,7 @@ extern thread_local hipError_t CHIPTlsLastError;
 
 class DeviceType {
 public:
-  enum Type { GPU, CPU, Accelerator, FPGA, Default };
+  enum Type { GPU, CPU, Accelerator, FPGA, POCL, Default };
 
 private:
   Type Type_;
@@ -140,6 +140,8 @@ public:
       Type_ = DeviceType::Accelerator;
     else if (StrIn == "fpga")
       Type_ = DeviceType::FPGA;
+    else if (StrIn == "pocl")
+      Type_ = DeviceType::POCL;
     else if (StrIn == "")
       Type_ = DeviceType::Default;
     else
@@ -157,6 +159,8 @@ public:
       return "accel";
     case FPGA:
       return "fpga";
+    case POCL:
+      return "pocl";
     case Default:
       return "default";
     default:
@@ -241,9 +245,15 @@ private:
   std::optional<std::string> OclUseAllocStrategy_;
   std::optional<std::string> ModuleCacheDir_;
 
+  // Track which environment variables were explicitly set
+  bool PlatformIdxSet_ = false;
+  bool DeviceTypeSet_ = false;
+  bool DeviceIdxSet_ = false;
+
 public:
   EnvVars() {
     parseEnvironmentVariables();
+    validateDeviceSelectionOptions();
     logDebugSettings();
   }
 
@@ -274,16 +284,29 @@ public:
     return ModuleCacheDir_;
   }
 
+  bool isManualDeviceSelection() const {
+    return PlatformIdxSet_ || DeviceIdxSet_;
+  }
+
 private:
   void parseEnvironmentVariables() {
     std::string value;
 
-    PlatformIdx_ =
-        readEnvVar("CHIP_PLATFORM", value) ? parseInt(value) : PlatformIdx_;
-    Device_ =
-        readEnvVar("CHIP_DEVICE_TYPE", value) ? DeviceType(value) : Device_;
-    DeviceIdx_ =
-        readEnvVar("CHIP_DEVICE", value) ? parseInt(value) : DeviceIdx_;
+    PlatformIdxSet_ = readEnvVar("CHIP_PLATFORM", value);
+    if (PlatformIdxSet_) {
+      PlatformIdx_ = parseInt(value);
+    }
+
+    DeviceTypeSet_ = readEnvVar("CHIP_DEVICE_TYPE", value);
+    if (DeviceTypeSet_) {
+      Device_ = DeviceType(value);
+    }
+
+    DeviceIdxSet_ = readEnvVar("CHIP_DEVICE", value);
+    if (DeviceIdxSet_) {
+      DeviceIdx_ = parseInt(value);
+    }
+
     Backend_ = readEnvVar("CHIP_BE", value) ? BackendType(value) : Backend_;
     DumpSpirv_ =
         readEnvVar("CHIP_DUMP_SPIRV", value) ? parseBoolean(value) : DumpSpirv_;
@@ -345,6 +368,19 @@ private:
     CHIPERR_LOG_AND_THROW("Invalid boolean value: " + value,
                           hipErrorInitializationError);
     return false; // This return is never reached
+  }
+
+  void validateDeviceSelectionOptions() {
+    // Check for mutual exclusion between device type and manual device selection
+    bool manualDeviceSelection = PlatformIdxSet_ || DeviceIdxSet_;
+    
+    if (DeviceTypeSet_ && manualDeviceSelection) {
+      CHIPERR_LOG_AND_THROW(
+          "CHIP_DEVICE_TYPE cannot be used in conjunction with CHIP_PLATFORM or CHIP_DEVICE. "
+          "Use either device type filtering (CHIP_DEVICE_TYPE) or manual device selection "
+          "(CHIP_PLATFORM + CHIP_DEVICE), but not both.",
+          hipErrorInitializationError);
+    }
   }
 
   void logDebugSettings() const {
