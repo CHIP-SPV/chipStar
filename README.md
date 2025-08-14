@@ -297,7 +297,7 @@ The tool will create output files with the naming pattern `<input_filename>_devi
 CHIP_BE=<opencl/level0>                         # Selects the backend to use. If both Level Zero and OpenCL are available, Level Zero is used by default
 CHIP_PLATFORM=<N>                               # If there are multiple platforms present on the system, selects which one to use. Defaults to 0
 CHIP_DEVICE=<N>                                 # If there are multiple devices present on the system, selects which one to use. Defaults to 0
-CHIP_DEVICE_TYPE=<gpu/cpu/accel/fpga> or empty  # Selects which type of device to use. Defaults to empty.
+CHIP_DEVICE_TYPE=<gpu/cpu/accel/fpga/pocl> or empty  # Selects which type of device to use. Cannot be used with CHIP_PLATFORM/CHIP_DEVICE. Defaults to empty.
 CHIP_LOGLEVEL=<trace/debug/info/warn/err/crit>  # Sets the log level. If compiled in RELEASE, only err/crit are available
 CHIP_DUMP_SPIRV=<ON/OFF(default)>               # Dumps the generated SPIR-V code to a file
 CHIP_JIT_FLAGS=<flags>                          # Additional JIT flags
