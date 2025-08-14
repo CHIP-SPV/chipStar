@@ -63,12 +63,24 @@ if args.verbose:
   print(f"num_tries: {args.num_tries}")
   print(f"timeout: {args.timeout}")
 
-if args.device_type in ["cpu", "pocl"]:
+if args.device_type == "cpu":
     device_type_stripped = "cpu"
-elif args.device_type in ["dgpu", "igpu"]:
+    env_vars = f"CHIP_BE={args.backend} CHIP_DEVICE_TYPE=cpu"
+elif args.device_type == "pocl":
+    device_type_stripped = "cpu"  # For test file naming, pocl tests use cpu test lists
+    env_vars = f"CHIP_BE={args.backend} CHIP_DEVICE_TYPE=pocl"
+elif args.device_type == "dgpu":
     device_type_stripped = "gpu"
-
-env_vars = f"CHIP_BE={args.backend} CHIP_DEVICE_TYPE={device_type_stripped}"
+    # Use manual device selection for discrete GPU
+    env_vars = f"CHIP_BE={args.backend} CHIP_PLATFORM=0 CHIP_DEVICE=0"
+elif args.device_type == "igpu":
+    device_type_stripped = "gpu"
+    # Use manual device selection for integrated GPU  
+    env_vars = f"CHIP_BE={args.backend} CHIP_PLATFORM=1 CHIP_DEVICE=0"
+else:
+    # Fallback for other device types
+    device_type_stripped = "gpu"
+    env_vars = f"CHIP_BE={args.backend} CHIP_DEVICE_TYPE=gpu"
     
 # setup module load line
 modules = ""
