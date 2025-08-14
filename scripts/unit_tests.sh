@@ -109,6 +109,9 @@ echo "num_threads = ${num_threads}"
 echo "skip_build  = ${skip_build}"
 echo "build_only  = ${build_only}"
 echo "timeout     = ${timeout}"
+echo "CHIP_DEVICE_TYPE = ${CHIP_DEVICE_TYPE}"
+echo "CHIP_PLATFORM = ${CHIP_PLATFORM}"
+echo "CHIP_DEVICE = ${CHIP_DEVICE}"
 
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 source /etc/profile.d/modules.sh &> /dev/null
