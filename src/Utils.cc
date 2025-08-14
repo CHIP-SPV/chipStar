@@ -53,6 +53,7 @@ bool readEnvVar(std::string EnvVar, std::string &Value, bool Lower) {
     std::transform(Value.begin(), Value.end(), Value.begin(),
                    [](unsigned char Ch) { return std::tolower(Ch); });
 
+  logDebug("readEnvVar value picked up form env: {} = {}", EnvVar, Value);
   return true;
 }
 
