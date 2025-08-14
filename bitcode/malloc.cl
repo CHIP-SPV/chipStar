@@ -30,8 +30,8 @@ void lock(__global volatile atomic_int* mutex) {
         if (atomic_exchange_explicit(mutex, 1, memory_order_acquire, memory_scope_device) == 0) {
             return; // Lock acquired
         }
-        for (int i = 0; i < backoff; i++) {
-            barrier(CLK_LOCAL_MEM_FENCE);
+        for (volatile int i = 0; i < backoff; i++) {
+            // CPU-friendly delay loop
         }
         attempts++;
         backoff = min(backoff * 2, 1024);
