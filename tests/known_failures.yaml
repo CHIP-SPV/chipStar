@@ -352,7 +352,7 @@ ANY:
     Unit_hipEvent: 'zeEventQueryStatus took 100us, exceeded 100us threshold'
     hipKernelLaunchIsNonBlocking: 'zeEventQueryStatus took 100us, exceeded 100us threshold'
   OPENCL_CPU:
-    hipDeviceMalloc: 'OpenCL CPU driver has a bug where any link flags get corrupted https://github.com/intel/compute-runtime/issues/844'
+    hipDeviceMalloc: 'Either segfault or hang inside the malloc kernel'
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'
     h4i-hipblas_basic_context_test: 'Backend mismatch'
     Unit_ballot: ''
@@ -374,6 +374,7 @@ ANY:
     hipKernelLaunchIsNonBlocking: ''
     Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
   OPENCL_POCL:
+    hipDeviceMalloc: 'Either segfault or hang inside the malloc kernel'
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'
     TestStaticLibRDC: 'LLVM-16 still being tested but not recompiled to include the static library fix'
     cuda-reduction: 'timeout on LLVM16, enable to reproduce anywhere other than github runne'
