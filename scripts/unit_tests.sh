@@ -99,6 +99,28 @@ do
   esac
 done
 
+# Function to detect CMake generator and set build tool
+detect_build_tool() {
+  if [ -f "CMakeCache.txt" ]; then
+    generator=$(grep "CMAKE_GENERATOR:INTERNAL=" CMakeCache.txt | cut -d'=' -f2)
+    case "$generator" in
+      "Ninja")
+        BUILD_TOOL="ninja"
+        ;;
+      "Unix Makefiles")
+        BUILD_TOOL="make"
+        ;;
+      *)
+        echo "Warning: Unknown generator '$generator', defaulting to make"
+        BUILD_TOOL="make"
+        ;;
+    esac
+  else
+    echo "Warning: CMakeCache.txt not found, defaulting to make"
+    BUILD_TOOL="make"
+  fi
+  echo "Detected CMake generator: $generator, using build tool: $BUILD_TOOL"
+}
 
 # Print out the arguments
 echo "build_type  = ${build_type}"
@@ -109,9 +131,7 @@ echo "num_threads = ${num_threads}"
 echo "skip_build  = ${skip_build}"
 echo "build_only  = ${build_only}"
 echo "timeout     = ${timeout}"
-echo "CHIP_DEVICE_TYPE = ${CHIP_DEVICE_TYPE}"
-echo "CHIP_PLATFORM = ${CHIP_PLATFORM}"
-echo "CHIP_DEVICE = ${CHIP_DEVICE}"
+
 
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 source /etc/profile.d/modules.sh &> /dev/null
@@ -129,8 +149,11 @@ if [ "$host" = "salami" ]; then
   module load $CLANG
 else
   module use ~/modulefiles
-  module load oneapi/2024.1.0 $CLANG opencl/dgpu 
+  module load oneapi/2024 $CLANG opencl/dgpu 
 fi
+
+unset CHIP_PLATFORM
+unset CHIP_DEVICE
 
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
@@ -148,6 +171,7 @@ fi
 if [ $skip_build ]; then
   echo "Skipping build step"
   cd build
+  detect_build_tool
 else
   if [ "$host" = "salami" ]; then
     CHIP_OPTIONS="-DCHIP_MALI_GPU_WORKAROUNDS=ON -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON"
@@ -170,7 +194,9 @@ else
 
   echo "building with $CLANG"
   cmake ../ -DCMAKE_BUILD_TYPE="$build_type"  ${CHIP_OPTIONS}
-  make all build_tests install -j $(nproc) #&> /dev/null
+  detect_build_tool
+  $BUILD_TOOL all install -j $(nproc) #&> /dev/null
+  $BUILD_TOOL build_tests install -j $(nproc) #&> /dev/null
   echo "chipStar build complete." 
 fi
 
