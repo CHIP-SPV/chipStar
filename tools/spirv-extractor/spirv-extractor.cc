@@ -15,9 +15,10 @@ int main(int argc, char *argv[]) {
   bool validateSpirv = false;
   bool helpRequested = false;
   std::vector<std::string> additionalArgs;
+  std::string fatbinaryPath;
 
-  int i = 1;
-  while (i < argc) {
+  // Parse all arguments, allowing options to appear anywhere
+  for (int i = 1; i < argc; ++i) {
     if (std::string(argv[i]) == "-o") {
       if (i + 1 < argc) {
         dumpToFile = true;
@@ -33,9 +34,13 @@ int main(int argc, char *argv[]) {
     } else if (std::string(argv[i]) == "-h") {
       helpRequested = true;
     } else {
-      break;
+      // Non-option argument
+      if (fatbinaryPath.empty()) {
+        fatbinaryPath = argv[i];
+      } else {
+        additionalArgs.emplace_back(argv[i]);
+      }
     }
-    ++i;
   }
 
   if (helpRequested) {
@@ -50,16 +55,9 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  if (i >= argc) {
+  if (fatbinaryPath.empty()) {
     std::cerr << "Missing fatbinary path" << std::endl;
     return 1;
-  }
-
-  std::string fatbinaryPath = argv[i++];
-
-  // Collect additional arguments
-  while (i < argc) {
-    additionalArgs.emplace_back(argv[i++]);
   }
 
   if (!dumpToFile) {
@@ -171,9 +169,9 @@ int main(int argc, char *argv[]) {
   }
 
   if (dumpToFile) {
-    std::ofstream outputFileText(outputFilename + ".txt");
+    std::ofstream outputFileText(outputFilename + "asm");
     if (!outputFileText) {
-      std::cerr << "Failed to open file: " << outputFilename + ".txt"
+      std::cerr << "Failed to open file: " << outputFilename + "asm"
                 << std::endl;
       return 1;
     }
