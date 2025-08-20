@@ -759,7 +759,7 @@ void CHIPEventMonitorLevel0::monitor() {
   while (true) {
     usleep(200);
     checkCallbacks();
-    // checkEvents();
+    checkEvents();
     checkCmdLists();
     checkExit();
   } // endless loop
@@ -880,43 +880,113 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
 std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  auto [EventsToWaitOn, EventLocks] =
-      getSyncQueuesLastEvents(TargetEvent, true);
-  for (auto &Event : EventsToWaitOn)
-    Event->isDeletedSanityCheck();
+  // MARKER-BASED SYNCHRONIZATION: Create and signal marker events for each queue that needs synchronization
+  // instead of collecting LastEvent from each queue
 
-// check that TargetEvent is not part of EventsToWaitOn
-#ifdef DEBUG
-  for (auto &Event : EventsToWaitOn) {
-    if (Event == TargetEvent) {
-      logError("CHIPQueueLevel0::addDependenciesQueueSync() TargetEvent is "
-               "part of EventsToWaitOn");
-      std::abort();
+  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
+  std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
+
+  // Get the device and context for creating marker events
+  auto Dev = static_cast<CHIPDeviceLevel0 *>(ChipDevice_);
+  auto Ctx = static_cast<CHIPContextLevel0 *>(ChipCtxLz_);
+  auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+
+  // Lock the backend events mutex
+  EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
+
+  // Lock the device queue mutex
+  EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(Dev->QueueAddRemoveMtx));
+
+  // If this is a default stream (legacy or per-thread), create markers for all other queues
+  if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
+    // Create markers for all non-blocking queues
+    for (auto &q : Dev->getQueuesNoLock()) {
+      if (q->getQueueFlags().isBlocking()) {
+        // Create a marker event for this queue
+        auto MarkerEvent = BackendLz->createEventShared(Ctx, chipstar::EventFlags(),
+                                                       "QueueSyncMarker");
+        auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
+
+        // Signal this marker in the other queue's command list
+        auto OtherQueue = static_cast<CHIPQueueLevel0 *>(q);
+        LOCK(OtherQueue->CommandListMtx);
+        auto OtherCommandList = OtherQueue->getCmdListImm();
+
+        zeStatus = zeCommandListAppendSignalEvent(
+            OtherCommandList, MarkerEventLz->peek());
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+
+        // Add the marker to the list of events to wait on
+        EventsToWaitOn.push_back(MarkerEvent);
+
+        // Track the marker event so it gets properly managed by the event monitor
+        Backend->trackEvent(MarkerEvent);
+
+        // Add dependency to the target event
+        std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
+            ->addDependency(MarkerEvent);
+      }
+    }
+  } else if (this->getQueueFlags().isBlocking()) {
+    // This is a blocking queue, sync with default streams
+    // Create marker for legacy default stream
+    auto LegacyDefaultQueue = Dev->getLegacyDefaultQueue();
+    if (LegacyDefaultQueue) {
+      auto MarkerEvent = BackendLz->createEventShared(Ctx, chipstar::EventFlags(),
+                                                     "LegacyDefaultQueueMarker");
+      auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
+
+      // Signal this marker in the legacy default queue's command list
+      auto LegacyQueue = static_cast<CHIPQueueLevel0 *>(LegacyDefaultQueue);
+      LOCK(LegacyQueue->CommandListMtx);
+      auto LegacyCommandList = LegacyQueue->getCmdListImm();
+
+      zeStatus = zeCommandListAppendSignalEvent(
+          LegacyCommandList, MarkerEventLz->peek());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+
+      EventsToWaitOn.push_back(MarkerEvent);
+      
+      // Track the marker event so it gets properly managed by the event monitor
+      Backend->trackEvent(MarkerEvent);
+      
+      std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
+          ->addDependency(MarkerEvent);
+    }
+
+    // Create marker for per-thread default stream if used
+    if (Dev->isPerThreadStreamUsedNoLock()) {
+      auto PerThreadDefaultQueue = Dev->getPerThreadDefaultQueueNoLock();
+      if (PerThreadDefaultQueue) {
+        auto MarkerEvent = BackendLz->createEventShared(Ctx, chipstar::EventFlags(),
+                                                       "PerThreadDefaultQueueMarker");
+        auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
+
+        // Signal this marker in the per-thread default queue's command list
+        auto PerThreadQueue = static_cast<CHIPQueueLevel0 *>(PerThreadDefaultQueue);
+        LOCK(PerThreadQueue->CommandListMtx);
+        auto PerThreadCommandList = PerThreadQueue->getCmdListImm();
+
+        zeStatus = zeCommandListAppendSignalEvent(
+            PerThreadCommandList, MarkerEventLz->peek());
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+
+        EventsToWaitOn.push_back(MarkerEvent);
+        
+        // Track the marker event so it gets properly managed by the event monitor
+        Backend->trackEvent(MarkerEvent);
+        
+        std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
+            ->addDependency(MarkerEvent);
+      }
     }
   }
-#endif
 
-  // Every event in EventsToWaitOn should have a dependency on MemCopyEvent so
-  // that they don't get destroyed before MemCopyEvent
-  for (auto &Event : EventsToWaitOn) {
-    // LOCK(Event->EventMtx);
-    std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
-        ->addDependency(Event);
-  }
-
-  for (auto &Event : EventsToWaitOn) {
-    Event->isDeletedSanityCheck();
-  }
-
+  // Convert events to event handles
   std::vector<ze_event_handle_t> EventHandles =
       getEventListHandles(EventsToWaitOn);
-
-  // Use sanity check which includes DFS validation for SignalEnqueued and
-  // circular dependencies
-  for (auto &Event : EventsToWaitOn) {
-    auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-    EventLz->isDeletedSanityCheck();
-  }
 
   // Set SignalEnqueued for the target event since it will be signaled by the
   // upcoming operation
