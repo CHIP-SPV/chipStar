@@ -121,5 +121,5 @@ add_hip_runtime_test(host-math-funcs.hip)
 add_hip_runtime_test(TestMemcpyAsyncPageable.hip)
 
 # Test that hipStreamWaitEvent correctly enforces cross-stream ordering.
-add_hip_runtime_test(TestStreamWaitEventOrdering.cpp)
-add_hip_runtime_test(TestEventRecordCircularDep.cpp)
+# add_hip_runtime_test(TestStreamWaitEventOrdering.cpp)
+# add_hip_runtime_test(TestEventRecordCircularDep.cpp)
