@@ -30,7 +30,7 @@ function(add_cuda_sample_args)
   set_target_properties("${CUDA_NAME}" PROPERTIES 
     PASS_REGULAR_EXPRESSION "${TEST_PASS}"
     SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
-    LABELS "internal;cuda")
+    LABELS "internal;cuda;SAMPLE")
 
 endfunction()
 
