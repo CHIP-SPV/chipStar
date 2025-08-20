@@ -437,7 +437,7 @@ bool CHIPEventLevel0::updateFinishStatus(bool ThrowErrorIfNotReady) {
   auto endTime = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
   if (duration.count() > 100) {
-    logError("zeEventQueryStatus took {}us, exceeded 100us threshold", duration.count());
+    logWarn("zeEventQueryStatus took {}us, exceeded 100us threshold", duration.count());
   }
 
   if (zeStatus == ZE_RESULT_NOT_READY && ThrowErrorIfNotReady) {
