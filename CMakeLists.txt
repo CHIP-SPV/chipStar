@@ -248,7 +248,7 @@ option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
 # This has a significant impact on the cost of a GPU malloc 
 # If your application does a lot of small allocations, it might be slow
 # https://github.com/CHIP-SPV/chipStar/issues/458 https://github.com/intel/compute-runtime/issues/631
-option(CHIP_L0_FIRST_TOUCH "First-touch workaround for Level Zero." OFF)
+option(CHIP_L0_MAKE_MEM_RESIDENT "First-touch workaround for Level Zero." ON)
 set(CHIP_DEFAULT_JIT_FLAGS "-cl-kernel-arg-info -cl-std=CL3.0")
 
 option(CHIP_PROFILE_TESTS "Attach iprof to each test under ctest" OFF)
