@@ -51,7 +51,7 @@
 
 #cmakedefine CHIP_USE_INTEL_USM
 
-#cmakedefine CHIP_L0_FIRST_TOUCH
+#cmakedefine CHIP_L0_MAKE_MEM_RESIDENT
 
 #cmakedefine CHIP_ERROR_IF_NOT_IMPLEMENTED
 
