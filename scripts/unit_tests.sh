@@ -132,7 +132,6 @@ echo "skip_build  = ${skip_build}"
 echo "build_only  = ${build_only}"
 echo "timeout     = ${timeout}"
 
-
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
 source /etc/profile.d/modules.sh &> /dev/null
 export IGC_EnableDPEmulation=1
