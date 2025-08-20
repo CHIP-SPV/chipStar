@@ -686,9 +686,15 @@ void CHIPEventMonitorLevel0::checkCmdLists() {
 
 void CHIPEventMonitorLevel0::checkEvents() {
   LOCK(Backend->EventsMtx);
-  for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
+  
+  // Collect events to remove in a separate pass to avoid shared_ptr races
+  std::vector<std::vector<std::shared_ptr<chipstar::Event>>::iterator> EventsToRemove;
+  
+  // First pass: identify events that can be removed
+  auto it = Backend->Events.begin();
+  while (it != Backend->Events.end()) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
-        std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
+        std::static_pointer_cast<CHIPEventLevel0>(*it);
     ChipEventLz->isDeletedSanityCheck();
     LOCK(ChipEventLz->EventMtx); // chipstar::Event::EventStatus_
 
@@ -702,10 +708,15 @@ void CHIPEventMonitorLevel0::checkEvents() {
     if (ChipEventLz->DependsOnList.size() == 0) {
       // Use sanity check which includes dependency validation
       ChipEventLz->isDeletedSanityCheck();
-
-      Backend->Events.erase(Backend->Events.begin() + EventIdx);
+      EventsToRemove.push_back(it);
     }
-  } // done collecting events to delete
+    ++it;
+  }
+  
+  // Second pass: remove events in reverse order to maintain iterator validity
+  for (auto rit = EventsToRemove.rbegin(); rit != EventsToRemove.rend(); ++rit) {
+    Backend->Events.erase(*rit);
+  }
 }
 
 void CHIPEventMonitorLevel0::checkExit() {
@@ -880,100 +891,11 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   }
 }
 
-std::pair<chipstar::SharedEventVector, chipstar::LockGuardVector>
-CHIPQueueLevel0::getSyncQueuesMarkerEvents(
-    std::shared_ptr<chipstar::Event> LastEvent, bool IncludeSelfLastEvent) {
-  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
-  std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
-
-  // No need for default-stream implicit synchronization if there are
-  // no user created blocking queues.
-  auto NumUserQueues = ChipDevice_->getNumUserQueues();
-  if (!NumUserQueues && !IncludeSelfLastEvent)
-    return {EventsToWaitOn, std::move(EventLocks)};
-
-  EventLocks.push_back(
-      std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
-
-  auto Dev = ::Backend->getActiveDevice();
-  LOCK(Dev->QueueAddRemoveMtx);
-
-  // Enqueue marker on this queue if needed
-  if (IncludeSelfLastEvent) {
-    auto SelfMarkerEvent = static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
-        ChipContext_, chipstar::EventFlags(), "syncMarker");
-    
-    LOCK(CommandListMtx);
-    auto CommandList = this->getCmdListImm();
-    zeStatus = zeCommandListAppendSignalEvent(
-        CommandList,
-        std::static_pointer_cast<CHIPEventLevel0>(SelfMarkerEvent)->peek());
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
-    executeCommandList(CommandList, SelfMarkerEvent);
-    
-    EventLocks.push_back(
-        std::make_unique<std::unique_lock<std::mutex>>(SelfMarkerEvent->EventMtx));
-    EventsToWaitOn.push_back(SelfMarkerEvent);
-  }
-  
-  // Add event mtx to EventLocks for the LastEvent parameter
-  if (LastEvent) {
-    EventLocks.push_back(
-        std::make_unique<std::unique_lock<std::mutex>>(LastEvent->EventMtx));
-  }
-
-  if (!NumUserQueues)
-    return {EventsToWaitOn, std::move(EventLocks)};
-
-  // If this stream is default legacy stream, sync with all other streams on
-  // this device
-  if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
-    // add marker events from all other queues
-    for (auto *q : Dev->getQueuesNoLock()) {
-      if (q->getQueueFlags().isBlocking()) {
-        // Enqueue marker on blocking queue
-        auto MarkerEvent = static_cast<CHIPQueueLevel0*>(q)->enqueueMarkerImpl();
-        EventsToWaitOn.push_back(MarkerEvent);
-        EventLocks.push_back(
-            std::make_unique<std::unique_lock<std::mutex>>(MarkerEvent->EventMtx));
-      } else {
-        // Enqueue marker on non-blocking queue
-        auto MarkerEvent = static_cast<CHIPQueueLevel0*>(q)->enqueueMarkerImpl();
-        EventsToWaitOn.push_back(MarkerEvent);
-        EventLocks.push_back(
-            std::make_unique<std::unique_lock<std::mutex>>(MarkerEvent->EventMtx));
-      }
-    }
-  } else if (this->getQueueFlags().isBlocking()) {
-    // sync with default legacy stream
-    auto DefaultQueue = Dev->getLegacyDefaultQueue();
-    if (DefaultQueue) {
-      auto MarkerEvent = static_cast<CHIPQueueLevel0*>(DefaultQueue)->enqueueMarkerImpl();
-      EventsToWaitOn.push_back(MarkerEvent);
-      EventLocks.push_back(
-          std::make_unique<std::unique_lock<std::mutex>>(MarkerEvent->EventMtx));
-    }
-
-    // sync with default per-thread stream
-    if (Dev->isPerThreadStreamUsedNoLock()) {
-      auto PerThreadQueue = Dev->getPerThreadDefaultQueueNoLock();
-      if (PerThreadQueue) {
-        auto MarkerEvent = static_cast<CHIPQueueLevel0*>(PerThreadQueue)->enqueueMarkerImpl();
-        EventsToWaitOn.push_back(MarkerEvent);
-        EventLocks.push_back(
-            std::make_unique<std::unique_lock<std::mutex>>(MarkerEvent->EventMtx));
-      }
-    }
-  }
-  return {EventsToWaitOn, std::move(EventLocks)};
-}
-
 std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
-    std::shared_ptr<chipstar::Event> TargetEvent, bool UseMarkerEvents) {
-  auto [EventsToWaitOn, EventLocks] = UseMarkerEvents
-      ? getSyncQueuesMarkerEvents(TargetEvent, true)
-      : getSyncQueuesLastEvents(TargetEvent, true);
+    std::shared_ptr<chipstar::Event> TargetEvent) {
+  auto [EventsToWaitOn, EventLocks] =
+      getSyncQueuesLastEvents(TargetEvent, true);
   for (auto &Event : EventsToWaitOn)
     Event->isDeletedSanityCheck();
 
