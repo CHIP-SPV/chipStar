@@ -687,7 +687,10 @@ void CHIPEventMonitorLevel0::checkCmdLists() {
 void CHIPEventMonitorLevel0::checkEvents() {
   LOCK(Backend->EventsMtx);
   
-  // Use iterator-based removal to safely handle element deletion during iteration
+  // Collect events to remove in a separate pass to avoid shared_ptr races
+  std::vector<std::vector<std::shared_ptr<chipstar::Event>>::iterator> EventsToRemove;
+  
+  // First pass: identify events that can be removed
   auto it = Backend->Events.begin();
   while (it != Backend->Events.end()) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
@@ -705,14 +708,15 @@ void CHIPEventMonitorLevel0::checkEvents() {
     if (ChipEventLz->DependsOnList.size() == 0) {
       // Use sanity check which includes dependency validation
       ChipEventLz->isDeletedSanityCheck();
-
-      // erase returns iterator to the next element
-      it = Backend->Events.erase(it);
-    } else {
-      // Move to next element only if we didn't erase
-      ++it;
+      EventsToRemove.push_back(it);
     }
-  } // done collecting events to delete
+    ++it;
+  }
+  
+  // Second pass: remove events in reverse order to maintain iterator validity
+  for (auto rit = EventsToRemove.rbegin(); rit != EventsToRemove.rend(); ++rit) {
+    Backend->Events.erase(*rit);
+  }
 }
 
 void CHIPEventMonitorLevel0::checkExit() {
