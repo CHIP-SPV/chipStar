@@ -379,8 +379,7 @@ public:
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
   std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
-  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent,
-                           bool UseMarkerEvents = true);
+  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 
   size_t getMaxMemoryFillPatternSize() {
     return QueueProperties_.maxMemoryFillPatternSize;
@@ -458,10 +457,6 @@ public:
   virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor)
       override;
-
-  std::pair<chipstar::SharedEventVector, chipstar::LockGuardVector>
-  getSyncQueuesMarkerEvents(std::shared_ptr<chipstar::Event> LastEvent,
-                            bool IncludeSelfLastEvent);
 
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count) override {
