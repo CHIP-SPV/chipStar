@@ -675,15 +675,9 @@ void CHIPEventMonitorLevel0::checkCmdLists() {
 
 void CHIPEventMonitorLevel0::checkEvents() {
   LOCK(Backend->EventsMtx);
-  
-  // Collect events to remove in a separate pass to avoid shared_ptr races
-  std::vector<std::vector<std::shared_ptr<chipstar::Event>>::iterator> EventsToRemove;
-  
-  // First pass: identify events that can be removed
-  auto it = Backend->Events.begin();
-  while (it != Backend->Events.end()) {
+  for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
     std::shared_ptr<CHIPEventLevel0> ChipEventLz =
-        std::static_pointer_cast<CHIPEventLevel0>(*it);
+        std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
     ChipEventLz->isDeletedSanityCheck();
     LOCK(ChipEventLz->EventMtx); // chipstar::Event::EventStatus_
 
@@ -697,15 +691,10 @@ void CHIPEventMonitorLevel0::checkEvents() {
     if (ChipEventLz->DependsOnList.size() == 0) {
       // Use sanity check which includes dependency validation
       ChipEventLz->isDeletedSanityCheck();
-      EventsToRemove.push_back(it);
+
+      Backend->Events.erase(Backend->Events.begin() + EventIdx);
     }
-    ++it;
-  }
-  
-  // Second pass: remove events in reverse order to maintain iterator validity
-  for (auto rit = EventsToRemove.rbegin(); rit != EventsToRemove.rend(); ++rit) {
-    Backend->Events.erase(*rit);
-  }
+  } // done collecting events to delete
 }
 
 void CHIPEventMonitorLevel0::checkExit() {
@@ -762,7 +751,7 @@ void CHIPEventMonitorLevel0::monitor() {
   while (true) {
     usleep(200);
     checkCallbacks();
-    checkEvents();
+    // checkEvents();
     checkCmdLists();
     checkExit();
   } // endless loop
