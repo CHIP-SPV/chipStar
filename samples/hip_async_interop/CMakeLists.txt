@@ -22,4 +22,4 @@ add_test(NAME "hip_async_binomial"
 set_tests_properties("hip_async_binomial" PROPERTIES
                      PASS_REGULAR_EXPRESSION "Passed"
                      SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
-                     LABELS internal)
+                     LABELS "internal;SAMPLE")

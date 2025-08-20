@@ -60,7 +60,7 @@ function(add_chip_test EXEC_NAME TEST_NAME TEST_PASS SOURCE)
     set_tests_properties("${TEST_NAME}" PROPERTIES
              PASS_REGULAR_EXPRESSION "${TEST_PASS}"
              SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
-             LABELS internal)
+             LABELS "internal;SAMPLE")
 
 endfunction()
 
