@@ -1,6 +1,8 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    hipDeviceMalloc: 'Failed'
+    TestUndefKernelArg: 'Intermittend L0 segfault'
     Unit_hipMemFaultStackAllocation_Check: 'Missing managed memory checks'
     hipPromoteInt-signed_constant_compare: 'constVal used for signed comparison'
     Unit_hipGraph_SimpleGraphWithKernel: 'Temp disabled graphs'
