@@ -47,10 +47,57 @@ void assertEqual(const T& expected, const T& actual, const char* varName) {
 void testEnvironmentVariableParsing() {
     // Test environment variable parsing
     {
-        // Set environment variables
-        CHIPInitialize();
-        setEnvVar("CHIP_PLATFORM", "2");
+        // Set environment variables - using device type filtering (not manual device selection)
         setEnvVar("CHIP_DEVICE_TYPE", "gpu");
+        setEnvVar("CHIP_BE", "level0");
+        setEnvVar("CHIP_DUMP_SPIRV", "1");
+        setEnvVar("CHIP_SKIP_UNINIT", "on");
+        setEnvVar("CHIP_LAZY_JIT", "1");
+        setEnvVar("CHIP_JIT_FLAGS", "");
+        setEnvVar("CHIP_JIT_FLAGS_OVERRIDE", "");
+        setEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT", "1000");
+        setEnvVar("CHIP_L0_EVENT_TIMEOUT", "2000");
+        setEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING", "1");
+        setEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY", "custom_strategy");
+
+        // Create an EnvVars instance to parse the environment variables
+        EnvVars envVars;
+
+        // Check if the parsed values match the set environment variables
+        assertEqual(0, envVars.getPlatformIdx(), "Default CHIP_PLATFORM when using device type");
+        assertEqual(static_cast<int>(DeviceType::GPU), static_cast<int>(envVars.getDevice().getType()), "CHIP_DEVICE_TYPE");
+        assertEqual(0, envVars.getDeviceIdx(), "Default CHIP_DEVICE when using device type");
+        assertEqual(static_cast<int>(BackendType::Level0), static_cast<int>(envVars.getBackend().getType()), "CHIP_BE");
+        assertEqual(true, envVars.getDumpSpirv(), "CHIP_DUMP_SPIRV");
+        assertEqual(true, envVars.getSkipUninit(), "CHIP_SKIP_UNINIT");
+        assertEqual(true, envVars.getLazyJit(), "CHIP_LAZY_JIT");
+        assertEqual(std::string(""), envVars.getJitFlags(), "CHIP_JIT_FLAGS");
+        assertEqual(std::string(""), envVars.getJitFlagsOverride(), "CHIP_JIT_FLAGS_OVERRIDE");
+        assertEqual(1000, envVars.getL0CollectEventsTimeout(), "CHIP_L0_COLLECT_EVENTS_TIMEOUT");
+        assertEqual(static_cast<unsigned long>(2000), envVars.getL0EventTimeout(), "CHIP_L0_EVENT_TIMEOUT");
+        assertEqual(true, envVars.getOCLDisableQueueProfiling(), "CHIP_OCL_DISABLE_QUEUE_PROFILING");
+        assertEqual(std::string("custom_strategy"), envVars.getOclUseAllocStrategy().value_or(""), "CHIP_OCL_USE_ALLOC_STRATEGY");
+
+        // Unset environment variables
+        unsetEnvVar("CHIP_DEVICE_TYPE");
+        unsetEnvVar("CHIP_BE");
+        unsetEnvVar("CHIP_DUMP_SPIRV");
+        unsetEnvVar("CHIP_SKIP_UNINIT");
+        unsetEnvVar("CHIP_LAZY_JIT");
+        unsetEnvVar("CHIP_JIT_FLAGS");
+        unsetEnvVar("CHIP_JIT_FLAGS_OVERRIDE");
+        unsetEnvVar("CHIP_L0_COLLECT_EVENTS_TIMEOUT");
+        unsetEnvVar("CHIP_L0_EVENT_TIMEOUT");
+        unsetEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING");
+        unsetEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY");
+    }
+}
+
+void testManualDeviceSelection() {
+    // Test manual device selection (CHIP_PLATFORM + CHIP_DEVICE without CHIP_DEVICE_TYPE)
+    {
+        // Set environment variables for manual device selection
+        setEnvVar("CHIP_PLATFORM", "2");
         setEnvVar("CHIP_DEVICE", "1");
         setEnvVar("CHIP_BE", "level0");
         setEnvVar("CHIP_DUMP_SPIRV", "1");
@@ -68,7 +115,7 @@ void testEnvironmentVariableParsing() {
 
         // Check if the parsed values match the set environment variables
         assertEqual(2, envVars.getPlatformIdx(), "CHIP_PLATFORM");
-        assertEqual(static_cast<int>(DeviceType::GPU), static_cast<int>(envVars.getDevice().getType()), "CHIP_DEVICE_TYPE");
+        assertEqual(static_cast<int>(DeviceType::GPU), static_cast<int>(envVars.getDevice().getType()), "Default CHIP_DEVICE_TYPE when using manual selection");
         assertEqual(1, envVars.getDeviceIdx(), "CHIP_DEVICE");
         assertEqual(static_cast<int>(BackendType::Level0), static_cast<int>(envVars.getBackend().getType()), "CHIP_BE");
         assertEqual(true, envVars.getDumpSpirv(), "CHIP_DUMP_SPIRV");
@@ -83,7 +130,6 @@ void testEnvironmentVariableParsing() {
 
         // Unset environment variables
         unsetEnvVar("CHIP_PLATFORM");
-        unsetEnvVar("CHIP_DEVICE_TYPE");
         unsetEnvVar("CHIP_DEVICE");
         unsetEnvVar("CHIP_BE");
         unsetEnvVar("CHIP_DUMP_SPIRV");
@@ -121,40 +167,54 @@ void testDefaultValues() {
 }
 
 void testPartialEnvironmentVariableSetting() {
-    // Test partial environment variable setting
+    // Test partial environment variable setting - device type only
     {
-        setEnvVar("CHIP_PLATFORM", "1");
         setEnvVar("CHIP_DEVICE_TYPE", "cpu");
         setEnvVar("CHIP_BE", "opencl");
 
         EnvVars envVars;
 
-        assertEqual(1, envVars.getPlatformIdx(), "Partial CHIP_PLATFORM");
+        assertEqual(0, envVars.getPlatformIdx(), "Default CHIP_PLATFORM when using device type");
         assertEqual(static_cast<int>(DeviceType::CPU), static_cast<int>(envVars.getDevice().getType()), "Partial CHIP_DEVICE_TYPE");
-        assertEqual(0, envVars.getDeviceIdx(), "Default CHIP_DEVICE when not set");
+        assertEqual(0, envVars.getDeviceIdx(), "Default CHIP_DEVICE when using device type");
         assertEqual(static_cast<int>(BackendType::OpenCL), static_cast<int>(envVars.getBackend().getType()), "Partial CHIP_BE");
 
-        unsetEnvVar("CHIP_PLATFORM");
         unsetEnvVar("CHIP_DEVICE_TYPE");
         unsetEnvVar("CHIP_BE");
     }
 }
 
 void testEnvironmentVariableOverriding() {
-    // Test environment variable overriding
+    // Test environment variable overriding - device type only
     {
-        setEnvVar("CHIP_PLATFORM", "2");
-        setEnvVar("CHIP_PLATFORM", "3");
         setEnvVar("CHIP_DEVICE_TYPE", "gpu");
         setEnvVar("CHIP_DEVICE_TYPE", "cpu");
 
         EnvVars envVars;
 
-        assertEqual(3, envVars.getPlatformIdx(), "Overridden CHIP_PLATFORM");
+        assertEqual(0, envVars.getPlatformIdx(), "Default CHIP_PLATFORM when using device type");
         assertEqual(static_cast<int>(DeviceType::CPU), static_cast<int>(envVars.getDevice().getType()), "Overridden CHIP_DEVICE_TYPE");
+        assertEqual(0, envVars.getDeviceIdx(), "Default CHIP_DEVICE when using device type");
+
+        unsetEnvVar("CHIP_DEVICE_TYPE");
+    }
+}
+
+void testManualDeviceSelectionOverriding() {
+    // Test environment variable overriding - manual device selection only
+    {
+        setEnvVar("CHIP_PLATFORM", "2");
+        setEnvVar("CHIP_PLATFORM", "3");
+        setEnvVar("CHIP_DEVICE", "1");
+
+        EnvVars envVars;
+
+        assertEqual(3, envVars.getPlatformIdx(), "Overridden CHIP_PLATFORM");
+        assertEqual(static_cast<int>(DeviceType::GPU), static_cast<int>(envVars.getDevice().getType()), "Default CHIP_DEVICE_TYPE when using manual selection");
+        assertEqual(1, envVars.getDeviceIdx(), "CHIP_DEVICE");
 
         unsetEnvVar("CHIP_PLATFORM");
-        unsetEnvVar("CHIP_DEVICE_TYPE");
+        unsetEnvVar("CHIP_DEVICE");
     }
 }
 
@@ -291,9 +351,11 @@ int main() {
     try {
         // Refactor test cases into separate functions for better clarity
         testEnvironmentVariableParsing();
+        testManualDeviceSelection();
         testDefaultValues();
         testPartialEnvironmentVariableSetting();
         testEnvironmentVariableOverriding();
+        testManualDeviceSelectionOverriding();
         testInvalidValues();
         testMutualExclusionValidation();
         testPoclDeviceType();
