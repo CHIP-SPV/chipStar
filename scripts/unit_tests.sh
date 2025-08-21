@@ -149,6 +149,7 @@ if [ "$host" = "salami" ]; then
 else
   module use ~/modulefiles
   module load oneapi/2024 $CLANG opencl/dgpu 
+  module list
 fi
 
 unset CHIP_PLATFORM
@@ -211,7 +212,22 @@ run_tests() {
     local device=$1
     local backend=$2
     echo "begin ${device}_${backend}_failed_tests"
+    
+    # For CPU tests, unload level-zero/igpu module to avoid CHIP_DEVICE conflicts
+    if [ "$device" = "cpu" ]; then
+        module unload level-zero/igpu 2>/dev/null || true
+    fi
+    
+    # Unset CHIP_DEVICE to avoid conflicts with CHIP_DEVICE_TYPE
+    unset CHIP_DEVICE
+    
     ../scripts/check.py ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee ${device}_${backend}_make_check_result.txt
+    
+    # Reload level-zero/igpu module if it was unloaded
+    if [ "$device" = "cpu" ]; then
+        module load level-zero/igpu 2>/dev/null || true
+    fi
+    
     echo "end ${device}_${backend}_failed_tests"
 }
 
