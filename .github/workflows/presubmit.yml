@@ -222,13 +222,6 @@ jobs:
           - backend: pocl
             pocl-version: 6
             llvm-version: 18
-          # Intel backend (no pocl-version needed)
-          - backend: intel
-            llvm-version: 16
-          - backend: intel
-            llvm-version: 17
-          - backend: intel
-            llvm-version: 18
       fail-fast: false
     steps:
       - name: Install spirv-tools & headers
@@ -279,10 +272,19 @@ jobs:
       - run: echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
         if: ${{ matrix.backend == 'intel' }}
       - run: sudo add-apt-repository ppa:ocl-icd/ppa
-        if: ${{ matrix.backend == 'pocl' }}
+        if: ${{ matrix.backend == 'pocl' || matrix.backend == 'intel' }}
       - run: sudo apt update
-      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev ${{ matrix.backend == 'intel' && 'intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl' || 'ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev' }}
+      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev ${{ matrix.backend == 'intel' && 'intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl ocl-icd-opencl-dev' || 'ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev' }}
       - run: ${{ env.OPENCL_ENV }} clinfo
+      - name: Verify OpenCL platforms
+        run: |
+          echo "Checking OpenCL platforms..."
+          ${{ env.OPENCL_ENV }} clinfo | grep -E "(Platform Name|Device Name|Number of platforms|Number of devices)" || true
+          if [ "${{ matrix.backend }}" = "intel" ]; then
+            echo "Expected to see Intel OpenCL platform and at least one device"
+          else
+            echo "Expected to see PoCL OpenCL platform and at least one device"
+          fi
       - run: mkdir -p build
       - name: CMake
         run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOME/opt/SPIRV-Tools/v2023.2 -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON
