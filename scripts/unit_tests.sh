@@ -212,7 +212,7 @@ run_tests() {
     local device=$1
     local backend=$2
     echo "begin ${device}_${backend}_failed_tests"
-    ../scripts/check.py --samples-only ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries | tee ${device}_${backend}_make_check_result.txt
+    ../scripts/check.py ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries | tee ${device}_${backend}_make_check_result.txt
     echo "end ${device}_${backend}_failed_tests"
 }
 
