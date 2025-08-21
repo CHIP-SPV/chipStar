@@ -2175,11 +2175,8 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     is not up-to-date, this issue persists.
     https://github.com/intel/compute-runtime/issues/631
     */
-    if (auto *ChipDev = static_cast<CHIPDeviceLevel0 *>(getDevice())) {
-      ze_device_handle_t ZeDev = ChipDev->get();
-      zeStatus = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeContextMakeMemoryResident);
-    }
+    zeStatus = zeContextMakeMemoryResident(ZeCtx, ZeDev, Ptr, Size);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeContextMakeMemoryResident);
 #endif
   } else if (MemTy == hipMemoryType::hipMemoryTypeHost) {
     // TODO Check if devices support cross-device sharing?
