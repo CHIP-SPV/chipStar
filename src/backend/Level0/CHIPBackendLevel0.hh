@@ -378,6 +378,11 @@ public:
   ze_command_list_handle_t getCmdListImmCopy();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
+  
+  // Helper function to create a marker event with its lock
+  std::tuple<std::shared_ptr<chipstar::Event>, std::unique_lock<std::mutex>>
+  createMarkerEventWithLock(CHIPContextLevel0* Ctx, const std::string& Name);
+  
   std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 
