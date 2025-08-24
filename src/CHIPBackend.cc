@@ -555,23 +555,33 @@ chipstar::Device::~Device() {
   LOCK(QueueAddRemoveMtx); // chipstar::Device::ChipQueues_
   logDebug("~Device() {}", (void *)this);
 
-  // Call finish() for PerThreadDefaultQueue to ensure that all
-  // outstanding work items are completed.
-  if (PerThreadDefaultQueue)
-    PerThreadDefaultQueue->finish();
+  // First handle queues with QueueAddRemoveMtx
+  {
+    LOCK(QueueAddRemoveMtx); // chipstar::Device::ChipQueues_
+    
+    // Call finish() for PerThreadDefaultQueue to ensure that all
+    // outstanding work items are completed.
+    if (PerThreadDefaultQueue)
+      PerThreadDefaultQueue->finish();
 
-  for (auto *Queue : UserQueues_)
-    delete Queue;
-  UserQueues_.clear();
+    for (auto *Queue : UserQueues_)
+      delete Queue;
+    UserQueues_.clear();
 
-  delete LegacyDefaultQueue;
-  LegacyDefaultQueue = nullptr;
+    delete LegacyDefaultQueue;
+    LegacyDefaultQueue = nullptr;
+  }
 
-  // delete all entries in SrcModToCompiledMod_
-  HostPtrToCompiledMod_.clear();
-  for (auto &Kv : SrcModToCompiledMod_)
-    delete Kv.second;
-  SrcModToCompiledMod_.clear();
+  // Then handle device variables with DeviceVarMtx
+  {
+    LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
+    
+    // delete all entries in SrcModToCompiledMod_
+    HostPtrToCompiledMod_.clear();
+    for (auto &Kv : SrcModToCompiledMod_)
+      delete Kv.second;
+    SrcModToCompiledMod_.clear();
+  }
 }
 
 chipstar::Queue *chipstar::Device::getLegacyDefaultQueue() {

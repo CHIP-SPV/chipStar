@@ -683,26 +683,53 @@ void CHIPEventMonitorLevel0::checkCmdLists() {
 
 void CHIPEventMonitorLevel0::checkEvents() {
   LOCK(Backend->EventsMtx);
+  
+  // Collect events to delete first, then process them
+  std::vector<size_t> EventsToDelete;
+  
   for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
-    std::shared_ptr<CHIPEventLevel0> ChipEventLz =
-        std::static_pointer_cast<CHIPEventLevel0>(Backend->Events[EventIdx]);
+    auto Event = Backend->Events[EventIdx];
+    if (!Event) continue;
+    
+    auto ChipEventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
+    if (!ChipEventLz) continue;
+    
+    // Check if event is deleted while holding the lock
     ChipEventLz->isDeletedSanityCheck();
-    LOCK(ChipEventLz->EventMtx); // chipstar::Event::EventStatus_
-
-    assert(ChipEventLz);
-    assert(!ChipEventLz->isUserEvent() &&
-           "User events should not appear in EventMonitorLevel0");
-
-    // updateFinishStatus will return true upon event state change.
-    ChipEventLz->updateFinishStatus(false);
-
+    
+    // Check dependencies while holding the lock
     if (ChipEventLz->DependsOnList.size() == 0) {
-      // Use sanity check which includes dependency validation
-      ChipEventLz->isDeletedSanityCheck();
-
-      Backend->Events.erase(Backend->Events.begin() + EventIdx);
+      EventsToDelete.push_back(EventIdx);
     }
-  } // done collecting events to delete
+  }
+  
+  // Now process events that need deletion, but avoid holding EventsMtx during individual event operations
+  for (auto EventIdx : EventsToDelete) {
+    if (EventIdx < Backend->Events.size()) {
+      auto Event = Backend->Events[EventIdx];
+      if (Event) {
+        auto ChipEventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
+        if (ChipEventLz) {
+          // Lock individual event mutex for status updates
+          LOCK(ChipEventLz->EventMtx);
+          
+          assert(ChipEventLz);
+          assert(!ChipEventLz->isUserEvent() &&
+                 "User events should not appear in EventMonitorLevel0");
+          
+          // updateFinishStatus will return true upon event state change.
+          ChipEventLz->updateFinishStatus(false);
+        }
+      }
+    }
+  }
+  
+  // Remove events from the vector in reverse order to maintain correct indices
+  // for (auto it = EventsToDelete.rbegin(); it != EventsToDelete.rend(); ++it) {
+  //   if (*it < Backend->Events.size()) {
+  //     Backend->Events.erase(Backend->Events.begin() + *it);
+  //   }
+  // }
 }
 
 void CHIPEventMonitorLevel0::checkExit() {
@@ -877,6 +904,19 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   }
 }
 
+// Helper function to create a marker event with its lock
+std::tuple<std::shared_ptr<chipstar::Event>, std::unique_lock<std::mutex>>
+CHIPQueueLevel0::createMarkerEventWithLock(CHIPContextLevel0* Ctx, const std::string& Name) {
+  auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+  auto MarkerEvent = BackendLz->createEventShared(Ctx, chipstar::EventFlags(), Name);
+  auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
+  
+  // Lock the marker event before returning it
+  auto EventLock = std::unique_lock<std::mutex>(MarkerEventLz->EventMtx);
+  
+  return {MarkerEvent, std::move(EventLock)};
+}
+
 std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
@@ -905,9 +945,9 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     for (auto &q : Dev->getQueuesNoLock()) {
       if (q->getQueueFlags().isBlocking()) {
         // Create a marker event for this queue
-        auto MarkerEvent = BackendLz->createEventShared(Ctx, chipstar::EventFlags(),
-                                                       "QueueSyncMarker");
+        auto [MarkerEvent, EventLock] = createMarkerEventWithLock(Ctx, "QueueSyncMarker");
         auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
+        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(std::move(EventLock)));
 
         // Signal this marker in the other queue's command list
         auto OtherQueue = static_cast<CHIPQueueLevel0 *>(q);
@@ -917,6 +957,9 @@ CHIPQueueLevel0::addDependenciesQueueSync(
         zeStatus = zeCommandListAppendSignalEvent(
             OtherCommandList, MarkerEventLz->peek());
         CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+
+        // Set the event state to indicate it's been enqueued
+        MarkerEventLz->SignalEnqueued_ = true;
 
         // Add the marker to the list of events to wait on
         EventsToWaitOn.push_back(MarkerEvent);
@@ -934,9 +977,9 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     // Create marker for legacy default stream
     auto LegacyDefaultQueue = Dev->getLegacyDefaultQueue();
     if (LegacyDefaultQueue) {
-      auto MarkerEvent = BackendLz->createEventShared(Ctx, chipstar::EventFlags(),
-                                                     "LegacyDefaultQueueMarker");
+      auto [MarkerEvent, EventLock] = createMarkerEventWithLock(Ctx, "LegacyDefaultQueueMarker");
       auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
+      EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(std::move(EventLock)));
 
       // Signal this marker in the legacy default queue's command list
       auto LegacyQueue = static_cast<CHIPQueueLevel0 *>(LegacyDefaultQueue);
@@ -946,6 +989,9 @@ CHIPQueueLevel0::addDependenciesQueueSync(
       zeStatus = zeCommandListAppendSignalEvent(
           LegacyCommandList, MarkerEventLz->peek());
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+
+      // Set the event state to indicate it's been enqueued
+      MarkerEventLz->SignalEnqueued_ = true;
 
       EventsToWaitOn.push_back(MarkerEvent);
       
@@ -960,9 +1006,9 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     if (Dev->isPerThreadStreamUsedNoLock()) {
       auto PerThreadDefaultQueue = Dev->getPerThreadDefaultQueueNoLock();
       if (PerThreadDefaultQueue) {
-        auto MarkerEvent = BackendLz->createEventShared(Ctx, chipstar::EventFlags(),
-                                                       "PerThreadDefaultQueueMarker");
+        auto [MarkerEvent, EventLock] = createMarkerEventWithLock(Ctx, "PerThreadDefaultQueueMarker");
         auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
+        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(std::move(EventLock)));
 
         // Signal this marker in the per-thread default queue's command list
         auto PerThreadQueue = static_cast<CHIPQueueLevel0 *>(PerThreadDefaultQueue);
@@ -972,6 +1018,9 @@ CHIPQueueLevel0::addDependenciesQueueSync(
         zeStatus = zeCommandListAppendSignalEvent(
             PerThreadCommandList, MarkerEventLz->peek());
         CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+
+        // Set the event state to indicate it's been enqueued
+        MarkerEventLz->SignalEnqueued_ = true;
 
         EventsToWaitOn.push_back(MarkerEvent);
         
@@ -1899,6 +1948,8 @@ LZEventPool::~LZEventPool() {
 std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
   auto Deleter = [this](CHIPEventLevel0 *Ptr) { returnEvent(Ptr); };
 
+  LOCK(EventPoolMtx); // LZEventPool::Events_
+  
   if (!Events_.size()) {
     // Create a new event if we haven't reached the pool size limit
     if (AllocatedCount_ < Size_) {
@@ -1911,7 +1962,6 @@ std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
     return nullptr;
   }
 
-  LOCK(EventPoolMtx); // LZEventPool::Events_
   auto Event = Events_.top();
   Events_.pop();
 
@@ -2191,16 +2241,14 @@ CHIPContextLevel0::~CHIPContextLevel0() {
   else
     logInfo("Events reuse: N/A (No events requested)");
 
-  // CRITICAL: Clear all shared_ptr event references BEFORE deleting event pools
-  // This ensures all events are returned to their pools via the custom deleter
-  // before the pools are destroyed, preventing double-free errors
+  // Clear events before deleting pools to avoid use-after-free
   if (Backend->Events.size()) {
     logWarn("Backend->Events still exist at the time of Context "
             "destruction...");
     Backend->Events.clear();  // This releases all shared_ptr, triggering returnEvent()
   }
 
-  // Now it's safe to delete all event pools - all events should be back in the stack
+  // delete all event pools
   for (LZEventPool *Pool : EventPools_)
     delete Pool;
 
