@@ -1874,22 +1874,28 @@ void CHIPQueueLevel0::finishWithoutEventsMtx() {
 }
 
 bool CHIPQueueLevel0::query() {
-  // create an event
-  auto Event = static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
-      ChipContext_, chipstar::EventFlags(), "query");
-  // enqueue a marker signal
-  auto CommandList = this->getCmdListImm();
-  zeStatus = zeCommandListAppendSignalEvent(CommandList, std::static_pointer_cast<CHIPEventLevel0>(Event)->peek());
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
-  // query the event
-  zeStatus = zeEventQueryStatus(std::static_pointer_cast<CHIPEventLevel0>(Event)->peek());
-  if (zeStatus == ZE_RESULT_NOT_READY) {
-    return false;
-  } else if (zeStatus == ZE_RESULT_SUCCESS) {
-    return true;
+  // use a zero timeout zeCommandListHostSynchronize
+  bool executeReady = true;
+  bool copyReady = true;
+  zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, 0);
+  if (zeStatus == ZE_RESULT_SUCCESS) {
+    executeReady = true;
+  } else if (zeStatus == ZE_RESULT_NOT_READY) {
+    executeReady = false;
   } else {
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventQueryStatus);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
   }
+
+  zeStatus = zeCommandListHostSynchronize(ZeCmdListImmCopy_, 0);
+  if (zeStatus == ZE_RESULT_SUCCESS) {
+    copyReady = true;
+  } else if (zeStatus == ZE_RESULT_NOT_READY) {
+    copyReady = false;
+  } else {
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
+  }
+
+  return executeReady && copyReady;
 }
 
 void CHIPQueueLevel0::executeCommandList(
