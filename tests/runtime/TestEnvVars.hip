@@ -105,8 +105,8 @@ void testDeviceTypeFilteringWithOpenCL() {
         assertEqual(0, envVars.getPlatformIdx(), "Default CHIP_PLATFORM when using device type");
         
         // Check device type matches what we set
-        DeviceType expectedDeviceType = (deviceType == "cpu") ? DeviceType::CPU : DeviceType::GPU;
-        assertEqual(static_cast<int>(expectedDeviceType), static_cast<int>(envVars.getDevice().getType()), "CHIP_DEVICE_TYPE");
+        DeviceType::Type expectedDeviceType = (deviceType == "cpu") ? DeviceType::CPU : DeviceType::GPU;
+        assertEqual(static_cast<int>(expectedDeviceType), envVars.getDeviceType(), "CHIP_DEVICE_TYPE");
         assertEqual(0, envVars.getDeviceIdx(), "Default CHIP_DEVICE when using device type");
         assertEqual(static_cast<int>(BackendType::OpenCL), static_cast<int>(envVars.getBackend().getType()), "CHIP_BE");
         assertEqual(true, envVars.getDumpSpirv(), "CHIP_DUMP_SPIRV");

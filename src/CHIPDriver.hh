@@ -375,23 +375,7 @@ private:
 
   void validateDeviceSelectionOptions() {
     // Check for mutual exclusion between device type and manual device selection
-    bool manualDeviceSelection = PlatformIdxSet_ || DeviceIdxSet_;
-    
-    // Print all values for debugging when validation fails
-    if (DeviceTypeSet_ && manualDeviceSelection) {
-      // Print all CHIP environment variables for debugging
-      std::cerr << "All CHIP environment variables:" << std::endl;
-      extern char **environ;
-      if (environ) {
-        for (int i = 0; environ[i] != nullptr; i++) {
-          std::string env_var = environ[i];
-          if (env_var.find("CHIP_") == 0) {
-            std::cerr << "  " << env_var << std::endl;
-          }
-        }
-      }
-      std::cerr << "===============================================" << std::endl;
-      
+    if (DeviceTypeSet_ && (PlatformIdxSet_ || DeviceIdxSet_)) {
       CHIPERR_LOG_AND_THROW(
           "CHIP_DEVICE_TYPE cannot be used in conjunction with CHIP_PLATFORM or CHIP_DEVICE. "
           "Use either device type filtering (CHIP_DEVICE_TYPE) or manual device selection "
