@@ -2100,10 +2100,6 @@ protected:
   /// Context to which device belongs to
   chipstar::Context *ChipContext_;
 
-  /** Keep track of what was the last event submitted to this queue. Required
-   * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  std::shared_ptr<chipstar::Event> LastEvent_ = nullptr;
-
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
   std::shared_ptr<chipstar::Event>
@@ -2177,19 +2173,6 @@ public:
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
-  virtual std::shared_ptr<chipstar::Event> getLastEvent() {
-    LOCK(LastEventMtx); // Queue::LastEvent_
-    if (LastEvent_)
-      LastEvent_->isDeletedSanityCheck();
-    return LastEvent_;
-  }
-
-  virtual std::shared_ptr<chipstar::Event> getLastEventNoLock() {
-    if (LastEvent_)
-      LastEvent_->isDeletedSanityCheck();
-    return LastEvent_;
-  }
-
   /**
    * @brief Construct a new Queue object
    *
@@ -2212,8 +2195,6 @@ public:
   virtual ~Queue();
 
   chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void
-  updateLastEvent(const std::shared_ptr<chipstar::Event> &NewEvent);
 
   /**
    * @brief Blocking memory copy
@@ -2336,16 +2317,7 @@ public:
    * @return false
    */
 
-  bool query() {
-    if (!LastEvent_)
-      return true;
-
-    if (LastEvent_->updateFinishStatus(false))
-      if (LastEvent_->isFinished())
-        return true;
-
-    return false;
-  };
+  virtual bool query() = 0;
 
   /**
    * @brief Insert an event into this queue

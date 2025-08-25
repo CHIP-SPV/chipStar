@@ -1548,7 +1548,6 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
 
-  updateLastEvent(Cb->CallbackCompleted);
 
   // Now the CB can start executing in the background:
   clSetUserEventStatus(
@@ -1574,7 +1573,6 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
       std::static_pointer_cast<CHIPEventOpenCL>(MarkerEvent)->getNativePtr());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
   MarkerEvent->Msg = "marker";
-  updateLastEvent(MarkerEvent);
   return MarkerEvent;
 }
 
@@ -1643,7 +1641,6 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   }
 
   LaunchEvent->Msg = "KernelLaunch";
-  updateLastEvent(LaunchEvent);
   return LaunchEvent;
 }
 
@@ -1826,14 +1823,12 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     }
     } // switch (Ctx->getAllocStrategy())
   }
-  updateLastEvent(Event);
   return Event;
 }
 
 void CHIPQueueOpenCL::finish() {
   clStatus = get()->finish();
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
-  this->LastEvent_ = nullptr;
 }
 
 std::shared_ptr<chipstar::Event>
