@@ -23,11 +23,11 @@ Setting this value to `debug` will print information coming from the chipStar fu
 Settings this value to `trace` will print `debug`, as well as debug infomarmation from the backend implementation itself such as results from low-level Level Zero API calls.
 
 #### CHIP_DEVICE_TYPE
-Selects which type of device to use. 
+Selects which type of device to use. Cannot be used in conjunction with CHIP_PLATFORM and CHIP_DEVICE (manual device selection).
 
 Possible values for Level 0 backend are: `gpu` and `fpga`. Leaving it empty uses all available devices.
 
-Possible values for OpenCL backend are: `gpu`, `cpu` , `accel`. Leaving it empty uses GPU devices.
+Possible values for OpenCL backend are: `gpu`, `cpu`, `accel`, `pocl`. Leaving it empty uses GPU devices.
 
 #### HIP_PLATFORM
 

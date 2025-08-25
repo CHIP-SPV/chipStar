@@ -99,6 +99,28 @@ do
   esac
 done
 
+# Function to detect CMake generator and set build tool
+detect_build_tool() {
+  if [ -f "CMakeCache.txt" ]; then
+    generator=$(grep "CMAKE_GENERATOR:INTERNAL=" CMakeCache.txt | cut -d'=' -f2)
+    case "$generator" in
+      "Ninja")
+        BUILD_TOOL="ninja"
+        ;;
+      "Unix Makefiles")
+        BUILD_TOOL="make"
+        ;;
+      *)
+        echo "Warning: Unknown generator '$generator', defaulting to make"
+        BUILD_TOOL="make"
+        ;;
+    esac
+  else
+    echo "Warning: CMakeCache.txt not found, defaulting to make"
+    BUILD_TOOL="make"
+  fi
+  echo "Detected CMake generator: $generator, using build tool: $BUILD_TOOL"
+}
 
 # Print out the arguments
 echo "build_type  = ${build_type}"
@@ -126,8 +148,12 @@ if [ "$host" = "salami" ]; then
   module load $CLANG
 else
   module use ~/modulefiles
-  module load oneapi/2024.1.0 $CLANG opencl/dgpu 
+  module load oneapi/2024 $CLANG opencl/dgpu 
+  module list
 fi
+
+unset CHIP_PLATFORM
+unset CHIP_DEVICE
 
 output=$(clinfo -l 2>&1 | grep "Platform #0")
 echo $output
@@ -145,6 +171,7 @@ fi
 if [ $skip_build ]; then
   echo "Skipping build step"
   cd build
+  detect_build_tool
 else
   if [ "$host" = "salami" ]; then
     CHIP_OPTIONS="-DCHIP_MALI_GPU_WORKAROUNDS=ON -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON"
@@ -167,7 +194,9 @@ else
 
   echo "building with $CLANG"
   cmake ../ -DCMAKE_BUILD_TYPE="$build_type"  ${CHIP_OPTIONS}
-  make all build_tests install -j $(nproc) #&> /dev/null
+  detect_build_tool
+  $BUILD_TOOL all install -j $(nproc) #&> /dev/null
+  $BUILD_TOOL build_tests install -j $(nproc) #&> /dev/null
   echo "chipStar build complete." 
 fi
 
@@ -183,7 +212,7 @@ run_tests() {
     local device=$1
     local backend=$2
     echo "begin ${device}_${backend}_failed_tests"
-    ../scripts/check.py ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries --modules=on | tee ${device}_${backend}_make_check_result.txt
+    ../scripts/check.py ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries | tee ${device}_${backend}_make_check_result.txt
     echo "end ${device}_${backend}_failed_tests"
 }
 
@@ -200,17 +229,30 @@ function check_tests {
 
 set +e # disable exit on error
 
+module unload opencl level-zero
+module load opencl/igpu
+
 # Run tests for different configurations
 run_tests igpu opencl
+module unload opencl/igpu
 if [ "$host" = "salami" ]; then
   check_tests igpu_opencl_make_check_result.txt
   igpu_opencl_exit_code=$?
   exit $igpu_opencl_exit_code
 fi
+
+module load level-zero/igpu
 run_tests igpu level0
+module unload level-zero/igpu
+module load level-zero/dgpu
 run_tests dgpu level0
+module unload level-zero/dgpu
+module load opencl/dgpu
 run_tests dgpu opencl
+module unload opencl/dgpu
+module load opencl/cpu
 run_tests cpu opencl
+module unload opencl/cpu
 
 check_tests igpu_opencl_make_check_result.txt
 igpu_opencl_exit_code=$?

@@ -196,41 +196,42 @@ jobs:
   chipstar:
     needs: [pre_job, llvm, spirv-tools, pocl]
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
-    name: Build and test chipStar on ${{ matrix.backend }} ${{matrix.pocl-version }} (llvm-${{ matrix.llvm-version }})
+    name: Build and test chipStar on ${{ matrix.backend }}${{ matrix.pocl-version && format(' {0}', matrix.pocl-version) || '' }} (llvm-${{ matrix.llvm-version }})
     runs-on: ubuntu-22.04
     env:
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' || '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' }}
     strategy:
       matrix:
-        pocl-version: [4, 5, 6]
-        llvm-version: [16, 17, 18]
-        backend: [pocl, intel]
-        exclude:
+        include:
+          # PoCL backend with specific version combinations
           - backend: pocl
             pocl-version: 4
+            llvm-version: 16
+          - backend: pocl
+            pocl-version: 5
+            llvm-version: 16
+          - backend: pocl
+            pocl-version: 5
             llvm-version: 17
           - backend: pocl
-            pocl-version: 4
-            llvm-version: 18
-          - backend: pocl
-            pocl-version: 5
-            llvm-version: 18
-          - backend: intel
-            pocl-version: 4
-          - backend: intel
-            pocl-version: 5
-          - backend: intel
             pocl-version: 6
+            llvm-version: 16
+          - backend: pocl
+            pocl-version: 6
+            llvm-version: 17
+          - backend: pocl
+            pocl-version: 6
+            llvm-version: 18
       fail-fast: false
     steps:
       - name: Install spirv-tools & headers
         run: sudo apt install -y spirv-tools spirv-headers
       - name: Set OPENCL_ENV for intel
         if: matrix.backend == 'intel'
-        run: echo "OPENCL_ENV=LD_LIBRARY_PATH=$(dirname $(find /opt/intel -name libsvml.so)):$(dirname $(find /opt/intel/oneapi/tbb -name libtbb.so* -print -quit)):$LD_LIBRARY_PATH OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd)" >> $GITHUB_ENV
-      - name: Set OPENCL_ENV for other
+        run: echo "OPENCL_ENV=LD_LIBRARY_PATH=$(dirname $(find /opt/intel -name libsvml.so)):$(dirname $(find /opt/intel/oneapi/tbb -name libtbb.so* -print -quit)):$LD_LIBRARY_PATH OCL_ICD_FILENAMES=$(cat /etc/OpenCL/vendors/intel64.icd) CHIP_DEVICE_TYPE=cpu POCL_KERNEL_CACHE=0" >> $GITHUB_ENV
+      - name: Set OPENCL_ENV for pocl
         if: matrix.backend == 'pocl'
-        run: echo "OPENCL_ENV=OPENCL_VENDOR_PATH=$HOME/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}/etc/OpenCL/vendors/" >> $GITHUB_ENV
+        run: echo "OPENCL_ENV=OPENCL_VENDOR_PATH=$HOME/opt/pocl/${{ matrix.pocl-version }}.0-${{ matrix.llvm-version }}/etc/OpenCL/vendors/ CHIP_DEVICE_TYPE=pocl POCL_KERNEL_CACHE=0" >> $GITHUB_ENV
       - uses: actions/checkout@v3
         with:
           submodules: true
@@ -271,10 +272,19 @@ jobs:
       - run: echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
         if: ${{ matrix.backend == 'intel' }}
       - run: sudo add-apt-repository ppa:ocl-icd/ppa
-        if: ${{ matrix.backend == 'pocl' }}
+        if: ${{ matrix.backend == 'pocl' || matrix.backend == 'intel' }}
       - run: sudo apt update
-      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev ${{ matrix.backend == 'intel' && 'intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl' || 'ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev' }}
+      - run: sudo apt install -y python3-dev libpython3-dev build-essential cmake git pkg-config make ninja-build libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev ${{ matrix.backend == 'intel' && 'intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-opencl ocl-icd-opencl-dev' || 'ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev' }}
       - run: ${{ env.OPENCL_ENV }} clinfo
+      - name: Verify OpenCL platforms
+        run: |
+          echo "Checking OpenCL platforms..."
+          ${{ env.OPENCL_ENV }} clinfo | grep -E "(Platform Name|Device Name|Number of platforms|Number of devices)" || true
+          if [ "${{ matrix.backend }}" = "intel" ]; then
+            echo "Expected to see Intel OpenCL platform and at least one device"
+          else
+            echo "Expected to see PoCL OpenCL platform and at least one device"
+          fi
       - run: mkdir -p build
       - name: CMake
         run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOME/opt/SPIRV-Tools/v2023.2 -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON
@@ -283,13 +293,13 @@ jobs:
         run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4
         working-directory: build
       - name: Build Tests
-        run: ${{ env.OPENCL_ENV }} CHIP_DEVICE_TYPE=cpu cmake --build . --parallel 4 --target build_tests
+        run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4 --target build_tests
         working-directory: build
       - name: Test OpenCL
-        run: ${{ env.OPENCL_ENV }} POCL_KERNEL_CACHE=0 CHIP_DEVICE_TYPE=cpu ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
+        run: ${{ env.OPENCL_ENV }} ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
         working-directory: build
       - uses: actions/upload-artifact@v4
         if: failure()
-        with:
+        with: 
           name: build-and-check-${{ matrix.backend }}-pocl-${{ matrix.pocl-version }}-llvm-${{ matrix.llvm-version }}
           path: build/Testing/Temporary/LastTest.log

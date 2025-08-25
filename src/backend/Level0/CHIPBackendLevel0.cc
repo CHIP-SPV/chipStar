@@ -1948,8 +1948,16 @@ void CHIPBackendLevel0::initializeImpl() {
   } else if (ChipEnvVars.getDevice().getType() == DeviceType::Default) {
     // For 'default' pick all devices of any type.
     AnyDeviceType = true;
+  } else if (ChipEnvVars.getDevice().getType() == DeviceType::POCL) {
+    CHIPERR_LOG_AND_THROW("CHIP_DEVICE_TYPE=pocl is only supported with OpenCL backend, not Level0",
+                          hipErrorInitializationError);
+  } else if (ChipEnvVars.getDevice().getType() == DeviceType::CPU || 
+             ChipEnvVars.getDevice().getType() == DeviceType::Accelerator) {
+    CHIPERR_LOG_AND_THROW("CHIP_DEVICE_TYPE=" + std::string(ChipEnvVars.getDevice().str()) + 
+                          " is not supported with Level0 backend. Use gpu or fpga.",
+                          hipErrorInitializationError);
   } else {
-    CHIPERR_LOG_AND_THROW("CHIP_DEVICE_TYPE must be either gpu or fpga",
+    CHIPERR_LOG_AND_THROW("CHIP_DEVICE_TYPE must be either gpu or fpga for Level0 backend",
                           hipErrorInitializationError);
   }
   std::vector<ze_driver_handle_t> ZeDrivers;
