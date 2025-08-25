@@ -91,10 +91,10 @@ endforeach()
 
 # =============================================================================
 # chipStar CMAKE DEPENDENCIES
-if(NOT DEFINED OpenCL_LIBRARY)
-  message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
-endif()
+# if(NOT DEFINED OpenCL_LIBRARY)
+#   message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
+#   find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+# endif()
 
 if(OpenCL_LIBRARY)
   get_filename_component(OpenCL_DIR ${OpenCL_LIBRARY} DIRECTORY CACHE)
@@ -186,11 +186,11 @@ set(CHIP_SRC
   src/SPIRVFuncInfo.cc
 )
 
-if(OpenCL_LIBRARY)
-  list(APPEND CHIP_SRC
-    src/backend/OpenCL/CHIPBackendOpenCL.cc
-    src/backend/OpenCL/MemoryManager.cc)
-endif()
+# if(OpenCL_LIBRARY)
+#   list(APPEND CHIP_SRC
+#     src/backend/OpenCL/CHIPBackendOpenCL.cc
+#     src/backend/OpenCL/MemoryManager.cc)
+# endif()
 
 if(LevelZero_LIBRARY)
   list(APPEND CHIP_SRC
@@ -376,10 +376,10 @@ endif()
 
 set(CHIP_INTERFACE_LIBS ${PTHREAD_LIBRARY})
 
-if(OpenCL_LIBRARY)
-  set(HAVE_OPENCL 1)
-  list(PREPEND CHIP_INTERFACE_LIBS ${OpenCL_LIBRARY})
-endif()
+# if(OpenCL_LIBRARY)
+#   set(HAVE_OPENCL 1)
+#   list(PREPEND CHIP_INTERFACE_LIBS ${OpenCL_LIBRARY})
+# endif()
 
 if(LevelZero_LIBRARY)
   set(HAVE_LEVEL0 1)
@@ -417,7 +417,7 @@ file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
 add_subdirectory(bin)
 
 add_subdirectory(tools/spirv-extractor)
-add_subdirectory(tools/opencl-spirv-compiler)
+# add_subdirectory(tools/opencl-spirv-compiler)
 if (CHIP_SKIP_TESTS_WITH_DOUBLES)
   set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirv-extractor" "--check-for-doubles")
   else()
@@ -607,10 +607,10 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
   "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
 
-if(OpenCL_LIBRARY)
-  target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
-  target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
-endif()
+# if(OpenCL_LIBRARY)
+#   target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
+#   target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
+# endif()
 
 if(LevelZero_LIBRARY)
   include_directories(CHIP PUBLIC ${LevelZeroInclude_DIR})
@@ -924,9 +924,9 @@ endif()
 
 # Short Summary 
 # print if Level Zero or OpenCL are enabbled
-if(OpenCL_LIBRARY)
-  message(STATUS "OpenCL is enabled: ${OpenCL_LIBRARY}")
-endif()
+# if(OpenCL_LIBRARY)
+#   message(STATUS "OpenCL is enabled: ${OpenCL_LIBRARY}")
+# endif()
 
 if(LevelZero_LIBRARY)
   message(STATUS "Level Zero is enabled: ${LevelZero_LIBRARY}")
