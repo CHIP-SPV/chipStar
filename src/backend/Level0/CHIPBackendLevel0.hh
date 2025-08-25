@@ -338,6 +338,8 @@ protected:
   // Ensure pattern buffer is allocated (lazy initialization)
   void ensurePatternBufferAllocated();
 
+  virtual bool query() override;
+
   // In case of interop queue may or may not be owned by chipStar
   // Ownership indicator helps during teardown
   bool zeCmdQOwnership_{true};

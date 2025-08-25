@@ -881,10 +881,6 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
     // Skip finish() entirely during shutdown to prevent segfaults
     // The EventMonitor should handle shutdown gracefully without queue sync
   }
-  updateLastEvent(nullptr); // Just in case that unique_ptr destructor calls
-                            // this, the generic ~Queue() (which calls
-                            // updateLastEvent(nullptr)) hasn't been called yet,
-                            // and the event monitor ends up waiting forever.
 
   // The application must not call this function from
   // simultaneous threads with the same command queue handle.
@@ -1808,11 +1804,6 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 void CHIPQueueLevel0::finish() {
-  LOCK(LastEventMtx); // Queue::LastEvent_
-  // auto LastEvent = getLastEventNoLock();
-  // if (LastEvent)
-  //   LastEvent->wait();
-
   if (ZeFenceLast_) {
     auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
     LOCK(BackendLz->EventsMtx);
@@ -1842,7 +1833,6 @@ void CHIPQueueLevel0::finish() {
                                       "zeCommandQueueSynchronize timeout out");
   }
 
-  this->LastEvent_ = nullptr;
   return;
 }
 
@@ -1866,12 +1856,6 @@ void CHIPQueueLevel0::finishNoLock() {
 }
 
 void CHIPQueueLevel0::finishWithoutEventsMtx() {
-  // Wait for last event first
-  LOCK(LastEventMtx); // Queue::LastEvent_
-  auto LastEvent = getLastEventNoLock();
-  if (LastEvent)
-    LastEvent->wait();
-
   // Handle the fence cleanup (EventsMtx is already held)
   if (ZeFenceLast_) {
     finishNoLock();
@@ -1886,13 +1870,30 @@ void CHIPQueueLevel0::finishWithoutEventsMtx() {
                                       "zeCommandQueueSynchronize timeout out");
   }
 
-  this->LastEvent_ = nullptr;
   return;
+}
+
+bool CHIPQueueLevel0::query() {
+  // create an event
+  auto Event = static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+      ChipContext_, chipstar::EventFlags(), "query");
+  // enqueue a marker signal
+  auto CommandList = this->getCmdListImm();
+  zeStatus = zeCommandListAppendSignalEvent(CommandList, std::static_pointer_cast<CHIPEventLevel0>(Event)->peek());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+  // query the event
+  zeStatus = zeEventQueryStatus(std::static_pointer_cast<CHIPEventLevel0>(Event)->peek());
+  if (zeStatus == ZE_RESULT_NOT_READY) {
+    return false;
+  } else if (zeStatus == ZE_RESULT_SUCCESS) {
+    return true;
+  } else {
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventQueryStatus);
+  }
 }
 
 void CHIPQueueLevel0::executeCommandList(
     Borrowed<FencedCmdList> &CmdList, std::shared_ptr<chipstar::Event> Event) {
-  updateLastEvent(Event);
 
   CmdList->execute(getCmdQueue()); // creates fence
   ZeFenceLast_ = CmdList->getFence();
@@ -1906,7 +1907,6 @@ void CHIPQueueLevel0::executeCommandList(
 
 void CHIPQueueLevel0::executeCommandList(
     ze_command_list_handle_t &CmdList, std::shared_ptr<chipstar::Event> Event) {
-  updateLastEvent(Event);
   Backend->trackEvent(Event);
 }
 
