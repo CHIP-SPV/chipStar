@@ -728,11 +728,11 @@ void CHIPEventMonitorLevel0::checkEvents() {
   }
   
   // Remove events from the vector in reverse order to maintain correct indices
-  // for (auto it = EventsToDelete.rbegin(); it != EventsToDelete.rend(); ++it) {
-  //   if (*it < Backend->Events.size()) {
-  //     Backend->Events.erase(Backend->Events.begin() + *it);
-  //   }
-  // }
+  for (auto it = EventsToDelete.rbegin(); it != EventsToDelete.rend(); ++it) {
+    if (*it < Backend->Events.size()) {
+      Backend->Events.erase(Backend->Events.begin() + *it);
+    }
+  }
 }
 
 void CHIPEventMonitorLevel0::checkExit() {
