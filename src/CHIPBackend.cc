@@ -394,6 +394,8 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
   Queue->finish();
   DeviceVariablesAllocated_ = true;
 
+  Ctx->free(VarInfoBufD);
+  
   return hipSuccess;
 }
 
