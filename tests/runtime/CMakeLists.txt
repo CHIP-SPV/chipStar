@@ -108,8 +108,8 @@ add_hip_runtime_test(CatchMemLeak1.hip)
 add_hip_runtime_test(TestBufferDevAddr.hip)
 add_hip_runtime_test(Test887.hip)
 
-add_hip_runtime_test(TestEnvVars.hip)
-set_tests_properties(TestEnvVars PROPERTIES
+add_shell_test(../run_testenvvars.sh)
+set_tests_properties(run_testenvvars PROPERTIES
   TIMEOUT 60)
 
 add_hip_runtime_test(TestIGCCaching.hip)
