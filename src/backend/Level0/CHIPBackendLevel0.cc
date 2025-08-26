@@ -1805,10 +1805,10 @@ LZEventPool::~LZEventPool() {
   if (Backend->Events.size())
     logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
             "destruction");
-  // while (Events_.size()) {
-  //   delete Events_.top();
-  //   Events_.pop();
-  // }
+  while (Events_.size()) {
+    delete Events_.top();
+    Events_.pop();
+  }
 
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
