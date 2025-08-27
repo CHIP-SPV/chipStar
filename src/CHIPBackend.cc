@@ -1260,27 +1260,35 @@ void chipstar::Backend::trackEvent(
 }
 
 void chipstar::Backend::waitForThreadExit() {
-  // Check if any threads called HIP APIs
-  usleep(100000);
-  int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
-  
-  if (activeThreads <= 1) {
-    // Only main thread or no threads called HIP APIs
-    logDebug("waitForThreadExit: No additional threads detected (count: {})", activeThreads);
-    return;
-  }
-  
-  // Wait for threads to exit by polling the counter
-  logDebug("waitForThreadExit: Waiting for {} threads to exit", activeThreads - 1);
-  
-  for (int i = 0; i < 50; i++) { // Max 5 seconds
-    pthread_yield();
-    usleep(100000); // 100ms per iteration
-    
-    activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
-    if (activeThreads <= 1) {
-      logDebug("waitForThreadExit: All threads exited (count: {})", activeThreads);
-      return;
+  // first, we must delay the main thread so that at least all other threads
+  // have gotten past
+  // libCHIP.so!chipstar::Device::getPerThreadDefaultQueueNoLock
+  // libCHIP.so!chipstar::Backend::findQueue
+  // libCHIP.so!hipMemcpyAsyncInternal
+  // libCHIP.so!hipMemcpyAsync
+  pthread_yield();
+  unsigned long long int sleepMicroSeconds = 700000;
+  usleep(sleepMicroSeconds);
+
+  // go through all devices checking their NumQueuesAlive until all they're all
+  // 1 or 0 (0 would indicate that hipStreamPerThread was never used and 1 would
+  // indicate main thread used hipStreamPerThread)
+  bool AllThreadsExited = false;
+  while (!AllThreadsExited) {
+    AllThreadsExited = true;
+    for (auto &Dev : getDevices()) {
+      if (Dev->NumQueuesAlive.load(std::memory_order_relaxed) > 1) {
+        AllThreadsExited = false;
+        break;
+      }
+    }
+
+    // logDebug and wait for 1 second
+    if (!AllThreadsExited) {
+      logWarn("Waiting for all per-thread queues to exit... This condition "
+              "would indicate that the main thread didn't call "
+              "join()");
+      sleep(1);
     }
   }
   
