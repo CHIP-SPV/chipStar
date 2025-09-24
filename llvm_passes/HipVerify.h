@@ -49,13 +49,14 @@ public:
   // Clear all collected results (call at start of pipeline)
   static void clearResults() { AllResults.clear(); }
 
+  static bool isVerificationEnabled();
+
 private:
   std::string PassName;
   bool PrintSummary;
   
   // Verification methods
   static std::string getVerificationMode();
-  bool isVerificationEnabled();
   bool runIRVerification(Module &M, VerificationResult &result);
   bool runSPIRVConversion(Module &M, std::vector<uint32_t> &spirvBinary, VerificationResult &result);
   bool runSPIRVValidation(const std::vector<uint32_t> &spirvBinary, VerificationResult &result);
