@@ -100,24 +100,28 @@ PreservedAnalyses HipVerifyPass::run(Module &M, ModuleAnalysisManager &AM) {
 std::string HipVerifyPass::getVerificationMode() {
   // Check environment variable
   const char* env = std::getenv("CHIP_VERIFY_MODE");
-  if (!env) {
-    // Default to "failures" if not specified
-    return "failures";
-  }
-  
+
+  // Default to "off" due to pathological compilation time issue
+  // (CHIP-SPV/chipStar#1047).
+  const std::string DefaultMode = "off";
+
+  if (!env)
+    return DefaultMode;
+
   std::string value(env);
   std::transform(value.begin(), value.end(), value.begin(), ::tolower);
-  
-  if (value == "off" || value == "0" || value == "false" || value == "no") {
+
+  if (value == "off" || value == "0" || value == "false" || value == "no")
     return "off";
-  } else if (value == "all" || value == "always" || value == "1" || value == "true" || value == "yes") {
+
+  if (value == "all" || value == "always" || value == "1" || value == "true" ||
+      value == "yes")
     return "all";
-  } else if (value == "failures" || value == "fail" || value == "errors") {
+
+  if (value == "failures" || value == "fail" || value == "errors")
     return "failures";
-  } else {
-    // Default to "failures" for unknown values
-    return "failures";
-  }
+
+  return DefaultMode;
 }
 
 bool HipVerifyPass::isVerificationEnabled() {

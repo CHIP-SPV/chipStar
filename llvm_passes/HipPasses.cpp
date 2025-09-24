@@ -104,12 +104,16 @@ public:
 
 // Insert a helper that adds a pass with HipVerify validation
 template <typename PassT>
-static void addPassWithVerification(ModulePassManager &MPM, PassT &&P,
-                                    const std::string &Name) {
+static void
+addPassWithVerification(ModulePassManager &MPM, PassT &&P,
+                        const std::string &Name,
+                        bool Verify = HipVerifyPass::isVerificationEnabled()) {
   MPM.addPass(std::forward<PassT>(P));
-  // Use HipVerify pass with the name of the pass that just ran (no summary printing)
-  // This will always run even if the previous pass failed
-  MPM.addPass(HipVerifyPass(Name, false));
+  if (Verify) {
+    // Use HipVerify pass with the name of the pass that just ran (no summary printing)
+    // This will always run even if the previous pass failed
+    MPM.addPass(HipVerifyPass(Name, false));
+  }
 }
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
