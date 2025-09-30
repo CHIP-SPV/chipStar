@@ -350,6 +350,10 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
       Backend->createEventShared(this->ChipContext_, chipstar::EventFlags(),
                                  "recordEvent:timestampMemcpy"));
 
+  // Mark that this event will be signaled by the upcoming memcpy operation so
+  // that lifetime checks treating "SignalEnqueued_" are satisfied.
+  TimestampMemcpyCompleteLz->SignalEnqueued_ = true;
+
   auto [EventsToWaitOn, EventLocks] =
       addDependenciesQueueSync(TimestampWriteCompleteLz);
   assert(TimestampWriteCompleteLz->SignalEnqueued_ == true);
@@ -382,6 +386,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   // Prevent these events from getting collection
   TimestampMemcpyCompleteLz->addDependency(TimestampWriteCompleteLz);
   Backend->trackEvent(TimestampWriteCompleteLz);
+  Backend->trackEvent(TimestampMemcpyCompleteLz);
 
   zeStatus = zeCommandListAppendBarrier(CommandList, ChipEventLz->get(), 1,
                                         &TimestampMemcpyCompleteLz->get());
@@ -1805,10 +1810,10 @@ LZEventPool::~LZEventPool() {
   if (Backend->Events.size())
     logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
             "destruction");
-  // while (Events_.size()) {
-  //   delete Events_.top();
-  //   Events_.pop();
-  // }
+  while (Events_.size()) {
+    delete Events_.top();
+    Events_.pop();
+  }
 
   // The application must not call this function from
   // simultaneous threads with the same event pool handle.
