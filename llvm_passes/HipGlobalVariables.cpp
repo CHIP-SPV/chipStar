@@ -436,7 +436,7 @@ static GlobalVariable *emitIndirectGlobalVariable(Module &M,
   auto *NewGVarTy = PointerType::get(GVar->getValueType(),
                                      GVar->getType()->getAddressSpace());
   GlobalVariable *NewGVar = new GlobalVariable(
-      M, NewGVarTy, GVar->isConstant(), GVar->getLinkage(),
+      M, NewGVarTy, /*isConstant=*/false, GVar->getLinkage(),
       Constant::getNullValue(NewGVarTy), NewGVarName, (GlobalVariable *)nullptr,
       GVar->getThreadLocalMode(), SpirvCrossWorkGroupAS,
       GVar->isExternallyInitialized());
