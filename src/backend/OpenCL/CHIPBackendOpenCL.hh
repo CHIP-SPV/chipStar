@@ -247,7 +247,8 @@ public:
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {
     logTrace("CHIPContextOpenCL::~CHIPContextOpenCL");
-    LOCK(ContextMtx); // Ensure exclusive access during destruction
+    // No locks needed during destruction - we're in single-threaded cleanup
+    // Avoiding locks prevents lock order violations with Device destructor
     MemManager_.clear();
     delete ChipDevice_;
     ChipDevice_ = nullptr;
