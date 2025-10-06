@@ -1814,27 +1814,6 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 void CHIPQueueLevel0::finish() {
-  if (ZeFenceLast_) {
-    auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
-    LOCK(BackendLz->EventsMtx);
-    finishNoLock();
-    return;
-  }
-
-  // Insert a barrier to ensure all commands are executed
-  LOCK(CommandListMtx);
-  auto CommandList = this->getCmdListImm();
-  zeStatus = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
-  // host wait for barrier to complete
-  zeStatus = zeCommandListHostSynchronize(CommandList, UINT64_MAX);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
-  // Now same for the copy command list
-  CommandList = this->getCmdListImmCopy();
-  zeStatus = zeCommandListAppendBarrier(CommandList, nullptr, 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
-  zeStatus = zeCommandListHostSynchronize(CommandList, UINT64_MAX);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
 
   if (zeCmdQOwnership_) {
     zeStatus = zeCommandQueueSynchronize(ZeCmdQ_,
@@ -1842,6 +1821,13 @@ void CHIPQueueLevel0::finish() {
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
                                       "zeCommandQueueSynchronize timeout out");
   }
+
+  zeStatus = zeCommandListHostSynchronize(ZeCmdListImmCopy_, UINT64_MAX);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
+
+  // host wait for command lists to complete
+  zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, UINT64_MAX);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
 
   return;
 }
