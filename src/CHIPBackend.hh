@@ -722,6 +722,7 @@ public:
   void releaseDependencies();
   chipstar::EventFlags getFlags() { return Flags_; }
   std::mutex EventMtx;
+  std::mutex DependsOnListMtx; // Separate mutex for DependsOnList to avoid recursive locking
   std::string Msg;
   // Optionally provide a field for origin of this event
   /**
