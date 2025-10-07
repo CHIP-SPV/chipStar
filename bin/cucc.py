@@ -135,6 +135,7 @@ def prepare_argparser() -> argparse.ArgumentParser:
 
     # Add new arguments for relocatable device code and device compilation
     parser.add_argument("--relocatable-device-code", choices=['true', 'false'])
+    parser.add_argument("-rdc", choices=['true', 'false'])
     parser.add_argument("--device-c", action='store_true')
     parser.add_argument("-dc", action='store_true')
 
