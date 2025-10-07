@@ -142,6 +142,29 @@ void CHIPUninitializeCallOnce() {
       logInfo("Unloaded module count: {}", getSPVRegister().getNumSources());
     }
 
+    // Synchronize all devices before cleanup to ensure any pending operations
+    // (especially JIT compilation) complete before tearing down resources
+    for (auto Dev : Backend->getDevices()) {
+      // Sync all user queues
+      {
+        std::lock_guard<std::mutex> Lock(Dev->QueueAddRemoveMtx);
+        for (auto Q : Dev->getQueuesNoLock()) {
+          Q->finish();
+        }
+      }
+      // Sync default queues
+      auto LegacyQueue = Dev->getLegacyDefaultQueue();
+      if (LegacyQueue) {
+        LegacyQueue->finish();
+      }
+      if (Dev->isPerThreadStreamUsed()) {
+        auto PerThreadQueue = Dev->getPerThreadDefaultQueue();
+        if (PerThreadQueue) {
+          PerThreadQueue->finish();
+        }
+      }
+    }
+
     // call deallocateDeviceVariables on all devices.
 
     for (auto Dev : Backend->getDevices()) {
