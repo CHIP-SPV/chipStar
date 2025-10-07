@@ -25,3 +25,4 @@
 
 add_hip_test(TestHiprtcCPPKernels.cc)
 add_hip_test(TestHiprtcOptions.cc)
+add_hip_test(TestShellMetacharacters.cc)
