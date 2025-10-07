@@ -1810,9 +1810,10 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
 };
 
 LZEventPool::~LZEventPool() {
-  if (Backend->Events.size())
-    logWarn("CHIPEventLevel0 objects still exist at the time of EventPool "
-            "destruction");
+  // By this point, all shared_ptr references should have been cleared by
+  // CHIPContextLevel0::~CHIPContextLevel0(), which means all events should
+  // have been returned to the pool via the custom deleter.
+  // Now we can safely delete all events in the stack.
   while (Events_.size()) {
     delete Events_.top();
     Events_.pop();
@@ -2121,15 +2122,18 @@ CHIPContextLevel0::~CHIPContextLevel0() {
   else
     logInfo("Events reuse: N/A (No events requested)");
 
-  // delete all event pools
-  for (LZEventPool *Pool : EventPools_)
-    delete Pool;
-
+  // CRITICAL: Clear all shared_ptr event references BEFORE deleting event pools
+  // This ensures all events are returned to their pools via the custom deleter
+  // before the pools are destroyed, preventing double-free errors
   if (Backend->Events.size()) {
     logWarn("Backend->Events still exist at the time of Context "
             "destruction...");
-    Backend->Events.clear();
+    Backend->Events.clear();  // This releases all shared_ptr, triggering returnEvent()
   }
+
+  // Now it's safe to delete all event pools - all events should be back in the stack
+  for (LZEventPool *Pool : EventPools_)
+    delete Pool;
 
   EventPools_.clear();
 
