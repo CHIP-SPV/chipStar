@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2021-22 chipStar developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#include "TestCommon.hh"
+
+static constexpr auto SourceUsingMacro = R"---(
+struct AlignedStruct {
+  char data[16];
+};
+
+template<int Bytes>
+struct AlignTest {
+  ALIGN_STRUCT_MACRO(Bytes, AlignedStruct) s;
+};
+
+__global__ void testAlignment(int *result) {
+  AlignTest<32> test;
+  *result = alignof(decltype(test.s));
+}
+)---";
+
+int main() {
+  std::cerr << "Testing shell metacharacter escaping in build options\n";
+
+  auto Program = HiprtcAssertCreateProgram(SourceUsingMacro);
+
+  std::vector<const char *> Options = {
+    "-DALIGN_STRUCT_MACRO(bytes,struct_defn)=struct_defn __attribute__((aligned(bytes)))"
+  };
+
+  auto Code = HiprtcAssertCompileProgram(Program, Options);
+  
+  HIPRTC_CHECK(hiprtcDestroyProgram(&Program));
+
+  std::cerr << "Successfully compiled with shell metacharacters in build options\n";
+
+  return 0;
+}
+
