@@ -257,11 +257,15 @@ void chipstar::Event::addDependency(
   isDeletedSanityCheck();
   logDebug("Event {} Msg {} now depends on event {} msg:{}", (void *)this, Msg,
            (void *)Event.get(), Event->Msg);
-  DependsOnList.push_back(Event);
+  {
+    LOCK(DependsOnListMtx);
+    DependsOnList.push_back(Event);
+  }
 }
 
 void chipstar::Event::releaseDependencies() {
   isDeletedSanityCheck();
+  LOCK(DependsOnListMtx);
   for (auto &Dep : DependsOnList)
     logDebug("Event {} msg: {} no longer depends on event {}", (void *)this,
              Msg, (void *)Dep.get(), Dep->Msg);

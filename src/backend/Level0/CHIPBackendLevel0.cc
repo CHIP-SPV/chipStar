@@ -222,7 +222,10 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 void CHIPEventLevel0::reset() {
   logTrace("CHIPEventLevel0::reset() {} msg: {} handle: {}", (void *)this, Msg,
            (void *)Event_);
-  DependsOnList.clear();
+  {
+    LOCK(DependsOnListMtx);
+    DependsOnList.clear();
+  }
   zeStatus = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostReset);
   TrackCalled_ = false;
