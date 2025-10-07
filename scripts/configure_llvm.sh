@@ -46,7 +46,7 @@ done
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path> [-N]"
-  echo "--version: LLVM version 17, 18, 19 or 20"
+  echo "--version: LLVM version 17, 18, 19, 20 or 21"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
   echo "--only-necessary-spirv-exts: on or off (default: off)"
@@ -62,8 +62,8 @@ fi
 
 # validate version argument
 if [ "$VERSION" != "17" ] && [ "$VERSION" != "18" ] && [ "$VERSION" != "19" ] \
-       && [ "$VERSION" != "20" ]; then
-  echo "Invalid version. Must be 17, 18, 19 or 20."
+       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ]; then
+  echo "Invalid version. Must be 17, 18, 19, 20 or 21."
   exit 1
 fi
 
