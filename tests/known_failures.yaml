@@ -505,14 +505,3 @@ x1921.*b0n0: # sunspot
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
-
-LLVM_MAJOR_VERSION_20:
-  ALL:
-    Unit_hipGraphMemcpyNodeSetParamsToSymbol_Functional: 'Fails with LLVM 20'
-    hipTestDeviceSymbol: 'Fails with LLVM 20'
-    hipConstantTestDeviceSymbol: 'Fails with LLVM 20'
-    hipTestSymbolReset: 'Fails with LLVM 20'
-    cuda-convolutionSeparable: 'Fails with LLVM 20'
-    cuda-binomialoptions: 'Fails with LLVM 20'
-    cuda-FDTD3d: 'Fails with LLVM 20'
-    cuda-qrng: 'Fails with LLVM 20'
