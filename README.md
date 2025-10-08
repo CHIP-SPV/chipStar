@@ -54,11 +54,11 @@ Release notes for [1.1](docs/release_notes/chipStar_1.1.rst), [1.0](docs/release
 ## Prerequisites
 
 * Cmake >= 3.20.0
-* Clang and LLVM 17, 18, or 19 (Clang/LLVM 15 and 16 might also work)
-  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-17 llvm-17 clang-tools-17'.
-  * For the best results, install Clang/LLVM from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-17) which has fixes that are not yet in the LLVM upstream project. See below for a scripted way to build and install the patched versions.
+* Clang and LLVM 18, 19, 20
+  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-19 llvm-19 clang-tools-19'.
+  * For the best results, install Clang/LLVM from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-18) which has fixes that are not yet in the LLVM upstream project. See below for a scripted way to build and install the patched versions.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
-  (e.g. llvm\_release\_170 for LLVM 17, llvm\_release\_180 for LLVM 18, llvm\_release\_190 for LLVM 19)
+  (e.g. llvm\_release\_180 for LLVM 18, llvm\_release\_190 for LLVM 19)
 ,  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
 * SPIRV-Tools and SPIRV-Headers:
@@ -73,13 +73,13 @@ For this you can use a script included in the chipStar repository:
 ```bash
 ./scripts/configure_llvm.sh
 Usage: ./scripts/configure_llvm.sh --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>
---version: LLVM version 17, 18, 19 or 20
+--version: LLVM version 18, 19 or 20
 --install-dir: installation directory
 --link-type: static or dynamic (default: static)
 --only-necessary-spirv-exts: on or off (default: off)
 --binutils-header-location: path to binutils header (default: empty)
 
-./scripts/configure_llvm.sh --version 17 --install-dir /opt/install/llvm/17.0
+./scripts/configure_llvm.sh --version 19 --install-dir /opt/install/llvm/19.0
 cd llvm-project/llvm/build_17
 make -j 16
 <sudo> make install
@@ -88,9 +88,9 @@ make -j 16
 Or you can do the steps manually:
 
 ```bash
-git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-17
+git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-19
 cd llvm-project/llvm/projects
-git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-17
+git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-19
 cd ../..
 
 # DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
@@ -101,7 +101,7 @@ cmake -S llvm -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS="clang;openmp" \
   -DLLVM_TARGETS_TO_BUILD=X86 \
-  -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-17
+  -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-19
 make -C build -j8 all install
 ```
 
@@ -138,7 +138,7 @@ git submodule update --init --recursive
 mkdir build && cd build
 
 # LLVM_CONFIG_BIN is optional if LLVM can be found in PATH or if not using a version-sufficed
-# binary (for example, llvm-config-17)
+# binary (for example, llvm-config-19)
 
 cmake .. \
     -DLLVM_CONFIG_BIN=/path/to/llvm-config
@@ -337,7 +337,7 @@ This occurs often when the latest installed GCC version doesn't include libstdc+
 The issue can be resolved by defining a Clang++ [configuration file](https://clang.llvm.org/docs/UsersManual.html#configuration-files) which forces the GCC to what we want. Example:
 
 ```bash
-echo --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/11 > ~/local/llvm-17/bin/x86_64-unknown-linux-gnu-clang++.cfg
+echo --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/11 > ~/local/llvm-19/bin/x86_64-unknown-linux-gnu-clang++.cfg
 ```
 
 ### Missing Double Precision Support
