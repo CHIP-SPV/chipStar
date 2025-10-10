@@ -38,21 +38,71 @@ __global__ void testAlignment(int *result) {
 }
 )---";
 
+static constexpr auto SourceWithOptionalDefine = R"---(
+#ifndef OPTIONAL_VALUE
+#define OPTIONAL_VALUE 42
+#endif
+
+__global__ void testOptional(int *result) {
+  *result = OPTIONAL_VALUE;
+}
+)---";
+
 int main() {
-  std::cerr << "Testing shell metacharacter escaping in build options\n";
+  std::cerr << "Test 1: -D option with parentheses (combined argument)\n";
+  {
+    auto Program = HiprtcAssertCreateProgram(SourceUsingMacro);
 
-  auto Program = HiprtcAssertCreateProgram(SourceUsingMacro);
+    std::vector<const char *> Options = {
+      "-DALIGN_STRUCT_MACRO(bytes,struct_defn)=struct_defn __attribute__((aligned(bytes)))"
+    };
 
-  std::vector<const char *> Options = {
-    "-DALIGN_STRUCT_MACRO(bytes,struct_defn)=struct_defn __attribute__((aligned(bytes)))"
-  };
+    auto Code = HiprtcAssertCompileProgram(Program, Options);
+    
+    HIPRTC_CHECK(hiprtcDestroyProgram(&Program));
 
-  auto Code = HiprtcAssertCompileProgram(Program, Options);
-  
-  HIPRTC_CHECK(hiprtcDestroyProgram(&Program));
+    std::cerr << "Test 1 PASSED\n";
+  }
 
-  std::cerr << "Successfully compiled with shell metacharacters in build options\n";
+  std::cerr << "\nTest 2: Option with parentheses that's NOT a -D flag\n";
+  {
+    auto Program = HiprtcAssertCreateProgram(SourceWithOptionalDefine);
+
+    // -I path with parentheses - this is a realistic case mentioned by Noerr
+    // The paren will cause shell syntax error since it's NOT escaped
+    std::vector<const char *> Options = {
+      "-I/some/path/(version-1.0)/include",  // NOT a -D option, has parentheses
+      "-DOPTIONAL_VALUE=42"
+    };
+
+    auto Code = HiprtcAssertCompileProgram(Program, Options);
+    
+    HIPRTC_CHECK(hiprtcDestroyProgram(&Program));
+
+    std::cerr << "Test 2 PASSED\n";
+  }
+
+  std::cerr << "\nTest 3: Filename with shell metacharacters\n";
+  {
+    auto Program = HiprtcAssertCreateProgram(SourceWithOptionalDefine);
+
+    // Using -include with a filename that has parentheses
+    // This should fail with current implementation
+    std::vector<const char *> Options = {
+      "-DOPTIONAL_VALUE=(1+2)*3",  // This gets escaped (starts with -D)
+      "-Wno-unused(test)",  // This does NOT get escaped - contains parentheses
+    };
+
+    auto Code = HiprtcAssertCompileProgram(Program, Options);
+    
+    HIPRTC_CHECK(hiprtcDestroyProgram(&Program));
+
+    std::cerr << "Test 3 PASSED\n";
+  }
+
+  std::cerr << "\nAll shell metacharacter escaping tests passed!\n";
 
   return 0;
 }
+
 
