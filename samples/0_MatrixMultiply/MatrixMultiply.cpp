@@ -307,7 +307,7 @@ int main() {
   }
 
   std::chrono::duration<double, std::milli> gpu_fp_ms = timeGPU2 - timeGPU1;
-  std::cout << "GPU real time taken(ms): " << gpu_fp_ms.count() << "\n";
+  std::cout << "Offload real time taken(ms): " << gpu_fp_ms.count() << "\n";
 
   auto time1 = std::chrono::high_resolution_clock::now();
   // CPU MatrixTranspose computation
