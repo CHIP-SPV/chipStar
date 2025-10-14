@@ -481,7 +481,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   size_t CmdListsReused_ = 0;
   size_t EventsRequested_ = 0;
   size_t EventsReused_ = 0;
-  size_t EventPoolSize_ = 1000;
+  size_t EventPoolSize_ = 256;
   std::mutex FencedCmdListsMtx_;
   std::stack<std::unique_ptr<FencedCmdList>> FencedCmdListsPool_;
 
