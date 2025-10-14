@@ -1608,8 +1608,7 @@ chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags,
 chipstar::Queue::Queue(chipstar::Device *ChipDevice, chipstar::QueueFlags Flags)
     : Queue(ChipDevice, Flags, 0) {};
 
-chipstar::Queue::~Queue() {
-};
+chipstar::Queue::~Queue() {};
 
 static void unmapHostAlloc(const void *Ptr) {
   auto *Dev = ::Backend->getActiveDevice();

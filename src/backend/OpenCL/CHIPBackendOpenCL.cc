@@ -706,10 +706,8 @@ CHIPEventOpenCL::~CHIPEventOpenCL() {
   }
 }
 
-std::shared_ptr<chipstar::Event>
-CHIPBackendOpenCL::createEventShared(chipstar::Context *ChipCtx,
-                                     chipstar::EventFlags Flags,
-                                     std::string Msg) {
+std::shared_ptr<chipstar::Event> CHIPBackendOpenCL::createEventShared(
+    chipstar::Context *ChipCtx, chipstar::EventFlags Flags, std::string Msg) {
   CHIPEventOpenCL *Event =
       new CHIPEventOpenCL((CHIPContextOpenCL *)ChipCtx, nullptr, Flags);
 
@@ -745,12 +743,12 @@ void CHIPEventOpenCL::recordEventCopy(
   logTrace("CHIPEventOpenCL::recordEventCopy");
   std::shared_ptr<CHIPEventOpenCL> Other =
       std::static_pointer_cast<CHIPEventOpenCL>(OtherIn);
-  
+
   // Release our current event if we have one
   if (this->ClEvent) {
     clReleaseEvent(this->ClEvent);
   }
-  
+
   // Properly retain the OpenCL event to prevent premature destruction
   if (Other->ClEvent) {
     clRetainEvent(Other->ClEvent);
@@ -758,7 +756,7 @@ void CHIPEventOpenCL::recordEventCopy(
   } else {
     this->ClEvent = nullptr;
   }
-  
+
   this->RecordedEvent = Other;
   this->Msg = "recordEventCopy: " + Other->Msg;
   this->HostTimeStamp =
@@ -1441,7 +1439,8 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   auto MemMapEventNative =
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
 
-  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MemMapEvent);
+  auto [SyncQueuesEventHandles, EventLocks] =
+      addDependenciesQueueSync(MemMapEvent);
 
   auto QueueHandle = get()->get();
   cl_int clStatus;
@@ -1482,7 +1481,8 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
     return;
   }
   logDebug("CHIPQueueOpenCL::MemUnmap");
-  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MemMapEvent);
+  auto [SyncQueuesEventHandles, EventLocks] =
+      addDependenciesQueueSync(MemMapEvent);
 
   clStatus = clEnqueueSVMUnmap(
       get()->get(), AllocInfo->HostPtr, SyncQueuesEventHandles.size(),
@@ -1546,7 +1546,6 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
 
-
   // Now the CB can start executing in the background:
   clSetUserEventStatus(
       std::static_pointer_cast<CHIPEventOpenCL>(HoldbackBarrierCompletedEv)
@@ -1562,7 +1561,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "marker");
 
-  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MarkerEvent);
+  auto [SyncQueuesEventHandles, EventLocks] =
+      addDependenciesQueueSync(MarkerEvent);
 
   clStatus = clEnqueueMarkerWithWaitList(
       this->get()->get(), SyncQueuesEventHandles.size(),
@@ -1578,7 +1578,8 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   std::shared_ptr<chipstar::Event>(LaunchEvent) =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(OclContext, chipstar::EventFlags(), "kernelLaunch");
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
+          OclContext, chipstar::EventFlags(), "kernelLaunch");
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   cl_kernel KernelHandle = ChipOclExecItem->getKernelHandle();
@@ -1601,7 +1602,8 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   auto AllocationsToKeepAlive = annotateIndirectPointers(
       *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
 
-  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
+  auto [SyncQueuesEventHandles, EventLocks] =
+      addDependenciesQueueSync(LaunchEvent);
 
   clStatus = clEnqueueNDRangeKernel(
       get()->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
@@ -1716,40 +1718,44 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
 
 bool CHIPQueueOpenCL::query() {
   cl_event MarkerEvent;
-  clStatus = clEnqueueMarkerWithWaitList(get()->get(), 0, nullptr, &MarkerEvent);
+  clStatus =
+      clEnqueueMarkerWithWaitList(get()->get(), 0, nullptr, &MarkerEvent);
   if (clStatus != CL_SUCCESS)
     return false;
-    
+
   cl_int EventStatus;
   clStatus = clGetEventInfo(MarkerEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
-                           sizeof(cl_int), &EventStatus, nullptr);
+                            sizeof(cl_int), &EventStatus, nullptr);
   clReleaseEvent(MarkerEvent);
-  
+
   return (clStatus == CL_SUCCESS && EventStatus == CL_COMPLETE);
 }
 
 std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
 CHIPQueueOpenCL::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  // MARKER-BASED SYNCHRONIZATION: Create and signal marker events for each queue
-  // Uses template helper from base class with OpenCL specific marker creation
 
   auto Ctx = static_cast<CHIPContextOpenCL *>(ChipContext_);
   auto BackendOcl = static_cast<CHIPBackendOpenCL *>(Backend);
 
   // Lambda for OpenCL marker creation
-  auto CreateOclMarker = [&](chipstar::Queue* q, std::shared_ptr<chipstar::Event>& markerEv) -> cl_event {
+  auto CreateOclMarker =
+      [&](chipstar::Queue *q,
+          std::shared_ptr<chipstar::Event> &markerEv) -> cl_event {
     // Create a marker event in the other queue
     auto OtherQueue = static_cast<CHIPQueueOpenCL *>(q);
-    
+
     cl_event MarkerEvent;
-    clStatus = clEnqueueMarkerWithWaitList(OtherQueue->get()->get(), 0, nullptr, &MarkerEvent);
+    clStatus = clEnqueueMarkerWithWaitList(OtherQueue->get()->get(), 0, nullptr,
+                                           &MarkerEvent);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
 
     // Create chipstar event wrapper for tracking
-    markerEv = BackendOcl->createEventShared(Ctx, chipstar::EventFlags(), "QueueSyncMarker");
-    auto ChipMarkerEventOcl = std::static_pointer_cast<CHIPEventOpenCL>(markerEv);
-    
+    markerEv = BackendOcl->createEventShared(Ctx, chipstar::EventFlags(),
+                                             "QueueSyncMarker");
+    auto ChipMarkerEventOcl =
+        std::static_pointer_cast<CHIPEventOpenCL>(markerEv);
+
     // Replace the event's internal cl_event with our marker
     if (ChipMarkerEventOcl->ClEvent) {
       clReleaseEvent(ChipMarkerEventOcl->ClEvent);
@@ -1761,7 +1767,8 @@ CHIPQueueOpenCL::addDependenciesQueueSync(
   };
 
   // Call template helper with OpenCL marker creation
-  return addDependenciesQueueSyncImpl<cl_event>(BackendOcl, TargetEvent, CreateOclMarker);
+  return addDependenciesQueueSyncImpl<cl_event>(BackendOcl, TargetEvent,
+                                                CreateOclMarker);
 }
 
 std::shared_ptr<chipstar::Event>
@@ -1802,8 +1809,8 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
         // Protect against Intel OpenCL driver threading issues
         std::lock_guard<std::mutex> lock(g_intel_opencl_driver_mutex);
         clStatus = ::clEnqueueSVMMemcpy(
-            get()->get(), CL_FALSE, Dst, Src, Size, SyncQueuesEventHandles.size(),
-            SyncQueuesEventHandles.data(),
+            get()->get(), CL_FALSE, Dst, Src, Size,
+            SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
             std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
       }
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueSVMMemcpy);
@@ -2239,57 +2246,64 @@ void CHIPBackendOpenCL::uninitialize() {
    * to prevent memory leaks during repeated test runs.
    * OpenCL doesn't use an EventMonitor.
    */
-  
+
   // More aggressive wait for threads - ensure they actually exit
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
-  logTrace("CHIPBackendOpenCL::uninitialize(): Waiting for {} threads to exit", activeThreads);
-  
+  logTrace("CHIPBackendOpenCL::uninitialize(): Waiting for {} threads to exit",
+           activeThreads);
+
   if (activeThreads > 1) {
     // Wait longer and more aggressively for threads to exit
-    for (int i = 0; i < 300; i++) { // Max 30 seconds instead of 20 for extra safety
+    for (int i = 0; i < 300;
+         i++) { // Max 30 seconds instead of 20 for extra safety
       pthread_yield();
       usleep(100000); // 100ms per iteration
-      
+
       activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
       if (activeThreads <= 1) {
-        logTrace("CHIPBackendOpenCL::uninitialize(): All threads exited (count: {})", activeThreads);
+        logTrace(
+            "CHIPBackendOpenCL::uninitialize(): All threads exited (count: {})",
+            activeThreads);
         break;
       }
-      
+
       // Every 2 seconds, log progress
       if (i % 20 == 0 && i > 0) {
-        logTrace("CHIPBackendOpenCL::uninitialize(): Still waiting for {} threads to exit ({}s elapsed)", 
-                activeThreads - 1, i / 10);
+        logTrace("CHIPBackendOpenCL::uninitialize(): Still waiting for {} "
+                 "threads to exit ({}s elapsed)",
+                 activeThreads - 1, i / 10);
       }
     }
-    
+
     if (activeThreads > 1) {
-      logError("CHIPBackendOpenCL::uninitialize(): CRITICAL - {} threads still active after 30s timeout! "
-               "Proceeding with cleanup anyway - this may cause crashes!", activeThreads - 1);
+      logError("CHIPBackendOpenCL::uninitialize(): CRITICAL - {} threads still "
+               "active after 30s timeout! "
+               "Proceeding with cleanup anyway - this may cause crashes!",
+               activeThreads - 1);
     }
   }
-  
-  // Additional safety: small delay even after threads exit to ensure complete cleanup
+
+  // Additional safety: small delay even after threads exit to ensure complete
+  // cleanup
   usleep(50000); // 50ms safety buffer
-  logTrace("CHIPBackendOpenCL::uninitialize(): Setting LastEvent to null for all queues");
-  
-  // Ensure all queues have their last events cleared to prevent dangling references
+  logTrace("CHIPBackendOpenCL::uninitialize(): Setting LastEvent to null for "
+           "all queues");
+
+  // Ensure all queues have their last events cleared to prevent dangling
+  // references
   {
     LOCK(BackendMtx);
-    for (auto Dev : getDevices()) {
+    for (auto Dev : getDevices())
       LOCK(Dev->QueueAddRemoveMtx);
-      for (auto &Queue : Dev->getQueuesNoLock()) {
-        // Queues cleaned up without explicit last event updates
-      }
-    }
   }
-  
+
   // Clean up contexts and their memory managers to prevent memory leaks
   // This is critical for repeated test runs to avoid memory exhaustion
-  logTrace("CHIPBackendOpenCL::uninitialize(): Cleaning up contexts and memory");
+  logTrace(
+      "CHIPBackendOpenCL::uninitialize(): Cleaning up contexts and memory");
   {
     LOCK(BackendMtx);
-    
+
     // First ensure all devices finish their work completely
     for (auto Dev : getDevices()) {
       LOCK(Dev->QueueAddRemoveMtx);
@@ -2298,15 +2312,17 @@ void CHIPBackendOpenCL::uninitialize() {
         Queue->finish();
       }
     }
-    
+
     // Then clear memory managers to free all allocations
     for (auto Ctx : ChipContexts) {
       CHIPContextOpenCL *CtxOpenCL = static_cast<CHIPContextOpenCL *>(Ctx);
       if (CtxOpenCL) {
-        logTrace("CHIPBackendOpenCL::uninitialize(): Clearing memory manager for context {} (allocations: {})", 
-                 (void*)CtxOpenCL, CtxOpenCL->MemManager_.getNumAllocations());
+        logTrace("CHIPBackendOpenCL::uninitialize(): Clearing memory manager "
+                 "for context {} (allocations: {})",
+                 (void *)CtxOpenCL, CtxOpenCL->MemManager_.getNumAllocations());
         CtxOpenCL->MemManager_.clear();
-        logTrace("CHIPBackendOpenCL::uninitialize(): Memory manager cleared, remaining allocations: {}", 
+        logTrace("CHIPBackendOpenCL::uninitialize(): Memory manager cleared, "
+                 "remaining allocations: {}",
                  CtxOpenCL->MemManager_.getNumAllocations());
       }
     }
@@ -2320,7 +2336,7 @@ void CHIPBackendOpenCL::initializeImpl() {
   // For manual device selection, get all devices; otherwise filter by type
   cl_bitfield SelectedDevType = CL_DEVICE_TYPE_ALL;
   std::string deviceSelectionMode = "all";
-  
+
   if (!ChipEnvVars.isManualDeviceSelection()) {
     // transform device type string into CL
     if (ChipEnvVars.getDevice().getType() == DeviceType::CPU)
@@ -2337,7 +2353,8 @@ void CHIPBackendOpenCL::initializeImpl() {
       throw InvalidDeviceType("Unknown value provided for CHIP_DEVICE_TYPE\n");
     deviceSelectionMode = std::string(ChipEnvVars.getDevice().str());
   }
-  logTrace("Using {} device selection", ChipEnvVars.isManualDeviceSelection() ? "manual" : "type-based");
+  logTrace("Using {} device selection",
+           ChipEnvVars.isManualDeviceSelection() ? "manual" : "type-based");
   if (!ChipEnvVars.isManualDeviceSelection()) {
     logTrace("Using Devices of type {}", ChipEnvVars.getDevice().str());
   }
@@ -2354,117 +2371,123 @@ void CHIPBackendOpenCL::initializeImpl() {
     StrStream << i << ". " << Platforms[i].getInfo<CL_PLATFORM_NAME>() << "\n";
   }
   logTrace("{}", StrStream.str());
-  
+
   cl::Platform SelectedPlatform;
   int SelectedPlatformIdx;
   std::vector<cl::Device> SupportedDevices;
-  
+
   if (ChipEnvVars.isManualDeviceSelection()) {
     // Manual device selection: use specified platform and get all devices
     SelectedPlatformIdx = ChipEnvVars.getPlatformIdx();
-    
+
     if (SelectedPlatformIdx >= Platforms.size()) {
       CHIPERR_LOG_AND_THROW("Selected OpenCL platform " + std::to_string(SelectedPlatformIdx) + " is out of range",
                             hipErrorInitializationError);
     }
-    
+
     SelectedPlatform = Platforms[SelectedPlatformIdx];
-    logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}", SelectedPlatformIdx,
-             SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
-    
+    logDebug("CHIP_PLATFORM={} Selected OpenCL platform {}",
+             SelectedPlatformIdx, SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
+
     StrStream.str("");
     StrStream << "OpenCL Devices with SPIR-V_1 support:\n";
-    
+
     std::vector<cl::Device> Dev;
     clStatus = SelectedPlatform.getDevices(SelectedDevType, &Dev);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetDeviceIDs);
-    
+
     // Process devices from the selected platform
     for (auto D : Dev) {
       std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
       StrStream << DeviceName << " ";
-      
+
       std::string SPIRVVer = D.getInfo<CL_DEVICE_IL_VERSION>(&clStatus);
       if ((clStatus != CL_SUCCESS) ||
           (SPIRVVer.rfind("SPIR-V_1.", 0) == std::string::npos)) {
         StrStream << " no SPIR-V support.\n";
         continue;
       }
-      
+
       std::string DevExts = D.getInfo<CL_DEVICE_EXTENSIONS>();
       cl_device_svm_capabilities SVMCapabilities =
           D.getInfo<CL_DEVICE_SVM_CAPABILITIES>();
-      
+
       if ((SVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0 &&
           DevExts.find("cl_intel_unified_shared_memory") == std::string::npos &&
           DevExts.find("cl_ext_buffer_device_address") == std::string::npos) {
         StrStream << " insufficient device memory capabilities.\n";
         continue;
       }
-      
+
       StrStream << " is supported.\n";
       SupportedDevices.push_back(D);
     }
   } else {
-    // Device type selection: search across all platforms for devices of the requested type
+    // Device type selection: search across all platforms for devices of the
+    // requested type
     StrStream.str("");
     StrStream << "OpenCL Devices of type " << ChipEnvVars.getDevice().str()
               << " with SPIR-V_1 support across all platforms:\n";
-    
+
     int foundPlatformIdx = -1;
-    bool isPoclSpecific = (ChipEnvVars.getDevice().getType() == DeviceType::POCL);
+    bool isPoclSpecific =
+        (ChipEnvVars.getDevice().getType() == DeviceType::POCL);
     bool isCpuSpecific = (ChipEnvVars.getDevice().getType() == DeviceType::CPU);
-    
+
     for (int platformIdx = 0; platformIdx < Platforms.size(); platformIdx++) {
-      std::string platformName = Platforms[platformIdx].getInfo<CL_PLATFORM_NAME>();
-      bool isPoclPlatform = (platformName.find("Portable Computing Language") != std::string::npos);
-      
+      std::string platformName =
+          Platforms[platformIdx].getInfo<CL_PLATFORM_NAME>();
+      bool isPoclPlatform = (platformName.find("Portable Computing Language") !=
+                             std::string::npos);
+
       // For POCL device type, only consider POCL platforms
       if (isPoclSpecific && !isPoclPlatform) {
         continue; // Skip non-POCL platforms when POCL is specifically requested
       }
-      
-      // For CPU device type, skip POCL platforms (let POCL be handled by CHIP_DEVICE_TYPE=pocl)
+
+      // For CPU device type, skip POCL platforms (let POCL be handled by
+      // CHIP_DEVICE_TYPE=pocl)
       if (isCpuSpecific && isPoclPlatform) {
         continue; // Skip POCL platforms when CPU is specifically requested
       }
-      
+
       std::vector<cl::Device> Dev;
       cl_int status = Platforms[platformIdx].getDevices(SelectedDevType, &Dev);
       if (status != CL_SUCCESS) {
         // No devices of this type on this platform, continue
         continue;
       }
-      
+
       std::vector<cl::Device> PlatformSupportedDevices;
-      
+
       // Process devices from this platform
       for (auto D : Dev) {
         std::string DeviceName = D.getInfo<CL_DEVICE_NAME>();
         StrStream << "Platform " << platformIdx << ": " << DeviceName << " ";
-        
+
         std::string SPIRVVer = D.getInfo<CL_DEVICE_IL_VERSION>(&clStatus);
         if ((clStatus != CL_SUCCESS) ||
             (SPIRVVer.rfind("SPIR-V_1.", 0) == std::string::npos)) {
           StrStream << " no SPIR-V support.\n";
           continue;
         }
-        
+
         std::string DevExts = D.getInfo<CL_DEVICE_EXTENSIONS>();
         cl_device_svm_capabilities SVMCapabilities =
             D.getInfo<CL_DEVICE_SVM_CAPABILITIES>();
-        
+
         if ((SVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0 &&
-            DevExts.find("cl_intel_unified_shared_memory") == std::string::npos &&
+            DevExts.find("cl_intel_unified_shared_memory") ==
+                std::string::npos &&
             DevExts.find("cl_ext_buffer_device_address") == std::string::npos) {
           StrStream << " insufficient device memory capabilities.\n";
           continue;
         }
-        
+
         StrStream << " is supported.\n";
         PlatformSupportedDevices.push_back(D);
       }
-      
+
       // Use devices from the first platform that has suitable devices
       if (!PlatformSupportedDevices.empty() && foundPlatformIdx == -1) {
         foundPlatformIdx = platformIdx;
@@ -2473,19 +2496,20 @@ void CHIPBackendOpenCL::initializeImpl() {
         break; // Stop searching after finding the first suitable platform
       }
     }
-    
+
     if (foundPlatformIdx == -1) {
-      CHIPERR_LOG_AND_THROW("No OpenCL platforms found with devices of type " +
-                            std::string(ChipEnvVars.getDevice().str()) + " that support SPIR-V",
-                            hipErrorInitializationError);
+      logCritical("No OpenCL platforms found with devices of type {} that "
+                  "support SPIR-V",
+                  ChipEnvVars.getDevice().str());
+      std::exit(1);
     }
-    
+
     SelectedPlatformIdx = foundPlatformIdx;
-    logDebug("Auto-selected platform {} for device type {}: {}", 
+    logDebug("Auto-selected platform {} for device type {}: {}",
              SelectedPlatformIdx, ChipEnvVars.getDevice().str(),
              SelectedPlatform.getInfo<CL_PLATFORM_NAME>());
   }
-  
+
   logInfo("{}", StrStream.str());
 
   if (ChipEnvVars.getDeviceIdx() >= SupportedDevices.size()) {
