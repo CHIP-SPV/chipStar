@@ -2249,6 +2249,23 @@ CHIPContextLevel0::~CHIPContextLevel0() {
   else
     logInfo("Events reuse: N/A (No events requested)");
 
+  // Force update all events and clear dependencies before cleanup
+  if (Backend->Events.size()) {
+    logDebug("Context destruction: Forcing event completion and clearing dependencies for {} events", 
+             Backend->Events.size());
+    LOCK(Backend->EventsMtx);
+    for (auto &Event : Backend->Events) {
+      if (!Event) continue;
+      auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
+      if (EventLz) {
+        // Force event to check completion status
+        EventLz->updateFinishStatus(false);
+        // Force clear dependencies regardless of status
+        EventLz->releaseDependencies();
+      }
+    }
+  }
+
   // Clear events before deleting pools to avoid use-after-free
   if (Backend->Events.size()) {
     logWarn("Backend->Events still exist at the time of Context "
