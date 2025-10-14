@@ -240,7 +240,7 @@ private:
   std::string JitFlags_ = "";
   std::string JitFlagsOverride_ = "";
   unsigned long L0EventTimeout_ = 0;
-  int L0CollectEventsTimeout_ = 0;
+  int L0CollectEventsTimeout_ = 5; // Default to 5 seconds to allow event cleanup
   bool OCLDisableQueueProfiling_ = false;
   std::optional<std::string> OclUseAllocStrategy_;
   std::optional<std::string> ModuleCacheDir_;

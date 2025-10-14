@@ -1364,6 +1364,11 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
+  
+  // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
+  // (addDependenciesQueueSync may lock other queue's CommandListMtx)
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
+  
   // if using immediate command lists, lock the mutex
   LOCK(CommandListMtx); // TODO this is probably not needed when using RCL
   auto CommandList = this->getCmdListImm();
@@ -1381,7 +1386,6 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   // This function may not be called from simultaneous threads with the same
   // command list handle.
   // Done via LOCK(CommandListMtx)
-  auto [EventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
   zeStatus = zeCommandListAppendLaunchKernel(
       CommandList, KernelZe, &LaunchArgs,
       std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(),
@@ -1422,12 +1426,14 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
     CHIPERR_LOG_AND_ABORT("MemFill PatternSize exceeds the max for this queue");
   }
 
+  // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemFillEvent);
+  
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
-  auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemFillEvent);
   zeStatus = zeCommandListAppendMemoryFill(
       CommandList, Dst, Pattern, PatternSize, Size,
       std::static_pointer_cast<CHIPEventLevel0>(MemFillEvent)->peek(),
@@ -1470,13 +1476,16 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
   SrcRegion.width = Width;
   SrcRegion.height = Height;
   SrcRegion.depth = Depth;
+  
+  // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
+  auto [EventHandles, EventLocks] =
+      addDependenciesQueueSync(MemCopyRegionEvent);
+  
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
   // Done via LOCK(CommandListMtx)
-  auto [EventHandles, EventLocks] =
-      addDependenciesQueueSync(MemCopyRegionEvent);
 
   zeStatus = zeCommandListAppendMemoryCopyRegion(
       CommandList, Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion, Spitch,
@@ -1726,7 +1735,10 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "marker");
-  addDependenciesQueueSync(MarkerEvent); // locks
+  
+  // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
+  addDependenciesQueueSync(MarkerEvent);
+  
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImm();
   // The application must not call this function from
@@ -1797,12 +1809,16 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   std::shared_ptr<chipstar::Event> MemCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipCtxZe, chipstar::EventFlags(), "memCopyAsync");
+  
+  // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
+  // (addDependenciesQueueSync may lock other queue's CommandListMtx)
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemCopyEvent);
+  
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from simultaneous threads with
   // the same command list handle
   // Done via LOCK(CommandListMtx)
-  auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemCopyEvent);
   zeStatus = zeCommandListAppendMemoryCopy(
       CommandList, Dst, Src, Size,
       std::static_pointer_cast<CHIPEventLevel0>(MemCopyEvent)->peek(),
