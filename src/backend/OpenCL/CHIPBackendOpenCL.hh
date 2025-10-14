@@ -448,6 +448,8 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count) override;
 
+  virtual bool query() override;
+
   /// Enqueues a virtual command that deletes the give host array
   /// after previously enqueud commands have finished.
   ///
@@ -469,6 +471,9 @@ public:
   };
 
 private:
+  std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
+  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
+
   void switchModeTo(QueueMode Mode);
 };
 
