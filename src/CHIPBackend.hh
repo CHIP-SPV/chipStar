@@ -2117,6 +2117,75 @@ public:
     isPerThreadDefaultQueue_ = Status;
   }
 
+protected:
+  template<typename EventHandle>
+  std::pair<std::vector<EventHandle>, LockGuardVector>
+  addDependenciesQueueSyncImpl(
+      chipstar::Backend* BackendPtr,
+      std::shared_ptr<chipstar::Event> TargetEvent,
+      std::function<EventHandle(chipstar::Queue*, std::shared_ptr<chipstar::Event>&)> CreateMarkerInQueue) {
+    
+    std::vector<EventHandle> EventHandles;
+    std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
+
+    // Lock the backend events mutex
+    EventLocks.push_back(
+        std::make_unique<std::unique_lock<std::mutex>>(BackendPtr->EventsMtx));
+
+    // Lock the device queue mutex
+    EventLocks.push_back(
+        std::make_unique<std::unique_lock<std::mutex>>(ChipDevice_->QueueAddRemoveMtx));
+
+    // If this is a default stream (legacy or per-thread), create markers for all blocking queues
+    if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
+      // Create markers for all blocking queues
+      for (auto &q : ChipDevice_->getQueuesNoLock()) {
+        if (q->getQueueFlags().isBlocking()) {
+          // Create a marker event in the other queue
+          std::shared_ptr<chipstar::Event> ChipMarkerEvent;
+          EventHandle handle = CreateMarkerInQueue(q, ChipMarkerEvent);
+          
+          // Add the marker to the list of events to wait on
+          EventHandles.push_back(handle);
+
+          // Track the marker event so it gets properly managed by the event monitor
+          BackendPtr->trackEvent(ChipMarkerEvent);
+
+          // Add dependency to the target event
+          TargetEvent->addDependency(ChipMarkerEvent);
+        }
+      }
+    } else if (this->getQueueFlags().isBlocking()) {
+      // This is a blocking queue, sync with default streams
+      // Create marker for legacy default stream
+      auto LegacyDefaultQueue = ChipDevice_->getLegacyDefaultQueue();
+      if (LegacyDefaultQueue) {
+        std::shared_ptr<chipstar::Event> ChipMarkerEvent;
+        EventHandle handle = CreateMarkerInQueue(LegacyDefaultQueue, ChipMarkerEvent);
+        
+        EventHandles.push_back(handle);
+        BackendPtr->trackEvent(ChipMarkerEvent);
+        TargetEvent->addDependency(ChipMarkerEvent);
+      }
+
+      // Create marker for per-thread default stream if used
+      if (ChipDevice_->isPerThreadStreamUsedNoLock()) {
+        auto PerThreadDefaultQueue = ChipDevice_->getPerThreadDefaultQueueNoLock();
+        if (PerThreadDefaultQueue) {
+          std::shared_ptr<chipstar::Event> ChipMarkerEvent;
+          EventHandle handle = CreateMarkerInQueue(PerThreadDefaultQueue, ChipMarkerEvent);
+          
+          EventHandles.push_back(handle);
+          BackendPtr->trackEvent(ChipMarkerEvent);
+          TargetEvent->addDependency(ChipMarkerEvent);
+        }
+      }
+    }
+
+    return {EventHandles, std::move(EventLocks)};
+  }
+
+public:
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}
