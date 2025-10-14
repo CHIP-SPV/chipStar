@@ -1974,7 +1974,8 @@ std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
 
   LOCK(EventPoolMtx); // LZEventPool::Events_
   
-  if (!Events_.size()) {
+  // COMMENTED OUT: Event reuse disabled - always create fresh events
+  // if (!Events_.size()) {
     // Create a new event if we haven't reached the pool size limit
     if (AllocatedCount_ < Size_) {
       chipstar::EventFlags Flags;
@@ -1983,20 +1984,25 @@ std::shared_ptr<CHIPEventLevel0> LZEventPool::getEvent() {
       AllocatedCount_++;
       return std::shared_ptr<CHIPEventLevel0>(NewEvent, Deleter);
     }
+    // Pool is full, return nullptr to trigger new pool creation
     return nullptr;
-  }
+  // }
 
-  auto Event = Events_.top();
-  Events_.pop();
+  // auto Event = Events_.top();
+  // Events_.pop();
 
-  return std::shared_ptr<CHIPEventLevel0>(Event, Deleter);
+  // return std::shared_ptr<CHIPEventLevel0>(Event, Deleter);
 };
 
 void LZEventPool::returnEvent(CHIPEventLevel0 *Event) {
-  Event->isDeletedSanityCheck();
-  Event->markDeleted();
-  LOCK(EventPoolMtx);
-  Events_.push(Event);
+  // COMMENTED OUT: Event recycling disabled to use fresh events every time
+  // Event->isDeletedSanityCheck();
+  // Event->markDeleted();
+  // LOCK(EventPoolMtx);
+  // Events_.push(Event);
+  
+  // Just delete the event instead of recycling it
+  delete Event;
 }
 
 // End EventPool
@@ -2020,7 +2026,8 @@ std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
   Event = ZeCtx->getEventFromPool();
   assert(Event && "LZEventPool returned a null event");
 
-  std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
+  // COMMENTED OUT: Event reset disabled to use fresh events every time
+  // std::static_pointer_cast<CHIPEventLevel0>(Event)->reset();
   if (!Msg.empty()) {
     Event->Msg = Msg;
   }
