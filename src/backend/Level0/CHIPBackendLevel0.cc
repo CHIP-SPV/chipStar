@@ -786,7 +786,7 @@ void CHIPEventMonitorLevel0::monitor() {
   while (true) {
     usleep(200);
     checkCallbacks();
-    checkEvents();
+    // checkEvents();
     checkCmdLists();
     checkExit();
   } // endless loop
@@ -971,7 +971,51 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListImmCopy() {
   return ZeCmdListImmCopy_;
 }
 
+void CHIPContextLevel0::checkEvents() {
+  // LOCK(Backend->EventsMtx);
+  
+  // Collect events to delete first, then process them
+  std::vector<size_t> EventsToDelete;
+  
+  for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
+    auto Event = Backend->Events[EventIdx];
+    if (!Event) continue;
+    
+    auto ChipEventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
+    if (!ChipEventLz) continue;
+    
+    // Check if event is deleted while holding the lock
+    ChipEventLz->isDeletedSanityCheck();
+    
+    // Skip user events
+    if (ChipEventLz->isUserEvent())
+      continue;
+    
+    // Update event status to check if it has completed
+    {
+      LOCK(ChipEventLz->EventMtx);
+      ChipEventLz->updateFinishStatus(false);
+    }
+    
+    // Only delete events that have both completed AND have no dependencies
+    if (ChipEventLz->DependsOnList.size() == 0 && 
+        ChipEventLz->getEventStatus() == EVENT_STATUS_RECORDED) {
+      EventsToDelete.push_back(EventIdx);
+    }
+  }
+  
+  // Remove events from the vector in reverse order to maintain correct indices
+  for (auto it = EventsToDelete.rbegin(); it != EventsToDelete.rend(); ++it) {
+    if (*it < Backend->Events.size()) {
+      Backend->Events.erase(Backend->Events.begin() + *it);
+    }
+  }
+}
+
 std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
+  // Perform maintenance tasks that were previously done by EventMonitor thread
+  checkEvents();
+  
   // go through all pools and try to get an allocated event
   LOCK(ContextMtx); // Context::EventPool
   EventsRequested_++;

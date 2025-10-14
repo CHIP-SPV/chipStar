@@ -481,7 +481,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   size_t CmdListsReused_ = 0;
   size_t EventsRequested_ = 0;
   size_t EventsReused_ = 0;
-  size_t EventPoolSize_ = 256;
+  size_t EventPoolSize_ = 10;
   std::mutex FencedCmdListsMtx_;
   std::stack<std::unique_ptr<FencedCmdList>> FencedCmdListsPool_;
 
@@ -499,6 +499,12 @@ public:
    * @brief Ger a shared_event from the pool, creating one if none are
    */
   std::shared_ptr<CHIPEventLevel0> getEventFromPool();
+
+  /**
+   * @brief Process finished events from Backend::Events, update their status,
+   * release dependencies and return to event pool
+   */
+  void checkEvents();
 
   bool ownsZeContext = true;
   void setZeContextOwnership(bool keepOwnership) {
