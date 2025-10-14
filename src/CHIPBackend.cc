@@ -551,8 +551,6 @@ chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
 }
 
 chipstar::Device::~Device() {
-  LOCK(DeviceVarMtx);      // chipstar::Device::HostPtrToCompiledMod_
-  LOCK(QueueAddRemoveMtx); // chipstar::Device::ChipQueues_
   logDebug("~Device() {}", (void *)this);
 
   // First handle queues with QueueAddRemoveMtx
