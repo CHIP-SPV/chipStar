@@ -1731,113 +1731,37 @@ bool CHIPQueueOpenCL::query() {
 std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
 CHIPQueueOpenCL::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  // MARKER-BASED SYNCHRONIZATION: Create and signal marker events for each queue that needs synchronization
-  // instead of collecting LastEvent from each queue
+  // MARKER-BASED SYNCHRONIZATION: Create and signal marker events for each queue
+  // Uses template helper from base class with OpenCL specific marker creation
 
-  std::vector<cl_event> MarkerEvents;
-  std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
-
-  // Get the device and context for creating marker events
-  auto Dev = static_cast<CHIPDeviceOpenCL *>(ChipDevice_);
   auto Ctx = static_cast<CHIPContextOpenCL *>(ChipContext_);
   auto BackendOcl = static_cast<CHIPBackendOpenCL *>(Backend);
 
-  // Lock the backend events mutex
-  EventLocks.push_back(
-      std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
+  // Lambda for OpenCL marker creation
+  auto CreateOclMarker = [&](chipstar::Queue* q, std::shared_ptr<chipstar::Event>& markerEv) -> cl_event {
+    // Create a marker event in the other queue
+    auto OtherQueue = static_cast<CHIPQueueOpenCL *>(q);
+    
+    cl_event MarkerEvent;
+    clStatus = clEnqueueMarkerWithWaitList(OtherQueue->get()->get(), 0, nullptr, &MarkerEvent);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
 
-  // Lock the device queue mutex
-  EventLocks.push_back(
-      std::make_unique<std::unique_lock<std::mutex>>(Dev->QueueAddRemoveMtx));
-
-  // If this is a default stream (legacy or per-thread), create markers for all other queues
-  if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
-    // Create markers for all blocking queues
-    for (auto &q : Dev->getQueuesNoLock()) {
-      if (q->getQueueFlags().isBlocking()) {
-        // Create a marker event in the other queue
-        auto OtherQueue = static_cast<CHIPQueueOpenCL *>(q);
-        
-        cl_event MarkerEvent;
-        clStatus = clEnqueueMarkerWithWaitList(OtherQueue->get()->get(), 0, nullptr, &MarkerEvent);
-        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
-
-        // Create chipstar event wrapper for tracking
-        auto ChipMarkerEvent = BackendOcl->createEventShared(
-            Ctx, chipstar::EventFlags(), "QueueSyncMarker");
-        auto ChipMarkerEventOcl = std::static_pointer_cast<CHIPEventOpenCL>(ChipMarkerEvent);
-        
-        // Replace the event's internal cl_event with our marker
-        if (ChipMarkerEventOcl->ClEvent) {
-          clReleaseEvent(ChipMarkerEventOcl->ClEvent);
-        }
-        clRetainEvent(MarkerEvent);
-        ChipMarkerEventOcl->ClEvent = MarkerEvent;
-
-        // Add the marker to the list of events to wait on
-        MarkerEvents.push_back(MarkerEvent);
-
-        // Track the marker event so it gets properly managed by the event monitor
-        Backend->trackEvent(ChipMarkerEvent);
-
-        // Add dependency to the target event
-        TargetEvent->addDependency(ChipMarkerEvent);
-      }
+    // Create chipstar event wrapper for tracking
+    markerEv = BackendOcl->createEventShared(Ctx, chipstar::EventFlags(), "QueueSyncMarker");
+    auto ChipMarkerEventOcl = std::static_pointer_cast<CHIPEventOpenCL>(markerEv);
+    
+    // Replace the event's internal cl_event with our marker
+    if (ChipMarkerEventOcl->ClEvent) {
+      clReleaseEvent(ChipMarkerEventOcl->ClEvent);
     }
-  } else if (this->getQueueFlags().isBlocking()) {
-    // This is a blocking queue, sync with default streams
-    // Create marker for legacy default stream
-    auto LegacyDefaultQueue = Dev->getLegacyDefaultQueue();
-    if (LegacyDefaultQueue) {
-      auto LegacyQueue = static_cast<CHIPQueueOpenCL *>(LegacyDefaultQueue);
-      
-      cl_event MarkerEvent;
-      clStatus = clEnqueueMarkerWithWaitList(LegacyQueue->get()->get(), 0, nullptr, &MarkerEvent);
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
+    clRetainEvent(MarkerEvent);
+    ChipMarkerEventOcl->ClEvent = MarkerEvent;
 
-      auto ChipMarkerEvent = BackendOcl->createEventShared(
-          Ctx, chipstar::EventFlags(), "LegacyDefaultQueueMarker");
-      auto ChipMarkerEventOcl = std::static_pointer_cast<CHIPEventOpenCL>(ChipMarkerEvent);
-      
-      if (ChipMarkerEventOcl->ClEvent) {
-        clReleaseEvent(ChipMarkerEventOcl->ClEvent);
-      }
-      clRetainEvent(MarkerEvent);
-      ChipMarkerEventOcl->ClEvent = MarkerEvent;
+    return MarkerEvent;
+  };
 
-      MarkerEvents.push_back(MarkerEvent);
-      Backend->trackEvent(ChipMarkerEvent);
-      TargetEvent->addDependency(ChipMarkerEvent);
-    }
-
-    // Create marker for per-thread default stream if used
-    if (Dev->isPerThreadStreamUsedNoLock()) {
-      auto PerThreadDefaultQueue = Dev->getPerThreadDefaultQueueNoLock();
-      if (PerThreadDefaultQueue) {
-        auto PerThreadQueue = static_cast<CHIPQueueOpenCL *>(PerThreadDefaultQueue);
-        
-        cl_event MarkerEvent;
-        clStatus = clEnqueueMarkerWithWaitList(PerThreadQueue->get()->get(), 0, nullptr, &MarkerEvent);
-        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
-
-        auto ChipMarkerEvent = BackendOcl->createEventShared(
-            Ctx, chipstar::EventFlags(), "PerThreadDefaultQueueMarker");
-        auto ChipMarkerEventOcl = std::static_pointer_cast<CHIPEventOpenCL>(ChipMarkerEvent);
-        
-        if (ChipMarkerEventOcl->ClEvent) {
-          clReleaseEvent(ChipMarkerEventOcl->ClEvent);
-        }
-        clRetainEvent(MarkerEvent);
-        ChipMarkerEventOcl->ClEvent = MarkerEvent;
-
-        MarkerEvents.push_back(MarkerEvent);
-        Backend->trackEvent(ChipMarkerEvent);
-        TargetEvent->addDependency(ChipMarkerEvent);
-      }
-    }
-  }
-
-  return {MarkerEvents, std::move(EventLocks)};
+  // Call template helper with OpenCL marker creation
+  return addDependenciesQueueSyncImpl<cl_event>(BackendOcl, TargetEvent, CreateOclMarker);
 }
 
 std::shared_ptr<chipstar::Event>

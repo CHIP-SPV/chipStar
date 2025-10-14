@@ -919,129 +919,40 @@ CHIPQueueLevel0::createMarkerEventWithLock(CHIPContextLevel0* Ctx, const std::st
 std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  // MARKER-BASED SYNCHRONIZATION: Create and signal marker events for each queue that needs synchronization
-  // instead of collecting LastEvent from each queue
+  // MARKER-BASED SYNCHRONIZATION: Create and signal marker events for each queue
+  // Uses template helper from base class with Level Zero specific marker creation
 
-  std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
-  std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
-
-  // Get the device and context for creating marker events
-  auto Dev = static_cast<CHIPDeviceLevel0 *>(ChipDevice_);
   auto Ctx = static_cast<CHIPContextLevel0 *>(ChipCtxLz_);
   auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
 
-  // Lock the backend events mutex
-  EventLocks.push_back(
-      std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
+  // Lambda for Level Zero marker creation
+  auto CreateLzMarker = [&](chipstar::Queue* q, std::shared_ptr<chipstar::Event>& markerEv) -> ze_event_handle_t {
+    // Create marker event
+    markerEv = BackendLz->createEventShared(Ctx, chipstar::EventFlags(), "QueueSyncMarker");
+    auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(markerEv);
+    
+    // Signal this marker in the other queue's command list
+    auto OtherQueue = static_cast<CHIPQueueLevel0 *>(q);
+    LOCK(OtherQueue->CommandListMtx);
+    auto OtherCommandList = OtherQueue->getCmdListImm();
 
-  // Lock the device queue mutex
-  EventLocks.push_back(
-      std::make_unique<std::unique_lock<std::mutex>>(Dev->QueueAddRemoveMtx));
+    zeStatus = zeCommandListAppendSignalEvent(OtherCommandList, MarkerEventLz->peek());
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
 
-  // If this is a default stream (legacy or per-thread), create markers for all other queues
-  if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
-    // Create markers for all non-blocking queues
-    for (auto &q : Dev->getQueuesNoLock()) {
-      if (q->getQueueFlags().isBlocking()) {
-        // Create a marker event for this queue
-        auto [MarkerEvent, EventLock] = createMarkerEventWithLock(Ctx, "QueueSyncMarker");
-        auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
-        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(std::move(EventLock)));
+    // Set the event state to indicate it's been enqueued
+    MarkerEventLz->SignalEnqueued_ = true;
 
-        // Signal this marker in the other queue's command list
-        auto OtherQueue = static_cast<CHIPQueueLevel0 *>(q);
-        LOCK(OtherQueue->CommandListMtx);
-        auto OtherCommandList = OtherQueue->getCmdListImm();
+    return MarkerEventLz->peek();
+  };
 
-        zeStatus = zeCommandListAppendSignalEvent(
-            OtherCommandList, MarkerEventLz->peek());
-        CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+  // Call template helper with Level Zero marker creation
+  auto result = addDependenciesQueueSyncImpl<ze_event_handle_t>(BackendLz, TargetEvent, CreateLzMarker);
 
-        // Set the event state to indicate it's been enqueued
-        MarkerEventLz->SignalEnqueued_ = true;
-
-        // Add the marker to the list of events to wait on
-        EventsToWaitOn.push_back(MarkerEvent);
-
-        // Track the marker event so it gets properly managed by the event monitor
-        Backend->trackEvent(MarkerEvent);
-
-        // Add dependency to the target event
-        std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
-            ->addDependency(MarkerEvent);
-      }
-    }
-  } else if (this->getQueueFlags().isBlocking()) {
-    // This is a blocking queue, sync with default streams
-    // Create marker for legacy default stream
-    auto LegacyDefaultQueue = Dev->getLegacyDefaultQueue();
-    if (LegacyDefaultQueue) {
-      auto [MarkerEvent, EventLock] = createMarkerEventWithLock(Ctx, "LegacyDefaultQueueMarker");
-      auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
-      EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(std::move(EventLock)));
-
-      // Signal this marker in the legacy default queue's command list
-      auto LegacyQueue = static_cast<CHIPQueueLevel0 *>(LegacyDefaultQueue);
-      LOCK(LegacyQueue->CommandListMtx);
-      auto LegacyCommandList = LegacyQueue->getCmdListImm();
-
-      zeStatus = zeCommandListAppendSignalEvent(
-          LegacyCommandList, MarkerEventLz->peek());
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
-
-      // Set the event state to indicate it's been enqueued
-      MarkerEventLz->SignalEnqueued_ = true;
-
-      EventsToWaitOn.push_back(MarkerEvent);
-      
-      // Track the marker event so it gets properly managed by the event monitor
-      Backend->trackEvent(MarkerEvent);
-      
-      std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
-          ->addDependency(MarkerEvent);
-    }
-
-    // Create marker for per-thread default stream if used
-    if (Dev->isPerThreadStreamUsedNoLock()) {
-      auto PerThreadDefaultQueue = Dev->getPerThreadDefaultQueueNoLock();
-      if (PerThreadDefaultQueue) {
-        auto [MarkerEvent, EventLock] = createMarkerEventWithLock(Ctx, "PerThreadDefaultQueueMarker");
-        auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
-        EventLocks.push_back(std::make_unique<std::unique_lock<std::mutex>>(std::move(EventLock)));
-
-        // Signal this marker in the per-thread default queue's command list
-        auto PerThreadQueue = static_cast<CHIPQueueLevel0 *>(PerThreadDefaultQueue);
-        LOCK(PerThreadQueue->CommandListMtx);
-        auto PerThreadCommandList = PerThreadQueue->getCmdListImm();
-
-        zeStatus = zeCommandListAppendSignalEvent(
-            PerThreadCommandList, MarkerEventLz->peek());
-        CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
-
-        // Set the event state to indicate it's been enqueued
-        MarkerEventLz->SignalEnqueued_ = true;
-
-        EventsToWaitOn.push_back(MarkerEvent);
-        
-        // Track the marker event so it gets properly managed by the event monitor
-        Backend->trackEvent(MarkerEvent);
-        
-        std::static_pointer_cast<CHIPEventLevel0>(TargetEvent)
-            ->addDependency(MarkerEvent);
-      }
-    }
-  }
-
-  // Convert events to event handles
-  std::vector<ze_event_handle_t> EventHandles =
-      getEventListHandles(EventsToWaitOn);
-
-  // Set SignalEnqueued for the target event since it will be signaled by the
-  // upcoming operation
+  // Set SignalEnqueued for the target event since it will be signaled by the upcoming operation
   auto TargetEventLz = std::static_pointer_cast<CHIPEventLevel0>(TargetEvent);
   TargetEventLz->SignalEnqueued_ = true;
 
-  return {EventHandles, std::move(EventLocks)};
+  return result;
 }
 
 void CHIPQueueLevel0::addCallback(hipStreamCallback_t Callback,
