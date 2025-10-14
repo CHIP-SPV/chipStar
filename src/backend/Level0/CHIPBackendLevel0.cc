@@ -1943,6 +1943,7 @@ LZEventPool::~LZEventPool() {
   // have been returned to the pool via the custom deleter.
   // Now we can safely delete all events in the stack.
   while (Events_.size()) {
+    assert(Events_.top() && "Event is null");
     delete Events_.top();
     Events_.pop();
   }
