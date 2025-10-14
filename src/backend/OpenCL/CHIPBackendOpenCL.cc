@@ -1441,8 +1441,7 @@ void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
   auto MemMapEventNative =
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr();
 
-  auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(MemMapEvent, false);
-  std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MemMapEvent);
 
   auto QueueHandle = get()->get();
   cl_int clStatus;
@@ -1483,8 +1482,7 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
     return;
   }
   logDebug("CHIPQueueOpenCL::MemUnmap");
-  auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(MemMapEvent, false);
-  std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MemMapEvent);
 
   clStatus = clEnqueueSVMUnmap(
       get()->get(), AllocInfo->HostPtr, SyncQueuesEventHandles.size(),
@@ -1564,8 +1562,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "marker");
 
-  auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(MarkerEvent, false);
-  std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(MarkerEvent);
 
   clStatus = clEnqueueMarkerWithWaitList(
       this->get()->get(), SyncQueuesEventHandles.size(),
@@ -1604,8 +1601,7 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   auto AllocationsToKeepAlive = annotateIndirectPointers(
       *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
 
-  auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(LaunchEvent, false);
-  std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
 
   clStatus = clEnqueueNDRangeKernel(
       get()->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
@@ -1718,6 +1714,132 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   logTrace("~CHIPQueueOpenCL() {}", (void *)this);
 }
 
+bool CHIPQueueOpenCL::query() {
+  cl_event MarkerEvent;
+  clStatus = clEnqueueMarkerWithWaitList(get()->get(), 0, nullptr, &MarkerEvent);
+  if (clStatus != CL_SUCCESS)
+    return false;
+    
+  cl_int EventStatus;
+  clStatus = clGetEventInfo(MarkerEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                           sizeof(cl_int), &EventStatus, nullptr);
+  clReleaseEvent(MarkerEvent);
+  
+  return (clStatus == CL_SUCCESS && EventStatus == CL_COMPLETE);
+}
+
+std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
+CHIPQueueOpenCL::addDependenciesQueueSync(
+    std::shared_ptr<chipstar::Event> TargetEvent) {
+  // MARKER-BASED SYNCHRONIZATION: Create and signal marker events for each queue that needs synchronization
+  // instead of collecting LastEvent from each queue
+
+  std::vector<cl_event> MarkerEvents;
+  std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
+
+  // Get the device and context for creating marker events
+  auto Dev = static_cast<CHIPDeviceOpenCL *>(ChipDevice_);
+  auto Ctx = static_cast<CHIPContextOpenCL *>(ChipContext_);
+  auto BackendOcl = static_cast<CHIPBackendOpenCL *>(Backend);
+
+  // Lock the backend events mutex
+  EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(::Backend->EventsMtx));
+
+  // Lock the device queue mutex
+  EventLocks.push_back(
+      std::make_unique<std::unique_lock<std::mutex>>(Dev->QueueAddRemoveMtx));
+
+  // If this is a default stream (legacy or per-thread), create markers for all other queues
+  if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
+    // Create markers for all blocking queues
+    for (auto &q : Dev->getQueuesNoLock()) {
+      if (q->getQueueFlags().isBlocking()) {
+        // Create a marker event in the other queue
+        auto OtherQueue = static_cast<CHIPQueueOpenCL *>(q);
+        
+        cl_event MarkerEvent;
+        clStatus = clEnqueueMarkerWithWaitList(OtherQueue->get()->get(), 0, nullptr, &MarkerEvent);
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
+
+        // Create chipstar event wrapper for tracking
+        auto ChipMarkerEvent = BackendOcl->createEventShared(
+            Ctx, chipstar::EventFlags(), "QueueSyncMarker");
+        auto ChipMarkerEventOcl = std::static_pointer_cast<CHIPEventOpenCL>(ChipMarkerEvent);
+        
+        // Replace the event's internal cl_event with our marker
+        if (ChipMarkerEventOcl->ClEvent) {
+          clReleaseEvent(ChipMarkerEventOcl->ClEvent);
+        }
+        clRetainEvent(MarkerEvent);
+        ChipMarkerEventOcl->ClEvent = MarkerEvent;
+
+        // Add the marker to the list of events to wait on
+        MarkerEvents.push_back(MarkerEvent);
+
+        // Track the marker event so it gets properly managed by the event monitor
+        Backend->trackEvent(ChipMarkerEvent);
+
+        // Add dependency to the target event
+        TargetEvent->addDependency(ChipMarkerEvent);
+      }
+    }
+  } else if (this->getQueueFlags().isBlocking()) {
+    // This is a blocking queue, sync with default streams
+    // Create marker for legacy default stream
+    auto LegacyDefaultQueue = Dev->getLegacyDefaultQueue();
+    if (LegacyDefaultQueue) {
+      auto LegacyQueue = static_cast<CHIPQueueOpenCL *>(LegacyDefaultQueue);
+      
+      cl_event MarkerEvent;
+      clStatus = clEnqueueMarkerWithWaitList(LegacyQueue->get()->get(), 0, nullptr, &MarkerEvent);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
+
+      auto ChipMarkerEvent = BackendOcl->createEventShared(
+          Ctx, chipstar::EventFlags(), "LegacyDefaultQueueMarker");
+      auto ChipMarkerEventOcl = std::static_pointer_cast<CHIPEventOpenCL>(ChipMarkerEvent);
+      
+      if (ChipMarkerEventOcl->ClEvent) {
+        clReleaseEvent(ChipMarkerEventOcl->ClEvent);
+      }
+      clRetainEvent(MarkerEvent);
+      ChipMarkerEventOcl->ClEvent = MarkerEvent;
+
+      MarkerEvents.push_back(MarkerEvent);
+      Backend->trackEvent(ChipMarkerEvent);
+      TargetEvent->addDependency(ChipMarkerEvent);
+    }
+
+    // Create marker for per-thread default stream if used
+    if (Dev->isPerThreadStreamUsedNoLock()) {
+      auto PerThreadDefaultQueue = Dev->getPerThreadDefaultQueueNoLock();
+      if (PerThreadDefaultQueue) {
+        auto PerThreadQueue = static_cast<CHIPQueueOpenCL *>(PerThreadDefaultQueue);
+        
+        cl_event MarkerEvent;
+        clStatus = clEnqueueMarkerWithWaitList(PerThreadQueue->get()->get(), 0, nullptr, &MarkerEvent);
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
+
+        auto ChipMarkerEvent = BackendOcl->createEventShared(
+            Ctx, chipstar::EventFlags(), "PerThreadDefaultQueueMarker");
+        auto ChipMarkerEventOcl = std::static_pointer_cast<CHIPEventOpenCL>(ChipMarkerEvent);
+        
+        if (ChipMarkerEventOcl->ClEvent) {
+          clReleaseEvent(ChipMarkerEventOcl->ClEvent);
+        }
+        clRetainEvent(MarkerEvent);
+        ChipMarkerEventOcl->ClEvent = MarkerEvent;
+
+        MarkerEvents.push_back(MarkerEvent);
+        Backend->trackEvent(ChipMarkerEvent);
+        TargetEvent->addDependency(ChipMarkerEvent);
+      }
+    }
+  }
+
+  return {MarkerEvents, std::move(EventLocks)};
+}
+
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                                   hipMemcpyKind Kind) {
@@ -1740,9 +1862,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
   } else {
-    auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
-    std::vector<cl_event> SyncQueuesEventHandles =
-        getOpenCLHandles(EventsToWait);
+    auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
     auto *Ctx = getContext();
 
     switch (Ctx->getAllocStrategy()) {
@@ -1838,8 +1958,7 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "memFillAsync");
 
-  auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
-  std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
+  auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
   auto *Ctx = getContext();
 
   if (Ctx->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
@@ -1862,7 +1981,6 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueSVMMemFill);
   }
 
-  updateLastEvent(Event);
   return Event;
 };
 
@@ -1948,9 +2066,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
       Event->addDependency(WaitEvent);
     }
     // clStatus = ClQueue_->enqueueBarrierWithWaitList(&Events, &Barrier);
-    auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
-    std::vector<cl_event> SyncQueuesEventHandles =
-        getOpenCLHandles(EventsToWait);
+    auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
 
     for (auto &Event : Events) {
       SyncQueuesEventHandles.push_back(Event);
@@ -1962,9 +2078,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
   } else {
     // clStatus = ClQueue_->enqueueBarrierWithWaitList(nullptr, &Barrier);
-    auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(Event, false);
-    std::vector<cl_event> SyncQueuesEventHandles =
-        getOpenCLHandles(EventsToWait);
+    auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
 
     clStatus = clEnqueueBarrierWithWaitList(
         get()->get(), SyncQueuesEventHandles.size(),
@@ -1976,7 +2090,6 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
   clGetEventInfo(
       std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(),
       CL_EVENT_REFERENCE_COUNT, 4, &RefCount, NULL);
-  updateLastEvent(Event);
   return Event;
 }
 
@@ -2017,7 +2130,6 @@ void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
 
   auto *ChipEv = new CHIPEventOpenCL(
       static_cast<CHIPContextOpenCL *>(ChipContext_), SwitchEv);
-  updateLastEvent(std::shared_ptr<chipstar::Event>(ChipEv));
   QueueMode_ = ToMode;
 }
 
@@ -2226,9 +2338,8 @@ void CHIPBackendOpenCL::uninitialize() {
     LOCK(BackendMtx);
     for (auto Dev : getDevices()) {
       LOCK(Dev->QueueAddRemoveMtx);
-      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
       for (auto &Queue : Dev->getQueuesNoLock()) {
-        Queue->updateLastEvent(nullptr);
+        // Queues cleaned up without explicit last event updates
       }
     }
   }

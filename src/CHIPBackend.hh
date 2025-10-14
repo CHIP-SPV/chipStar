@@ -2083,7 +2083,6 @@ protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
   hipGraph_t CaptureGraph_;
-  std::mutex LastEventMtx;
   /// @brief  node for creating a dependency chain between subsequent record
   /// events when in graph capture mode
   CHIPGraphNode *LastNode_ = nullptr;
@@ -2118,9 +2117,6 @@ public:
     isPerThreadDefaultQueue_ = Status;
   }
 
-  std::pair<SharedEventVector, LockGuardVector>
-  getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> LastEvent,
-                          bool IncludeSelfLastEvent);
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}
