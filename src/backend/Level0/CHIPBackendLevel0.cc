@@ -916,8 +916,6 @@ CHIPQueueLevel0::createMarkerEventWithLock(CHIPContextLevel0* Ctx, const std::st
 std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  // MARKER-BASED SYNCHRONIZATION: Create and signal marker events for each queue
-  // Uses template helper from base class with Level Zero specific marker creation
 
   auto Ctx = static_cast<CHIPContextLevel0 *>(ChipCtxLz_);
   auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);

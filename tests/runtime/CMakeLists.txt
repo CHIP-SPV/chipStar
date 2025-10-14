@@ -105,7 +105,7 @@ add_hip_runtime_test(TestNegativeHasNoIGBAs2.hip)
 add_hip_runtime_test(TestPositiveHasNoIGBAs.hip)
 
 add_hip_runtime_test(CatchMemLeak1.hip)
-if(OpenCL_LIBRARY)
+if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
 endif()
 add_hip_runtime_test(Test887.hip)
