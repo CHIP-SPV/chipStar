@@ -558,11 +558,6 @@ chipstar::Device::~Device() {
   {
     LOCK(QueueAddRemoveMtx); // chipstar::Device::ChipQueues_
     
-    // Call finish() for PerThreadDefaultQueue to ensure that all
-    // outstanding work items are completed.
-    if (PerThreadDefaultQueue)
-      PerThreadDefaultQueue->finish();
-
     for (auto *Queue : UserQueues_)
       delete Queue;
     UserQueues_.clear();

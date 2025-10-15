@@ -1714,6 +1714,32 @@ void CHIPQueueLevel0::finish() {
                                       "zeCommandQueueSynchronize timeout out");
   }
 
+
+  // NOTE: I have no idea why we need this but without this
+  // hipHostRegister and HipMemcpy_AtoH tests fail.
+  // Create a marker event with no dependencies
+  auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+  auto Ctx = static_cast<CHIPContextLevel0 *>(ChipCtxLz_);
+  auto MarkerEvent = BackendLz->createEventShared(Ctx, chipstar::EventFlags(), "finish:marker");
+  auto MarkerEventLz = std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent);
+
+  LOCK(CommandListMtx);
+  
+  // Append barrier to copy command list with marker signal
+  zeStatus = zeCommandListAppendBarrier(ZeCmdListImmCopy_, MarkerEventLz->peek(), 0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  
+  // Append barrier to compute command list (wait on copy barrier marker)
+  zeStatus = zeCommandListAppendBarrier(ZeCmdListImm_, nullptr, 1, &MarkerEventLz->peek());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  
+  MarkerEventLz->SignalEnqueued_ = true;
+  
+  // Wait on the marker event
+  uint64_t timeout = ChipEnvVars.getL0EventTimeout() * 1e9;
+  zeStatus = zeEventHostSynchronize(MarkerEventLz->peek(), timeout);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostSynchronize);
+
   zeStatus = zeCommandListHostSynchronize(ZeCmdListImmCopy_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
 
