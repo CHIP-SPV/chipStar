@@ -24,6 +24,7 @@
 #include "Utils.hh"
 
 #include <chrono>
+#include <ctime>
 #include <fstream>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
@@ -681,57 +682,6 @@ void CHIPEventMonitorLevel0::checkCmdLists() {
       BackendLz->ActiveCmdLists.end());
 }
 
-void CHIPEventMonitorLevel0::checkEvents() {
-  LOCK(Backend->EventsMtx);
-  
-  // Collect events to delete first, then process them
-  std::vector<size_t> EventsToDelete;
-  
-  for (size_t EventIdx = 0; EventIdx < Backend->Events.size(); EventIdx++) {
-    auto Event = Backend->Events[EventIdx];
-    if (!Event) continue;
-    
-    auto ChipEventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-    if (!ChipEventLz) continue;
-    
-    // Check if event is deleted while holding the lock
-    ChipEventLz->isDeletedSanityCheck();
-    
-    // Check dependencies while holding the lock
-    if (ChipEventLz->DependsOnList.size() == 0) {
-      EventsToDelete.push_back(EventIdx);
-    }
-  }
-  
-  // Now process events that need deletion, but avoid holding EventsMtx during individual event operations
-  for (auto EventIdx : EventsToDelete) {
-    if (EventIdx < Backend->Events.size()) {
-      auto Event = Backend->Events[EventIdx];
-      if (Event) {
-        auto ChipEventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-        if (ChipEventLz) {
-          // Lock individual event mutex for status updates
-          LOCK(ChipEventLz->EventMtx);
-          
-          assert(ChipEventLz);
-          assert(!ChipEventLz->isUserEvent() &&
-                 "User events should not appear in EventMonitorLevel0");
-          
-          // updateFinishStatus will return true upon event state change.
-          ChipEventLz->updateFinishStatus(false);
-        }
-      }
-    }
-  }
-  
-  // Remove events from the vector in reverse order to maintain correct indices
-  for (auto it = EventsToDelete.rbegin(); it != EventsToDelete.rend(); ++it) {
-    if (*it < Backend->Events.size()) {
-      Backend->Events.erase(Backend->Events.begin() + *it);
-    }
-  }
-}
-
 void CHIPEventMonitorLevel0::checkExit() {
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   /**
@@ -741,42 +691,15 @@ void CHIPEventMonitorLevel0::checkExit() {
    * EventCommandListMap
    */
   if (Stop) {
-    // get current host time in seconds
-    int CurrTime = std::chrono::duration_cast<std::chrono::seconds>(
-                       std::chrono::system_clock::now().time_since_epoch())
-                       .count();
-
-    // if this is the first time we are stopping, set the time
-    if (TimeSinceStopRequested_ == 0)
-      TimeSinceStopRequested_ = CurrTime;
-
-    int EpasedTime = CurrTime - this->TimeSinceStopRequested_;
-    bool AllEventsCleared = Backend->Events.size() == 0;
-    if (AllEventsCleared)
-      pthread_exit(0);
-
-    if (EpasedTime > ChipEnvVars.getL0CollectEventsTimeout()) {
-      logError("CHIPEventMonitorLevel0 stop was called but not all events "
-               "have been cleared. Timeout of {} seconds has been reached.",
-               ChipEnvVars.getL0CollectEventsTimeout());
-      size_t MaxPrintEntries = std::min(Backend->Events.size(), size_t(10));
-      for (size_t i = 0; i < MaxPrintEntries; i++) {
-        auto Event = Backend->Events[i];
-        auto EventLz = std::static_pointer_cast<CHIPEventLevel0>(Event);
-        logError("Uncollected Backend->Events: {} {}", (void *)Event.get(),
-                 Event->Msg);
+    // Call CHIPContextLevel0::checkEvents() for all Level0 contexts
+    auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+    for (auto *ChipContext : BackendLz->ChipContexts) {
+      auto *ChipContextLz = static_cast<CHIPContextLevel0 *>(ChipContext);
+      if (ChipContextLz) {
+        ChipContextLz->checkEvents();
       }
-      pthread_exit(0);
     }
-
-    // print only once a second to avoid saturating stdout with logs
-    if (CurrTime - LastPrint_ >= 1) {
-      LastPrint_ = CurrTime;
-      logDebug("CHIPEventMonitorLevel0 stop was called but not all "
-               "events have been cleared. Timeout of {} seconds has not "
-               "been reached yet. Elapsed time: {} seconds",
-               ChipEnvVars.getL0CollectEventsTimeout(), EpasedTime);
-    }
+    pthread_exit(0);
   }
 }
 
