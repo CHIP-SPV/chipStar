@@ -1447,6 +1447,14 @@ void chipstar::Backend::addContext(chipstar::Context *ChipContext) {
   ChipContexts.push_back(ChipContext);
 }
 
+void chipstar::Backend::checkEventsForAllContexts() {
+  for (auto *ChipContext : ChipContexts) {
+    if (ChipContext) {
+      ChipContext->checkEvents();
+    }
+  }
+}
+
 hipError_t chipstar::Backend::configureCall(dim3 Grid, dim3 Block,
                                             size_t SharedMem,
                                             hipStream_t ChipQueue) {

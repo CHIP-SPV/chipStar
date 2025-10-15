@@ -225,11 +225,6 @@ class CHIPEventMonitorLevel0 : public chipstar::EventMonitor {
   int LastPrint_ = 0;
 
   /**
-   * @brief Go through all events in Backend::Events, update their status, upon
-   * status change release dependencies and command lists, return to event pool
-   */
-  void checkEvents();
-  /**
    * @brief Check if stop was requested for this monitor, if so handle all
    * outstanding events
    */
@@ -504,7 +499,7 @@ public:
    * @brief Process finished events from Backend::Events, update their status,
    * release dependencies and return to event pool
    */
-  void checkEvents();
+  void checkEvents() override;
 
   bool ownsZeContext = true;
   void setZeContextOwnership(bool keepOwnership) {

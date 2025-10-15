@@ -1768,6 +1768,12 @@ public:
   virtual bool isAllocatedPtrMappedToVM(void *Ptr) = 0;
 
   /**
+   * @brief Process finished events, update their status, release dependencies
+   * and return to event pool. Default implementation does nothing.
+   */
+  virtual void checkEvents() {}
+
+  /**
    * @brief Free memory
    *
    * @param ptr pointer to the memory location to be deallocated. Internally
@@ -1987,6 +1993,11 @@ public:
    */
   void addContext(chipstar::Context *ChipContext);
   void removeContext(chipstar::Context *ChipContext);
+
+  /**
+   * @brief Call checkEvents for all contexts
+   */
+  void checkEventsForAllContexts();
 
   /**
    * @brief Configure an upcoming kernel call
