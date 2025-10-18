@@ -391,8 +391,9 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
         Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeDevice));
     Var->markHasInitializer(HasInitializer);
     // Sanity check for object sizes reported by the shadow kernels vs
-    // __hipRegisterVar.
-    assert(Var->getSize() == Size && "Object size discrepancy!");
+    // __hipRegisterVar. For hipRTC variables, getSize() may return 0 since
+    // they're not registered via __hipRegisterVar, so skip the check.
+    assert((Var->getSize() == 0 || Var->getSize() == Size) && "Object size discrepancy!");
     queueVariableBindShadowKernel(Queue, this, Var);
   }
   Queue->finish();
@@ -865,6 +866,13 @@ size_t chipstar::Device::getGlobalMemSize() {
 
 void chipstar::Device::eraseModule(chipstar::Module *Module) {
   LOCK(DeviceMtx); // SrcModToCompiledMod_
+  
+  // Deallocate device variables before deleting the module
+  {
+    LOCK(DeviceVarMtx);
+    Module->deallocateDeviceVariablesNoLock(this);
+  }
+  
   for (auto &Kv : SrcModToCompiledMod_)
     if (Kv.second == Module) {
       delete Module;
@@ -989,6 +997,59 @@ void chipstar::Device::prepareDeviceVariables(HostPtr Ptr) {
     LOCK(DeviceVarMtx); // chipstar::Module::prepareDeviceVariablesNoLock()
     logDebug("Prepare variables in module {}", static_cast<const void *>(Mod));
     Mod->prepareDeviceVariablesNoLock(this, getDefaultQueue());
+  }
+}
+
+/// Registers device variables from a source module to a compiled module.
+void chipstar::Device::registerModuleVariables(chipstar::Module *ChipModule,
+                                               const SPVModule *SrcMod) {
+  LOCK(DeviceVarMtx);
+
+  // First try to register variables from SrcMod (for pre-compiled modules)
+  for (const auto &Info : SrcMod->Variables) {
+    std::string NameTmp(Info.Name.begin(), Info.Name.end());
+    std::string VarInfoKernelName = std::string(ChipVarInfoPrefix) + NameTmp;
+
+    if (!ChipModule->hasKernel(VarInfoKernelName)) {
+      logTrace(
+          "Device variable {} not found in the module -- removed as unused?",
+          Info.Name);
+      continue;
+    }
+    auto *Var = new chipstar::DeviceVar(&Info);
+    ChipModule->addDeviceVariable(Var);
+    DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
+  }
+
+  // For hipRTC modules, discover variables from shadow kernels
+  // (SrcMod->Variables is empty for hipRTC)
+  if (SrcMod->Variables.empty()) {
+    auto &Kernels = ChipModule->getKernels();
+
+    // Create fake SPVVariables for hipRTC - these will be owned by SrcMod
+    auto *MutableSrcMod = const_cast<SPVModule *>(SrcMod);
+
+    for (auto *Kernel : Kernels) {
+      std::string KernelName = Kernel->getName();
+
+      // Look for variable info shadow kernels
+      if (KernelName.find(ChipVarInfoPrefix) == 0) {
+        // Extract variable name from __chip_var_info_<varname>
+        std::string VarName = KernelName.substr(strlen(ChipVarInfoPrefix));
+
+        // Create fake SPVVariable for hipRTC - add to SrcMod's Variables list
+        // Use a dummy host pointer since hipRTC variables don't have real host
+        // pointers
+        void *DummyPtr = reinterpret_cast<void *>(
+            static_cast<uintptr_t>(0x1000 + MutableSrcMod->Variables.size()));
+        MutableSrcMod->Variables.emplace_back(
+            SPVVariable{{MutableSrcMod, HostPtr(DummyPtr), VarName}, 0});
+
+        // Now register this variable with the module
+        auto *Var = new chipstar::DeviceVar(&MutableSrcMod->Variables.back());
+        ChipModule->addDeviceVariable(Var);
+      }
+    }
   }
 }
 
