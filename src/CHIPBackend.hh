@@ -1645,6 +1645,7 @@ public:
   virtual void destroyTexture(chipstar::Texture *TextureObject) = 0;
 
   void prepareDeviceVariables(HostPtr Ptr);
+  void registerModuleVariables(chipstar::Module *Module, const SPVModule *SrcMod);
   void invalidateDeviceVariables();
   void deallocateDeviceVariables();
 

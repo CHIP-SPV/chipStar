@@ -5626,6 +5626,10 @@ static inline hipError_t hipModuleLoadDataInternal(hipModule_t *ModuleHandle,
   auto Entry = getSPVRegister().registerSource(ModuleCode);
   auto *SrcMod = getSPVRegister().getSource(Entry);
   auto *ChipModule = Backend->getActiveDevice()->getOrCreateModule(*SrcMod);
+  
+  // Register device variables from the source module
+  Backend->getActiveDevice()->registerModuleVariables(ChipModule, SrcMod);
+  
   *ModuleHandle = ChipModule;
 
   return hipSuccess;
@@ -5900,8 +5904,12 @@ static inline hipError_t hipModuleLaunchKernelInternal(
   dim3 Block(BlockDimX, BlockDimY, BlockDimZ);
 
   auto ChipKernel = static_cast<chipstar::Kernel *>(Kernel);
-  Backend->getActiveDevice()->prepareDeviceVariables(
-      HostPtr(ChipKernel->getHostPtr()));
+  auto *ChipModule = ChipKernel->getModule();
+  auto *Device = Backend->getActiveDevice();
+  {
+    LOCK(Device->DeviceVarMtx);
+    ChipModule->prepareDeviceVariablesNoLock(Device, ChipQueue);
+  }
 
   if (KernelParams)
     ChipQueue->launchKernel(ChipKernel, Grid, Block, KernelParams,
