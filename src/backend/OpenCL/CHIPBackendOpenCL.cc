@@ -27,6 +27,7 @@
 
 #include "Utils.hh"
 #include <chrono>
+#include <thread>
 #include <fstream>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
@@ -1557,6 +1558,9 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
+  // Mark queue as having work submitted
+  IsEmptyQueue_.store(false);
+  
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "marker");
@@ -1576,6 +1580,10 @@ std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
+  
+  // Mark queue as having work submitted
+  IsEmptyQueue_.store(false);
+  
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   std::shared_ptr<chipstar::Event>(LaunchEvent) =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
@@ -1717,6 +1725,12 @@ CHIPQueueOpenCL::~CHIPQueueOpenCL() {
 }
 
 bool CHIPQueueOpenCL::query() {
+  // If queue is empty (never had work submitted), return true immediately
+  // This matches the original LastEvent_ behavior and avoids pocl timing issues
+  if (IsEmptyQueue_.load()) {
+    return true;
+  }
+
   cl_event MarkerEvent;
   clStatus =
       clEnqueueMarkerWithWaitList(get()->get(), 0, nullptr, &MarkerEvent);
@@ -1774,6 +1788,9 @@ CHIPQueueOpenCL::addDependenciesQueueSync(
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                                   hipMemcpyKind Kind) {
+  // Mark queue as having work submitted
+  IsEmptyQueue_.store(false);
+  
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "memCopyAsync");
@@ -1880,11 +1897,17 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 void CHIPQueueOpenCL::finish() {
   clStatus = get()->finish();
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
+  
+  // After finish() completes, queue is empty again
+  IsEmptyQueue_.store(true);
 }
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
+  // Mark queue as having work submitted
+  IsEmptyQueue_.store(false);
+  
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "memFillAsync");
@@ -1981,6 +2004,9 @@ CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
+  // Mark queue as having work submitted
+  IsEmptyQueue_.store(false);
+  
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           this->ChipContext_, chipstar::EventFlags(), "barrier");
