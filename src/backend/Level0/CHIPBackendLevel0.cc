@@ -1252,14 +1252,13 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
 
   // Do we need to annotate indirect buffer accesses?
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
-  if (!LzDev->hasOnDemandPaging()) {
-    // The baseline answer is yes (unless we would know that the
-    // kernel won't access buffers indirectly).
-    zeStatus = zeKernelSetIndirectAccess(
-        KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
-                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetIndirectAccess);
-  }
+
+  // skpiing this check because PVC has a hardcoded value for this flag even though it's not supported:
+  // if (!LzDev->hasOnDemandPaging())
+  zeStatus = zeKernelSetIndirectAccess(
+      KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
+                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetIndirectAccess);
 
   // This function may not be called from simultaneous threads with the same
   // command list handle.
