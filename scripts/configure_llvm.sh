@@ -6,8 +6,8 @@ set -e
 # default values for optional arguments
 LINK_TYPE="static"
 ONLY_NECESSARY_SPIRV_EXTS="off"
-BINUTILS_HEADER_LOCATION=""
 EMIT_ONLY="off"
+WITH_BINUTILS=""
 
 # parse named arguments
 while [ $# -gt 0 ]; do
@@ -28,9 +28,16 @@ while [ $# -gt 0 ]; do
       ONLY_NECESSARY_SPIRV_EXTS="$2"
       shift 2
       ;;
-    --binutils-header-location)
-      BINUTILS_HEADER_LOCATION="$2"
-      shift 2
+    --with-binutils)
+      if [[ -z "$2" ]] || [[ "$2" == --* ]] || [[ "$2" == -* ]]; then
+        # No path provided, just enable binutils
+        WITH_BINUTILS="on"
+        shift 1
+      else
+        # Path provided
+        WITH_BINUTILS="$2"
+        shift 2
+      fi
       ;;
     -N)
       EMIT_ONLY="on"
@@ -45,12 +52,12 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path> [-N]"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> [--with-binutils [path]] [-N]"
   echo "--version: LLVM version 17, 18, 19, 20 or 21"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
   echo "--only-necessary-spirv-exts: on or off (default: off)"
-  echo "--binutils-header-location: path to binutils header (default: empty)"
+  echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "-N: only emit the cmake configure command without executing it"
   exit 1
 fi
@@ -147,53 +154,59 @@ if [ "$EMIT_ONLY" != "on" ]; then
 fi
 
 # Check if /usr/include/plugin-api.h exists
-if [ -n "${BINUTILS_HEADER_LOCATION}" ]; then
-  if [ ! -f "${BINUTILS_HEADER_LOCATION}/plugin-api.h" ]; then
-    echo "Error: plugin-api.h not found in the specified --binutils-header-location (${BINUTILS_HEADER_LOCATION})"
-    exit 1
-  else
-    echo "plugin-api.h was found at ${BINUTILS_HEADER_LOCATION}"
-    BINUTILS_HEADER_DIR=${BINUTILS_HEADER_LOCATION}
-  fi
-elif [ -f /usr/include/plugin-api.h ]; then
-  echo "plugin-api.h was found at /usr/include/plugin-api.h"
-  BINUTILS_HEADER_DIR=/usr/include
-else
-  echo "plugin-api.h was not found at /usr/include/plugin-api.h"
-  
-  # Check if binutils was installed in a previous attempt
-  BINUTILS_INSTALL_DIR=${INSTALL_DIR}/binutils
-  if [ -f "${BINUTILS_INSTALL_DIR}/include/plugin-api.h" ]; then
-    echo "Found previously installed binutils at ${BINUTILS_INSTALL_DIR}"
-    BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
-  else
-    if [ "$EMIT_ONLY" != "on" ]; then
-      echo "Installing binutils-dev from source..."
-      
-      # Create the installation directory if it doesn't exist
-      mkdir -p ${BINUTILS_INSTALL_DIR}
-      
-      # Download the binutils source
-      BINUTILS_VERSION="2.36.1"
-      wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
-      
-      # Extract the source
-      tar -xzf binutils-${BINUTILS_VERSION}.tar.gz
-      cd binutils-${BINUTILS_VERSION}
-      
-      # Configure, compile, and install binutils
-      ./configure --prefix=${BINUTILS_INSTALL_DIR}
-      make -j$(nproc)
-      make install
-      
-      # Clean up
-      cd ..
-      rm -rf binutils-${BINUTILS_VERSION} binutils-${BINUTILS_VERSION}.tar.gz
-      
-      echo "binutils-dev installed successfully in ${BINUTILS_INSTALL_DIR}"
+if [ -n "${WITH_BINUTILS}" ]; then
+  if [ "${WITH_BINUTILS}" != "on" ]; then
+    # A specific path was provided
+    if [ ! -f "${WITH_BINUTILS}/plugin-api.h" ]; then
+      echo "Error: plugin-api.h not found in the specified path (${WITH_BINUTILS})"
+      exit 1
+    else
+      echo "plugin-api.h was found at ${WITH_BINUTILS}"
+      BINUTILS_HEADER_DIR=${WITH_BINUTILS}
     fi
-    BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
+  elif [ -f /usr/include/plugin-api.h ]; then
+    echo "plugin-api.h was found at /usr/include/plugin-api.h"
+    BINUTILS_HEADER_DIR=/usr/include
+  else
+    echo "plugin-api.h was not found at /usr/include/plugin-api.h"
+    
+    # Check if binutils was installed in a previous attempt
+    BINUTILS_INSTALL_DIR=${INSTALL_DIR}/binutils
+    if [ -f "${BINUTILS_INSTALL_DIR}/include/plugin-api.h" ]; then
+      echo "Found previously installed binutils at ${BINUTILS_INSTALL_DIR}"
+      BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
+    else
+      if [ "$EMIT_ONLY" != "on" ]; then
+        echo "Installing binutils-dev from source..."
+        
+        # Create the installation directory if it doesn't exist
+        mkdir -p ${BINUTILS_INSTALL_DIR}
+        
+        # Download the binutils source
+        BINUTILS_VERSION="2.36.1"
+        wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
+        
+        # Extract the source
+        tar -xzf binutils-${BINUTILS_VERSION}.tar.gz
+        cd binutils-${BINUTILS_VERSION}
+        
+        # Configure, compile, and install binutils
+        ./configure --prefix=${BINUTILS_INSTALL_DIR}
+        make -j$(nproc)
+        make install
+        
+        # Clean up
+        cd ..
+        rm -rf binutils-${BINUTILS_VERSION} binutils-${BINUTILS_VERSION}.tar.gz
+        
+        echo "binutils-dev installed successfully in ${BINUTILS_INSTALL_DIR}"
+      fi
+      BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
+    fi
   fi
+else
+  echo "Binutils support is disabled (use --with-binutils to enable)"
+  BINUTILS_HEADER_DIR=""
 fi
 
 # Add build type condition
@@ -208,10 +221,13 @@ COMMON_CMAKE_OPTIONS=(
   "-DLLVM_ENABLE_PROJECTS=\"clang;openmp;clang-tools-extra\""
   "-DLLVM_TARGETS_TO_BUILD=\"host\""
   "-DLLVM_ENABLE_ASSERTIONS=On"
-  "-DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}"
   "-DCMAKE_CXX_LINK_FLAGS=\"-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64\""
   "-DCLANG_DEFAULT_PIE_ON_LINUX=off"
 )
+
+if [ -n "${BINUTILS_HEADER_DIR}" ]; then
+  COMMON_CMAKE_OPTIONS+=("-DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}")
+fi
 
 if [ "$LINK_TYPE" == "static" ]; then
   CMAKE_COMMAND="cmake ../ ${COMMON_CMAKE_OPTIONS[@]}"
