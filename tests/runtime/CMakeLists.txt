@@ -109,6 +109,7 @@ if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
 endif()
 add_hip_runtime_test(Test887.hip)
+add_hip_runtime_test(TestTemplatedConstantMemcpy.hip)
 
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES
