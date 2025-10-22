@@ -75,7 +75,7 @@ There are several transformations (LLVM passes) done on the LLVM IR of the devic
 * HipDefrost.cpp - removes freeze from instructions (workaround for the llvm-spirv translator).
 * HipDynMem.cpp - replaces dynamically sized shared-memory variables (`extern __shared__ type variable[];`) with a kernel argument. This is because in OpenCL, dynamically-sized local memory can only be passed as kernel argument.
 * HipEmitLoweredNames.cpp - required processing for hiprtcGetLoweredName()
-* HipGlobalVariable.cpp - creates special kernels that handle access and modification of global scope variables.
+* HipGlobalVariable.cpp - creates special kernels that handle access and modification of global scope variables. This pass lowers host-accessible global device variables (`__device__` and `__constant__`) by generating shadow kernels. These shadow kernels allow the runtime to query variable properties (size, alignment), bind device addresses, and initialize values. The pass handles both regular and templated variables, including those with COMDAT linkage (e.g., templated `__constant__` variables). Variables marked as `externally_initialized` are lowered regardless of COMDAT status.
 * HipKernelArgSpiller.cpp - Reduces the size of large kernel parameter lists by spilling them into a device buffer
 * HipLowerSwitch.cpp - Lowers switch instructions with a "non-standard" integer bitwidth (e.g. i4) to bitwidth supported by SPIRV-LLVM-Translator
 * HipLowerZeroLengthArrays.cpp - Lowers occurrences of zero length array types (unsupported by SPIRV-LLVM-Translator)
