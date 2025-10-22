@@ -76,6 +76,8 @@ static Instruction *createKernelStub(Module &M, StringRef Name,
     F->setCallingConv(CallingConv::SPIR_KERNEL);
     // HIP-CLang marks kernels hidden. Do the same here for consistency.
     F->setVisibility(GlobalValue::HiddenVisibility);
+    // Mark the function as externally used to prevent it from being removed by GlobalDCEPass
+    F->setLinkage(GlobalValue::ExternalLinkage);
     BasicBlock *BB = BasicBlock::Create(M.getContext(), "entry", F);
     IRBuilder<> B(BB);
     return B.CreateRetVoid();
@@ -327,23 +329,35 @@ static bool shouldLower(const GlobalVariable &GVar) {
     return false;  // Already lowered.
 
   // All host accessible global device variables are marked to be externally
-  // initialized and does not have COMDAT (so far).
-  if (!GVar.isExternallyInitialized() || GVar.hasComdat())
+  // initialized. For templated variables, we allow COMDAT linkage.
+  if (!GVar.isExternallyInitialized()) {
+    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName() 
+                      << " - not externally initialized\n");
     return false;
+  }
 
   // String literals get an unnamed_addr attribute, we know by it to
   // skip them.
-  if (GVar.hasAtLeastLocalUnnamedAddr())
+  if (GVar.hasAtLeastLocalUnnamedAddr()) {
+    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName() 
+                      << " - has unnamed_addr\n");
     return false;
+  }
 
   // Only objects in cross-workgroup address space are considered. LLVM IR
   // straight out from the HIP-Clang does not have objects in constant address
   // space so we don't look for them.
-  if (GVar.getAddressSpace() != SpirvCrossWorkGroupAS) return false;
+  if (GVar.getAddressSpace() != SpirvCrossWorkGroupAS) {
+    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName() 
+                      << " - wrong address space: " << GVar.getAddressSpace() << "\n");
+    return false;
+  }
 
   // Catch globals with unexpected attributes.
   assert(!GVar.isThreadLocal());
 
+  LLVM_DEBUG(dbgs() << "Lowering variable " << GVar.getName() 
+                    << " - hasInitializer=" << GVar.hasInitializer() << "\n");
   return true;
 }
 
