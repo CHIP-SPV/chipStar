@@ -1548,15 +1548,6 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
 
-  updateLastEvent(Cb->CallbackCompleted);
-
-  // Now the CB can start executing in the background:
-  clSetUserEventStatus(
-      std::static_pointer_cast<CHIPEventOpenCL>(HoldbackBarrierCompletedEv)
-          ->ClEvent,
-      CL_COMPLETE);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetUserEventStatus);
-
   return;
 }
 
