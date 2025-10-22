@@ -10,6 +10,8 @@ concurrency:
 jobs:
   unit-tests-llvm-19-release:
     runs-on: [self-hosted, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3

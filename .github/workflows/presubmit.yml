@@ -199,6 +199,7 @@ jobs:
     name: Build and test chipStar on ${{ matrix.backend }}${{ matrix.pocl-version && format(' {0}', matrix.pocl-version) || '' }} (llvm-${{ matrix.llvm-version }})
     runs-on: ubuntu-22.04
     env:
+      CHIP_MODULE_CACHE_DIR: ""
       EXCLUDE: ${{ matrix.backend == 'intel' && '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' || '"`cat ./test_lists/OPENCL_POCL.txt`|`cat ./test_lists/ALL.txt`"' }}
     strategy:
       matrix:
