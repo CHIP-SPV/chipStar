@@ -780,7 +780,14 @@ hipError_t hipLaunchHostFunc(hipStream_t stream, hipHostFn_t fn,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+  if (!fn)
+    RETURN(hipErrorInvalidValue);
+
+  auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(stream));
+
+  ChipQueue->launchHostFunc(fn, userData);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 hipError_t hipStreamIsCapturing(hipStream_t stream,
