@@ -2445,6 +2445,13 @@ public:
 
   virtual void addCallback(hipStreamCallback_t Callback, void *UserData);
   /**
+   * @brief Launch a host function to be executed in stream order
+   *
+   * @param hostFunction function pointer for a host function
+   * @param userData user data to pass to the function
+   */
+  virtual void launchHostFunc(hipHostFn_t HostFunction, void *UserData);
+  /**
    * @brief Insert a memory prefetch
    *
    * @param ptr
