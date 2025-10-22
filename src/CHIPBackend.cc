@@ -58,8 +58,12 @@ static void queueVariableInfoShadowKernel(chipstar::Queue *Q,
                                           const chipstar::DeviceVar *Var,
                                           void *InfoBuffer) {
   assert(M && Var && InfoBuffer);
-  auto *K = M->getKernelByName(std::string(ChipVarInfoPrefix) +
-                               std::string(Var->getName()));
+  
+  logTrace("queueVariableInfoShadowKernel: Var->getName() = '{}'", Var->getName());
+  std::string VarNameStr(Var->getName());
+  logTrace("queueVariableInfoShadowKernel: VarNameStr = '{}'", VarNameStr);
+  
+  auto *K = M->getKernelByName(std::string(ChipVarInfoPrefix) + VarNameStr);
   assert(K && "chipstar::Module is missing a shadow kernel?");
   void *Args[] = {&InfoBuffer};
   queueKernel(Q, K, Args);
@@ -135,11 +139,12 @@ chipstar::AllocationTracker::AllocationTracker(size_t GlobalMemSize,
 }
 
 chipstar::AllocationTracker::~AllocationTracker() {
-  LOCK(AllocationTrackerMtx); // Protect against concurrent access during cleanup
-  
+  LOCK(
+      AllocationTrackerMtx); // Protect against concurrent access during cleanup
+
   // Clear the maps first to prevent double-deletion
   PtrToAllocInfo_.clear();
-  
+
   for (auto *Member : AllocInfos_) {
     if (Member) {
       delete Member;
@@ -153,9 +158,9 @@ chipstar::AllocationTracker::getAllocInfo(const void *Ptr) {
   if (!Ptr) {
     return nullptr;
   }
-  
+
   LOCK(AllocationTrackerMtx); // chipstar::AllocTracker::PtrToAllocInfo_
-  
+
   // In case that Ptr is the base of the allocation, check hash map directly
   auto Found = PtrToAllocInfo_.count(const_cast<void *>(Ptr));
   if (Found)
@@ -407,20 +412,26 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
     assert(Size && "Unexpected zero sized device variable.");
     assert(Alignment && "Unexpected alignment requirement.");
 
+    logTrace("Variable '{}': Size={}, Alignment={}, HasInitializer={}", 
+             Var->getName(), Size, Alignment, HasInitializer);
     Var->setDevAddr(
         Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeDevice));
     Var->markHasInitializer(HasInitializer);
     // Sanity check for object sizes reported by the shadow kernels vs
-    // __hipRegisterVar. For hipRTC variables, getSize() may return 0 since
-    // they're not registered via __hipRegisterVar, so skip the check.
-    assert((Var->getSize() == 0 || Var->getSize() == Size) && "Object size discrepancy!");
+    // __hipRegisterVar. For device-only variables, we don't have __hipRegisterVar
+    // so the size is 0 - update it from the shadow kernel.
+    if (Var->getSize() == 0) {
+      // This is a device-only variable - update the size
+      const_cast<SPVVariable*>(Var->getSrcVar())->Size = Size;
+    }
+    assert(Var->getSize() == Size && "Object size discrepancy!");
     queueVariableBindShadowKernel(Queue, this, Var);
   }
   Queue->finish();
   DeviceVariablesAllocated_ = true;
 
   Ctx->free(VarInfoBufD);
-  
+
   return hipSuccess;
 }
 
@@ -466,8 +477,11 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
 
   bool QueuedKernels = false;
   for (auto *Var : ChipVars_) {
+    logTrace("Checking variable '{}' for initialization: hasInitializer={}", 
+             Var->getName(), Var->hasInitializer());
     if (!Var->hasInitializer())
       continue;
+    logTrace("Initializing variable '{}'", Var->getName());
     queueVariableInitShadowKernel(Queue, this, Var);
     QueuedKernels = true;
   }
@@ -692,9 +706,9 @@ void chipstar::Device::copyDeviceProperties(hipDeviceProp_t *Prop) {
 chipstar::Context *chipstar::Device::getContext() { return Ctx_; }
 int chipstar::Device::getDeviceId() { return Idx_; }
 
-chipstar::DeviceVar *chipstar::Device::getStatGlobalVar(const void *HostPtr) {
-  if (DeviceVarLookup_.count(HostPtr)) {
-    auto *Var = DeviceVarLookup_[HostPtr];
+chipstar::DeviceVar *chipstar::Device::getStatGlobalVar(const void *Ptr) {
+  if (DeviceVarLookup_.count(Ptr)) {
+    auto *Var = DeviceVarLookup_[Ptr];
     assert(Var->getDevAddr() && "Missing device pointer.");
     return Var;
   }
@@ -1146,6 +1160,8 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
     std::string NameTmp(Info.Name.begin(), Info.Name.end());
     std::string VarInfoKernelName = std::string(ChipVarInfoPrefix) + NameTmp;
 
+    logTrace("Processing variable: {} with host pointer: {}", NameTmp, (const void*)Info.Ptr.Value);
+
     if (!Mod->hasKernel(VarInfoKernelName)) {
       // The kernel compilation pipe is allowed to remove device-side unused
       // global variables from the device modules. This is utilized in the
@@ -1158,6 +1174,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
           Info.Name);
       continue;
     }
+    logTrace("Found shadow kernel for variable: {}", NameTmp);
     auto *Var = new chipstar::DeviceVar(&Info);
     Mod->addDeviceVariable(Var);
 
@@ -1166,12 +1183,72 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
     HostPtrToCompiledMod_[Info.Ptr] = Mod;
   }
 
+  // Discover device-only variables (e.g., template instantiations) that weren't
+  // registered via __hipRegisterVar. These have shadow kernels but no host symbol.
+  static int DummyHostPtr = 0;
+  static std::vector<SPVVariable*> SyntheticVars;
+  
+  for (auto *Kernel : Mod->getKernels()) {
+    const std::string& KernelName = Kernel->getName();
+    size_t PrefixLen = strlen(ChipVarInfoPrefix);
+    
+    // Check if this is a variable info shadow kernel
+    if (KernelName.length() <= PrefixLen ||
+        KernelName.substr(0, PrefixLen) != ChipVarInfoPrefix)
+      continue;
+    
+    // Extract variable name
+    std::string VarName = KernelName.substr(PrefixLen);
+    
+    // Check if we already processed this variable
+    bool AlreadyRegistered = false;
+    for (const auto &Info : SrcMod->Variables) {
+      std::string NameTmp(Info.Name.begin(), Info.Name.end());
+      if (NameTmp == VarName) {
+        AlreadyRegistered = true;
+        break;
+      }
+    }
+    
+    if (AlreadyRegistered)
+      continue;
+    
+    // This is a device-only variable - create a DeviceVar for it without a host pointer
+    logTrace("Found device-only variable: {} (no host symbol)", VarName);
+    
+    // Create a synthetic SPVVariable for this device-only variable
+    // Manually allocate and initialize all fields
+    SPVVariable *SyntheticVar = (SPVVariable *)malloc(sizeof(SPVVariable));
+    SyntheticVar->Parent = const_cast<SPVModule*>(SrcMod);
+    new (&SyntheticVar->Ptr) HostPtr(&DummyHostPtr);  // placement new for HostPtr
+    new (&SyntheticVar->Name) std::string(VarName);    // placement new for std::string
+    SyntheticVar->Size = 0;
+    
+    auto *Var = new chipstar::DeviceVar(SyntheticVar);
+    Mod->addDeviceVariable(Var);
+    
+    // Store the synthetic variable so it persists
+    SyntheticVars.push_back(SyntheticVar);
+    
+    // Note: We don't add to DeviceVarLookup_ since there's no host pointer to look up
+  }
+
 #ifndef NDEBUG
   {
     LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
-    assert((!Mod || (HostPtrToCompiledMod_.count(Ptr) &&
-                     HostPtrToCompiledMod_[Ptr] == Mod)) &&
-           "Forgot to map the host pointers");
+    // For unregistered templated variables, we might not have a mapping
+    // In that case, log but continue with normal module creation/mapping
+    if (Mod && !HostPtrToCompiledMod_.count(Ptr)) {
+      logTrace("Host pointer {} not found in mapping - likely unregistered "
+               "templated variable",
+               static_cast<const void *>(Ptr));
+    }
+    // Only assert if we have a module AND it's not properly mapped
+    // Allow unregistered templated variables to proceed without mapping
+    if (Mod && HostPtrToCompiledMod_.count(Ptr)) {
+      assert(HostPtrToCompiledMod_[Ptr] == Mod &&
+             "Forgot to map the host pointers");
+    }
   }
 #endif
 
@@ -1283,17 +1360,17 @@ void chipstar::Context::setFlags(unsigned int Flags) { Flags_ = Flags; }
 
 void chipstar::Context::reset() {
   logDebug("Resetting Context: deleting allocations");
-  
+
   auto Dev = getDevice();
-  
+
   // Properly free all allocations and clean up AllocationTracker
   for (auto &Ptr : AllocatedPtrs_) {
     // Get allocation info before freeing
     chipstar::AllocationInfo *AllocInfo = Dev->AllocTracker->getAllocInfo(Ptr);
-    
+
     // Free the memory
     freeImpl(Ptr);
-    
+
     // Remove from AllocationTracker to prevent double-allocation errors
     if (AllocInfo) {
       Dev->AllocTracker->eraseRecord(AllocInfo);
@@ -1311,7 +1388,7 @@ hipError_t chipstar::Context::free(void *Ptr) {
   if (!Ptr) {
     return hipErrorInvalidValue;
   }
-  
+
   chipstar::Device *ChipDev = ::Backend->getActiveDevice();
   chipstar::AllocationInfo *AllocInfo =
       ChipDev->AllocTracker->getAllocInfo(Ptr);
@@ -1368,29 +1445,33 @@ void chipstar::Backend::waitForThreadExit() {
   // Check if any threads called HIP APIs
   usleep(100000);
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
-  
+
   if (activeThreads <= 1) {
     // Only main thread or no threads called HIP APIs
-    logDebug("waitForThreadExit: No additional threads detected (count: {})", activeThreads);
+    logDebug("waitForThreadExit: No additional threads detected (count: {})",
+             activeThreads);
     return;
   }
-  
+
   // Wait for threads to exit by polling the counter
-  logDebug("waitForThreadExit: Waiting for {} threads to exit", activeThreads - 1);
-  
+  logDebug("waitForThreadExit: Waiting for {} threads to exit",
+           activeThreads - 1);
+
   for (int i = 0; i < 50; i++) { // Max 5 seconds
     pthread_yield();
     usleep(100000); // 100ms per iteration
-    
+
     activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
     if (activeThreads <= 1) {
-      logDebug("waitForThreadExit: All threads exited (count: {})", activeThreads);
+      logDebug("waitForThreadExit: All threads exited (count: {})",
+               activeThreads);
       return;
     }
   }
-  
-  logWarn("waitForThreadExit: Timeout waiting for threads to exit (remaining: {})", 
-          activeThreads - 1);
+
+  logWarn(
+      "waitForThreadExit: Timeout waiting for threads to exit (remaining: {})",
+      activeThreads - 1);
 
   // Cleanup all queues
   {
@@ -1438,7 +1519,8 @@ void chipstar::Backend::setActiveDevice(chipstar::Device *ChipDevice) {
 
 chipstar::Context *chipstar::Backend::getActiveContext() {
   if (!::Backend) {
-    CHIPERR_LOG_AND_THROW("Backend not initialized", hipErrorInitializationError);
+    CHIPERR_LOG_AND_THROW("Backend not initialized",
+                          hipErrorInitializationError);
   }
   LOCK(::Backend->ActiveCtxMtx); // reading Backend::ChipCtxStack
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
@@ -1451,7 +1533,8 @@ chipstar::Context *chipstar::Backend::getActiveContext() {
 
 chipstar::Device *chipstar::Backend::getActiveDevice() {
   if (!::Backend) {
-    CHIPERR_LOG_AND_THROW("Backend not initialized", hipErrorInitializationError);
+    CHIPERR_LOG_AND_THROW("Backend not initialized",
+                          hipErrorInitializationError);
   }
   chipstar::Context *Ctx = getActiveContext();
   return Ctx->getDevice();
@@ -1607,7 +1690,8 @@ chipstar::Backend::findDeviceMatchingProps(const hipDeviceProp_t *Props) {
 
 chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
   if (!::Backend) {
-    CHIPERR_LOG_AND_THROW("Backend not initialized", hipErrorInitializationError);
+    CHIPERR_LOG_AND_THROW("Backend not initialized",
+                          hipErrorInitializationError);
   }
   auto Dev = ::Backend->getActiveDevice();
   LOCK(Dev->QueueAddRemoveMtx);

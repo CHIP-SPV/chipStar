@@ -121,15 +121,21 @@ void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
   LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = reinterpret_cast<SPVModule *>(Handle.Module);
   assert(Sources_.count(SrcMod) && "Not a member of the register.");
-  assert(
-      // Host pointer should be associated with one source module and variable
-      // at most.
-      (!HostPtrLookup_.count(Ptr)) ||
-      // A variable made for abort() and device-side malloc implementation is an
-      // exception to this due to the way it's modeled.
-      ((Name == ChipDeviceAbortFlagName || Name == ChipDeviceHeapName) &&
-       HostPtrLookup_[Ptr]->Name == Name) &&
-          "Host-pointer is already mapped.");
+  if (HostPtrLookup_.count(Ptr)) {
+    // In case of **templated** and **inline qualified** __constant__
+    // variables, there may be duplicate __hipRegisterVar() calls.
+    // Similar to functions, record the first one and ignore duplicates.
+    if (HostPtrLookup_[Ptr]->Name == Name) {
+      return;
+    }
+    // A variable made for abort() and device-side malloc implementation is an
+    // exception to this due to the way it's modeled.
+    if ((Name == ChipDeviceAbortFlagName || Name == ChipDeviceHeapName) &&
+        HostPtrLookup_[Ptr]->Name == Name) {
+      return;
+    }
+    assert(false && "Host-pointer is already mapped to a different variable.");
+  }
 
   if (Name == ChipDeviceAbortFlagName) {
     if (SrcMod->HasAbortFlag)

@@ -677,6 +677,7 @@ public:
 
   void *getDevAddr() const { return DevAddr_; }
   void setDevAddr(void *Addr) { DevAddr_ = Addr; }
+  const SPVVariable *getSrcVar() const { return SrcVar_; }
   std::string_view getName() const { return SrcVar_->Name; }
   size_t getSize() const { return SrcVar_->Size; }
   size_t getAlignment() const { return Alignment_; }
