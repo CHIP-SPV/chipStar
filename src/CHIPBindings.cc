@@ -3716,25 +3716,28 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   // 2. Barrier fires when the original dependencies complete (correct timing)
   // 3. We avoid the circular dependency issue with event reuse
   std::vector<std::shared_ptr<chipstar::Event>> EventsToWaitOn;
-  
+
   if (ChipEvent->isFinished())
     RETURN(hipSuccess);
 
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT) {
-    logError("hipStreamWaitEventInternal: trying to enqueue a wait on an event that hasn't been recorded yet",
+    logError("hipStreamWaitEventInternal: trying to enqueue a wait on an event "
+             "that hasn't been recorded yet",
              (void *)ChipEvent);
     std::abort();
   }
 
   {
     LOCK(ChipEvent->DependsOnListMtx);
-    if (ChipEvent->getEventStatus() == EVENT_STATUS_RECORDING && ChipEvent->DependsOnList.empty()) {
-      logError("hipStreamWaitEventInternal: trying to enqueue a wait on an event that is recording but has no dependencies",
+    if (ChipEvent->getEventStatus() == EVENT_STATUS_RECORDING &&
+        ChipEvent->DependsOnList.empty()) {
+      logError("hipStreamWaitEventInternal: trying to enqueue a wait on an "
+               "event that is recording but has no dependencies",
                (void *)ChipEvent);
       std::abort();
     }
 
-    for (const auto& dep : ChipEvent->DependsOnList) {
+    for (const auto &dep : ChipEvent->DependsOnList) {
       ChipEvent->isDeletedSanityCheck();
       EventsToWaitOn.push_back(dep);
     }
@@ -4088,11 +4091,15 @@ static inline hipError_t hipHostMallocInternal(void **Ptr, size_t Size,
   int PageLockSuccess = mlock(RetVal, Size);
   if (PageLockSuccess != 0) {
     if (errno == EPERM) {
-      logWarn("Page Lock failure: insufficient privileges (CAP_IPC_LOCK required) - continuing without locked memory");
+      logWarn("Page Lock failure: insufficient privileges (CAP_IPC_LOCK "
+              "required) - continuing without locked memory");
     } else if (errno == ENOMEM) {
-      logWarn("Page Lock failure: memory limit exceeded (ulimit -l {}) - continuing without locked memory", Size);
+      logWarn("Page Lock failure: memory limit exceeded (ulimit -l {}) - "
+              "continuing without locked memory",
+              Size);
     } else {
-      logWarn("Page Lock failure, errno: {} - continuing without locked memory", errno);
+      logWarn("Page Lock failure, errno: {} - continuing without locked memory",
+              errno);
     }
     // Note: Memory allocation still works, just won't be page-locked
     // This can happen in constrained environments like CI runners or containers
@@ -5846,6 +5853,7 @@ hipError_t hipMemcpyToSymbolAsyncInternal(const void *Symbol, const void *Src,
   Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(Symbol));
 
   chipstar::DeviceVar *Var = Backend->getActiveDevice()->getGlobalVar(Symbol);
+
   ERROR_IF(!Var, hipErrorInvalidSymbol);
   if (Offset + SizeBytes > Var->getSize())
     CHIPERR_LOG_AND_THROW("Copy has out-of-bounds accesses!",
