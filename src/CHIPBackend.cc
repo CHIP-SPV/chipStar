@@ -91,16 +91,23 @@ static void queueVariableInitShadowKernel(chipstar::Queue *Q,
 static void initDeviceHeap(chipstar::Queue *Q, chipstar::Module *M) {
   logTrace("initDeviceHeap()");
   chipstar::DeviceVar *Var = M->getGlobalVar(ChipDeviceHeapName);
-  if (!Var)
+  if (!Var) {
+    logTrace("initDeviceHeap() - no device heap variable found");
     return;
+  }
   void *device_heap = Var->getDevAddr();
-  auto *Ctx = Q->getContext();
-  void *init_device_heap_ptr =
-      Ctx->allocate(sizeof(void *), 8, hipMemoryTypeDevice);
-  Var->setDevAddr(init_device_heap_ptr);
   logInfo("initDeviceHeap() device_heap: {}", (void *)device_heap);
-  logInfo("initDeviceHeap() init_device_heap_ptr: {}",
-          (void *)init_device_heap_ptr);
+
+  // If device heap is not allocated yet, allocate it
+  if (!device_heap) {
+    auto *Ctx = Q->getContext();
+    void *init_device_heap_ptr =
+        Ctx->allocate(sizeof(void *), 8, hipMemoryTypeDevice);
+    Var->setDevAddr(init_device_heap_ptr);
+    logInfo("initDeviceHeap() allocated init_device_heap_ptr: {}",
+            (void *)init_device_heap_ptr);
+  }
+
   queueVariableBindShadowKernel(Q, M, Var);
   Q->finish();
 }
@@ -387,6 +394,12 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
     assert(Alignment && "Unexpected alignment requirement.");
 
     auto *Var = VarInfo.first;
+
+    // Skip the device heap variable as it's handled specially by initDeviceHeap
+    if (Var->getName() == ChipDeviceHeapName) {
+      continue;
+    }
+
     Var->setDevAddr(
         Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeDevice));
     Var->markHasInitializer(HasInitializer);
