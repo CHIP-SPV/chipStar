@@ -1965,6 +1965,32 @@ void chipstar::Queue::addCallback(hipStreamCallback_t Callback,
   return;
 }
 
+// Static wrapper function to adapt hipHostFn_t to hipStreamCallback_t
+static void hostFuncWrapper(hipStream_t stream, hipError_t status, void* userData) {
+  // Extract the host function and user data from a structure
+  struct HostFuncData {
+    hipHostFn_t hostFunc;
+    void* userData;
+  };
+  
+  HostFuncData* data = static_cast<HostFuncData*>(userData);
+  data->hostFunc(data->userData);
+  delete data;
+}
+
+void chipstar::Queue::launchHostFunc(hipHostFn_t HostFunction, void *UserData) {
+  // Create a structure to hold both the host function and user data
+  struct HostFuncData {
+    hipHostFn_t hostFunc;
+    void* userData;
+  };
+  
+  HostFuncData* wrapperData = new HostFuncData{HostFunction, UserData};
+  
+  // Use the existing callback infrastructure with our wrapper
+  addCallback(hostFuncWrapper, wrapperData);
+}
+
 //   template <class GraphNodeType, class... ArgTypes>
 //   bool chipstar::Queue::captureIntoGraph(ArgTypes... ArgsPack) {
 //     if (getCaptureStatus() == hipStreamCaptureStatusActive) {

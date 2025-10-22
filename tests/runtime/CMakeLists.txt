@@ -129,3 +129,4 @@ add_hip_runtime_test(TestEventRecordCircularDep.cpp)
 add_hip_runtime_test(TestDefaultStreamImplicitSync.hip)
 
 add_hip_runtime_test(TestTypeCastIntrinsics.hip)
+add_hip_runtime_test(TestHipLaunchHostFunc.cpp)
