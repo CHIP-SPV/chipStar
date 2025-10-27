@@ -2050,6 +2050,7 @@ static void hostFuncWrapper(hipStream_t stream, hipError_t status, void* userDat
   
   HostFuncData* data = static_cast<HostFuncData*>(userData);
   data->hostFunc(data->userData);
+  delete data;
 }
 
 void chipstar::Queue::launchHostFunc(hipHostFn_t HostFunction, void *UserData) {
