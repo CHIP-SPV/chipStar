@@ -23,7 +23,8 @@
 #ifndef HIP_INCLUDE_DEVICELIB_TYPE_CASTING_INTRINSICS_H
 #define HIP_INCLUDE_DEVICELIB_TYPE_CASTING_INTRINSICS_H
 
-#include <hip/devicelib/macros.hh>
+// Device-compatible type definitions
+typedef unsigned int uint;
 
 extern "C" __device__ float __chip_double2float_rd(double x);
 extern "C++" {

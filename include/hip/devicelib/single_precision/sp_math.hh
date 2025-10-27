@@ -23,8 +23,9 @@
 #ifndef HIP_INCLUDE_DEVICELIB_SP_MATH_H
 #define HIP_INCLUDE_DEVICELIB_SP_MATH_H
 
-#include <hip/devicelib/macros.hh>
-#include <cmath>
+// Device-compatible type definitions
+typedef unsigned int uint;
+// #include <cmath>
 
 /**
  * @brief Declare as extern - we state that these funcitons are implemented and

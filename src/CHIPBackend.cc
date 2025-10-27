@@ -22,6 +22,9 @@
 
 #include "CHIPBackend.hh"
 #include <atomic>
+#ifdef __APPLE__
+#include <sched.h>
+#endif
 
 // Global counter for threads that have called HIP APIs
 std::atomic<int> GlobalActiveThreads{0};
@@ -304,6 +307,10 @@ chipstar::Kernel *chipstar::Module::findKernel(const std::string &Name) {
 chipstar::Kernel *chipstar::Module::getKernelByName(const std::string &Name) {
   auto *Kernel = findKernel(Name);
   if (!Kernel) {
+    logDebug("getKernelByName failed for '{}', available kernels:", Name);
+    for (auto *K : ChipKernels_) {
+      logDebug("  - '{}'", K->getName());
+    }
     std::string Msg = "Failed to find kernel via kernel name: " + Name;
     CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
   }
@@ -420,7 +427,21 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
 
   // Skip if the module does not have device variables needing initialization.
   auto *NonSymbolResetKernel = findKernel(ChipNonSymbolResetKernelName);
-  if (ChipVars_.empty() && !NonSymbolResetKernel) {
+  
+  // Check if there are any actual device variables to initialize
+  bool HasDeviceVarsToInit = false;
+  for (auto *Var : ChipVars_) {
+    if (Var->hasInitializer()) {
+      HasDeviceVarsToInit = true;
+      break;
+    }
+  }
+  
+  // Skip if no variables need initialization
+  // Note: We also skip the reset kernel if there are no ChipVars, as the reset
+  // kernel may try to access device variables that were optimized away
+  if (!HasDeviceVarsToInit && (ChipVars_.empty() || !NonSymbolResetKernel)) {
+    logDebug("Skipping device variable initialization - no variables to initialize");
     DeviceVariablesInitialized_ = true;
     return;
   }
@@ -436,9 +457,13 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   }
 
   // Launch kernel for resetting host-inaccessible global device variables.
-  if (NonSymbolResetKernel) {
+  // Only launch if we actually have device variables, to avoid accessing
+  // variables that may have been optimized away
+  if (NonSymbolResetKernel && HasDeviceVarsToInit) {
     queueKernel(Queue, NonSymbolResetKernel);
     QueuedKernels = true;
+  } else if (NonSymbolResetKernel && !HasDeviceVarsToInit) {
+    logDebug("Skipping reset kernel - no device variables found (likely optimized away)");
   }
 
   if (QueuedKernels)
@@ -546,7 +571,7 @@ chipstar::Queue *chipstar::ExecItem::getQueue() { return ChipQueue_; }
 chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
     : Ctx_(Ctx), Idx_(DeviceIdx) {
   LegacyDefaultQueue = nullptr;
-  PerThreadDefaultQueue = nullptr;
+  // PerThreadDefaultQueue = nullptr;
   // Avoid indeterminate values.
   std::memset(&HipDeviceProps_, 0, sizeof(HipDeviceProps_));
 }
@@ -558,8 +583,9 @@ chipstar::Device::~Device() {
 
   // Call finish() for PerThreadDefaultQueue to ensure that all
   // outstanding work items are completed.
-  if (PerThreadDefaultQueue)
-    PerThreadDefaultQueue->finish();
+  // DISABLED: TLS symbol issue on macOS
+  // if (PerThreadDefaultQueue)
+  //   PerThreadDefaultQueue->finish();
 
   for (auto *Queue : UserQueues_)
     delete Queue;
@@ -602,6 +628,11 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
 }
 
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
+  // DISABLED: TLS symbol issue on macOS - fall back to legacy queue
+  logDebug("PerThreadDefaultQueue disabled (TLS issue), using LegacyDefaultQueue");
+  return getLegacyDefaultQueue();
+  
+  /* ORIGINAL CODE - DISABLED DUE TO TLS ISSUE:
   thread_local static std::once_flag PerThreadQueueFlag;
   std::call_once(PerThreadQueueFlag, [this]() {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
@@ -613,6 +644,7 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
   });
 
   return PerThreadDefaultQueue.get();
+  */
 }
 
 std::vector<chipstar::Kernel *> chipstar::Device::getKernels() {
@@ -1339,7 +1371,11 @@ void chipstar::Backend::waitForThreadExit() {
   logDebug("waitForThreadExit: Waiting for {} threads to exit", activeThreads - 1);
   
   for (int i = 0; i < 50; i++) { // Max 5 seconds
+#ifdef __APPLE__
+    sched_yield();
+#else
     pthread_yield();
+#endif
     usleep(100000); // 100ms per iteration
     
     activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
@@ -1405,7 +1441,11 @@ chipstar::Context *chipstar::Backend::getActiveContext() {
   LOCK(::Backend->ActiveCtxMtx); // reading Backend::ChipCtxStack
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
+#ifdef __APPLE__
+    logDebug("Context stack is empty for thread");
+#else
     logDebug("Context stack is empty for thread {}", pthread_self());
+#endif
     ChipCtxStack.push(PrimaryContext);
   }
   return ChipCtxStack.top();

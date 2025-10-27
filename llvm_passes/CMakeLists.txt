@@ -123,6 +123,14 @@ if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 endif()
 
+# Link against LLVM shared library when available
+if(LLVM_LINK_LLVM_DYLIB OR LLVM_ENABLE_SHARED_LIBS)
+  target_link_libraries(LLVMHipDynMem LLVM)
+  target_link_libraries(LLVMHipStripUsedIntrinsics LLVM)
+  target_link_libraries(LLVMHipDefrost LLVM)
+  target_link_libraries(LLVMHipPasses LLVM)
+endif()
+
 install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics LLVMHipDefrost LLVMHipPasses
         LIBRARY DESTINATION lib/llvm
         ARCHIVE DESTINATION lib/llvm

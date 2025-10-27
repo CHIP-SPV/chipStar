@@ -23,6 +23,7 @@
 
 #include "hip/hip_runtime.h"
 
+#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>

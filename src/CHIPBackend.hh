@@ -372,7 +372,11 @@ public:
 
   void join() {
     assert(Thread_);
+#ifdef __APPLE__
+    logDebug("Joining chipstar::Event Monitor Thread");
+#else
     logDebug("Joining chipstar::Event Monitor Thread {}", Thread_);
+#endif
     int Status = pthread_join(Thread_, nullptr);
     if (Status != 0) {
       logError("Failed to call join() {}", Status);
@@ -391,7 +395,11 @@ public:
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
+#ifdef __APPLE__
+    logDebug("Thread Created successfully");
+#else
     logDebug("Thread Created with ID : {}", Thread_);
+#endif
   }
 
   void stop() {

@@ -158,6 +158,17 @@ bool compareRes1(size_t i, bool print, T res1, T res2)
   } while (0)
 
 
+// Helper to get element type from vector types
+template <typename T>
+struct vector_element_type {
+    using type = T;
+};
+
+template <typename U, int N>
+struct vector_element_type<HIP_vector_type<U, N>> {
+    using type = U;
+};
+
 template <typename T, typename RNG>
 __host__ int TestVectors(RNG rnd, const T multiplier,
                          bool (*comparator)(size_t i, bool print, T res1, T res2)
@@ -179,8 +190,9 @@ __host__ int TestVectors(RNG rnd, const T multiplier,
 
     // initialize the input data
     for (size_t i = 0; i < NUM; i++) {
-        Array1[i] = (T)rnd();
-        Array2[i] = (T)rnd();
+        using elem_type = typename vector_element_type<T>::type;
+        Array1[i] = T(static_cast<elem_type>(rnd()));
+        Array2[i] = T(static_cast<elem_type>(rnd()));
     }
 
     err = hipMalloc((void**)&gpuArray1, NUM * sizeof(T));

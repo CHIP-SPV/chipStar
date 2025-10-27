@@ -23,7 +23,8 @@
 #ifndef HIP_INCLUDE_DEVICELIB_DP_MATH_H
 #define HIP_INCLUDE_DEVICELIB_DP_MATH_H
 
-#include <hip/devicelib/macros.hh>
+// Device-compatible type definitions
+typedef unsigned long ulong;
 
 #if defined __has_builtin && __has_builtin(__builtin_acos)
 // Must use 'static' here for the HIP built-ins mapped to compiler

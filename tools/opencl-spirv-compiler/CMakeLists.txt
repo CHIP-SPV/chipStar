@@ -16,5 +16,7 @@ target_link_libraries(opencl-spirv-compiler PRIVATE OpenCL::OpenCL)
 
 # Add filesystem library for GCC versions < 9
 if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
+if(NOT APPLE)
     target_link_libraries(opencl-spirv-compiler PRIVATE stdc++fs)
+endif()
 endif()

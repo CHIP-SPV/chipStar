@@ -22,6 +22,7 @@
  */
 
 #include <hip/hip_runtime.h>
+#include <cassert>
 #include "test_common.h"
 
 __constant__ __device__ int ConstOut = 123;

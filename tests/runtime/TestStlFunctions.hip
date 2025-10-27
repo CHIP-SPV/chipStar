@@ -52,7 +52,7 @@ template <typename T, typename FnT> void launchBinaryFn(FnT Fn) {
 
 int main() {
 
-  launchUnaryFn<float>([] __device__(auto x) { return std::abs(x); });
+  launchUnaryFn<float>([] __device__(auto x) { return std::fabs(static_cast<float>(x)); });
   launchUnaryFn<float>([] __device__(auto x) { return std::expm1(x); });
 
   launchUnaryFn<float>([] __device__(auto x) { return std::log1p(x); }, 2);
@@ -83,7 +83,7 @@ int main() {
   launchUnaryFn<float>([] __device__(auto x) { return std::ceil(x); });
   launchUnaryFn<float>([] __device__(auto x) { return std::ceilf(x); });
 
-  launchUnaryFn<int>([] __device__(int x) { return std::log(x); }, 2);
+  launchUnaryFn<int>([] __device__(int x) { return std::log(static_cast<float>(x)); }, 2);
   launchUnaryFn<float>([] __device__(auto x) { return std::log(x); }, 2);
   launchUnaryFn<float>([] __device__(auto x) { return std::logf(x); }, 2);
 

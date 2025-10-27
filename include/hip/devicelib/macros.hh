@@ -24,12 +24,12 @@
 #ifndef HIP_INCLUDE_DEVICELIB_MACROS_H
 #define HIP_INCLUDE_DEVICELIB_MACROS_H
 
-#include <algorithm>
-#include <limits>
 
 #define NOOPT __attribute__((optnone))
 
 #if defined(__HIP_DEVICE_COMPILE__)
+// #include <algorithm>
+// #include <limits>
 #define __DEVICE__ __device__
 #define EXPORT static inline __device__
 #define OVLD __attribute__((overloadable)) __device__

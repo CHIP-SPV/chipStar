@@ -38,11 +38,13 @@ bool readEnvVar(std::string EnvVar, std::string &Value, bool Lower = true);
 
 std::optional<fs::path> dumpSpirv(std::string_view Spirv);
 
+std::optional<fs::path> dumpSpirv(std::string_view Spirv, std::string_view Name);
+
 inline std::optional<fs::path> dumpSpirv(const std::vector<uint32_t> &Spirv,
                                          std::string_view Path = "") {
   auto Str = std::string_view(reinterpret_cast<const char *>(Spirv.data()),
                               Spirv.size() * sizeof(uint32_t));
-  return dumpSpirv(Str);
+  return dumpSpirv(Str, Path.empty() ? "main" : Path);
 }
 
 /// Reinterpret the pointed region, starting from BaseAddr +

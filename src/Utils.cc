@@ -30,7 +30,14 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#else
 #include <link.h>
+#include <dlfcn.h>
+// Include the header that defines dl_phdr_info
+#include <elf.h>
+#endif
 
 bool isConvertibleToInt(const std::string &str) {
   try {
@@ -73,6 +80,24 @@ std::string generateShortHash(std::string_view input, size_t length) {
 std::optional<fs::path> dumpSpirv(std::string_view Spirv) {
   std::string HashSum = generateShortHash(Spirv, 6);
   std::string FileName = "hip-spirv-" + HashSum + ".spv";
+  std::ofstream SpirvFile(FileName, std::ios::binary);
+  if (!SpirvFile) {
+    std::cerr << "Error: Could not open file " << FileName << " for writing"
+              << std::endl;
+    return std::nullopt;
+  }
+
+  SpirvFile.write(Spirv.data(), Spirv.size());
+  SpirvFile.close();
+  return FileName;
+}
+
+/// Dump the SPIR-V to a file with a descriptive name
+///
+/// On success return the path to the file.
+std::optional<fs::path> dumpSpirv(std::string_view Spirv, std::string_view Name) {
+  std::string HashSum = generateShortHash(Spirv, 6);
+  std::string FileName = "hip-spirv-" + std::string(Name) + "-" + HashSum + ".spv";
   std::ofstream SpirvFile(FileName, std::ios::binary);
   if (!SpirvFile) {
     std::cerr << "Error: Could not open file " << FileName << " for writing"
@@ -139,6 +164,7 @@ std::optional<std::string> readFromFile(const fs::path Path) {
   return std::nullopt;
 }
 
+#ifndef __APPLE__
 static int dlIterateCallback(struct dl_phdr_info *Info, size_t Size,
                              void *Data) {
   std::string *Res = static_cast<std::string *>(Data);
@@ -151,13 +177,36 @@ static int dlIterateCallback(struct dl_phdr_info *Info, size_t Size,
   Res->assign(DlName);
   return 1;
 }
+#endif
+
+#ifdef __APPLE__
+static std::string findLibCHIPPath() {
+  uint32_t imageCount = _dyld_image_count();
+  for (uint32_t i = 0; i < imageCount; i++) {
+    const char* imageName = _dyld_get_image_name(i);
+    if (imageName) {
+      std::string imagePath(imageName);
+      size_t pos = imagePath.find("/libCHIP.dylib");
+      if (pos != std::string::npos) {
+        imagePath.erase(pos);
+        return imagePath;
+      }
+    }
+  }
+  return "/dev/null";
+}
+#endif
 
 std::optional<fs::path> getHIPCCPath() {
   static std::once_flag Flag;
   static std::optional<fs::path> HIPCCPath;
 
   std::string LibCHIPPath("/dev/null");
+#ifdef __APPLE__
+  LibCHIPPath = findLibCHIPPath();
+#else
   dl_iterate_phdr(dlIterateCallback, static_cast<void *>(&LibCHIPPath));
+#endif
 
   std::call_once(Flag, [&]() {
     for (const auto &ExeCand : {fs::path(LibCHIPPath) / "bin/hipcc",

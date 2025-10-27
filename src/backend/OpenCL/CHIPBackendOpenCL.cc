@@ -919,29 +919,44 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
                                  std::vector<cl::Program> &Objects) {
 
+  // WORKAROUND: Skip device libraries for pocl due to clLinkProgram crash
+  // TODO: Investigate why pocl's clLinkProgram receives invalid program pointers
+  const char *skipDeviceLibs = std::getenv("CHIP_SKIP_DEVICE_LIBS");
+  if (skipDeviceLibs && std::string(skipDeviceLibs) == "1") {
+    logWarn("CHIP_SKIP_DEVICE_LIBS=1: Skipping device library linking");
+    return;
+  }
+
   // TODO: Minor optimization opportunity. Link modules based on
   //       SPIR-V module inspection.
 
   // TODO: Reuse already compiled modules.
 
-  auto AppendSource = [&](auto &Source) -> void {
+  auto AppendSource = [&](auto &Source, const std::string &Name) -> void {
+    if (ChipEnvVars.getDumpSpirv()) {
+      auto Str = std::string_view(reinterpret_cast<const char *>(Source.data()),
+                                  Source.size());
+      if (auto DumpPath = dumpSpirv(Str, Name))
+        logDebug("Dumped runtime object '{}' SPIR-V binary to '{}'", Name,
+                 fs::absolute(*DumpPath).c_str());
+    }
     Objects.push_back(compileIL(Ctx, ChipDev, Source));
   };
 
   if (ChipDev.hasFP32AtomicAdd())
-    AppendSource(chipstar::atomicAddFloat_native);
+    AppendSource(chipstar::atomicAddFloat_native, "atomicAddFloat_native");
   else
-    AppendSource(chipstar::atomicAddFloat_emulation);
+    AppendSource(chipstar::atomicAddFloat_emulation, "atomicAddFloat_emulation");
 
   if (ChipDev.hasDoubles()) {
     if (ChipDev.hasFP64AtomicAdd())
-      AppendSource(chipstar::atomicAddDouble_native);
+      AppendSource(chipstar::atomicAddDouble_native, "atomicAddDouble_native");
     else
-      AppendSource(chipstar::atomicAddDouble_emulation);
+      AppendSource(chipstar::atomicAddDouble_emulation, "atomicAddDouble_emulation");
   }
 
   if (ChipDev.hasBallot())
-    AppendSource(chipstar::ballot_native);
+    AppendSource(chipstar::ballot_native, "ballot_native");
 
   // No fall-back implementation for ballot - let linker raise an error.
 }
@@ -1198,32 +1213,45 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
     auto linkStart = std::chrono::high_resolution_clock::now();
 
-    std::string Flags = "";
-    // Check if running on Intel GPU OpenCL driver
-    std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
-    bool isIntelGPU =
-        (vendor.find("Intel") != std::string::npos) &&
-        (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
+    // If only main program (no device libraries added), skip linking and build directly
+    if (ClObjects.size() == 1) {
+      logInfo("Only one program object, building directly instead of linking");
+      Program_ = ClMainObj;
+      cl_device_id dev_id = ChipDevOcl->get()->get();
+      Err = clBuildProgram(Program_.get(), 1, &dev_id, 
+                           buildOptions.c_str(), nullptr, nullptr);
+      if (Err != CL_SUCCESS) {
+        dumpProgramLog(*ChipDevOcl, Program_);
+        CHIPERR_LOG_AND_THROW("Program build failed.", hipErrorInitializationError);
+      }
+    } else {
+      std::string Flags = "";
+      // Check if running on Intel GPU OpenCL driver
+      std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
+      bool isIntelGPU =
+          (vendor.find("Intel") != std::string::npos) &&
+          (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
 
-    if (isIntelGPU) {
-      // Only Intel GPU driver seems to need compile flags at the link step
-      Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
-                                           : ChipEnvVars.getJitFlags() + " " +
-                                                 Backend->getDefaultJitFlags();
-    }
+      if (isIntelGPU) {
+        // Only Intel GPU driver seems to need compile flags at the link step
+        Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
+                                             : ChipEnvVars.getJitFlags() + " " +
+                                                  Backend->getDefaultJitFlags();
+      }
 
-    logInfo("JIT Link flags: {}", Flags);
-    Program_ =
-        cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
-    auto linkEnd = std::chrono::high_resolution_clock::now();
-    auto linkDuration = std::chrono::duration_cast<std::chrono::microseconds>(
-        linkEnd - linkStart);
-    logTrace("cl::linkProgram took {} microseconds", linkDuration.count());
+      logInfo("JIT Link flags: {}", Flags);
+      Program_ =
+          cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
+      auto linkEnd = std::chrono::high_resolution_clock::now();
+      auto linkDuration = std::chrono::duration_cast<std::chrono::microseconds>(
+          linkEnd - linkStart);
+      logTrace("cl::linkProgram took {} microseconds", linkDuration.count());
 
-    if (Err != CL_SUCCESS) {
-      dumpProgramLog(*ChipDevOcl, Program_);
-      CHIPERR_LOG_AND_THROW("Device library link step failed.",
-                            hipErrorInitializationError);
+      if (Err != CL_SUCCESS) {
+        dumpProgramLog(*ChipDevOcl, Program_);
+        CHIPERR_LOG_AND_THROW("Device library link step failed.",
+                              hipErrorInitializationError);
+      }
     }
 
     save(Program_, cacheName);
@@ -2200,7 +2228,11 @@ void CHIPBackendOpenCL::uninitialize() {
   if (activeThreads > 1) {
     // Wait longer and more aggressively for threads to exit
     for (int i = 0; i < 300; i++) { // Max 30 seconds instead of 20 for extra safety
+#ifdef __APPLE__
+      sched_yield();
+#else
       pthread_yield();
+#endif
       usleep(100000); // 100ms per iteration
       
       activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
@@ -2351,8 +2383,7 @@ void CHIPBackendOpenCL::initializeImpl() {
           D.getInfo<CL_DEVICE_SVM_CAPABILITIES>();
       
       if ((SVMCapabilities & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER) == 0 &&
-          DevExts.find("cl_intel_unified_shared_memory") == std::string::npos &&
-          DevExts.find("cl_ext_buffer_device_address") == std::string::npos) {
+          DevExts.find("cl_intel_unified_shared_memory") == std::string::npos)  {
         StrStream << " insufficient device memory capabilities.\n";
         continue;
       }

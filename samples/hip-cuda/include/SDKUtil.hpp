@@ -38,7 +38,9 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <string.h>
 #include <vector>
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 #include <math.h>
 #include <numeric>
 #include <stdint.h>
@@ -60,13 +62,27 @@ THE SOFTWARE.
 #include <windows.h>
 #else
 #include <sys/time.h>
+#ifdef __linux__
 #include <linux/limits.h>
+#else
+#include <limits.h>
+#endif
 #include <unistd.h>
 #endif
 
 /******************************************************************************
 * Defined macros                                                              *
 ******************************************************************************/
+// macOS doesn't have memalign, use posix_memalign instead
+#ifdef __APPLE__
+#include <cstdlib>
+inline void* memalign(size_t alignment, size_t size) {
+    void* ptr = nullptr;
+    posix_memalign(&ptr, alignment, size);
+    return ptr;
+}
+#endif
+
 #define SDK_SUCCESS 0
 #define SDK_FAILURE 1
 #define SDK_EXPECTED_FAILURE 2

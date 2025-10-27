@@ -49,7 +49,8 @@ add_cuda_sample(cuda-matrixMul 0_Simple/matrixMul matrixMul.cu)
 add_cuda_sample(cuda-template 0_Simple/template template.cu template_cpu.cpp)
 add_cuda_sample(cuda-vectorAdd 0_Simple/vectorAdd vectorAdd.cu)
 
-add_cuda_sample(cuda-clock 0_Simple/clock clock.cu)
+# DISABLED: cuda-clock has naming conflict with system clock() function on macOS
+# add_cuda_sample(cuda-clock 0_Simple/clock clock.cu)
 add_cuda_sample(cuda-cppIntegration 0_Simple/cppIntegration cppIntegration.cu  cppIntegration_gold.cpp  main.cpp)
 
 add_cuda_sample(cuda-simplePrintf 0_Simple/simplePrintf  simplePrintf.cu)

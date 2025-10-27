@@ -1,4 +1,5 @@
 #include <hip/hip_runtime.h>
+#include <cassert>
 #include <iostream>
 static constexpr auto LEN{1};
 static constexpr auto SIZE{LEN * sizeof(int)};
