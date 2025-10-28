@@ -1256,12 +1256,18 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   // Do we need to annotate indirect buffer accesses?
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(getDevice());
 
-  // skpiing this check because PVC has a hardcoded value for this flag even though it's not supported:
-  // if (!LzDev->hasOnDemandPaging())
-  zeStatus = zeKernelSetIndirectAccess(
-      KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
-                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetIndirectAccess);
+  // If we have determined that the module does not have indirect
+  // global memory accesses (IGBAs; see HipIGBADetectorPass), we may
+  // skip the annotation.
+  const SPVModuleInfo &ModInfo = ChipKernel->getModule()->getInfo();
+  if (!ModInfo.HasNoIGBAs) {
+    // skpiing this check because PVC has a hardcoded value for this flag even though it's not supported:
+    // if (!LzDev->hasOnDemandPaging())
+    zeStatus = zeKernelSetIndirectAccess(
+        KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
+                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetIndirectAccess);
+  }
 
   // This function may not be called from simultaneous threads with the same
   // command list handle.
