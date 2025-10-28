@@ -1448,6 +1448,7 @@ struct HipStreamCallbackData {
   hipStreamCallback_t Callback;
   std::shared_ptr<chipstar::Event> CallbackFinishEvent;
   std::shared_ptr<chipstar::Event> CallbackCompleted;
+  std::shared_ptr<chipstar::Event> HoldbackBarrier;
 };
 
 void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
@@ -1579,7 +1580,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
   // finishing the user CB's execution.
 
   HipStreamCallbackData *Cb = new HipStreamCallbackData{
-      this, hipSuccess, UserData, Callback, CallbackEvent, nullptr};
+      this, hipSuccess, UserData, Callback, CallbackEvent, nullptr, HoldbackBarrierCompletedEv};
 
   std::vector<std::shared_ptr<chipstar::Event>> WaitForEventsCBB{CallbackEvent};
   Cb->CallbackCompleted = enqueueBarrier(WaitForEventsCBB);
