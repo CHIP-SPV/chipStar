@@ -22,7 +22,7 @@ jobs:
 
   unit-tests-llvm-18-debug:
     needs: cancel-nightly
-    runs-on: X64
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -34,7 +34,7 @@ jobs:
         shell: bash
   unit-tests-llvm-18-release:
     needs: cancel-nightly
-    runs-on: X64
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -46,7 +46,7 @@ jobs:
         shell: bash
   unit-tests-llvm-19-debug:
     needs: cancel-nightly
-    runs-on: X64
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -58,7 +58,7 @@ jobs:
         shell: bash
   unit-tests-llvm-19-release:
     needs: cancel-nightly
-    runs-on: X64
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -70,7 +70,7 @@ jobs:
         shell: bash
   unit-tests-llvm-20-debug:
     needs: cancel-nightly
-    runs-on: X64
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -82,7 +82,7 @@ jobs:
         shell: bash
   unit-tests-llvm-20-release:
     needs: cancel-nightly
-    runs-on: X64
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v3
         with:
