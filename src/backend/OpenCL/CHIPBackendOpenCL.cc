@@ -1831,8 +1831,16 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 void CHIPQueueOpenCL::finish() {
-  clStatus = get()->finish();
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
+  // Finish both queues to ensure all commands complete
+  // This is necessary because we might have commands on both regular and profiling queues
+  if (ClRegularQueue_.get()) {
+    clStatus = ClRegularQueue_.finish();
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
+  }
+  if (ClProfilingQueue_.get()) {
+    clStatus = ClProfilingQueue_.finish();
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
+  }
   this->LastEvent_ = nullptr;
 }
 
@@ -2013,16 +2021,22 @@ void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
   assert(ToQ.get());
 
   cl_event SwitchEv;
+  cl_event BarrierEv;
   cl_int clStatus;
   clStatus = clEnqueueMarkerWithWaitList(FromQ.get(), 0, nullptr, &SwitchEv);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
 
-  clStatus = clEnqueueBarrierWithWaitList(ToQ.get(), 1, &SwitchEv, nullptr);
+  clStatus = clEnqueueBarrierWithWaitList(ToQ.get(), 1, &SwitchEv, &BarrierEv);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
 
+  // Use the barrier event from the TO queue, not the marker from FROM queue
   auto *ChipEv = new CHIPEventOpenCL(
-      static_cast<CHIPContextOpenCL *>(ChipContext_), SwitchEv);
+      static_cast<CHIPContextOpenCL *>(ChipContext_), BarrierEv);
   updateLastEvent(std::shared_ptr<chipstar::Event>(ChipEv));
+  
+  // Release the marker event since we're tracking the barrier instead
+  clReleaseEvent(SwitchEv);
+  
   QueueMode_ = ToMode;
 }
 
