@@ -26,6 +26,9 @@
 #include <chrono>
 #include <fstream>
 
+#include <fcntl.h>
+#include <filesystem>
+
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
 
@@ -2709,6 +2712,7 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
   // Create the cache directory if it doesn't exist
   std::filesystem::create_directories(cacheDir);
   std::string fullPath = cacheDir + "/" + std::to_string(hash);
+  std::string fullPath_tmp = cacheDir + "/" + std::to_string(hash) +"_tmp";
 
   size_t binarySize;
   zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
@@ -2717,16 +2721,47 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
   std::vector<uint8_t> binary(binarySize);
   zeStatus = zeModuleGetNativeBinary(module, &binarySize, binary.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetNativeBinary);
+  
+  // for c++23 we could use std::ios::noreplace in the future
+  // try to create a file. This is atomic, so one process will succeed and the
+  int fd = open(fullPath_tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 
-  std::ofstream outFile(fullPath, std::ios::out | std::ios::binary);
-  if (!outFile) {
-    logError("Failed to open file for writing module binary");
-    std::abort();
+  if( fd == -1 ) {
+    // file already exists or another error occurred
+    if( errno == EEXIST ) {
+
+      // file already exists. wait until the final file appears
+      double duration = 0; //
+      double duration_limit = 3600; // waits 60 min roughly and then will stop
+      while (!std::filesystem::exists(fullPath) and duration < duration_limit ) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+	duration+=0.5;
+      }
+    } else {
+      logError("Failed to open file for writing module binary");
+      std::abort();
+    }
+  } else {
+    // this process opened the file
+    ssize_t bytes = write(fd,reinterpret_cast<const char *>(binary.data()), binary.size() );
+    if( bytes == -1 ) {
+      logError("Failed to write file for module binary");
+      close(fd);
+      std::abort();
+    }
+    if( fsync(fd) == -1 ) {
+      logError("Failed to write file for module binary");
+      close(fd);
+      std::abort();
+    }
+    close(fd);
+    // rename, also atomic
+    if( rename(fullPath_tmp.c_str(), fullPath.c_str() ) == -1) {
+      logError("Failed to write file for module binary");
+    }
+    
+    logTrace("Module binary cached as {}", fullPath);
   }
-
-  outFile.write(reinterpret_cast<const char *>(binary.data()), binary.size());
-  outFile.close();
-  logTrace("Module binary cached as {}", fullPath);
 }
 
 bool load(ze_module_desc_t &desc, CHIPDeviceLevel0 *device) {
