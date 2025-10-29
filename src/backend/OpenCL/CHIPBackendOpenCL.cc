@@ -919,14 +919,6 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
                                  std::vector<cl::Program> &Objects) {
 
-  // WORKAROUND: Skip device libraries for pocl due to clLinkProgram crash
-  // TODO: Investigate why pocl's clLinkProgram receives invalid program pointers
-  const char *skipDeviceLibs = std::getenv("CHIP_SKIP_DEVICE_LIBS");
-  if (skipDeviceLibs && std::string(skipDeviceLibs) == "1") {
-    logWarn("CHIP_SKIP_DEVICE_LIBS=1: Skipping device library linking");
-    return;
-  }
-
   // TODO: Minor optimization opportunity. Link modules based on
   //       SPIR-V module inspection.
 
@@ -1240,6 +1232,29 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       }
 
       logInfo("JIT Link flags: {}", Flags);
+e     logInfo("Linking {} program objects", ClObjects.size());
+      
+      // Diagnostic logging for each program object
+      for (size_t i = 0; i < ClObjects.size(); i++) {
+        cl_int queryErr;
+        cl_program_binary_type binaryType;
+        queryErr = clGetProgramBuildInfo(ClObjects[i].get(), ChipDevOcl->get()->get(),
+                                         CL_PROGRAM_BINARY_TYPE, 
+                                         sizeof(binaryType), &binaryType, nullptr);
+        if (queryErr == CL_SUCCESS) {
+          const char* typeStr = "UNKNOWN";
+          switch(binaryType) {
+            case CL_PROGRAM_BINARY_TYPE_NONE: typeStr = "NONE"; break;
+            case CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT: typeStr = "COMPILED_OBJECT"; break;
+            case CL_PROGRAM_BINARY_TYPE_LIBRARY: typeStr = "LIBRARY"; break;
+            case CL_PROGRAM_BINARY_TYPE_EXECUTABLE: typeStr = "EXECUTABLE"; break;
+          }
+          logInfo("  Program[{}]: binary_type = {} ({})", i, typeStr, (int)binaryType);
+        } else {
+          logWarn("  Program[{}]: Failed to query binary type, error = {}", i, queryErr);
+        }
+      }
+      
       Program_ =
           cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
       auto linkEnd = std::chrono::high_resolution_clock::now();
@@ -1248,6 +1263,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       logTrace("cl::linkProgram took {} microseconds", linkDuration.count());
 
       if (Err != CL_SUCCESS) {
+        logError("clLinkProgram failed with error code: {} (0x{:x})", Err, (unsigned)Err);
         dumpProgramLog(*ChipDevOcl, Program_);
         CHIPERR_LOG_AND_THROW("Device library link step failed.",
                               hipErrorInitializationError);
