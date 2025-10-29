@@ -1982,13 +1982,13 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
 std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueBarrier(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
   std::shared_ptr<chipstar::Event> ChipEvent =
-      std::shared_ptr<chipstar::Event>(enqueueBarrierImpl(EventsToWaitFor));
+      enqueueBarrierImpl(EventsToWaitFor);
   ChipEvent->Msg = "enqueueBarrier";
   return ChipEvent;
 }
 std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueMarker() {
   std::shared_ptr<chipstar::Event> ChipEvent =
-      std::shared_ptr<chipstar::Event>(enqueueMarkerImpl());
+      enqueueMarkerImpl();
   ChipEvent->Msg = "enqueueMarker";
   return ChipEvent;
 }
@@ -1996,7 +1996,7 @@ std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueMarker() {
 void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count) {
 
   std::shared_ptr<chipstar::Event> ChipEvent =
-      std::shared_ptr<chipstar::Event>(memPrefetchImpl(Ptr, Count));
+      memPrefetchImpl(Ptr, Count);
   ChipEvent->Msg = "memPrefetch";
 }
 
