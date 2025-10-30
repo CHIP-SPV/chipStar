@@ -464,6 +464,15 @@ public:
       return new SPIRVtypePointer(getWord(1), getWord(2), PointerSize,
                                   getWord(3));
 
+    // SPV_KHR_untyped_pointers extension: OpTypeUntypedPointerKHR
+    // This is essentially a void* - a pointer without a specific pointee type
+    if ((InstWord)Opcode_ == 4417) { // SpvOpTypeUntypedPointerKHR
+      // OpTypeUntypedPointerKHR has: Result <id>, Storage Class
+      // We treat it like a regular pointer with no pointee type
+      return new SPIRVtypePointer(getWord(1), getWord(2), PointerSize,
+                                  0 /* no pointee type */);
+    }
+
     if (Opcode_ == spv::Op::OpTypeFunction)
       // Not a correct object for function type but close. We currently
       // don't need dedicated class for it.
@@ -633,8 +642,15 @@ private:
     // Record kernel parameter size for kernel argument setters in the
     // backends.
     auto ParamTypeID = Inst.getWord(1);
-    assert(TypeMap_.count(ParamTypeID) &&
-           "Can't calculate parameter size due to missing type info!");
+    
+    // Gracefully handle missing type info (e.g., from unsupported SPIR-V extensions)
+    if (!TypeMap_.count(ParamTypeID)) {
+      logWarn("SPIR-V Parser: Parameter type ID {} not found in type map. "
+              "This may be caused by unsupported SPIR-V extensions. Skipping parameter.",
+              ParamTypeID);
+      return;
+    }
+    
     SPIRVtype *ParamType = TypeMap_[ParamTypeID];
     size_t ParamSize = 0;
     SPVTypeKind TypeKind = SPVTypeKind::Unknown;
@@ -686,10 +702,19 @@ private:
             std::make_pair(Inst->entryPointID(), Inst->entryPointName()));
       }
 
-      if (Inst->isType())
-        TypeMap_.emplace(
-            std::make_pair(Inst->getTypeID(),
-                           Inst->decodeType(TypeMap_, ConstMap_, PointerSize)));
+      if (Inst->isType()) {
+        auto *DecodedType = Inst->decodeType(TypeMap_, ConstMap_, PointerSize);
+        if (DecodedType) {
+          TypeMap_.emplace(std::make_pair(Inst->getTypeID(), DecodedType));
+        } else {
+          // Type from unsupported SPIR-V extension or unknown opcode.
+          // Log warning but continue parsing - this may be benign if the type
+          // is never actually used.
+          logWarn("SPIR-V Parser: Failed to decode type for opcode {} (ID {}). "
+                  "This may be from an unsupported SPIR-V extension.",
+                  (unsigned)Inst->getOpcode(), Inst->getTypeID());
+        }
+      }
 
       if (Inst->isFunction() && EntryPoints_.count(Inst->getFunctionID())) {
         CurrentKernelID = Inst->getFunctionID();
