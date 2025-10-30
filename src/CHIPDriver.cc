@@ -117,17 +117,16 @@ static void createBackendObject() {
 
 void CHIPInitializeCallOnce() {
   logDebug("CHIPDriver Initialize");
-
-  createBackendObject();
-
-  Backend->initialize();
+  try {
+    createBackendObject();
+    Backend->initialize();
+  } catch (...) {
+    if (Backend) delete Backend, Backend = nullptr;
+  }
 }
 
 extern void CHIPInitialize() {
   std::call_once(Initialized, &CHIPInitializeCallOnce);
-  if (!Backend)
-    CHIPERR_LOG_AND_THROW("Backend not initialized",
-                          hipErrorInitializationError);
 }
 
 void CHIPUninitializeCallOnce() {

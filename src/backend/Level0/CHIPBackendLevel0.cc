@@ -1943,8 +1943,8 @@ void CHIPBackendLevel0::initializeImpl() {
   MinQueuePriority_ = ZE_COMMAND_QUEUE_PRIORITY_PRIORITY_HIGH;
   zeStatus = zeInit(0);
   if (zeStatus != ZE_RESULT_SUCCESS) {
-    logCritical("Level Zero failed to initialize any devices");
-    std::exit(1);
+    CHIPERR_LOG_AND_THROW("Level Zero failed to initialize any devices",
+                          hipErrorInitializationError);
   }
 
   bool AnyDeviceType = false;
