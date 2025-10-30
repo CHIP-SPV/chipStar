@@ -337,10 +337,15 @@ private:
       if (value.size())
         ModuleCacheDir_ = value;
     } else {
+#ifdef CHIP_DEBUG_BUILD
+      // In debug builds, default to caching off
+      ModuleCacheDir_ = std::nullopt;
+#else
       const char* home = std::getenv("HOME");
       if (home) {
         ModuleCacheDir_ = std::string(home) + "/.cache/chipStar";
       }
+#endif
     }
 
     SaveTemps_ = readEnvVar("CHIP_RTC_SAVE_TEMPS", value, true)
