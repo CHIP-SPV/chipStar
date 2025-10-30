@@ -426,6 +426,7 @@ salami:
   OPENCL_GPU:
     TestStaticLibRDC: 'Compiler without static library support'
     TestBallot: 'Unsupported SPIR-V capability: SubgroupDispatch'
+    TestEventRecordCircularDep: 'ARM Mali driver bug: clFinish hangs with circular cross-stream event dependencies and event reuse'
     hipDynamicShared: 'flaky'
     clock: 'timing dependent, flaky'
     hipStreamSemantics: 'TestStreamSemantics_2 (non-blocking stream):  Failed, then timeout'
