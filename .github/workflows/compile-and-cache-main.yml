@@ -19,6 +19,8 @@ jobs:
   build:
     needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3

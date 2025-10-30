@@ -23,6 +23,8 @@ jobs:
   unit-tests-llvm-18-debug:
     needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v3
         with:
@@ -35,6 +37,8 @@ jobs:
   unit-tests-llvm-18-release:
     needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v3
         with:
@@ -47,6 +51,8 @@ jobs:
   unit-tests-llvm-19-debug:
     needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v3
         with:
@@ -59,6 +65,8 @@ jobs:
   unit-tests-llvm-19-release:
     needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v3
         with:
@@ -71,6 +79,8 @@ jobs:
   unit-tests-llvm-20-debug:
     needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v3
         with:
@@ -83,6 +93,8 @@ jobs:
   unit-tests-llvm-20-release:
     needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v3
         with:
