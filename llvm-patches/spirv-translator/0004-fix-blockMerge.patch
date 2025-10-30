@@ -1,0 +1,44 @@
+From 9d96190ab9cf6849a8540e0a824a104c9bbabe4d Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@pglc.io>
+Date: Wed, 23 Jul 2025 17:10:08 +0300
+Subject: [PATCH 07/12] fix blockMerge
+
+---
+ lib/SPIRV/SPIRVWriter.cpp | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
+index 19c64c0d..fdd16eb5 100644
+--- a/lib/SPIRV/SPIRVWriter.cpp
++++ b/lib/SPIRV/SPIRVWriter.cpp
+@@ -2439,7 +2439,11 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
+       Function *Fun = Branch->getFunction();
+       DominatorTree DomTree(*Fun);
+       LoopInfo LI(DomTree);
+-      for (const auto *LoopObj : LI.getLoopsInPreorder()) {
++      // Find the innermost loop that contains the current basic block
++      BasicBlock *CurrentBB = Branch->getParent();
++      const Loop *ContainingLoop = LI.getLoopFor(CurrentBB);
++      
++      if (ContainingLoop) {
+         // Check whether SuccessorFalse or SuccessorTrue is the loop header BB.
+         // For example consider following LLVM IR:
+         // br i1 %compare, label %for.body, label %for.end
+@@ -2448,12 +2452,12 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
+         //   <- SuccessorTrue is 'for.end' aka successor(1)
+         // meanwhile the true successor (by definition) should be a loop header
+         // aka 'for.body'
+-        if (LoopObj->getHeader() == Branch->getSuccessor(1))
++        if (ContainingLoop->getHeader() == Branch->getSuccessor(1))
+           // SuccessorFalse is the loop header BB.
+           BM->addLoopMergeInst(SuccessorTrue->getId(), // Merge Block
+                                BB->getId(),            // Continue Target
+                                LoopControl, Parameters, SuccessorFalse);
+-        else
++        else if (ContainingLoop->getHeader() == Branch->getSuccessor(0))
+           // SuccessorTrue is the loop header BB.
+           BM->addLoopMergeInst(SuccessorFalse->getId(), // Merge Block
+                                BB->getId(),             // Continue Target
+-- 
+2.43.0
+

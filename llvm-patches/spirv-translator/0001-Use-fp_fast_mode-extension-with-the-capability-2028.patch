@@ -1,0 +1,28 @@
+From 9009614ef53e18ffac169a853278d31b09f35800 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Pekka=20J=C3=A4=C3=A4skel=C3=A4inen?=
+ <pekka.jaaskelainen@tuni.fi>
+Date: Wed, 31 May 2023 14:48:06 +0300
+Subject: [PATCH 01/12] Use fp_fast_mode extension with the capability (#2028)
+
+---
+ .../fp_contract_reassoc_fast_mode.ll                          | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/test/extensions/INTEL/SPV_INTEL_fp_fast_math_mode/fp_contract_reassoc_fast_mode.ll b/test/extensions/INTEL/SPV_INTEL_fp_fast_math_mode/fp_contract_reassoc_fast_mode.ll
+index cbbdde71..bfaaab1c 100644
+--- a/test/extensions/INTEL/SPV_INTEL_fp_fast_math_mode/fp_contract_reassoc_fast_mode.ll
++++ b/test/extensions/INTEL/SPV_INTEL_fp_fast_math_mode/fp_contract_reassoc_fast_mode.ll
+@@ -2,8 +2,8 @@
+ ; RUN: llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV-OFF
+ ; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_fp_fast_math_mode -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV-ON
+ ; RUN: llvm-spirv  --spirv-ext=+SPV_INTEL_fp_fast_math_mode %t.bc -o %t.spv
+-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+- 
++; RUN: llvm-spirv -r -emit-opaque-pointers %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
++
+ ; CHECK-SPIRV-ON: 2 Capability FPFastMathModeINTEL
+ ; CHECK-SPIRV-ON: SPV_INTEL_fp_fast_math_mode
+ ; CHECK-SPIRV-ON: 3 Name [[mu:[0-9]+]] "mul"
+-- 
+2.43.0
+

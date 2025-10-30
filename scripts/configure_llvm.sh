@@ -89,14 +89,9 @@ fi
 # get the gcc base path to use in cmake flags
 gcc_base_path=$( which gcc | sed s+'bin/gcc'++ )
 
-# set the brach name for checkuot based on only-necessary-spirv-exts
-if [ "$4" == "on" ]; then
-  LLVM_BRANCH="spirv-ext-fixes-${VERSION}"
-  TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
-else
-  LLVM_BRANCH="chipStar-llvm-${VERSION}"
-  TRANSLATOR_BRANCH="chipStar-llvm-${VERSION}"
-fi
+# Map version to upstream LLVM branch and SPIRV-Translator branch
+LLVM_BRANCH="release/${VERSION}.x"
+TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
 
 export LLVM_DIR=`pwd`/llvm-project/llvm
 
@@ -104,33 +99,87 @@ export LLVM_DIR=`pwd`/llvm-project/llvm
 if [ "$EMIT_ONLY" != "on" ]; then
   # check if llvm-project exists, if not clone it
   if [ ! -d llvm-project ]; then
-    git clone https://github.com/CHIP-SPV/llvm-project.git -b ${LLVM_BRANCH}
-    cd ${LLVM_DIR}/projects
-    git clone https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b ${TRANSLATOR_BRANCH}
-    cd ${LLVM_DIR}
+    echo "Cloning LLVM from upstream..."
+    git clone https://github.com/llvm/llvm-project.git
+    cd llvm-project
+    git checkout ${LLVM_BRANCH}
+    
+    echo "Cloning SPIRV-LLVM-Translator from upstream..."
+    cd llvm/projects
+    git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
+    cd SPIRV-LLVM-Translator
+    git checkout ${TRANSLATOR_BRANCH}
+    cd ../../..
   else
     # Warn the user.
-    echo "llvm-project directory already exists. Assuming it's cloned from chipStar."
-    cd ${LLVM_DIR}
-    # check if already on the desired branch
-    if [ `git branch --show-current` == ${LLVM_BRANCH} ]; then
-      echo "Already on branch ${LLVM_BRANCH}"
+    echo "llvm-project directory already exists. Checking out upstream branches..."
+    cd llvm-project
+    git fetch origin
+    git checkout ${LLVM_BRANCH}
+    
+    if [ ! -d llvm/projects/SPIRV-LLVM-Translator ]; then
+      echo "Cloning SPIRV-LLVM-Translator from upstream..."
+      cd llvm/projects
+      git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
+      cd SPIRV-LLVM-Translator
     else
-      echo "Switching to branch ${LLVM_BRANCH}"
-      git fetch origin ${LLVM_BRANCH}:${LLVM_BRANCH}
-      git checkout ${LLVM_BRANCH}
+      cd llvm/projects/SPIRV-LLVM-Translator
+      git fetch origin
     fi
-    cd ${LLVM_DIR}/projects/SPIRV-LLVM-Translator
-    # check if already on the desired branch
-    if [ `git branch --show-current` == ${TRANSLATOR_BRANCH} ]; then
-      echo "Already on branch ${TRANSLATOR_BRANCH}"
-    else
-      echo "Switching to branch ${TRANSLATOR_BRANCH}"
-      git fetch origin ${TRANSLATOR_BRANCH}:${TRANSLATOR_BRANCH}
-      git checkout ${TRANSLATOR_BRANCH}
-    fi
-    cd ${LLVM_DIR}
+    git checkout ${TRANSLATOR_BRANCH}
+    cd ../../..
   fi
+  
+  # Apply chipStar-specific patches
+  echo "Applying chipStar patches..."
+  
+  # Apply LLVM patches
+  LLVM_PATCH_DIR="../llvm-patches/llvm"
+  if [ -d "$LLVM_PATCH_DIR" ]; then
+    echo "Applying LLVM patches..."
+    for patch in "$LLVM_PATCH_DIR"/*.patch; do
+      if [ -f "$patch" ]; then
+        patch_name=$(basename $patch)
+        
+        # Skip data layout patch for LLVM 17-19 (only needed for 20+)
+        if [[ "$patch_name" == *"data-layout"* ]] && [ "$VERSION" -lt 20 ]; then
+          echo "  Skipping $patch_name (not needed for LLVM ${VERSION})"
+          continue
+        fi
+        
+        echo "  Applying $patch_name..."
+        git apply "$patch" || {
+          echo "Error: Failed to apply $patch_name"
+          exit 1
+        }
+      fi
+    done
+  else
+    echo "Warning: LLVM patch directory not found at $LLVM_PATCH_DIR"
+  fi
+  
+  # Apply SPIRV-Translator patches
+  cd llvm/projects/SPIRV-LLVM-Translator
+  TRANSLATOR_PATCH_DIR="../../../../llvm-patches/spirv-translator"
+  if [ -d "$TRANSLATOR_PATCH_DIR" ]; then
+    echo "Applying SPIRV-Translator patches..."
+    for patch in "$TRANSLATOR_PATCH_DIR"/*.patch; do
+      if [ -f "$patch" ]; then
+        echo "  Applying $(basename $patch)..."
+        git apply "$patch" || {
+          echo "Error: Failed to apply $(basename $patch)"
+          exit 1
+        }
+      fi
+    done
+  else
+    echo "Warning: SPIRV-Translator patch directory not found at $TRANSLATOR_PATCH_DIR"
+  fi
+  cd ../../..
+  
+  echo "All patches applied successfully"
+  
+  cd ${LLVM_DIR}
 
   # check if the build directory exists
   if [ -d build_$VERSION ]; then

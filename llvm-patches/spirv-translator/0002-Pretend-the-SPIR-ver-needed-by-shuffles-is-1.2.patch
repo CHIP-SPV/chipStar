@@ -1,0 +1,33 @@
+From 2f97fcc8ea8ab9f8a417daa679d603158f5ea9ea Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Pekka=20J=C3=A4=C3=A4skel=C3=A4inen?=
+ <pekka.jaaskelainen@intel.com>
+Date: Thu, 15 Dec 2022 19:31:18 +0200
+Subject: [PATCH 02/12] Pretend the SPIR ver needed by shuffles is 1.2
+
+In reality the SPIR-V shuffles and ballot operations
+require v1.3, but they seem to work with Intel's v1.2
+implementation (likely due to the extensions).
+
+Until v1.3 support is added to the driver, let's just pretend
+these are v1.2 features to allow CHIPSPV warp-level functions
+to compile.
+---
+ lib/SPIRV/libSPIRV/SPIRVEntry.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.h b/lib/SPIRV/libSPIRV/SPIRVEntry.h
+index b90c0178..b2cd2c67 100644
+--- a/lib/SPIRV/libSPIRV/SPIRVEntry.h
++++ b/lib/SPIRV/libSPIRV/SPIRVEntry.h
+@@ -889,7 +889,7 @@ public:
+     case CapabilityGroupNonUniformShuffle:
+     case CapabilityGroupNonUniformShuffleRelative:
+     case CapabilityGroupNonUniformClustered:
+-      return VersionNumber::SPIRV_1_3;
++      return VersionNumber::SPIRV_1_2;
+ 
+     case CapabilityNamedBarrier:
+     case CapabilitySubgroupDispatch:
+-- 
+2.43.0
+
