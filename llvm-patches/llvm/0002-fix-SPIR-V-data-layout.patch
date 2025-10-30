@@ -1,0 +1,64 @@
+From 5ebbf7913a5703cd08fc1d1b981707a89134a2de Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@pglc.io>
+Date: Tue, 6 May 2025 19:36:56 +0300
+Subject: [PATCH 3/3] fix SPIR-V data layout
+
+---
+ clang/lib/Basic/Targets/SPIR.h               | 6 +++---
+ llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/clang/lib/Basic/Targets/SPIR.h b/clang/lib/Basic/Targets/SPIR.h
+index c0849b69dcdb..33ed81af033f 100644
+--- a/clang/lib/Basic/Targets/SPIR.h
++++ b/clang/lib/Basic/Targets/SPIR.h
+@@ -313,7 +313,7 @@ public:
+     // SPIR-V IDs are represented with a single 32-bit word.
+     SizeType = TargetInfo::UnsignedInt;
+     resetDataLayout("e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-"
+-                    "v256:256-v512:512-v1024:1024-n8:16:32:64-G1");
++                    "v256:256-v512:512-v1024:1024-G1");
+   }
+   ArrayRef<Builtin::Info> getTargetBuiltins() const override;
+   void getTargetDefines(const LangOptions &Opts,
+@@ -337,7 +337,7 @@ public:
+     // we take the maximum because it's possible the Host supports wider types.
+     MaxAtomicInlineWidth = std::max<unsigned char>(MaxAtomicInlineWidth, 32);
+     resetDataLayout("e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-"
+-                    "v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64-G1");
++                    "v192:256-v256:256-v512:512-v1024:1024-G1");
+   }
+ 
+   void getTargetDefines(const LangOptions &Opts,
+@@ -361,7 +361,7 @@ public:
+     // we take the maximum because it's possible the Host supports wider types.
+     MaxAtomicInlineWidth = std::max<unsigned char>(MaxAtomicInlineWidth, 64);
+     resetDataLayout("e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-"
+-                    "v256:256-v512:512-v1024:1024-n8:16:32:64-G1");
++                    "v256:256-v512:512-v1024:1024-G1");
+   }
+ 
+   void getTargetDefines(const LangOptions &Opts,
+diff --git a/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp b/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp
+index 098c7a6fba50..eba2003daae3 100644
+--- a/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp
++++ b/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp
+@@ -60,13 +60,13 @@ static std::string computeDataLayout(const Triple &TT) {
+   // mean anything.
+   if (Arch == Triple::spirv32)
+     return "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-"
+-           "v256:256-v512:512-v1024:1024-n8:16:32:64-G1";
++           "v256:256-v512:512-v1024:1024-G1";
+   if (TT.getVendor() == Triple::VendorType::AMD &&
+       TT.getOS() == Triple::OSType::AMDHSA)
+     return "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-"
+            "v512:512-v1024:1024-n32:64-S32-G1-P4-A0";
+   return "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-"
+-         "v512:512-v1024:1024-n8:16:32:64-G1";
++         "v512:512-v1024:1024-G1";
+ }
+ 
+ static Reloc::Model getEffectiveRelocModel(std::optional<Reloc::Model> RM) {
+-- 
+2.43.0
+
