@@ -1232,7 +1232,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       }
 
       logInfo("JIT Link flags: {}", Flags);
-e     logInfo("Linking {} program objects", ClObjects.size());
+      logInfo("Linking {} program objects", ClObjects.size());
       
       // Diagnostic logging for each program object
       for (size_t i = 0; i < ClObjects.size(); i++) {
