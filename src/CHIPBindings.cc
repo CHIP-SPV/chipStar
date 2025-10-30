@@ -6108,7 +6108,7 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   //        early. Should find the causes, fix them and then and then remove the
   //        CHIPInitialize() call.
   LOCK(ApiMtx);
-  CHIPInitialize();
+  try { CHIPInitialize(); } catch (...) {}
 
   const __CudaFatBinaryWrapper *Wrapper =
       reinterpret_cast<const __CudaFatBinaryWrapper *>(Data);
@@ -6117,10 +6117,11 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
                           hipErrorInitializationError);
   }
 
-  assert(Backend);
-  std::string DevName = Backend->getActiveDevice()->getName();
-  getSPVRegister().PreventNameDemangling =
-      (DevName.find("PowerVR") != std::string::npos);
+  if (Backend) {
+    std::string DevName = Backend->getActiveDevice()->getName();
+    getSPVRegister().PreventNameDemangling =
+        (DevName.find("PowerVR") != std::string::npos);
+  }
 
   std::string ErrorMsg;
   auto SPIRVModuleSpan = extractSPIRVModule(Wrapper->binary, ErrorMsg);
@@ -6130,7 +6131,7 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   SPVRegister::Handle ModHandle =
       getSPVRegister().registerSource(SPIRVModuleSpan);
 
-  if (!ChipEnvVars.getLazyJit()) {
+  if (!ChipEnvVars.getLazyJit() && Backend) {
     logDebug("Lazy JIT disabled, compiling module now");
     const SPVModule *SMod = getSPVRegister().getSource(ModHandle);
     Backend->getActiveDevice()->getOrCreateModule(*SMod);

@@ -2313,8 +2313,8 @@ void CHIPBackendOpenCL::initializeImpl() {
   std::vector<cl::Platform> Platforms;
   clStatus = cl::Platform::get(&Platforms);
   if (clStatus != CL_SUCCESS) {
-    logCritical("OpenCL failed to initialize any devices");
-    std::exit(1);
+    CHIPERR_LOG_AND_THROW("OpenCL failed to initialize any devices",
+                          hipErrorInitializationError);
   }
   std::stringstream StrStream;
   StrStream << "\nFound " << Platforms.size() << " OpenCL platforms:\n";
@@ -2332,9 +2332,8 @@ void CHIPBackendOpenCL::initializeImpl() {
     SelectedPlatformIdx = ChipEnvVars.getPlatformIdx();
     
     if (SelectedPlatformIdx >= Platforms.size()) {
-      logCritical("Selected OpenCL platform {} is out of range",
-                  SelectedPlatformIdx);
-      std::exit(1);
+      CHIPERR_LOG_AND_THROW("Selected OpenCL platform " + std::to_string(SelectedPlatformIdx) + " is out of range",
+                            hipErrorInitializationError);
     }
     
     SelectedPlatform = Platforms[SelectedPlatformIdx];
@@ -2444,9 +2443,9 @@ void CHIPBackendOpenCL::initializeImpl() {
     }
     
     if (foundPlatformIdx == -1) {
-      logCritical("No OpenCL platforms found with devices of type {} that support SPIR-V",
-                  ChipEnvVars.getDevice().str());
-      std::exit(1);
+      CHIPERR_LOG_AND_THROW("No OpenCL platforms found with devices of type " +
+                            std::string(ChipEnvVars.getDevice().str()) + " that support SPIR-V",
+                            hipErrorInitializationError);
     }
     
     SelectedPlatformIdx = foundPlatformIdx;
@@ -2458,9 +2457,8 @@ void CHIPBackendOpenCL::initializeImpl() {
   logInfo("{}", StrStream.str());
 
   if (ChipEnvVars.getDeviceIdx() >= SupportedDevices.size()) {
-    logCritical("Selected OpenCL device {} is out of range",
-                ChipEnvVars.getDeviceIdx());
-    std::exit(1);
+    CHIPERR_LOG_AND_THROW("Selected OpenCL device " + std::to_string(ChipEnvVars.getDeviceIdx()) + " is out of range",
+                          hipErrorInitializationError);
   }
 
   auto Device = SupportedDevices[ChipEnvVars.getDeviceIdx()];
