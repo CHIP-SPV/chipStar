@@ -51,7 +51,12 @@ jobs:
           mkdir -p build
           cd build
           export CHIP_MODULE_CACHE_DIR=""
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib
+          cmake .. -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCHIP_BUILD_SAMPLES=ON \
+            -DCHIP_BUILD_TESTS=ON \
+            -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib \
+            -DLLVM_CONFIG_BIN=/Users/paulius/install/llvm/19.0/bin/llvm-config
           ninja && ninja build_tests
 
       - name: Run
