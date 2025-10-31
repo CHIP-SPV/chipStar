@@ -22,16 +22,17 @@ jobs:
       
       - name: Setup environment
         run: |
+          set -x
           export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
-          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash || true
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load llvm/19.0 | cat
+          module load llvm/19.0 | cat || true
           which llvm-config
           # Minimal dynamic loader path: LLVM (for libclang-cpp) + ICD loader
           export LLVM_LIBDIR=$(llvm-config --libdir)
           which python
-          module load ocl-icd-loader | cat
-          module load pocl | cat
+          module load ocl-icd-loader | cat || true
+          module load pocl | cat || true
 
           export CHIP_DEVICE_TYPE=pocl
           # Use standard ICD override variable so ocl-icd finds vendor files
