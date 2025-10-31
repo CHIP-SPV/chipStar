@@ -21,6 +21,7 @@ jobs:
           submodules: 'recursive'
       
       - name: Setup environment
+        shell: /bin/bash {0}
         run: |
           export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
@@ -29,49 +30,32 @@ jobs:
           module load ocl-icd-loader
           module load pocl
           
-          # Verify module loading worked
-          which llvm-config
-          llvm-config --version
-          
           export LLVM_LIBDIR=$(llvm-config --libdir)
           export CHIP_DEVICE_TYPE=pocl
           export OCL_ICD_VENDORS=/Users/paulius/install/pocl/etc/OpenCL/vendors/
           
-          # Embed LLVM lib dir into PoCL so @rpath/libclang-cpp.dylib resolves without DYLD_* env vars
+          # Patch PoCL rpaths if not already done
           for lib in /Users/paulius/install/pocl/lib/libpocl.2.15.0.dylib /Users/paulius/install/pocl/lib/libpocl.2.dylib; do
-            if [ -f "$lib" ] && ! otool -l "$lib" 2>/dev/null | grep -q "path ${LLVM_LIBDIR}" 2>/dev/null; then
-              install_name_tool -add_rpath "${LLVM_LIBDIR}" "$lib" 2>/dev/null || true
+            if [ -f "$lib" ]; then
+              otool -l "$lib" | grep -q "path ${LLVM_LIBDIR}" || install_name_tool -add_rpath "${LLVM_LIBDIR}" "$lib" || true
             fi
           done
           
-          # Export all environment variables to GITHUB_ENV for next steps
+          # Export to GITHUB_ENV
           echo "PATH=${PATH}" >> $GITHUB_ENV
           echo "LLVM_LIBDIR=${LLVM_LIBDIR}" >> $GITHUB_ENV
           echo "CHIP_DEVICE_TYPE=${CHIP_DEVICE_TYPE}" >> $GITHUB_ENV
           echo "OCL_ICD_VENDORS=${OCL_ICD_VENDORS}" >> $GITHUB_ENV
-          echo "LLVM_DIR=${LLVM_DIR}" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
           echo "LIBRARY_PATH=${LIBRARY_PATH}" >> $GITHUB_ENV
-          echo "CPATH=${CPATH}" >> $GITHUB_ENV
       
       - name: Build
         run: |
-          # Verify environment variables persisted
-          echo "PATH: $PATH"
-          echo "LLVM_DIR: $LLVM_DIR"
-          which llvm-config
-          llvm-config --version
-          
           rm -rf build
           mkdir -p build
           cd build
-          export CHIP_MODULE_CACHE_DIR=""
-          cmake .. -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCHIP_BUILD_SAMPLES=ON \
-            -DCHIP_BUILD_TESTS=ON \
-            -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib
           ninja && ninja build_tests
 
       - name: Run
