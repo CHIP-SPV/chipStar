@@ -1,0 +1,76 @@
+From ae0614de05ac4278b80a02ae49f657c8ce1db13b Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@pglc.io>
+Date: Mon, 28 Jul 2025 21:22:23 +0300
+Subject: [PATCH] HIPSPV: Unbundle SDL (#136412)
+
+This fixes the issue of rdc linking static libraries with device code
+
+https://github.com/CHIP-SPV/chipStar/issues/984
+
+Co-authored-by: Henry Linjamäki <henry.linjamaki@gmail.com>
+---
+ clang/lib/Driver/ToolChains/HIPSPV.cpp        |  9 ++++++
+ .../Driver/hipspv-link-static-library.hip     | 28 +++++++++++++++++++
+ 2 files changed, 37 insertions(+)
+ create mode 100644 clang/test/Driver/hipspv-link-static-library.hip
+
+diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+index 643a67f74395..62bca0493a09 100644
+--- a/clang/lib/Driver/ToolChains/HIPSPV.cpp
++++ b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+@@ -69,8 +69,17 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+ 
+   // Link LLVM bitcode.
+   ArgStringList LinkArgs{};
++
+   for (auto Input : Inputs)
+     LinkArgs.push_back(Input.getFilename());
++
++  // Add static device libraries using the common helper function.
++  // This handles unbundling archives (.a) containing bitcode bundles.
++  StringRef Arch = getToolChain().getTriple().getArchName();
++  StringRef Target =
++      "generic"; // SPIR-V is generic, no specific target ID like -mcpu
++  tools::AddStaticDeviceLibsLinking(C, *this, JA, Inputs, Args, LinkArgs, Arch,
++                                    Target, /*IsBitCodeSDL=*/true);
+   LinkArgs.append({"-o", TempFile});
+   const char *LlvmLink =
+       Args.MakeArgString(getToolChain().GetProgramPath("llvm-link"));
+diff --git a/clang/test/Driver/hipspv-link-static-library.hip b/clang/test/Driver/hipspv-link-static-library.hip
+new file mode 100644
+index 000000000000..03126ae589a0
+--- /dev/null
++++ b/clang/test/Driver/hipspv-link-static-library.hip
+@@ -0,0 +1,28 @@
++// Test HIPSPV static device library linking
++// REQUIRES: system-linux
++// UNSUPPORTED: system-windows
++
++// Create a dummy archive to test SDL linking
++// RUN: rm -rf %t && mkdir %t
++// RUN: touch %t/dummy.bc  
++// RUN: llvm-ar cr %t/libSDL.a %t/dummy.bc
++
++// Test that -l options are passed to llvm-link for --offload=spirv64
++// RUN: %clang -### --target=x86_64-linux-gnu --offload=spirv64 \
++// RUN:   --hip-path=%S/Inputs/hipspv -nohipwrapperinc %s \
++// RUN:   -L%t -lSDL \
++// RUN: 2>&1 | FileCheck -check-prefix=SDL-LINK %s
++
++// Test that .a files are properly unbundled and passed to llvm-link  
++// RUN: %clang -### --target=x86_64-linux-gnu --offload=spirv64 \
++// RUN:   --hip-path=%S/Inputs/hipspv -nohipwrapperinc %s \
++// RUN:   %t/libSDL.a \
++// RUN: 2>&1 | FileCheck -check-prefix=SDL-ARCHIVE %s
++
++// Verify that the input files are added before the SDL files in llvm-link command
++// This tests the ordering fix to match HIPAMD behavior
++// SDL-LINK: "{{.*}}clang-offload-bundler" "-unbundle" "-type=a" "-input={{.*}}libSDL.a" "-targets=hip-spirv64-unknown-unknown-unknown-generic" "-output=[[SDL_A:.*\.a]]" "-allow-missing-bundles"
++// SDL-LINK: "{{.*}}llvm-link" "{{.*}}.bc" "[[SDL_A]]" "-o"
++
++// SDL-ARCHIVE: "{{.*}}clang-offload-bundler" "-unbundle" "-type=a" "-input={{.*}}libSDL.a" "-targets=hip-spirv64-unknown-unknown-unknown-generic" "-output=[[SDL_A:.*\.a]]" "-allow-missing-bundles"  
++// SDL-ARCHIVE: "{{.*}}llvm-link" "{{.*}}.bc" "[[SDL_A]]" "-o"
+-- 
+2.43.0
+
+
