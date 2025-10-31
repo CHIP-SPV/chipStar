@@ -4,7 +4,8 @@
 llvm-patches/
 ├── llvm/
 │   ├── 0001-Allow-up-to-v1.2-SPIR-V-features.patch
-│   └── 0002-fix-SPIR-V-data-layout.patch
+│   ├── 0002-fix-SPIR-V-data-layout.patch
+│   └── 0003-Unbundle-SDL.patch
 ├── spirv-translator/
 │   ├── 0001-Use-fp_fast_mode-extension.patch
 │   ├── 0002-Pretend-SPIR-ver-1.2.patch
@@ -42,7 +43,7 @@ Patches should be applied in order (they are numbered sequentially).
 
 ---
 
-## LLVM Patches (2 patches)
+## LLVM Patches (3 patches)
 
 ### 1. Allow up to v1.2 SPIR-V features (0001)
 
@@ -77,6 +78,28 @@ Patches should be applied in order (they are numbered sequentially).
 - This is **critical** for LLVM 20+ - without it, chipStar builds fail during bitcode linking
 
 **Note:** This is a chipStar-specific workflow requirement, not an upstream LLVM bug. LLVM 17-19 don't have this in the data layout, so this patch can be skipped for those versions.
+
+---
+
+### 3. Unbundle SDL - Static Device Libraries (0003)
+
+**Commit:** `ae0614de05ac`  
+**File:** `clang/lib/Driver/ToolChains/HIPSPV.cpp`  
+**Purpose:** Enable RDC linking with static libraries containing device code  
+**Required for:** All LLVM versions
+
+**Why needed:**
+- Without this patch, static libraries (.a files) containing device bitcode cannot be properly linked
+- The patch adds support for unbundling archives containing bitcode bundles
+- Calls `AddStaticDeviceLibsLinking` helper function to handle static device library linking
+- Critical for TestStaticLibRDC and issue #984
+
+**Change:**
+- Adds logic to unbundle and link static device libraries in HIPSPV toolchain
+- Handles both `-l` library flags and direct `.a` file inputs
+- Ensures proper ordering of device code linking
+
+**Authors:** Paulius Velesko, Henry Linjamäki
 
 ---
 
