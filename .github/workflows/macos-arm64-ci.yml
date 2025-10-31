@@ -39,7 +39,9 @@ jobs:
           # Embed LLVM lib dir into PoCL so @rpath/libclang-cpp.dylib resolves without DYLD_* env vars
           for lib in /Users/paulius/install/pocl/lib/libpocl.2.15.0.dylib /Users/paulius/install/pocl/lib/libpocl.2.dylib; do
             if [ -f "$lib" ]; then
-              install_name_tool -add_rpath "${LLVM_LIBDIR}" "$lib" || true
+              if ! otool -l "$lib" | grep -q "path ${LLVM_LIBDIR}"; then
+                install_name_tool -add_rpath "${LLVM_LIBDIR}" "$lib"
+              fi
             fi
           done
           # Export environment variables to GITHUB_ENV (filter out functions)
