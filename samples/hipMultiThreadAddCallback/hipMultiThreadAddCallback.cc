@@ -29,7 +29,9 @@ multiple Threads.
 
 //#include <hip_test_common.hh>
 #include <atomic>
+#include <cassert>
 #include <iostream>
+#include <thread>
 #include "hip/hip_runtime.h"
 
 #ifndef NDEBUG

@@ -47,6 +47,46 @@
 // This define is known to include code with unsupported __bf16 type.
 #undef __SSE2__
 
+// macOS: Workaround for Apple SDK TargetConditionals.h incompatible with spirv64.
+// Pre-define TARGET_CPU and TARGET_RT macros that TargetConditionals.h would normally set.
+// This prevents the header from using __is_target_arch() which doesn't recognize spirv64.
+#ifdef __APPLE__
+// Pre-define all TARGET_* macros to prevent TargetConditionals.h from setting them
+#ifndef TARGET_CPU_ARM64
+#define TARGET_CPU_ARM64 0
+#endif
+#ifndef TARGET_CPU_ARM
+#define TARGET_CPU_ARM 0
+#endif
+#ifndef TARGET_CPU_X86_64
+#define TARGET_CPU_X86_64 0
+#endif
+#ifndef TARGET_CPU_X86
+#define TARGET_CPU_X86 0
+#endif
+#ifndef TARGET_CPU_PPC
+#define TARGET_CPU_PPC 0
+#endif
+#ifndef TARGET_CPU_PPC64
+#define TARGET_CPU_PPC64 0
+#endif
+#ifndef TARGET_RT_BIG_ENDIAN
+#define TARGET_RT_BIG_ENDIAN 0
+#endif
+#ifndef TARGET_RT_LITTLE_ENDIAN
+#define TARGET_RT_LITTLE_ENDIAN 1
+#endif
+#ifndef TARGET_RT_64_BIT
+#define TARGET_RT_64_BIT 1
+#endif
+#ifndef TARGET_RT_MAC_MACHO
+#define TARGET_RT_MAC_MACHO 1
+#endif
+#ifndef TARGET_RT_MAC_CFM
+#define TARGET_RT_MAC_CFM 0
+#endif
+#endif // __APPLE__
+
 #endif // __HIP_DEVICE_COMPILE__
 
 

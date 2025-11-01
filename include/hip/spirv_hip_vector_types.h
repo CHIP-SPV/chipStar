@@ -45,9 +45,25 @@ THE SOFTWARE.
 
 #if defined(__cplusplus)
 #if !defined(__HIPCC_RTC__)
+#ifndef __HIP_DEVICE_COMPILE__
 #include <array>
 #include <iosfwd>
 #include <type_traits>
+#define HIP_ENABLE_IF std::enable_if
+#define HIP_IS_INTEGRAL std::is_integral
+#define HIP_IS_SIGNED std::is_signed
+#define HIP_IS_CONVERTIBLE std::is_convertible
+#define HIP_IS_SAME std::is_same
+#define HIP_IS_ARITHMETIC std::is_arithmetic
+#else
+#define HIP_ENABLE_IF __hip_internal::enable_if
+#define HIP_IS_INTEGRAL __hip_internal::is_integral
+#define HIP_IS_SIGNED __hip_internal::is_signed
+#define HIP_IS_CONVERTIBLE __hip_internal::is_convertible
+#define HIP_IS_SAME __hip_internal::is_same
+#define HIP_IS_ARITHMETIC __hip_internal::is_arithmetic
+#endif
+#include <hip/host_defines.h>
 #else
 namespace std {
 using ::size_t;
@@ -92,6 +108,22 @@ template <> struct is_integral<unsigned long> : public true_type {};
 template <> struct is_integral<long long> : public true_type {};
 template <> struct is_integral<unsigned long long> : public true_type {};
 
+template <class _Tp> struct is_signed : public false_type {};
+template <> struct HIP_IS_SIGNED<signed char> : public true_type {};
+template <> struct HIP_IS_SIGNED<short> : public true_type {};
+template <> struct HIP_IS_SIGNED<int> : public true_type {};
+template <> struct HIP_IS_SIGNED<long> : public true_type {};
+template <> struct HIP_IS_SIGNED<long long> : public true_type {};
+template <> struct HIP_IS_SIGNED<float> : public true_type {};
+template <> struct HIP_IS_SIGNED<double> : public true_type {};
+
+template <class _Tp, class _Up> struct is_convertible : public false_type {};
+template <class _Tp> struct HIP_IS_CONVERTIBLE<_Tp, _Tp> : public true_type {};
+template <> struct HIP_IS_CONVERTIBLE<int, float> : public true_type {};
+template <> struct HIP_IS_CONVERTIBLE<int, double> : public true_type {};
+template <> struct HIP_IS_CONVERTIBLE<float, double> : public true_type {};
+template <> struct HIP_IS_CONVERTIBLE<double, float> : public true_type {};
+
 template <class _Tp> struct is_arithmetic : public false_type {};
 template <> struct is_arithmetic<bool> : public true_type {};
 template <> struct is_arithmetic<char> : public true_type {};
@@ -115,12 +147,12 @@ template <> struct is_floating_point<double> : public true_type {};
 template <> struct is_floating_point<long double> : public true_type {};
 
 template <typename __T, typename __U> struct is_same : public false_type {};
-template <typename __T> struct is_same<__T, __T> : public true_type {};
+template <typename __T> struct HIP_IS_SAME<__T, __T> : public true_type {};
 
 template <typename _Tp, bool = is_arithmetic<_Tp>::value>
 struct is_signed : public false_type {};
 template <typename _Tp>
-struct is_signed<_Tp, true> : public true_or_false_type<_Tp(-1) < _Tp(0)> {};
+struct HIP_IS_SIGNED<_Tp, true> : public true_or_false_type<_Tp(-1) < _Tp(0)> {};
 
 template <class _T1, class _T2>
 struct is_convertible
@@ -267,7 +299,7 @@ template <typename T> struct HIP_vector_base<T, 3> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_signed<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_SIGNED<U>::value>::type * = nullptr>
     __HOST_DEVICE__ Native_vec_ operator-() const noexcept {
       auto r{*this};
       for (auto &&x : r.d)
@@ -276,7 +308,7 @@ template <typename T> struct HIP_vector_base<T, 3> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ Native_vec_ operator~() const noexcept {
       auto r{*this};
       for (auto &&x : r.d)
@@ -284,42 +316,42 @@ template <typename T> struct HIP_vector_base<T, 3> {
       return r;
     }
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ Native_vec_ &operator%=(const Native_vec_ &x_) noexcept {
       for (auto i = 0u; i != 3u; ++i)
         d[i] %= x_.d[i];
       return *this;
     }
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ Native_vec_ &operator^=(const Native_vec_ &x_) noexcept {
       for (auto i = 0u; i != 3u; ++i)
         d[i] ^= x_.d[i];
       return *this;
     }
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ Native_vec_ &operator|=(const Native_vec_ &x_) noexcept {
       for (auto i = 0u; i != 3u; ++i)
         d[i] |= x_.d[i];
       return *this;
     }
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ Native_vec_ &operator&=(const Native_vec_ &x_) noexcept {
       for (auto i = 0u; i != 3u; ++i)
         d[i] &= x_.d[i];
       return *this;
     }
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ Native_vec_ &operator>>=(const Native_vec_ &x_) noexcept {
       for (auto i = 0u; i != 3u; ++i)
         d[i] >>= x_.d[i];
       return *this;
     }
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ Native_vec_ &operator<<=(const Native_vec_ &x_) noexcept {
       for (auto i = 0u; i != 3u; ++i)
         d[i] <<= x_.d[i];
@@ -412,13 +444,13 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
 
   __HOST_DEVICE__
   constexpr HIP_vector_type() = default;
-  template <typename U, typename std::enable_if<
-                            std::is_convertible<U, T>::value>::type * = nullptr>
+  template <typename U, typename HIP_ENABLE_IF<
+                            HIP_IS_CONVERTIBLE<U, T>::value>::type * = nullptr>
   __HOST_DEVICE__ explicit constexpr HIP_vector_type(U x_) noexcept
       : HIP_vector_base<T, rank>{static_cast<T>(x_)} {}
   template < // TODO: constrain based on type as well.
       typename... Us,
-      typename std::enable_if<(rank > 1) && sizeof...(Us) == rank>::type * =
+      typename HIP_ENABLE_IF<(rank > 1) && sizeof...(Us) == rank>::type * =
           nullptr>
   __HOST_DEVICE__ constexpr HIP_vector_type(Us... xs) noexcept
       : HIP_vector_base<T, rank>{static_cast<T>(xs)...} {}
@@ -459,8 +491,8 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
       data += x.data;
       return *this;
     }
-    template <typename U, typename std::enable_if<
-                              std::is_convertible<U, T>{}>::type * = nullptr>
+    template <typename U, typename HIP_ENABLE_IF<
+                              HIP_IS_CONVERTIBLE<U, T>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &operator+=(U x) noexcept {
       return *this += HIP_vector_type{x};
     }
@@ -470,8 +502,8 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
       data -= x.data;
       return *this;
     }
-    template <typename U, typename std::enable_if<
-                              std::is_convertible<U, T>{}>::type * = nullptr>
+    template <typename U, typename HIP_ENABLE_IF<
+                              HIP_IS_CONVERTIBLE<U, T>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &operator-=(U x) noexcept {
       return *this -= HIP_vector_type{x};
     }
@@ -489,8 +521,8 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
       return HIP_vector_type{ x } *= y;
     }
 
-    template <typename U, typename std::enable_if<
-                              std::is_convertible<U, T>{}>::type * = nullptr>
+    template <typename U, typename HIP_ENABLE_IF<
+                              HIP_IS_CONVERTIBLE<U, T>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &operator*=(U x) noexcept {
       return *this *= HIP_vector_type{x};
     }
@@ -505,14 +537,14 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
       data /= x.data;
       return *this;
     }
-    template <typename U, typename std::enable_if<
-                              std::is_convertible<U, T>{}>::type * = nullptr>
+    template <typename U, typename HIP_ENABLE_IF<
+                              HIP_IS_CONVERTIBLE<U, T>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &operator/=(U x) noexcept {
       return *this /= HIP_vector_type{x};
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_signed<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_SIGNED<U>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type operator-() const noexcept {
       auto tmp(*this);
       tmp.data = -tmp.data;
@@ -520,7 +552,7 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type operator~() const noexcept {
       HIP_vector_type r{*this};
       r.data = ~r.data;
@@ -528,7 +560,7 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &
     operator%=(const HIP_vector_type &x) noexcept {
       data %= x.data;
@@ -536,7 +568,7 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &
     operator^=(const HIP_vector_type &x) noexcept {
       data ^= x.data;
@@ -544,7 +576,7 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &
     operator|=(const HIP_vector_type &x) noexcept {
       data |= x.data;
@@ -552,7 +584,7 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &
     operator&=(const HIP_vector_type &x) noexcept {
       data &= x.data;
@@ -560,7 +592,7 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &
     operator>>=(const HIP_vector_type &x) noexcept {
       data >>= x.data;
@@ -568,7 +600,7 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     }
 
     template <typename U = T,
-              typename std::enable_if<std::is_integral<U>{}>::type * = nullptr>
+              typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<U>::value>::type * = nullptr>
     __HOST_DEVICE__ HIP_vector_type &
     operator<<=(const HIP_vector_type &x) noexcept {
       data <<= x.data;
@@ -675,121 +707,121 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
   }
   
   template <typename T, unsigned int n,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator%(const HIP_vector_type<T, n> &x,
             const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} %= y;
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator%(const HIP_vector_type<T, n> &x, U y) noexcept {
     return HIP_vector_type<T, n>{x} %= HIP_vector_type<T, n>{y};
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator%(U x, const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} %= y;
   }
   
   template <typename T, unsigned int n,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator^(const HIP_vector_type<T, n> &x,
             const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} ^= y;
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator^(const HIP_vector_type<T, n> &x, U y) noexcept {
     return HIP_vector_type<T, n>{x} ^= HIP_vector_type<T, n>{y};
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator^(U x, const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} ^= y;
   }
   
   template <typename T, unsigned int n,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator|(const HIP_vector_type<T, n> &x,
             const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} |= y;
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator|(const HIP_vector_type<T, n> &x, U y) noexcept {
     return HIP_vector_type<T, n>{x} |= HIP_vector_type<T, n>{y};
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator|(U x, const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} |= y;
   }
   
   template <typename T, unsigned int n,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator&(const HIP_vector_type<T, n> &x,
             const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} &= y;
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator&(const HIP_vector_type<T, n> &x, U y) noexcept {
     return HIP_vector_type<T, n>{x} &= HIP_vector_type<T, n>{y};
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator&(U x, const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} &= y;
   }
   
   template <typename T, unsigned int n,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator>>(const HIP_vector_type<T, n> &x,
              const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} >>= y;
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator>>(const HIP_vector_type<T, n> &x, U y) noexcept {
     return HIP_vector_type<T, n>{x} >>= HIP_vector_type<T, n>{y};
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator>>(U x, const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} >>= y;
   }
   
   template <typename T, unsigned int n,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator<<(const HIP_vector_type<T, n> &x,
              const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} <<= y;
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator<<(const HIP_vector_type<T, n> &x, U y) noexcept {
     return HIP_vector_type<T, n>{x} <<= HIP_vector_type<T, n>{y};
   }
   template <typename T, unsigned int n, typename U,
-            typename std::enable_if<std::is_arithmetic<U>::value>::type,
-            typename std::enable_if<std::is_integral<T>{}> * = nullptr>
+            typename HIP_ENABLE_IF<HIP_IS_ARITHMETIC<U>::value>::type,
+            typename HIP_ENABLE_IF<HIP_IS_INTEGRAL<T>{}> * = nullptr>
   __HOST_DEVICE__ inline constexpr HIP_vector_type<T, n>
   operator<<(U x, const HIP_vector_type<T, n> &y) noexcept {
     return HIP_vector_type<T, n>{x} <<= y;
@@ -1773,7 +1805,7 @@ typedef union {
 
 template <typename T, typename U>
 __HOST_DEVICE__ __forceinline__
-    typename std::enable_if<sizeof(T) / sizeof(typename T::value_type) == 1 &&
+    typename HIP_ENABLE_IF<sizeof(T) / sizeof(typename T::value_type) == 1 &&
                                 sizeof(U) / sizeof(typename U::value_type) >= 1,
                             T>::type
     mapElem(const U &u) {
@@ -1784,7 +1816,7 @@ __HOST_DEVICE__ __forceinline__
 
 template <typename T, typename U>
 __HOST_DEVICE__ __forceinline__
-    typename std::enable_if<sizeof(T) / sizeof(typename T::value_type) == 2 &&
+    typename HIP_ENABLE_IF<sizeof(T) / sizeof(typename T::value_type) == 2 &&
                                 sizeof(U) / sizeof(typename U::value_type) >= 2,
                             T>::type
     mapElem(const U &u) {
@@ -1796,7 +1828,7 @@ __HOST_DEVICE__ __forceinline__
 
 template <typename T, typename U>
 __HOST_DEVICE__ __forceinline__
-    typename std::enable_if<sizeof(T) / sizeof(typename T::value_type) == 3 &&
+    typename HIP_ENABLE_IF<sizeof(T) / sizeof(typename T::value_type) == 3 &&
                                 sizeof(U) / sizeof(typename U::value_type) >= 3,
                             T>::type
     mapElem(const U &u) {
@@ -1809,7 +1841,7 @@ __HOST_DEVICE__ __forceinline__
 
 template <typename T, typename U>
 __HOST_DEVICE__ __forceinline__
-    typename std::enable_if<sizeof(T) / sizeof(typename T::value_type) == 4 &&
+    typename HIP_ENABLE_IF<sizeof(T) / sizeof(typename T::value_type) == 4 &&
                                 sizeof(U) / sizeof(typename U::value_type) >= 4,
                             T>::type
     mapElem(const U &u) {
@@ -1822,11 +1854,11 @@ __HOST_DEVICE__ __forceinline__
 }
 
 template <typename T, typename U>
-__HOST_DEVICE__ __forceinline__ typename std::enable_if<
-    std::is_same<T, char>::value || std::is_same<T, unsigned char>::value ||
-        std::is_same<T, short>::value ||
-        std::is_same<T, unsigned short>::value || std::is_same<T, int>::value ||
-        std::is_same<T, unsigned int>::value || std::is_same<T, float>::value,
+__HOST_DEVICE__ __forceinline__ typename HIP_ENABLE_IF<
+    HIP_IS_SAME<T, char>::value || HIP_IS_SAME<T, unsigned char>::value ||
+        HIP_IS_SAME<T, short>::value ||
+        HIP_IS_SAME<T, unsigned short>::value || HIP_IS_SAME<T, int>::value ||
+        HIP_IS_SAME<T, unsigned int>::value || HIP_IS_SAME<T, float>::value,
     const T>::type
 mapFrom(const U &u) {
   union {
@@ -1837,11 +1869,11 @@ mapFrom(const U &u) {
 }
 
 template <typename T, typename U>
-__HOST_DEVICE__ __forceinline__ typename std::enable_if<
+__HOST_DEVICE__ __forceinline__ typename HIP_ENABLE_IF<
     (sizeof(T) == sizeof(typename T::value_type)) ||
-        std::is_same<typename T::value_type, int>::value ||
-        std::is_same<typename T::value_type, unsigned int>::value ||
-        std::is_same<typename T::value_type, float>::value,
+        HIP_IS_SAME<typename T::value_type, int>::value ||
+        HIP_IS_SAME<typename T::value_type, unsigned int>::value ||
+        HIP_IS_SAME<typename T::value_type, float>::value,
     const T>::type
 mapFrom(const U &u) {
   union {
@@ -1852,12 +1884,12 @@ mapFrom(const U &u) {
 }
 
 template <typename T, typename U>
-__HOST_DEVICE__ __forceinline__ typename std::enable_if<
+__HOST_DEVICE__ __forceinline__ typename HIP_ENABLE_IF<
     (sizeof(T) > sizeof(typename T::value_type)) &&
-        (std::is_same<typename T::value_type, char>::value ||
-         std::is_same<typename T::value_type, unsigned char>::value ||
-         std::is_same<typename T::value_type, short>::value ||
-         std::is_same<typename T::value_type, unsigned short>::value),
+        (HIP_IS_SAME<typename T::value_type, char>::value ||
+         HIP_IS_SAME<typename T::value_type, unsigned char>::value ||
+         HIP_IS_SAME<typename T::value_type, short>::value ||
+         HIP_IS_SAME<typename T::value_type, unsigned short>::value),
     const T>::type
 mapFrom(const U &u) {
   union {
@@ -1865,7 +1897,7 @@ mapFrom(const U &u) {
     int4 i4;
     uint4 u4;
   } d = {u};
-  if (std::is_signed<typename T::value_type>::value) {
+  if (HIP_IS_SIGNED<typename T::value_type>::value) {
     return mapElem<T>(d.i4);
   } else {
     return mapElem<T>(d.u4);

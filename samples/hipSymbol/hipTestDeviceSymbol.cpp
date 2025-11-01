@@ -28,6 +28,7 @@ THE SOFTWARE.
 
 #include <hip/hip_runtime.h>
 #include "test_common.h"
+#include <cassert>
 #include <iostream>
 
 #define NUM 256

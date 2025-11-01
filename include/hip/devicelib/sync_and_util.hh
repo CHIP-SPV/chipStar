@@ -27,7 +27,17 @@
 
 #include "chipStarConfig.hh"
 
-#include <cstdint>
+// Device-compatible type definitions
+typedef unsigned long long uint64_t;
+typedef unsigned long ulong;
+typedef unsigned int uint;
+#ifndef __HIP_DEVICE_COMPILE__
+#include <stdint.h>
+#else
+typedef unsigned long size_t;
+#endif
+
+
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 

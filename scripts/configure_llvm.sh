@@ -278,6 +278,11 @@ if [ -n "${BINUTILS_HEADER_DIR}" ]; then
   COMMON_CMAKE_OPTIONS+=("-DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}")
 fi
 
+# Add macOS-specific sysroot option
+if [[ "$(uname)" == "Darwin" ]]; then
+  COMMON_CMAKE_OPTIONS+=("-DDEFAULT_SYSROOT=$(xcrun --show-sdk-path)")
+fi
+
 if [ "$LINK_TYPE" == "static" ]; then
   CMAKE_COMMAND="cmake ../ ${COMMON_CMAKE_OPTIONS[@]}"
 elif [ "$LINK_TYPE" == "dynamic" ]; then

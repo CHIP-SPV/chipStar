@@ -7,6 +7,9 @@
 
 #include <unistd.h>
 
+// environ declaration for macOS
+extern char **environ;
+
 void check(bool Ok, size_t Line) {
   if (!Ok) {
     std::cerr << "Error at line " << Line << ".\n";

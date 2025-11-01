@@ -1,4 +1,5 @@
 #include <hip/hip_runtime.h>
+#include <iostream>
 
 struct Data {
   int *A_d;
@@ -14,7 +15,7 @@ int main() {
   hipDeviceSynchronize();
   hipMemcpy(A_h, data.A_d, sizeof(int), hipMemcpyDeviceToHost);
   bool Failed = A_h[0] != 1;
-  printf(Failed ? "FAILED\n" : "PASSED\n");
+  std::cout << (Failed ? "FAILED\n" : "PASSED\n");
   hipFree(data.A_d);
   return Failed;
 }

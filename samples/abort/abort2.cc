@@ -25,6 +25,8 @@
 #include "hip/hip_runtime.h"
 
 #include <stdio.h>
+#include <cassert>
+#include <cstdlib>
 
 __global__ void abort_kernel(int *Out) {
   abort();

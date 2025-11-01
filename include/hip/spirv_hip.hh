@@ -25,7 +25,9 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#ifndef __HIP_DEVICE_COMPILE__
 #include <assert.h>
+#endif
 
 #include <hip/driver_types.h>
 #include <hip/spirv_hip_host_defines.h>

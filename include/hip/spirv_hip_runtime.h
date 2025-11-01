@@ -29,10 +29,7 @@ THE SOFTWARE.
 
 #include "chipStarConfig.hh"
 
-#ifdef __cplusplus
-#include <cmath>
-#include <cstdint>
-#endif
+// Intentionally avoid including standard headers here; host/device users pull what they need.
 
 #if defined(__clang__) && defined(__HIP__)
 #define __HIP_CLANG_ONLY__ 1

@@ -37,6 +37,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-duplicate-decl-specifier \
 -Wno-tautological-constant-compare  -Wno-c++20-extensions -Wno-unused-result \
 -Wno-delete-abstract-non-virtual-dtor -Wno-deprecated-declarations -Wunused-command-line-argument -gdwarf-4")
 
+# On macOS, prevent using Apple's OpenCL framework headers
+# This ensures we use chipStar's bundled OpenCL headers instead
+if(APPLE)
+  # Disable framework search path to prevent using Apple's OpenCL framework
+  set(CMAKE_FIND_FRAMEWORK NEVER)
+  # Override the OSX framework search path that CMake sets by default
+  set(CMAKE_OSX_FRAMEWORK_REGISTRY "")
+endif()
+
 # Find GCC installation path
 execute_process(
   COMMAND which gcc
@@ -92,13 +101,24 @@ endforeach()
 # =============================================================================
 # chipStar CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
-  message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  message(STATUS "OpenCL_LIBRARY was not set. Searching for OpenCL library")
+  if(APPLE)
+    find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.dylib libOpenCL.1.dylib 
+                 PATHS ENV DYLD_LIBRARY_PATH /Users/pvelesko/local/lib /opt/homebrew/lib /usr/local/lib 
+                 NO_DEFAULT_PATH)
+    if(NOT OpenCL_LIBRARY)
+      find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.dylib libOpenCL.1.dylib)
+    endif()
+  else()
+    find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  endif()
 endif()
 
 if(OpenCL_LIBRARY)
   get_filename_component(OpenCL_DIR ${OpenCL_LIBRARY} DIRECTORY CACHE)
   message(STATUS "Setting OpenCL_DIR to ${OpenCL_DIR}")
+  # Set OpenCL_INCLUDE_DIR for FindOpenCL.cmake module used by subdirectories
+  set(OpenCL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include" CACHE PATH "OpenCL include directory")
 else()
   message(STATUS "OpenCL not found")
 endif()
@@ -285,7 +305,7 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 set(CHIP_SPV_DEFAULT_INSTALL_DIR "${CMAKE_SOURCE_DIR}/install" CACHE PATH "The installation directory for chipStar")
-set(HIP_ENABLE_SPIRV "-D__HIP_PLATFORM_SPIRV__=" CACHE INTERNAL "Compiler difinition which enables SPIR-V defines")
+set(HIP_ENABLE_SPIRV "-D__HIP_PLATFORM_SPIRV__=1" CACHE INTERNAL "Compiler difinition which enables SPIR-V defines")
 
 # FOR EXTERNAL USE
 set(HIP_OFFLOAD_COMPILE_OPTIONS "" CACHE STRING "space separated list of compiler flags needed for generating offload code")
@@ -351,6 +371,12 @@ else()
   message(STATUS "Buiding chipStar as a static library")
   add_library(CHIP STATIC ${CHIP_SRC})
   set(CHIP_LIB_NAME "libCHIP.a")
+endif()
+
+# On macOS, explicitly prevent using Apple's OpenCL framework headers
+# by prepending chipStar's include path to ensure it takes priority
+if(APPLE)
+  set_target_properties(CHIP PROPERTIES COMPILE_OPTIONS "-I${CMAKE_SOURCE_DIR}/include")
 endif()
 
 # Check if the compiler supports F16C
@@ -518,7 +544,9 @@ target_link_libraries(CHIP PRIVATE SPIRV-Tools)
 target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS})
 
 if(HAS_EXPERIMENTAL_FILESYSTEM)
-  target_link_libraries(CHIP PUBLIC stdc++fs)
+  if(NOT APPLE)
+    target_link_libraries(CHIP PUBLIC stdc++fs)
+  endif()
 endif()
 
 # Previously these were set to SYSTEM which resulted in CMake picking up

@@ -1,5 +1,6 @@
 #include <hip/hip_runtime.h>
 #include <hip/hip_complex.h>
+#include <cstdio>
 
 int main(int argc, char **argv) {
   hipDoubleComplex x = make_hipDoubleComplex(2.0, 3.0);

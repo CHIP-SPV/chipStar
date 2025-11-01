@@ -372,7 +372,11 @@ public:
 
   void join() {
     assert(Thread_);
+#ifdef __APPLE__
+    logDebug("Joining chipstar::Event Monitor Thread");
+#else
     logDebug("Joining chipstar::Event Monitor Thread {}", Thread_);
+#endif
     int Status = pthread_join(Thread_, nullptr);
     if (Status != 0) {
       logError("Failed to call join() {}", Status);
@@ -391,7 +395,11 @@ public:
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
+#ifdef __APPLE__
+    logDebug("Thread Created successfully");
+#else
     logDebug("Thread Created with ID : {}", Thread_);
+#endif
   }
 
   void stop() {
@@ -519,7 +527,9 @@ public:
     CHIPASSERT(HostPtr && "HostPtr is null");
     CHIPASSERT(DevPtr && "DevPtr is null");
     auto AllocInfo = this->getAllocInfo(DevPtr);
-    if (AllocInfo->HostPtr)
+    // For unified/SVM memory (like POCL), HostPtr is initially set to DevPtr.
+    // Only error if HostPtr is already set to a DIFFERENT pointer.
+    if (AllocInfo->HostPtr && AllocInfo->HostPtr != DevPtr)
       // HIP test suite expects hipErrorInvalidValue, HIP API does not
       // meantion it. If we followed CUDA Runtime API, we'd return
       // hipErrorHostMemoryAlreadyRegistered.

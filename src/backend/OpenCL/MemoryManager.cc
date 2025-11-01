@@ -194,7 +194,7 @@ MemoryManager::allocateBufferDevAddr(size_t Size, size_t Alignment,
     Buf = cl::Buffer(Context_, MemFlags, Size, nullptr, &Err);
     if (Err != CL_SUCCESS)
       break;
-    Err = Buf.getInfo(CL_MEM_DEVICE_PTR_EXT, &RawPtr);
+    Err = Buf.getInfo(CL_MEM_DEVICE_ADDRESS_EXT, &RawPtr);
     DevPtrToBuffer_.insert(std::make_pair(RawPtr, Buf.get()));
     break;
   }
