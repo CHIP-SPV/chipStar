@@ -9,6 +9,9 @@ ONLY_NECESSARY_SPIRV_EXTS="off"
 EMIT_ONLY="off"
 WITH_BINUTILS=""
 
+THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+initial_pwd=$(pwd)
+
 # parse named arguments
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -59,6 +62,7 @@ if [ -z "$VERSION" ]; then
   echo "--only-necessary-spirv-exts: on or off (default: off)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "-N: only emit the cmake configure command without executing it"
+  echo "The llvm-project will be cloned and built under the current working directory.  Patches are first applied from the chipStar project."
   exit 1
 fi
 # Check if install-dir argument is provided
@@ -109,7 +113,6 @@ if [ "$EMIT_ONLY" != "on" ]; then
     git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
     cd SPIRV-LLVM-Translator
     git checkout ${TRANSLATOR_BRANCH}
-    cd ../../..
   else
     # Warn the user.
     echo "llvm-project directory already exists. Checking out upstream branches..."
@@ -127,14 +130,14 @@ if [ "$EMIT_ONLY" != "on" ]; then
       git fetch origin
     fi
     git checkout ${TRANSLATOR_BRANCH}
-    cd ../../..
   fi
+  cd ${initial_pwd}/llvm-project
   
   # Apply chipStar-specific patches
   echo "Applying chipStar patches..."
   
   # Apply LLVM patches
-  LLVM_PATCH_DIR="../llvm-patches/llvm"
+  LLVM_PATCH_DIR="${THIS_SCRIPT_DIR}/../llvm-patches/llvm"
   if [ -d "$LLVM_PATCH_DIR" ]; then
     echo "Applying LLVM patches..."
     for patch in "$LLVM_PATCH_DIR"/*.patch; do
@@ -155,12 +158,14 @@ if [ "$EMIT_ONLY" != "on" ]; then
       fi
     done
   else
-    echo "Warning: LLVM patch directory not found at $LLVM_PATCH_DIR"
+    #if the patch directory doesn't exist, good chance somehow this script is being run outside of its intended project
+    echo "Error: LLVM patch directory not found at $LLVM_PATCH_DIR"
+    exit 1
   fi
   
   # Apply SPIRV-Translator patches
-  cd llvm/projects/SPIRV-LLVM-Translator
-  TRANSLATOR_PATCH_DIR="../../../../llvm-patches/spirv-translator"
+  cd ${initial_pwd}/llvm-project/llvm/projects/SPIRV-LLVM-Translator
+  TRANSLATOR_PATCH_DIR="${THIS_SCRIPT_DIR}/../llvm-patches/spirv-translator"
   if [ -d "$TRANSLATOR_PATCH_DIR" ]; then
     echo "Applying SPIRV-Translator patches..."
     for patch in "$TRANSLATOR_PATCH_DIR"/*.patch; do
@@ -173,9 +178,10 @@ if [ "$EMIT_ONLY" != "on" ]; then
       fi
     done
   else
-    echo "Warning: SPIRV-Translator patch directory not found at $TRANSLATOR_PATCH_DIR"
+    #if the patch directory doesn't exist, good chance somehow this script is being run outside of its intended project
+    echo "Error: SPIRV-Translator patch directory not found at $TRANSLATOR_PATCH_DIR"
+    exit 1
   fi
-  cd ../../..
   
   echo "All patches applied successfully"
   
