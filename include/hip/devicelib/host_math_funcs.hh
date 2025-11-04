@@ -2,7 +2,6 @@
 #define HIP_INCLUDE_DEVICELIB_HOST_MATH_FUNCS_H
 
 #include <hip/devicelib/macros.hh>
-#include <algorithm>
 
 extern "C" {
     extern float __ocml_cospi_f32(float x);
