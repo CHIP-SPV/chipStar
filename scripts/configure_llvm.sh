@@ -5,9 +5,11 @@ set -e
 
 # default values for optional arguments
 LINK_TYPE="static"
-ONLY_NECESSARY_SPIRV_EXTS="off"
 EMIT_ONLY="off"
 WITH_BINUTILS=""
+
+THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+initial_pwd=$(pwd)
 
 # parse named arguments
 while [ $# -gt 0 ]; do
@@ -22,10 +24,6 @@ while [ $# -gt 0 ]; do
       ;;
     --link-type)
       LINK_TYPE="$2"
-      shift 2
-      ;;
-    --only-necessary-spirv-exts)
-      ONLY_NECESSARY_SPIRV_EXTS="$2"
       shift 2
       ;;
     --with-binutils)
@@ -52,13 +50,13 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> [--with-binutils [path]] [-N]"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [-N]"
   echo "--version: LLVM version 17, 18, 19, 20 or 21"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
-  echo "--only-necessary-spirv-exts: on or off (default: off)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "-N: only emit the cmake configure command without executing it"
+  echo "The llvm-project will be cloned and built under the current working directory.  Patches are first applied from the chipStar project."
   exit 1
 fi
 # Check if install-dir argument is provided
@@ -77,12 +75,6 @@ fi
 # validate LINK_TYPE argument
 if [ "$LINK_TYPE" != "static" ] && [ "$LINK_TYPE" != "dynamic" ]; then
   echo "Invalid LINK_TYPE. Must be 'static' or 'dynamic'."
-  exit 1
-fi
-
-# validate only-necessary-spirv-exts argument
-if [ "$ONLY_NECESSARY_SPIRV_EXTS" != "on" ] && [ "$ONLY_NECESSARY_SPIRV_EXTS" != "off" ]; then
-  echo "Invalid only_necessary_spirv_exts. Must be 'on' or 'off'."
   exit 1
 fi
 
@@ -109,7 +101,6 @@ if [ "$EMIT_ONLY" != "on" ]; then
     git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
     cd SPIRV-LLVM-Translator
     git checkout ${TRANSLATOR_BRANCH}
-    cd ../../..
   else
     # Warn the user.
     echo "llvm-project directory already exists. Checking out upstream branches..."
@@ -127,14 +118,14 @@ if [ "$EMIT_ONLY" != "on" ]; then
       git fetch origin
     fi
     git checkout ${TRANSLATOR_BRANCH}
-    cd ../../..
   fi
+  cd ${initial_pwd}/llvm-project
   
   # Apply chipStar-specific patches
   echo "Applying chipStar patches..."
   
   # Apply LLVM patches
-  LLVM_PATCH_DIR="../llvm-patches/llvm"
+  LLVM_PATCH_DIR="${THIS_SCRIPT_DIR}/../llvm-patches/llvm"
   if [ -d "$LLVM_PATCH_DIR" ]; then
     echo "Applying LLVM patches..."
     for patch in "$LLVM_PATCH_DIR"/*.patch; do
@@ -155,12 +146,14 @@ if [ "$EMIT_ONLY" != "on" ]; then
       fi
     done
   else
-    echo "Warning: LLVM patch directory not found at $LLVM_PATCH_DIR"
+    #if the patch directory doesn't exist, good chance somehow this script is being run outside of its intended project
+    echo "Error: LLVM patch directory not found at $LLVM_PATCH_DIR"
+    exit 1
   fi
   
   # Apply SPIRV-Translator patches
-  cd llvm/projects/SPIRV-LLVM-Translator
-  TRANSLATOR_PATCH_DIR="../../../../llvm-patches/spirv-translator"
+  cd ${initial_pwd}/llvm-project/llvm/projects/SPIRV-LLVM-Translator
+  TRANSLATOR_PATCH_DIR="${THIS_SCRIPT_DIR}/../llvm-patches/spirv-translator"
   if [ -d "$TRANSLATOR_PATCH_DIR" ]; then
     echo "Applying SPIRV-Translator patches..."
     for patch in "$TRANSLATOR_PATCH_DIR"/*.patch; do
@@ -173,9 +166,10 @@ if [ "$EMIT_ONLY" != "on" ]; then
       fi
     done
   else
-    echo "Warning: SPIRV-Translator patch directory not found at $TRANSLATOR_PATCH_DIR"
+    #if the patch directory doesn't exist, good chance somehow this script is being run outside of its intended project
+    echo "Error: SPIRV-Translator patch directory not found at $TRANSLATOR_PATCH_DIR"
+    exit 1
   fi
-  cd ../../..
   
   echo "All patches applied successfully"
   
