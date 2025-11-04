@@ -42,7 +42,7 @@ extern __device__ int abs(int a);
 extern __device__ long int abs(long int a);
 }
 
-static inline __host__ __device__ long long int abs(long long int a) { 
+static inline __device__ long long int abs(long long int a) { 
   return (a < 0) ? -a : a; 
 }
 
