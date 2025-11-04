@@ -174,7 +174,7 @@ def determine_input_languages(arg_list: List[str], xmode: Optional[str] = None) 
 
     # '-x' applies globally - unlike in other compilers usually.
     if xmode is not None:
-        return xmode
+        return {xmode}
 
     # Scan over arguments and look for file extensions for determining
     # input languages. This may give incorrect answer if unknown
