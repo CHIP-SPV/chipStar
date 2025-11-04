@@ -5,7 +5,6 @@ set -e
 
 # default values for optional arguments
 LINK_TYPE="static"
-ONLY_NECESSARY_SPIRV_EXTS="off"
 EMIT_ONLY="off"
 WITH_BINUTILS=""
 
@@ -25,10 +24,6 @@ while [ $# -gt 0 ]; do
       ;;
     --link-type)
       LINK_TYPE="$2"
-      shift 2
-      ;;
-    --only-necessary-spirv-exts)
-      ONLY_NECESSARY_SPIRV_EXTS="$2"
       shift 2
       ;;
     --with-binutils)
@@ -55,11 +50,10 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> [--with-binutils [path]] [-N]"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [-N]"
   echo "--version: LLVM version 17, 18, 19, 20 or 21"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
-  echo "--only-necessary-spirv-exts: on or off (default: off)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "-N: only emit the cmake configure command without executing it"
   echo "The llvm-project will be cloned and built under the current working directory.  Patches are first applied from the chipStar project."
@@ -81,12 +75,6 @@ fi
 # validate LINK_TYPE argument
 if [ "$LINK_TYPE" != "static" ] && [ "$LINK_TYPE" != "dynamic" ]; then
   echo "Invalid LINK_TYPE. Must be 'static' or 'dynamic'."
-  exit 1
-fi
-
-# validate only-necessary-spirv-exts argument
-if [ "$ONLY_NECESSARY_SPIRV_EXTS" != "on" ] && [ "$ONLY_NECESSARY_SPIRV_EXTS" != "off" ]; then
-  echo "Invalid only_necessary_spirv_exts. Must be 'on' or 'off'."
   exit 1
 fi
 
