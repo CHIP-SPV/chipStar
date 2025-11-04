@@ -116,6 +116,15 @@ template<typename _Tp, bool = is_arithmetic<_Tp>::value>
 template<typename _Tp>
   struct is_signed<_Tp, true> : public true_or_false_type<_Tp(-1) < _Tp(0)> {};
 
+template <class _Tp, class _Up> struct is_convertible : public false_type {};
+template <class _Tp> struct is_convertible<_Tp, _Tp> : public true_type {};
+template <> struct is_convertible<int, float> : public true_type {};
+template <> struct is_convertible<int, double> : public true_type {};
+template <> struct is_convertible<float, double> : public true_type {};
+template <> struct is_convertible<double, float> : public true_type {};
+template <> struct is_convertible<signed char, char> : public true_type {};
+template <> struct is_convertible<char, signed char> : public true_type {};
+
 template<typename _CharT> struct char_traits;
 template<typename _CharT, typename _Traits = char_traits<_CharT>> class basic_istream;
 template<typename _CharT, typename _Traits = char_traits<_CharT>> class basic_ostream;
