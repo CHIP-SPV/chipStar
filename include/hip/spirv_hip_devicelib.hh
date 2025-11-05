@@ -37,12 +37,16 @@ THE SOFTWARE.
 #ifndef HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 #define HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 
-#include <limits>
+// Device-compatible type definitions
+#ifndef __HIP_DEVICE_COMPILE__
+#include <stddef.h>
+#else
+typedef unsigned long size_t;
+#endif
 
 #include <hip/devicelib/atomics.hh>
 
 #include <hip/devicelib/sync_and_util.hh>
-#include <hip/devicelib/type_casting_intrinsics.hh>
 
 #include <hip/devicelib/bfloat16/bfloat162_math.hh>
 #include <hip/devicelib/bfloat16/bfloat16_comparison.hh>
@@ -97,12 +101,51 @@ template <bool __B, class __T = void> struct __hip_enable_if {};
 
 template <class __T> struct __hip_enable_if<true, __T> { typedef __T type; };
 
+// Device-compatible numeric_limits for basic types
+template<typename T> struct __hip_numeric_limits {
+  static constexpr bool is_integer = false;
+  static constexpr bool is_specialized = false;
+};
+
+template<> struct __hip_numeric_limits<int> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<unsigned int> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<long> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<unsigned long> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<long long> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<unsigned long long> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<float> {
+  static constexpr bool is_integer = false;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<double> {
+  static constexpr bool is_integer = false;
+  static constexpr bool is_specialized = true;
+};
+
 // __HIP_OVERLOAD1 is used to resolve function calls with integer argument to
 // avoid compilation error due to ambibuity. e.g. floor(5) is resolved with
 // floor(double).
 #define __HIP_OVERLOAD1(__retty, __fn)                                         \
   template <typename __T>                                                      \
-  __DEVICE__ typename __hip_enable_if<std::numeric_limits<__T>::is_integer,    \
+  __DEVICE__ typename __hip_enable_if<__hip_numeric_limits<__T>::is_integer,    \
                                       __retty>::type                           \
   __fn(__T __x) {                                                              \
     return ::__fn((double)__x);                                                \
@@ -114,8 +157,8 @@ template <class __T> struct __hip_enable_if<true, __T> { typedef __T type; };
 #define __HIP_OVERLOAD2(__retty, __fn)                                         \
   template <typename __T1, typename __T2>                                      \
   __DEVICE__                                                                   \
-      typename __hip_enable_if<std::numeric_limits<__T1>::is_specialized &&    \
-                                   std::numeric_limits<__T2>::is_specialized,  \
+      typename __hip_enable_if<__hip_numeric_limits<__T1>::is_specialized &&    \
+                                   __hip_numeric_limits<__T2>::is_specialized,  \
                                __retty>::type                                  \
       __fn(__T1 __x, __T2 __y) {                                               \
     return __fn((double)__x, (double)__y);                                     \
@@ -177,7 +220,14 @@ EXPORT unsigned long long clock64() {
 //       in future it will be changed with more reliable implementation.
 //       It is encouraged to use clock64() over clock() so that chance of data
 //       loss can be avoided.
-EXPORT clock_t clock() { return (clock_t)clock64(); }
+// Define clock_t for device code only when compiling for device
+#if defined(__HIP_DEVICE_COMPILE__) && !defined(__HIP__)
+typedef long clock_t;
+#endif
+
+#ifdef __HIP_DEVICE_COMPILE__
+EXPORT long clock() { return (long)clock64(); }
+#endif
 
 EXPORT unsigned long long wall_clock64() {
   atomicAdd(&__chip_clk_counter, 1);
@@ -187,7 +237,9 @@ EXPORT unsigned long long wall_clock64() {
 //       in future it will be changed with more reliable implementation.
 //       It is encouraged to use clock64() over clock() so that chance of data
 //       loss can be avoided.
-EXPORT clock_t wall_clock() { return (clock_t)wall_clock64(); }
+#ifdef __HIP_DEVICE_COMPILE__
+EXPORT long wall_clock() { return (long)wall_clock64(); }
+#endif
 
 #include <hip/spirv_hip_runtime.h>
 
