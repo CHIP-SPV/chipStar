@@ -26,9 +26,11 @@
 #include <hip/devicelib/macros.hh>
 
 // Device-compatible type definitions
-// ulong is defined in sync_and_util.hh which is included before this header
-// Only define if not already defined (for cases where this header is included directly)
-#ifndef ulong
+// ulong is already defined in sync_and_util.hh which is included before this header
+// If this header is included directly (not via spirv_hip_devicelib.hh), ulong may not exist
+// Using a macro guard to avoid redefinition
+#ifndef HIP_ULONG_DEFINED
+#define HIP_ULONG_DEFINED
 typedef unsigned long ulong;
 #endif
 

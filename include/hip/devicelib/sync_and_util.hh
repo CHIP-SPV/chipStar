@@ -32,7 +32,10 @@
 
 // Device-compatible type definitions
 // ulong is needed here since sync_and_util.hh is included before dp_math.hh
+#ifndef HIP_ULONG_DEFINED
+#define HIP_ULONG_DEFINED
 typedef unsigned long ulong;
+#endif
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
