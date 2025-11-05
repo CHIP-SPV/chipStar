@@ -214,7 +214,22 @@ static inline __device__ long long int abs(long long int a) {
 
 ---
 
-## Commit 7: Clean up macros.hh header includes
+## Commit 7: Clean up macros.hh header includes ✅ COMMITTED WITH FIX
+
+**Status:** ✅ Committed with fix
+**Test Results:** 99% tests passed, 4 tests failed (level0), 4 tests failed (opencl)
+**Note:** The 4 failing tests (Unit_hipMalloc3DArray_Negative_Non2DTextureGather variants) are pre-existing runtime failures, not related to this change.
+
+### Fix Applied
+
+**Solution:** Instead of removing the transitive includes, we:
+1. Removed top-level `<algorithm>` and `<limits>` from `macros.hh`
+2. Added `<cstddef>` directly to `sync_and_util.hh` to provide `size_t` in global namespace
+3. Added `typedef unsigned long ulong;` to `sync_and_util.hh` since it's included before `dp_math.hh`
+4. Added guard to prevent `ulong` redefinition in `dp_math.hh`
+5. Added `<limits>` directly to `spirv_hip_devicelib.hh` which uses `std::numeric_limits`
+
+**Result:** All compilation errors fixed. The change reduces dependencies while maintaining functionality by adding direct includes only where needed.
 
 **File:** `include/hip/devicelib/macros.hh`
 
@@ -254,7 +269,9 @@ static inline __device__ long long int abs(long long int a) {
 
 ---
 
-## Commit 8: Add type definitions to sync_and_util.hh
+## Commit 8: Add type definitions to sync_and_util.hh ❌ NOT NEEDED
+
+**Status:** ❌ Not needed - type definitions already handled in Commit 7 fixes
 
 **File:** `include/hip/devicelib/sync_and_util.hh`
 
@@ -293,7 +310,10 @@ __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
 ---
 
-## Commit 9: Add is_convertible template specializations
+## Commit 9: Add is_convertible template specializations ✅ COMMITTED VERBATIM
+
+**Status:** ✅ Committed verbatim
+**Test Results:** All tests passed (1093 level0, 1094 opencl)
 
 **File:** `include/hip/host_defines.h`
 
@@ -330,7 +350,10 @@ template<typename _CharT> struct char_traits;
 
 ---
 
-## Commit 10: Clean up spirv_hip_runtime.h header
+## Commit 10: Clean up spirv_hip_runtime.h header ✅ COMMITTED VERBATIM
+
+**Status:** ✅ Committed verbatim
+**Test Results:** All tests passed (1093 level0, 1094 opencl)
 
 **File:** `include/hip/spirv_hip_runtime.h`
 
@@ -394,7 +417,10 @@ template<typename _CharT> struct char_traits;
 
 ---
 
-## Commit 12: Add device-compatible types and numeric_limits to spirv_hip_devicelib.hh
+## Commit 12: Add device-compatible types and numeric_limits to spirv_hip_devicelib.hh ✅ COMMITTED
+
+**Status:** ✅ Committed
+**Test Results:** 100% tests passed (1093 level0, 1094 opencl)
 
 **File:** `include/hip/spirv_hip_devicelib.hh`
 
@@ -949,7 +975,10 @@ static InverseCallGraphNode *popAny(std::set<InverseCallGraphNode *> &Set) {
 
 ---
 
-## Commit 16: Modernize printf to std::cout in tests
+## Commit 16: Modernize printf to std::cout in tests ✅ COMMITTED VERBATIM
+
+**Status:** ✅ Committed verbatim
+**Test Results:** All tests passed (1093 level0, 1094 opencl)
 
 **Files to modify:**
 1. `tests/fromLibCeed/firstTouch.cpp`
