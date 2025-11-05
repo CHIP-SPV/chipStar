@@ -25,15 +25,6 @@
 
 #include <hip/devicelib/macros.hh>
 
-// Device-compatible type definitions
-// ulong is already defined in sync_and_util.hh which is included before this header
-// If this header is included directly (not via spirv_hip_devicelib.hh), ulong may not exist
-// Using a macro guard to avoid redefinition
-#ifndef HIP_ULONG_DEFINED
-#define HIP_ULONG_DEFINED
-typedef unsigned long ulong;
-#endif
-
 #if defined __has_builtin && __has_builtin(__builtin_acos)
 // Must use 'static' here for the HIP built-ins mapped to compiler
 // built-ins where the HIP built-ins' signature coincides with OpenCL

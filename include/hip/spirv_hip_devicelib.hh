@@ -37,16 +37,11 @@ THE SOFTWARE.
 #ifndef HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 #define HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 
-// Device-compatible type definitions
-#ifndef __HIP_DEVICE_COMPILE__
-#include <stddef.h>
-#else
-typedef unsigned long size_t;
-#endif
-
 #include <hip/devicelib/atomics.hh>
 
 #include <hip/devicelib/sync_and_util.hh>
+
+#include <hip/devicelib/type_casting_intrinsics.hh>
 
 #include <hip/devicelib/bfloat16/bfloat162_math.hh>
 #include <hip/devicelib/bfloat16/bfloat16_comparison.hh>
@@ -220,11 +215,6 @@ EXPORT unsigned long long clock64() {
 //       in future it will be changed with more reliable implementation.
 //       It is encouraged to use clock64() over clock() so that chance of data
 //       loss can be avoided.
-// Define clock_t for device code only when compiling for device
-#if defined(__HIP_DEVICE_COMPILE__) && !defined(__HIP__)
-typedef long clock_t;
-#endif
-
 #ifdef __HIP_DEVICE_COMPILE__
 EXPORT long clock() { return (long)clock64(); }
 #endif

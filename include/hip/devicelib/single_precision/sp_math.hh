@@ -23,9 +23,6 @@
 #ifndef HIP_INCLUDE_DEVICELIB_SP_MATH_H
 #define HIP_INCLUDE_DEVICELIB_SP_MATH_H
 
-// Device-compatible type definitions
-typedef unsigned int uint;
-
 #include <hip/devicelib/macros.hh>
 #include <cmath>
 

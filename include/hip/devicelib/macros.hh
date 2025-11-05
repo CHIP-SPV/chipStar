@@ -24,6 +24,32 @@
 #ifndef HIP_INCLUDE_DEVICELIB_MACROS_H
 #define HIP_INCLUDE_DEVICELIB_MACROS_H
 
+// Device-compatible type definitions
+#ifndef HIP_UINT_DEFINED
+#define HIP_UINT_DEFINED
+typedef unsigned int uint;
+#endif
+
+#ifndef HIP_ULONG_DEFINED
+#define HIP_ULONG_DEFINED
+typedef unsigned long ulong;
+#endif
+
+#ifndef __HIP_DEVICE_COMPILE__
+#include <stddef.h>
+#else
+#ifndef HIP_SIZE_T_DEFINED
+#define HIP_SIZE_T_DEFINED
+typedef unsigned long size_t;
+#endif
+#endif
+
+#if defined(__HIP_DEVICE_COMPILE__) && !defined(__HIP__)
+#ifndef HIP_CLOCK_T_DEFINED
+#define HIP_CLOCK_T_DEFINED
+typedef long clock_t;
+#endif
+#endif
 
 #define NOOPT __attribute__((optnone))
 
