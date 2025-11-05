@@ -23,10 +23,14 @@
 #ifndef HIP_INCLUDE_DEVICELIB_DP_MATH_H
 #define HIP_INCLUDE_DEVICELIB_DP_MATH_H
 
-// Device-compatible type definitions
-typedef unsigned long ulong;
-
 #include <hip/devicelib/macros.hh>
+
+// Device-compatible type definitions
+// ulong is defined in sync_and_util.hh which is included before this header
+// Only define if not already defined (for cases where this header is included directly)
+#ifndef ulong
+typedef unsigned long ulong;
+#endif
 
 #if defined __has_builtin && __has_builtin(__builtin_acos)
 // Must use 'static' here for the HIP built-ins mapped to compiler
