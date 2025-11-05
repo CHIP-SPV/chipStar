@@ -37,6 +37,8 @@ THE SOFTWARE.
 #ifndef HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 #define HIP_INCLUDE_HIP_SPIRV_MATHLIB_H
 
+#include <limits>
+
 #include <hip/devicelib/atomics.hh>
 
 #include <hip/devicelib/sync_and_util.hh>
