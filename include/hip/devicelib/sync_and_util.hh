@@ -27,7 +27,12 @@
 
 #include "chipStarConfig.hh"
 
+#include <cstddef>
 #include <cstdint>
+
+// Device-compatible type definitions
+// ulong is needed here since sync_and_util.hh is included before dp_math.hh
+typedef unsigned long ulong;
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
