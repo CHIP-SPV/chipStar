@@ -51,8 +51,8 @@ def run_cmd(cmd):
         print(cmd)
         return "", 0
     return_code = subprocess.call(cmd, shell=True)
-    with open(file_name, "r") as f:
-        return f.read(), return_code
+    with open(file_name, "rb") as f:
+        return f.read().decode(errors='replace'), return_code
 
 # print out the arguments
 if args.verbose:
