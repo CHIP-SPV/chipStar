@@ -261,7 +261,13 @@ void HipAbortPass::processFunctions(Module &M) {
   std::map<Function *, BasicBlock *> AbortReturnBlocks;
 
   for (auto Call : CallsToHandle) {
+#if LLVM_VERSION_MAJOR >= 22
+    // Since it's a call, it will precede an instruction (at least a
+    // terminator).
+    auto *InstrAfterCall = cast<Instruction>(Call->getNextNode());
+#else
     Instruction *InstrAfterCall = Call->getNextNonDebugInstruction();
+#endif
     Function *Func = Call->getParent()->getParent();
     llvm::BasicBlock *OrigBB = InstrAfterCall->getParent();
     llvm::BasicBlock *FallThrough = OrigBB->splitBasicBlock(InstrAfterCall);
@@ -276,7 +282,11 @@ void HipAbortPass::processFunctions(Module &M) {
                          ReturnBlock);
     }
 
+#if LLVM_VERSION_MAJOR >=22
+    InstrAfterCall = cast<Instruction>(Call->getNextNode());
+#else
     InstrAfterCall = Call->getNextNonDebugInstruction();
+#endif
     IRBuilder<> B(InstrAfterCall);
     LoadInst *FlagLoad =
         B.CreateLoad(AbortFlag->getValueType(), AbortFlag, true, "abort_flag");
