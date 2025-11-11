@@ -22,10 +22,20 @@ fi
 
 # Compile with --save-temps to get the .out SPIR-V file
 cd "$WORKDIR"
-"$HIPCC" --save-temps "$SRC" -o test_bool 2>/dev/null
 
-# Find the SPIR-V binary
-SPV_FILE=$(ls *.out 2>/dev/null | head -1)
+if [ "@USE_NEW_OFFLOAD_DRIVER@" = "ON" ]; then
+    "$HIPCC" --offload-device-only -c "$SRC" -o device.o 2>/dev/null
+    "@CLANG_OFFLOAD_BUNDLER@" -unbundle --type=o \
+                              --targets=hip-@OFFLOAD_TRIPLE@--generic \
+                              --inputs=device.o --output=spv_binary.out
+    SPV_FILE=spv_binary.out
+else
+    "$HIPCC" --save-temps "$SRC" -o test_bool 2>/dev/null
+
+    # Find the SPIR-V binary
+    SPV_FILE=$(ls *.out 2>/dev/null | head -1)
+fi
+
 if [ -z "$SPV_FILE" ]; then
   echo "FAIL: No .out SPIR-V file produced by hipcc --save-temps"
   exit 1
