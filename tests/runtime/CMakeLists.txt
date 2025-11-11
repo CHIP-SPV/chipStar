@@ -186,7 +186,11 @@ add_hip_runtime_test(TestHipLaunchHostFunc.cpp)
 add_hip_runtime_test(TestBoolKernelParam.hip)
 add_hip_runtime_test(TestBoolParamShuffle.cpp)
 find_program(SPIRV_DIS spirv-dis)
-if(SPIRV_DIS)
+find_program(
+  CLANG_OFFLOAD_BUNDLER
+  NAMES clang-offload-bundler-${LLVM_VERSION_MAJOR} clang-offload-bundler
+  PATHS ${HIP_CLANG_PATH})
+if(SPIRV_DIS AND (NOT USE_NEW_OFFLOAD_DRIVER OR CLANG_OFFLOAD_BUNDLER))
   add_shell_test(TestBoolKernelParamSPIRV.bash)
 endif()
 # Test hipLaunchHostFunc with multi-stream and events (from PR #1071)
