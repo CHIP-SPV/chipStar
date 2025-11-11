@@ -6433,16 +6433,30 @@ __hipRegisterVar(void **Data,
   CHIP_CATCH_NO_RETURN
 }
 
-/*
- *
-__hipRegisterTexture (void **fatCubinHandle,
-                       const struct textureReference *hostVar, // shadow
-variable in host code const void **deviceAddress, // actually variable name
-                       const char *deviceName, // variable name, same as ^^
-                       int TextureType, // 1D/2D/3D
-                       int Normalized, //
-                       int Extern)
-*/
+extern "C" void __hipRegisterTexture(
+    void **fatCubinHandle,
+    const struct textureReference *hostVar, // shadow variable in host code
+    const void **deviceAddress,             // actually variable name
+    const char *deviceName,                 // variable name, same as ^^
+    int TextureType,                        // 1D/2D/3D
+    int Normalized,                         //
+    int Extern) {
+  // Not implemented - just the symbol is exposed for Clang in HIP
+  // compilation which expects this when using the new offload driver.
+  assert(!"Unsupported legacy texture reference!");
+}
+
+extern "C" void __hipRegisterManagedVar(void **, char *, char *, const char *,
+                                        size_t, unsigned) {
+  // Not implemented - same reason as in the above.
+  assert(!"Unsupported managed variable!");
+}
+
+extern "C" void __hipRegisterSurface(void **, const struct surfaceReference *,
+                                     const void **, const char *, int, int) {
+  // Not implemented - same reason as in the above.
+  assert(!"Unsupported surface object!");
+}
 
 hipError_t hipGetSymbolAddress(void **DevPtr, const void *Symbol) {
   CHIP_TRY

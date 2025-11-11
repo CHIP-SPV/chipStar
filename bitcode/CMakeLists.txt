@@ -42,14 +42,14 @@ if("${LLVM_VERSION}" VERSION_LESS 14.0)
 else()
   # HIP-Clang automatically looks for hipspv-<triple>.bc in
   # <bc-destination> directory in HIP compilation mode.
-  set(BC_TRIPLE "spirv64")
+  set(BC_TRIPLE ${OFFLOAD_TRIPLE})
   set(BC_FILE "hipspv-${BC_TRIPLE}.bc")
   set(BC_DESTINATION lib/hip-device-lib)
 endif()
 
 set(BITCODE_CL_COMPILE_FLAGS
   -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
-  -cl-ext=+cl_khr_subgroup --target=${BC_TRIPLE}
+  -cl-ext=+cl_khr_subgroup
   -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE} -emit-llvm
   ${EXTRA_FLAGS})
 set(BITCODE_C_COMPILE_FLAGS
@@ -60,18 +60,19 @@ set(BITCODE_C_COMPILE_FLAGS
 set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture" "malloc") # "printf_support"
 
 # Compiles SOURCE treated as OpenCL to LLVM bitcode.
-function(add_opencl_bitcode SOURCE OUTPUT)
+function(add_opencl_bitcode TARGET SOURCE OUTPUT)
   add_custom_command(
     OUTPUT "${OUTPUT}"
     DEPENDS "${SOURCE}"
     COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
-    -o "${OUTPUT}" -c "${SOURCE}"
+    --target=${TARGET} -o "${OUTPUT}" -c "${SOURCE}"
     COMMENT "Building ${SOURCE}"
     VERBATIM)
 endfunction()
 
 foreach(SOURCE IN LISTS NON_OCML_SOURCES)
   add_opencl_bitcode(
+    ${BC_TRIPLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
     "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
@@ -82,6 +83,7 @@ set(ROCM_DEVICELIB_STANDALONE_BUILD ON)
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
 set(CMAKE_WARN_DEPRECATED OFF)
+set(AMDGPU_TARGET_TRIPLE ${BC_TRIPLE})
 add_subdirectory(ROCm-Device-Libs EXCLUDE_FROM_ALL)
 set(CMAKE_WARN_DEPRECATED ${SAVED_WARN_DEPRECATED})
 
@@ -165,12 +167,22 @@ set(RTDEVLIB_SOURCES_v1_3
   ballot_native)
 
 # Alias for add_opencl_bitcode.
-foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2 RTDEVLIB_SOURCES_v1_3)
- add_opencl_bitcode(
-   "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
-   "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
- list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
+foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2)
+  add_opencl_bitcode(
+    spirv64v1.2-unknown-chipstar
+    "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
+  list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
 endforeach()
+
+foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_3)
+  add_opencl_bitcode(
+    spirv64v1.3-unknown-chipstar
+    "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
+  list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
+endforeach()
+
 
 add_custom_target("rtdevlib-bitcodes" DEPENDS ${RTDEVLIB_BITCODES})
 
