@@ -34,8 +34,18 @@ if(NOT CLANG_VERSION_LESS_15 AND CLANG_VERSION_LESS_16)
   list(APPEND EXTRA_FLAGS ${DISABLE_OPAQUE_PTRS_OPT})
 endif()
 
-set(BC_FILE "hipspv-${OFFLOAD_TRIPLE}.bc")
-set(BC_DESTINATION lib/hip-device-lib)
+if("${LLVM_VERSION}" VERSION_LESS 14.0)
+  # Definitions for pre-upstreamed HIP-Clang.
+  set(BC_TRIPLE "spirv64")
+  set(BC_FILE "devicelib.bc")
+  set(BC_DESTINATION share)
+else()
+  # HIP-Clang automatically looks for hipspv-<triple>.bc in
+  # <bc-destination> directory in HIP compilation mode.
+  set(BC_TRIPLE ${OFFLOAD_TRIPLE})
+  set(BC_FILE "hipspv-${BC_TRIPLE}.bc")
+  set(BC_DESTINATION lib/hip-device-lib)
+endif()
 
 set(BITCODE_CL_COMPILE_FLAGS
   -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
@@ -62,7 +72,7 @@ endfunction()
 
 foreach(SOURCE IN LISTS NON_OCML_SOURCES)
   add_opencl_bitcode(
-    ${OFFLOAD_TRIPLE}
+    ${BC_TRIPLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
     "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
@@ -74,7 +84,7 @@ set(AMDGPU_TARGET_TRIPLE "spirv64" CACHE STRING "Target triple for ROCm device l
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
 set(CMAKE_WARN_DEPRECATED OFF)
-set(AMDGPU_TARGET_TRIPLE ${OFFLOAD_TRIPLE})
+set(AMDGPU_TARGET_TRIPLE ${BC_TRIPLE})
 add_subdirectory(ROCm-Device-Libs EXCLUDE_FROM_ALL)
 set(CMAKE_WARN_DEPRECATED ${SAVED_WARN_DEPRECATED})
 
@@ -171,7 +181,7 @@ endif()
 # Alias for add_opencl_bitcode.
 foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2)
   add_opencl_bitcode(
-    ${RTDEVLIB_TRIPLE_v1_2}
+    spirv64v1.2-unknown-chipstar
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
   list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
@@ -179,7 +189,7 @@ endforeach()
 
 foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_3)
   add_opencl_bitcode(
-    ${RTDEVLIB_TRIPLE_v1_3}
+    spirv64v1.3-unknown-chipstar
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
   list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
