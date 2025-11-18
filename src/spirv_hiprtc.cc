@@ -71,10 +71,10 @@ static bool createSourceFile(const chipstar::Program &Program,
   // CUDA NVRTC guide: "... The characters in the name expression
   // string are parsed as a C++ constant expression at the end of the
   // user program."
-  File << "extern \"C\" __device__ constexpr void *_chip_name_exprs[] = {\n";
+  unsigned Num = 0;
   for (auto &Kv : Program.getNameExpressionMap())
-    File << "    (void *)" << Kv.first << ",\n";
-  File << "};\n";
+    File << "extern \"C\" __device__ constexpr auto *_chip_name_expr_"
+         << std::to_string(Num++) << " = " << Kv.first << ";\n";
 
   // The lowered name expressions are extracted by a LLVM pass which
   // detects the magic variable in the above. Because HIPSPV tool
