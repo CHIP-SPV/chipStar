@@ -2097,7 +2097,6 @@ void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
   // Use the barrier event from the TO queue, not the marker from FROM queue
   auto *ChipEv = new CHIPEventOpenCL(
       static_cast<CHIPContextOpenCL *>(ChipContext_), BarrierEv);
-  updateLastEvent(std::shared_ptr<chipstar::Event>(ChipEv));
   
   // Release the marker event since we're tracking the barrier instead
   clReleaseEvent(SwitchEv);
