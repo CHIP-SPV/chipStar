@@ -1904,27 +1904,8 @@ chipstar::Event *CHIPBackendLevel0::createEvent(chipstar::Context *ChipCtx,
   return Event;
 }
 
-void CHIPBackendLevel0::uninitialize() {
-  /**
-   * chipstar::Event Monitor expects to collect all events. To do this,
-   * all events must reach the refcount of 0. At this point, all queues should
-   * have their LastEvent as nullptr but in case a user didn't sync and destroy
-   * a user-created stream, such stream might not have its LastEvent as nullptr.
-   *
-   * To be safe, we iterate through all the queues and update their last event.
-   */
-  waitForThreadExit();
-  logTrace("Backend::uninitialize(): Setting the LastEvent to null for all "
-           "user-created queues");
-
-  {
-    logTrace("Backend::uninitialize(): Killing EventMonitor");
-    LOCK(EventMonitor_->EventMonitorMtx); // chipstar::EventMonitor::Stop
-    EventMonitor_->Stop = true;
-  }
-  EventMonitor_->join();
+void CHIPBackendLevel0::uninitializeImpl() {
   ActiveCmdLists.clear();
-  return;
 }
 
 std::string CHIPBackendLevel0::getDefaultJitFlags() { return std::string(""); }

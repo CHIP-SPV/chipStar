@@ -737,7 +737,7 @@ public:
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;
 
-  virtual void uninitialize() override;
+  virtual void uninitializeImpl() override;
 
   void initializeCommon(ze_driver_handle_t ZeDriver);
 

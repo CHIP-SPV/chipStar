@@ -1377,6 +1377,44 @@ void chipstar::Backend::waitForThreadExit() {
     }
   }
 }
+
+void chipstar::Backend::uninitialize() {
+  /**
+   * Common uninitialization sequence for all backends.
+   * Performs: thread waiting, EventMonitor shutdown, queue event clearing,
+   * then calls uninitializeImpl() for backend-specific cleanup.
+   */
+  waitForThreadExit();
+  logTrace("Backend::uninitialize(): Setting the LastEvent to null for all "
+           "user-created queues");
+
+  {
+    logTrace("Backend::uninitialize(): Stopping EventMonitor");
+    if (EventMonitor_) {
+      LOCK(EventMonitor_->EventMonitorMtx); // chipstar::EventMonitor::Stop
+      EventMonitor_->Stop = true;
+    }
+  }
+  if (EventMonitor_) {
+    EventMonitor_->join();
+  }
+
+  // Clear LastEvent for all queues
+  {
+    LOCK(BackendMtx);
+    for (auto Dev : getDevices()) {
+      LOCK(Dev->QueueAddRemoveMtx);
+      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
+      for (auto &Queue : Dev->getQueuesNoLock()) {
+        Queue->updateLastEvent(nullptr);
+      }
+    }
+  }
+
+  // Call backend-specific cleanup
+  uninitializeImpl();
+}
+
 void chipstar::Backend::initialize() {
   initializeImpl();
   if (ChipContexts.size() == 0) {

@@ -2285,30 +2285,10 @@ std::string CHIPBackendOpenCL::getDefaultJitFlags() {
   return std::string("-cl-kernel-arg-info -cl-std=CL3.0");
 }
 
-void CHIPBackendOpenCL::uninitialize() {
-  /**
-   * Proper shutdown sequence similar to Level0 backend.
-   * Wait for all threads to exit, then clean up contexts and memory
-   * to prevent memory leaks during repeated test runs.
-   */
-  waitForThreadExit();
-  logTrace("CHIPBackendOpenCL::uninitialize(): Setting the LastEvent to null for all "
-           "user-created queues");
-
-  {
-    logTrace("CHIPBackendOpenCL::uninitialize(): Stopping EventMonitor");
-    if (EventMonitor_) {
-      LOCK(EventMonitor_->EventMonitorMtx); // chipstar::EventMonitor::Stop
-      EventMonitor_->Stop = true;
-    }
-  }
-  if (EventMonitor_) {
-    EventMonitor_->join();
-  }
-  
+void CHIPBackendOpenCL::uninitializeImpl() {
   // More aggressive wait for threads - ensure they actually exit
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
-  logTrace("CHIPBackendOpenCL::uninitialize(): Waiting for {} threads to exit", activeThreads);
+  logTrace("CHIPBackendOpenCL::uninitializeImpl(): Waiting for {} threads to exit", activeThreads);
   
   if (activeThreads > 1) {
     // Wait longer and more aggressively for threads to exit
@@ -2318,42 +2298,29 @@ void CHIPBackendOpenCL::uninitialize() {
       
       activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
       if (activeThreads <= 1) {
-        logTrace("CHIPBackendOpenCL::uninitialize(): All threads exited (count: {})", activeThreads);
+        logTrace("CHIPBackendOpenCL::uninitializeImpl(): All threads exited (count: {})", activeThreads);
         break;
       }
       
       // Every 2 seconds, log progress
       if (i % 20 == 0 && i > 0) {
-        logTrace("CHIPBackendOpenCL::uninitialize(): Still waiting for {} threads to exit ({}s elapsed)", 
+        logTrace("CHIPBackendOpenCL::uninitializeImpl(): Still waiting for {} threads to exit ({}s elapsed)", 
                 activeThreads - 1, i / 10);
       }
     }
     
     if (activeThreads > 1) {
-      logError("CHIPBackendOpenCL::uninitialize(): CRITICAL - {} threads still active after 30s timeout! "
+      logError("CHIPBackendOpenCL::uninitializeImpl(): CRITICAL - {} threads still active after 30s timeout! "
                "Proceeding with cleanup anyway - this may cause crashes!", activeThreads - 1);
     }
   }
   
   // Additional safety: small delay even after threads exit to ensure complete cleanup
   usleep(50000); // 50ms safety buffer
-  logTrace("CHIPBackendOpenCL::uninitialize(): Setting LastEvent to null for all queues");
-  
-  // Ensure all queues have their last events cleared to prevent dangling references
-  {
-    LOCK(BackendMtx);
-    for (auto Dev : getDevices()) {
-      LOCK(Dev->QueueAddRemoveMtx);
-      Dev->getLegacyDefaultQueue()->updateLastEvent(nullptr);
-      for (auto &Queue : Dev->getQueuesNoLock()) {
-        Queue->updateLastEvent(nullptr);
-      }
-    }
-  }
   
   // Clean up contexts and their memory managers to prevent memory leaks
   // This is critical for repeated test runs to avoid memory exhaustion
-  logTrace("CHIPBackendOpenCL::uninitialize(): Cleaning up contexts and memory");
+  logTrace("CHIPBackendOpenCL::uninitializeImpl(): Cleaning up contexts and memory");
   {
     LOCK(BackendMtx);
     
@@ -2370,10 +2337,10 @@ void CHIPBackendOpenCL::uninitialize() {
     for (auto Ctx : ChipContexts) {
       CHIPContextOpenCL *CtxOpenCL = static_cast<CHIPContextOpenCL *>(Ctx);
       if (CtxOpenCL) {
-        logTrace("CHIPBackendOpenCL::uninitialize(): Clearing memory manager for context {} (allocations: {})", 
+        logTrace("CHIPBackendOpenCL::uninitializeImpl(): Clearing memory manager for context {} (allocations: {})", 
                  (void*)CtxOpenCL, CtxOpenCL->MemManager_.getNumAllocations());
         CtxOpenCL->MemManager_.clear();
-        logTrace("CHIPBackendOpenCL::uninitialize(): Memory manager cleared, remaining allocations: {}", 
+        logTrace("CHIPBackendOpenCL::uninitializeImpl(): Memory manager cleared, remaining allocations: {}", 
                  CtxOpenCL->MemManager_.getNumAllocations());
       }
     }

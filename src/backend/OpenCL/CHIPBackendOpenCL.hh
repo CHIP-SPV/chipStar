@@ -563,7 +563,7 @@ public:
                                              size_t SharedMem,
                                              hipStream_t ChipQueue) override;
 
-  virtual void uninitialize() override;
+  virtual void uninitializeImpl() override;
   virtual void initializeImpl() override;
   virtual void initializeFromNative(const uintptr_t *NativeHandles,
                                     int NumHandles) override;

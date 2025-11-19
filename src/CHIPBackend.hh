@@ -1932,11 +1932,23 @@ public:
                                     int NumHandles) = 0;
 
   /**
-   * @brief
+   * @brief Uninitialize this backend
    *
+   * Performs common shutdown sequence: waits for threads, stops EventMonitor,
+   * clears queue events, then calls uninitializeImpl() for backend-specific cleanup.
    */
-  virtual void uninitialize() = 0;
+  virtual void uninitialize();
 
+protected:
+  /**
+   * @brief Backend-specific uninitialization implementation
+   *
+   * Called by uninitialize() after common shutdown sequence.
+   * Override this method to perform backend-specific cleanup.
+   */
+  virtual void uninitializeImpl() {}
+
+public:
   /**
    * @brief Wait for all per-thread queues to finish
    *
