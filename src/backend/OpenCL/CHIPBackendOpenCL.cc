@@ -330,7 +330,7 @@ CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t CallbackF,
                                                void *CallbackArgs,
                                                chipstar::Queue *ChipQueue)
     : chipstar::CallbackData(CallbackF, CallbackArgs, ChipQueue) {
-  LOCK(::Backend->BackendMtx)
+  LOCK(::Backend->BackendMtx);
 
   auto BackendOcl = static_cast<CHIPBackendOpenCL *>(::Backend);
   auto ChipQueueOcl = static_cast<CHIPQueueOpenCL *>(ChipQueue);
@@ -2286,38 +2286,6 @@ std::string CHIPBackendOpenCL::getDefaultJitFlags() {
 }
 
 void CHIPBackendOpenCL::uninitializeImpl() {
-  // More aggressive wait for threads - ensure they actually exit
-  int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
-  logTrace("CHIPBackendOpenCL::uninitializeImpl(): Waiting for {} threads to exit", activeThreads);
-  
-  if (activeThreads > 1) {
-    // Wait longer and more aggressively for threads to exit
-    for (int i = 0; i < 300; i++) { // Max 30 seconds instead of 20 for extra safety
-      pthread_yield();
-      usleep(100000); // 100ms per iteration
-      
-      activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
-      if (activeThreads <= 1) {
-        logTrace("CHIPBackendOpenCL::uninitializeImpl(): All threads exited (count: {})", activeThreads);
-        break;
-      }
-      
-      // Every 2 seconds, log progress
-      if (i % 20 == 0 && i > 0) {
-        logTrace("CHIPBackendOpenCL::uninitializeImpl(): Still waiting for {} threads to exit ({}s elapsed)", 
-                activeThreads - 1, i / 10);
-      }
-    }
-    
-    if (activeThreads > 1) {
-      logError("CHIPBackendOpenCL::uninitializeImpl(): CRITICAL - {} threads still active after 30s timeout! "
-               "Proceeding with cleanup anyway - this may cause crashes!", activeThreads - 1);
-    }
-  }
-  
-  // Additional safety: small delay even after threads exit to ensure complete cleanup
-  usleep(50000); // 50ms safety buffer
-  
   // Clean up contexts and their memory managers to prevent memory leaks
   // This is critical for repeated test runs to avoid memory exhaustion
   logTrace("CHIPBackendOpenCL::uninitializeImpl(): Cleaning up contexts and memory");
