@@ -323,27 +323,141 @@ static void CL_CALLBACK kernelEventCallback(cl_event Event,
   delete static_cast<KernelEventCallbackData *>(UserData);
 }
 
-// CHIPCallbackDataLevel0
+// CHIPCallbackDataOpenCL
 // ************************************************************************
 
-CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t TheCallback,
-                                               void *TheCallbackArgs,
+CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t CallbackF,
+                                               void *CallbackArgs,
                                                chipstar::Queue *ChipQueue)
-    : ChipQueue((CHIPQueueOpenCL *)ChipQueue) {
-  if (TheCallbackArgs != nullptr)
-    CallbackArgs = TheCallbackArgs;
-  if (TheCallback == nullptr)
-    CHIPERR_LOG_AND_THROW("", hipErrorTbd);
-  CallbackF = TheCallback;
+    : chipstar::CallbackData(CallbackF, CallbackArgs, ChipQueue) {
+  LOCK(::Backend->BackendMtx)
+
+  auto BackendOcl = static_cast<CHIPBackendOpenCL *>(::Backend);
+  auto ChipQueueOcl = static_cast<CHIPQueueOpenCL *>(ChipQueue);
+  auto ChipContextOcl =
+      static_cast<CHIPContextOpenCL *>(ChipQueue->getContext());
+
+  // GpuReady syncs with previous events
+  GpuReady = BackendOcl->createEventShared(ChipContextOcl,
+                                            chipstar::EventFlags(), "GpuReady");
+  auto GpuReadyOcl = std::static_pointer_cast<CHIPEventOpenCL>(GpuReady);
+  auto [QueueSyncEvents, EventLocks] =
+      ChipQueueOcl->getSyncQueuesLastEvents(GpuReady, false);
+  std::vector<cl_event> SyncQueuesEventHandles =
+      getOpenCLHandles(QueueSyncEvents);
+
+  // Add a barrier so that it signals
+  clStatus = clEnqueueBarrierWithWaitList(
+      ChipQueueOcl->get()->get(), SyncQueuesEventHandles.size(),
+      SyncQueuesEventHandles.data(),
+      &(GpuReadyOcl->getNativeRef()));
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
+
+  // This will get triggered manually
+  CpuCallbackComplete = BackendOcl->createEventShared(
+      ChipContextOcl, chipstar::EventFlags(), "CpuCallbackComplete");
+  auto CpuCallbackCompleteOcl =
+      std::static_pointer_cast<CHIPEventOpenCL>(CpuCallbackComplete);
+  cl::Context *ClContext = ChipContextOcl->get();
+  cl_int Err;
+  CpuCallbackCompleteOcl->ClEvent =
+      clCreateUserEvent(ClContext->get(), &Err);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateUserEvent);
+
+  // This will get triggered when the CPU is done
+  GpuAck = BackendOcl->createEventShared(ChipContextOcl,
+                                         chipstar::EventFlags(), "GpuAck");
+  auto GpuAckOcl = std::static_pointer_cast<CHIPEventOpenCL>(GpuAck);
+  std::vector<cl_event> WaitForCpuCallback = {CpuCallbackCompleteOcl->getNativeRef()};
+  clStatus = clEnqueueBarrierWithWaitList(
+      ChipQueueOcl->get()->get(), WaitForCpuCallback.size(),
+      WaitForCpuCallback.data(), &(GpuAckOcl->getNativeRef()));
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
+
+  // Need to create another event as GpuAck will be destroyed once callback is
+  // complete
+  auto CallbackComplete = BackendOcl->createEventShared(
+      ChipContextOcl, chipstar::EventFlags(), "CallbackComplete");
+  auto CallbackCompleteOcl =
+      std::static_pointer_cast<CHIPEventOpenCL>(CallbackComplete);
+  clStatus = clEnqueueBarrierWithWaitList(
+      ChipQueueOcl->get()->get(), 0, nullptr,
+      std::static_pointer_cast<CHIPEventOpenCL>(CallbackComplete)->getNativePtr());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
+  ChipQueueOcl->updateLastEvent(CallbackComplete);
 }
 
 // EventMonitorOpenCL
 // ************************************************************************
 EventMonitorOpenCL::EventMonitorOpenCL() : chipstar::EventMonitor() {};
 
+void EventMonitorOpenCL::checkCallbacks() {
+  // Check Stop flag first - if set, don't access Backend at all
+  {
+    LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
+    if (Stop)
+      return;
+  }
+
+  // Get local pointer to Backend - but it might be destroyed, so we need to be careful
+  chipstar::Backend *BackendPtr = ::Backend;
+  if (!BackendPtr)
+    return;
+
+  // Double-check Stop after getting pointer - if Stop was set, Backend might be destroyed
+  {
+    LOCK(EventMonitorMtx);
+    if (Stop)
+      return;
+  }
+
+  CHIPCallbackDataOpenCL *CbData;
+  {
+    LOCK(BackendPtr->CallbackQueueMtx); // Backend::CallbackQueue
+
+    if ((BackendPtr->CallbackQueue.size() == 0))
+      return;
+
+    // get the callback item
+    CbData = (CHIPCallbackDataOpenCL *)BackendPtr->CallbackQueue.front();
+
+    // Lock the item and members
+    assert(CbData);
+    LOCK( // Backend::CallbackQueue
+        CbData->CallbackDataMtx);
+    BackendPtr->CallbackQueue.pop();
+
+    // Update clStatus
+    logTrace("checkCallbacks: checking event "
+             "status for {}",
+             static_cast<void *>(CbData->GpuReady.get()));
+    CbData->GpuReady->updateFinishStatus(false);
+    if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+      // if not ready, push to the back
+      BackendPtr->CallbackQueue.push(CbData);
+      return;
+    }
+  }
+
+  CbData->execute(hipSuccess);
+  CbData->CpuCallbackComplete->hostSignal();
+  CbData->GpuAck->wait();
+
+  delete CbData;
+  pthread_yield();
+}
+
 void EventMonitorOpenCL::monitor() {
-  logTrace("EventMonitorOpenCL::monitor()");
-  chipstar::EventMonitor::monitor();
+  while (true) {
+    usleep(200);
+    {
+      LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
+      if (Stop) {
+        break;
+      }
+    }
+    checkCallbacks();
+  }
 }
 
 // CHIPDeviceOpenCL
@@ -860,7 +974,18 @@ float CHIPEventOpenCL::getElapsedTime(chipstar::Event *OtherIn) {
   return Ms;
 }
 
-void CHIPEventOpenCL::hostSignal() { UNIMPLEMENTED(); }
+void CHIPEventOpenCL::hostSignal() {
+  logTrace("CHIPEventOpenCL::hostSignal() {} Msg: {} Handle: {}", (void *)this,
+           Msg, (void *)ClEvent);
+  if (ClEvent == nullptr)
+    CHIPERR_LOG_AND_THROW("OpenCL event is null", hipErrorInvalidHandle);
+
+  clStatus = clSetUserEventStatus(ClEvent, CL_COMPLETE);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetUserEventStatus);
+
+  LOCK(EventMtx); // chipstar::Event::EventStatus_
+  EventStatus_ = EVENT_STATUS_RECORDED;
+}
 
 // CHIPModuleOpenCL
 //*************************************************************************
@@ -1508,54 +1633,13 @@ cl::CommandQueue *CHIPQueueOpenCL::get() {
 void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
   logTrace("CHIPQueueOpenCL::addCallback()");
+  chipstar::CallbackData *Callbackdata =
+      ::Backend->createCallbackData(Callback, UserData, this);
 
-  cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
-  cl_int Err;
-
-  // Enqueue a barrier used to ensure the callback is not called too early,
-  // otherwise it would be (at worst) executed in this host thread when
-  // setting it, blocking the execution, while the clients might expect
-  // parallel execution.
-  std::shared_ptr<chipstar::Event> HoldbackBarrierCompletedEv =
-      enqueueBarrier(std::vector<std::shared_ptr<chipstar::Event>>{});
-
-  // OpenCL event callbacks have undefined execution ordering/finishing
-  // guarantees. We need to enforce CUDA ordering using user events.
-
-  std::shared_ptr<chipstar::Event> CallbackEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_, chipstar::EventFlags(), "callback");
-
-  std::static_pointer_cast<CHIPEventOpenCL>(CallbackEvent)->ClEvent =
-      clCreateUserEvent(ClContext_->get(), &Err);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateUserEvent);
-
-  // Make the succeeding commands wait for the user event which will be
-  // set CL_COMPLETE by the callback trampoline function pfn_notify after
-  // finishing the user CB's execution.
-
-  HipStreamCallbackData *Cb = new HipStreamCallbackData{
-      this, hipSuccess, UserData, Callback, CallbackEvent, nullptr};
-
-  std::vector<std::shared_ptr<chipstar::Event>> WaitForEventsCBB{CallbackEvent};
-  Cb->CallbackCompleted = enqueueBarrier(WaitForEventsCBB);
-
-  // We know that the callback won't be yet launched since it's depending
-  // on the barrier which waits for the user event.
-  clStatus = clSetEventCallback(
-      std::static_pointer_cast<CHIPEventOpenCL>(HoldbackBarrierCompletedEv)
-          ->ClEvent,
-      CL_COMPLETE, pfn_notify, Cb);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
-
-  updateLastEvent(Cb->CallbackCompleted);
-
-  // Now the CB can start executing in the background:
-  clSetUserEventStatus(
-      std::static_pointer_cast<CHIPEventOpenCL>(HoldbackBarrierCompletedEv)
-          ->ClEvent,
-      CL_COMPLETE);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetUserEventStatus);
+  {
+    LOCK(::Backend->CallbackQueueMtx); // Backend::CallbackQueue
+    ::Backend->CallbackQueue.push(Callbackdata);
+  }
 
   return;
 }
@@ -2188,11 +2272,13 @@ chipstar::Queue *CHIPBackendOpenCL::createCHIPQueue(chipstar::Device *ChipDev) {
 
 chipstar::CallbackData *CHIPBackendOpenCL::createCallbackData(
     hipStreamCallback_t Callback, void *UserData, chipstar::Queue *ChipQueue) {
-  UNIMPLEMENTED(nullptr);
+  return new CHIPCallbackDataOpenCL(Callback, UserData, ChipQueue);
 }
 
 chipstar::EventMonitor *CHIPBackendOpenCL::createEventMonitor_() {
-  UNIMPLEMENTED(nullptr);
+  auto Evm = new EventMonitorOpenCL();
+  Evm->start();
+  return Evm;
 }
 
 std::string CHIPBackendOpenCL::getDefaultJitFlags() {
@@ -2204,8 +2290,21 @@ void CHIPBackendOpenCL::uninitialize() {
    * Proper shutdown sequence similar to Level0 backend.
    * Wait for all threads to exit, then clean up contexts and memory
    * to prevent memory leaks during repeated test runs.
-   * OpenCL doesn't use an EventMonitor.
    */
+  waitForThreadExit();
+  logTrace("CHIPBackendOpenCL::uninitialize(): Setting the LastEvent to null for all "
+           "user-created queues");
+
+  {
+    logTrace("CHIPBackendOpenCL::uninitialize(): Stopping EventMonitor");
+    if (EventMonitor_) {
+      LOCK(EventMonitor_->EventMonitorMtx); // chipstar::EventMonitor::Stop
+      EventMonitor_->Stop = true;
+    }
+  }
+  if (EventMonitor_) {
+    EventMonitor_->join();
+  }
   
   // More aggressive wait for threads - ensure they actually exit
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
@@ -2475,6 +2574,9 @@ void CHIPBackendOpenCL::initializeImpl() {
   // TODO for now only a single device is supported.
   cl::Device *clDev = new cl::Device(Device);
   CHIPDeviceOpenCL::create(clDev, ChipContext, 0);
+  
+  EventMonitor_ = (EventMonitorOpenCL *)::Backend->createEventMonitor_();
+  
   logTrace("OpenCL Context Initialized.");
 };
 
@@ -2500,6 +2602,8 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
   ChipContext->setDevice(ChipDev);
 
   setActiveDevice(ChipDev);
+
+  EventMonitor_ = (EventMonitorOpenCL *)::Backend->createEventMonitor_();
 
   logTrace("OpenCL Context Initialized.");
 }

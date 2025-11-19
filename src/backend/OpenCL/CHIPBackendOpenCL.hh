@@ -93,19 +93,19 @@ class CHIPBackendOpenCL;
 class CHIPModuleOpenCL;
 class CHIPTextureOpenCL;
 
-class CHIPCallbackDataOpenCL {
-private:
+class CHIPCallbackDataOpenCL : public chipstar::CallbackData {
 public:
-  CHIPQueueOpenCL *ChipQueue;
-  void *CallbackArgs;
-  hipStreamCallback_t CallbackF;
-  hipError_t CallbackStatus;
-
+  std::mutex CallbackDataMtx;
   CHIPCallbackDataOpenCL(hipStreamCallback_t CallbackF, void *CallbackArgs,
                          chipstar::Queue *ChipQueue);
+
+  virtual ~CHIPCallbackDataOpenCL() override {}
 };
 
 class EventMonitorOpenCL : public chipstar::EventMonitor {
+private:
+  void checkCallbacks();
+
 public:
   EventMonitorOpenCL();
   virtual void monitor() override;
