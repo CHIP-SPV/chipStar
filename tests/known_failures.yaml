@@ -409,6 +409,7 @@ cupcake:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
+    TestHipLaunchHostFunc: 'Driver issue: https://github.com/intel/compute-runtime/issues/869'
   OPENCL_POCL:
 meatloaf:
   ALL:
