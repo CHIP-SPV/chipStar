@@ -392,40 +392,22 @@ CHIPCallbackDataOpenCL::CHIPCallbackDataOpenCL(hipStreamCallback_t CallbackF,
 EventMonitorOpenCL::EventMonitorOpenCL() : chipstar::EventMonitor() {};
 
 void EventMonitorOpenCL::checkCallbacks() {
-  // Check Stop flag first - if set, don't access Backend at all
-  {
-    LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
-    if (Stop)
-      return;
-  }
-
-  // Get local pointer to Backend - but it might be destroyed, so we need to be careful
-  chipstar::Backend *BackendPtr = ::Backend;
-  if (!BackendPtr)
-    return;
-
-  // Double-check Stop after getting pointer - if Stop was set, Backend might be destroyed
-  {
-    LOCK(EventMonitorMtx);
-    if (Stop)
-      return;
-  }
-
   CHIPCallbackDataOpenCL *CbData;
+  LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   {
-    LOCK(BackendPtr->CallbackQueueMtx); // Backend::CallbackQueue
+    LOCK(::Backend->CallbackQueueMtx); // Backend::CallbackQueue
 
-    if ((BackendPtr->CallbackQueue.size() == 0))
+    if ((::Backend->CallbackQueue.size() == 0))
       return;
 
     // get the callback item
-    CbData = (CHIPCallbackDataOpenCL *)BackendPtr->CallbackQueue.front();
+    CbData = (CHIPCallbackDataOpenCL *)::Backend->CallbackQueue.front();
 
     // Lock the item and members
     assert(CbData);
     LOCK( // Backend::CallbackQueue
         CbData->CallbackDataMtx);
-    BackendPtr->CallbackQueue.pop();
+    ::Backend->CallbackQueue.pop();
 
     // Update clStatus
     logTrace("checkCallbacks: checking event "
@@ -434,7 +416,7 @@ void EventMonitorOpenCL::checkCallbacks() {
     CbData->GpuReady->updateFinishStatus(false);
     if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
       // if not ready, push to the back
-      BackendPtr->CallbackQueue.push(CbData);
+      ::Backend->CallbackQueue.push(CbData);
       return;
     }
   }
