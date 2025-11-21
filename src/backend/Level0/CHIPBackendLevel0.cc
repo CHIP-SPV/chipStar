@@ -1704,6 +1704,62 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   return MemCopyEvent;
 }
 
+std::shared_ptr<chipstar::Event>
+CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
+  logTrace("CHIPQueueLevel0::memPrefetchImpl");
+  
+  // Level0 doesn't support explicit CPU prefetch - zeCommandListAppendMemoryPrefetch
+  // only prefetches to device. For CPU prefetch, create a no-op event.
+  if (DstDevId == hipCpuDeviceId) {
+    CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
+    std::shared_ptr<chipstar::Event> PrefetchEvent =
+        static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+            ChipCtxZe, chipstar::EventFlags(), "memPrefetch");
+    
+    // For CPU prefetch, just create an event that's already complete
+    // The memory will be accessible on CPU by default for managed memory
+    LOCK(CommandListMtx);
+    auto CommandList = this->getCmdListImmCopy();
+    auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
+    
+    // Append a barrier to signal completion (no actual prefetch command)
+    zeStatus = zeCommandListAppendBarrier(
+        CommandList,
+        std::static_pointer_cast<CHIPEventLevel0>(PrefetchEvent)->peek(),
+        EventHandles.size(), EventHandles.data());
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+    
+    executeCommandList(CommandList, PrefetchEvent);
+    
+    return PrefetchEvent;
+  }
+  
+  CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
+  std::shared_ptr<chipstar::Event> PrefetchEvent =
+      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+          ChipCtxZe, chipstar::EventFlags(), "memPrefetch");
+  
+  LOCK(CommandListMtx);
+  auto CommandList = this->getCmdListImmCopy();
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
+  
+  // Append memory prefetch command to the command list
+  zeStatus = zeCommandListAppendMemoryPrefetch(
+      CommandList, Ptr, Count);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendMemoryPrefetch);
+  
+  // Append a barrier to signal completion of prefetch
+  zeStatus = zeCommandListAppendBarrier(
+      CommandList,
+      std::static_pointer_cast<CHIPEventLevel0>(PrefetchEvent)->peek(),
+      EventHandles.size(), EventHandles.data());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  
+  executeCommandList(CommandList, PrefetchEvent);
+  
+  return PrefetchEvent;
+}
+
 void CHIPQueueLevel0::finish() {
   LOCK(LastEventMtx); // Queue::LastEvent_
   auto LastEvent = getLastEventNoLock();
@@ -2182,15 +2238,14 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
       /* HmaDesc.flags = */ HostFlags,
   };
   if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
-
-    // TODO Check if devices support cross-device sharing?
-    // ze_device_handle_t ZeDev = ((CHIPDeviceLevel0
-    // *)getDevices()[0])->get();
-    ze_device_handle_t ZeDev = nullptr; // Do not associate allocation
-
-    zeStatus = zeMemAllocShared(ZeCtx, &DmaDesc, &HmaDesc, Size, Alignment,
-                                ZeDev, &Ptr);
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocShared);
+    // Use zeMemAllocHost for managed memory to ensure host accessibility
+    // is maintained even when the GPU accesses the memory. Intel's Level Zero
+    // driver on discrete GPUs uses page migration with zeMemAllocShared that
+    // removes host mappings when pages are accessed by the device, causing
+    // segfaults on subsequent host access. Host memory remains accessible
+    // from both host and device, providing correct HIP/CUDA semantics.
+    zeStatus = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocHost);
   } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
     ze_device_handle_t ZeDev = ChipDev->get();

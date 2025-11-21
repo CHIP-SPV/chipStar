@@ -2512,7 +2512,87 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(Data, DevPtr);
+
+  if (Count == 0) {
+    RETURN(hipSuccess);
+  }
+
+  // Find the allocation info - check all devices
+  chipstar::AllocationInfo *AllocInfo = nullptr;
+  for (auto *Dev : Backend->getDevices()) {
+    AllocInfo = Dev->AllocTracker->getAllocInfo(DevPtr);
+    if (AllocInfo)
+      break;
+  }
+
+  if (!AllocInfo) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // Only managed/unified memory supports these attributes
+  if (AllocInfo->MemoryType != hipMemoryTypeManaged && 
+      AllocInfo->MemoryType != hipMemoryTypeUnified) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  switch (Attribute) {
+  case hipMemRangeAttributeLastPrefetchLocation: {
+    if (DataSize < sizeof(int)) {
+      RETURN(hipErrorInvalidValue);
+    }
+    int *PrefetchLoc = static_cast<int *>(Data);
+    *PrefetchLoc = AllocInfo->LastPrefetchLocation;
+    break;
+  }
+  case hipMemRangeAttributeReadMostly: {
+    if (DataSize < sizeof(int)) {
+      RETURN(hipErrorInvalidValue);
+    }
+    int *ReadMostly = static_cast<int *>(Data);
+    *ReadMostly = AllocInfo->ReadMostly ? 1 : 0;
+    break;
+  }
+  case hipMemRangeAttributePreferredLocation: {
+    if (DataSize < sizeof(int)) {
+      RETURN(hipErrorInvalidValue);
+    }
+    int *PrefLoc = static_cast<int *>(Data);
+    *PrefLoc = AllocInfo->PreferredLocation;
+    break;
+  }
+  case hipMemRangeAttributeAccessedBy: {
+    // This returns an array of device IDs
+    // DataSize should be at least sizeof(int) * num_devices
+    if (DataSize < sizeof(int)) {
+      RETURN(hipErrorInvalidValue);
+    }
+    int *AccessedBy = static_cast<int *>(Data);
+    size_t MaxDevices = DataSize / sizeof(int);
+    size_t NumDevices = std::min(MaxDevices, AllocInfo->AccessedBy.size());
+    for (size_t i = 0; i < NumDevices; ++i) {
+      AccessedBy[i] = AllocInfo->AccessedBy[i];
+    }
+    // Fill remaining with -1 if there's space
+    for (size_t i = NumDevices; i < MaxDevices; ++i) {
+      AccessedBy[i] = -1;
+    }
+    break;
+  }
+  case hipMemRangeAttributeCoherencyMode: {
+    // Not implemented yet, return default
+    if (DataSize < sizeof(hipMemRangeCoherencyMode)) {
+      RETURN(hipErrorInvalidValue);
+    }
+    hipMemRangeCoherencyMode *Mode = static_cast<hipMemRangeCoherencyMode *>(Data);
+    *Mode = hipMemRangeCoherencyModeFineGrain; // Default
+    break;
+  }
+  default:
+    RETURN(hipErrorInvalidValue);
+  }
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 };
 
@@ -3980,21 +4060,71 @@ hipError_t hipFreeHost(void *Ptr) {
 hipError_t hipMemPrefetchAsync(const void *Ptr, size_t Count, int DstDevId,
                                hipStream_t Stream) {
   CHIP_TRY
-  UNIMPLEMENTED(hipErrorTbd);
   LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Ptr);
+
+  if (Count == 0) {
+    CHIPERR_LOG_AND_THROW("Count cannot be zero", hipErrorInvalidValue);
+  }
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
 
   // TODO Graphs - async operation should be supported by graphs but no prefetch
   // node is defined
-  ERROR_CHECK_DEVNUM(DstDevId);
-  chipstar::Device *Dev = Backend->getDevices()[DstDevId];
+  // Allow hipCpuDeviceId (-1) as a valid device for prefetching
+  if (DstDevId != hipCpuDeviceId) {
+    ERROR_CHECK_DEVNUM(DstDevId);
+  }
+  
+  chipstar::Device *Dev = nullptr;
+  if (DstDevId != hipCpuDeviceId) {
+    Dev = Backend->getDevices()[DstDevId];
+    // Check if given Stream belongs to the requested device
+    ERROR_IF(ChipQueue->getDevice() != Dev, hipErrorInvalidDevice);
+  } else {
+    // For CPU device, use the device from the stream
+    Dev = ChipQueue->getDevice();
+  }
 
-  // Check if given Stream belongs to the requested device
-  ERROR_IF(ChipQueue->getDevice() != Dev, hipErrorInvalidDevice);
-  ChipQueue->memPrefetch(Ptr, Count);
+  // Find the allocation info - check all devices
+  chipstar::AllocationInfo *AllocInfo = nullptr;
+  for (auto *SearchDev : Backend->getDevices()) {
+    AllocInfo = SearchDev->AllocTracker->getAllocInfo(Ptr);
+    if (AllocInfo)
+      break;
+  }
+  
+  // If pointer is not in any known allocation, return error
+  if (!AllocInfo) {
+    CHIPERR_LOG_AND_THROW("Pointer not found in any allocation",
+                          hipErrorInvalidValue);
+  }
+  
+  // For non-managed memory, this is a no-op (similar to CUDA behavior)
+  if (AllocInfo->MemoryType != hipMemoryTypeManaged && 
+      AllocInfo->MemoryType != hipMemoryTypeUnified) {
+    RETURN(hipSuccess);
+  }
+  
+  // Validate that Count doesn't exceed the allocation size
+  const char *PrefetchPtr = static_cast<const char *>(Ptr);
+  const char *AllocPtr = static_cast<const char *>(AllocInfo->DevPtr);
+  ptrdiff_t SignedOffset = PrefetchPtr - AllocPtr;
+  if (SignedOffset < 0) {
+    CHIPERR_LOG_AND_THROW("Pointer lies before allocation start",
+                          hipErrorInvalidValue);
+  }
+  size_t Offset = static_cast<size_t>(SignedOffset);
+  if (Offset + Count > AllocInfo->Size) {
+    CHIPERR_LOG_AND_THROW("Count exceeds allocation size",
+                          hipErrorInvalidValue);
+  }
+
+  ChipQueue->memPrefetch(Ptr, Count, DstDevId);
+
+  // Update last prefetch location
+  AllocInfo->LastPrefetchLocation = DstDevId;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -4011,7 +4141,58 @@ hipError_t hipMemAdvise(const void *Ptr, size_t Count, hipMemoryAdvise Advice,
     RETURN(hipSuccess);
   }
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  // Find the allocation info - check all devices
+  chipstar::AllocationInfo *AllocInfo = nullptr;
+  for (auto *SearchDev : Backend->getDevices()) {
+    AllocInfo = SearchDev->AllocTracker->getAllocInfo(Ptr);
+    if (AllocInfo)
+      break;
+  }
+  
+  // If pointer is not in any known allocation, return error
+  if (!AllocInfo) {
+    CHIPERR_LOG_AND_THROW("Pointer not found in any allocation",
+                          hipErrorInvalidValue);
+  }
+  
+  // Only managed/unified memory supports memory advice
+  if (AllocInfo->MemoryType != hipMemoryTypeManaged && 
+      AllocInfo->MemoryType != hipMemoryTypeUnified) {
+    CHIPERR_LOG_AND_THROW("Memory advice is only supported for managed memory",
+                          hipErrorInvalidValue);
+  }
+  
+  // Apply the advice hint - these are hints and don't need backend support
+  switch (Advice) {
+  case hipMemAdviseSetReadMostly:
+    AllocInfo->ReadMostly = true;
+    break;
+  case hipMemAdviseUnsetReadMostly:
+    AllocInfo->ReadMostly = false;
+    break;
+  case hipMemAdviseSetPreferredLocation:
+    AllocInfo->PreferredLocation = DstDevId;
+    break;
+  case hipMemAdviseUnsetPreferredLocation:
+    AllocInfo->PreferredLocation = -1;
+    break;
+  case hipMemAdviseSetAccessedBy:
+    // Add device to list if not already there
+    if (std::find(AllocInfo->AccessedBy.begin(), AllocInfo->AccessedBy.end(),
+                  DstDevId) == AllocInfo->AccessedBy.end()) {
+      AllocInfo->AccessedBy.push_back(DstDevId);
+    }
+    break;
+  case hipMemAdviseUnsetAccessedBy:
+    // Remove device from list
+    AllocInfo->AccessedBy.erase(
+        std::remove(AllocInfo->AccessedBy.begin(), AllocInfo->AccessedBy.end(),
+                    DstDevId),
+        AllocInfo->AccessedBy.end());
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW("Invalid memory advice value", hipErrorInvalidValue);
+  }
 
   RETURN(hipSuccess);
   CHIP_CATCH

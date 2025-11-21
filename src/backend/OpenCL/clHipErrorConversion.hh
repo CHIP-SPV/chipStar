@@ -485,6 +485,14 @@ const std::unordered_map<void *, cl_hip_error_map_t> CL_HIP_ERROR_MAPS = {
       {CL_MEM_COPY_OVERLAP, hipErrorInvalidValue},
       {CL_OUT_OF_RESOURCES, hipErrorOutOfMemory},
       {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
+    {(void *)&clEnqueueSVMMigrateMem,
+     {{CL_SUCCESS, hipSuccess},
+      {CL_INVALID_COMMAND_QUEUE, hipErrorInvalidResourceHandle},
+      {CL_INVALID_CONTEXT, hipErrorInvalidContext},
+      {CL_INVALID_EVENT_WAIT_LIST, hipErrorInvalidResourceHandle},
+      {CL_INVALID_VALUE, hipErrorInvalidValue},
+      {CL_OUT_OF_RESOURCES, hipErrorOutOfMemory},
+      {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
 };
 
 // Function converting cl_int into hipError_t based on provided map

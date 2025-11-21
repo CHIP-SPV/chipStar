@@ -1949,8 +1949,69 @@ hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
 }
 
 std::shared_ptr<chipstar::Event>
-CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count) {
-  UNIMPLEMENTED(nullptr);
+CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
+  logTrace("CHIPQueueOpenCL::memPrefetchImpl");
+  
+  std::shared_ptr<chipstar::Event> PrefetchEvent =
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
+          ChipContext_, chipstar::EventFlags(), "memPrefetch");
+  
+  auto [EventsToWait, EventLocks] = getSyncQueuesLastEvents(PrefetchEvent, false);
+  std::vector<cl_event> SyncQueuesEventHandles = getOpenCLHandles(EventsToWait);
+  
+  auto *Ctx = getContext();
+  cl_int clStatus = CL_SUCCESS;
+  
+  // Determine migration flags based on target device
+  cl_mem_migration_flags MigrationFlags = 0;
+  if (DstDevId == hipCpuDeviceId) {
+    MigrationFlags = CL_MIGRATE_MEM_OBJECT_HOST;
+    logTrace("Prefetching to CPU/host\n");
+  } else {
+    // For GPU device prefetch, flags=0 migrates to the device associated
+    // with the command queue. The queue's device is verified to match
+    // DstDevId in hipMemPrefetchAsync before calling this function.
+    logTrace("Prefetching to device {}\n", DstDevId);
+  }
+  
+  switch (Ctx->getAllocStrategy()) {
+  default: {
+    // For BufferDevAddr or unsupported strategies, create a user event
+    // and signal it immediately since prefetch isn't applicable
+    cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
+    cl_int Err;
+    std::static_pointer_cast<CHIPEventOpenCL>(PrefetchEvent)->ClEvent =
+        clCreateUserEvent(ClContext_->get(), &Err);
+    clStatus = Err;
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateUserEvent);
+    clStatus = clSetUserEventStatus(
+        std::static_pointer_cast<CHIPEventOpenCL>(PrefetchEvent)->ClEvent,
+        CL_COMPLETE);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetUserEventStatus);
+    break;
+  }
+    
+  case AllocationStrategy::IntelUSM:
+  case AllocationStrategy::CoarseGrainSVM:
+  case AllocationStrategy::FineGrainSVM: {
+    logTrace("clEnqueueSVMMigrateMem {} / {} B, flags: {}\n", Ptr, Count, MigrationFlags);
+    const void *SvmPtrs[] = {Ptr};
+    const size_t Sizes[] = {Count};
+    {
+      // Protect against Intel OpenCL driver threading issues
+      std::lock_guard<std::mutex> lock(g_intel_opencl_driver_mutex);
+      clStatus = ::clEnqueueSVMMigrateMem(
+          get()->get(), 1, SvmPtrs, Sizes, MigrationFlags,
+          SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+          std::static_pointer_cast<CHIPEventOpenCL>(PrefetchEvent)->getNativePtr());
+    }
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueSVMMigrateMem);
+    break;
+  }
+  }
+  
+  updateLastEvent(PrefetchEvent);
+  return PrefetchEvent;
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
