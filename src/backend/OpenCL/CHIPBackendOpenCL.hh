@@ -446,7 +446,7 @@ public:
       override;
   virtual std::shared_ptr<chipstar::Event> enqueueMarkerImpl() override;
   virtual std::shared_ptr<chipstar::Event>
-  memPrefetchImpl(const void *Ptr, size_t Count) override;
+  memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) override;
 
   /// Enqueues a virtual command that deletes the give host array
   /// after previously enqueud commands have finished.

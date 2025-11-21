@@ -2006,10 +2006,10 @@ std::shared_ptr<chipstar::Event> chipstar::Queue::enqueueMarker() {
   return ChipEvent;
 }
 
-void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count) {
+void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count, int DstDevId) {
 
   std::shared_ptr<chipstar::Event> ChipEvent =
-      memPrefetchImpl(Ptr, Count);
+      memPrefetchImpl(Ptr, Count, DstDevId);
   ChipEvent->Msg = "memPrefetch";
 }
 

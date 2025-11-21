@@ -483,6 +483,12 @@ struct AllocationInfo {
   bool RequiresMapUnmap = false;
   bool IsHostRegistered = false; ///< True if registered via hipHostRegister().
 
+  // Managed memory attributes
+  int LastPrefetchLocation = -2; ///< Device ID where memory was last prefetched, -2 if never prefetched
+  bool ReadMostly = false; ///< Whether memory range is marked as read-mostly
+  int PreferredLocation = -1; ///< Preferred device location, -1 if not set
+  std::vector<int> AccessedBy; ///< List of device IDs that access this memory
+
   /// True if the allocation is accessible from device.
   bool isDeviceAccessible() const {
     return MemoryType == hipMemoryTypeHost ? Flags.isMapped() : true;
@@ -2400,8 +2406,9 @@ public:
    */
 
   virtual std::shared_ptr<chipstar::Event> memPrefetchImpl(const void *Ptr,
-                                                           size_t Count) = 0;
-  void memPrefetch(const void *Ptr, size_t Count);
+                                                           size_t Count,
+                                                           int DstDevId) = 0;
+  void memPrefetch(const void *Ptr, size_t Count, int DstDevId);
 
   /**
    * @brief Launch a kernel on this queue given a host pointer and arguments
