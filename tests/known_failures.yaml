@@ -1,16 +1,11 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
-    Unit_hipMemPrefetchAsyncNegativeTst: 'hipMemPrefetchAsync not implemented'
-    Unit_hipMemPrefetchAsync: 'hipMemPrefetchAsync not implemented'
-    Unit_hipMemPrefetchAsyncAdviseFlgTst: 'hipMemPrefetchAsync not implemented'
-    Unit_hipMemPrefetchAsyncAccsdByTst: 'hipMemPrefetchAsync not implemented'
     Unit_hipMemRangeGetAttribute_TstCountParam: 'hipMemAdvise not implemented'
     Unit_hipMemRangeGetAttribute_NegativeTests: 'hipMemAdvise not implemented'
     Unit_hipMemRangeGetAttribute_AccessedBy1: 'hipMemAdvise not implemented'
     Unit_hipMemRangeGetAttribte_3: 'hipMemAdvise not implemented'
     Unit_hipMemRangeGetAttribute_4: 'hipMemAdvise not implemented'
-    Unit_hipMemRangeGetAttribute_PrefetchAndGtAttr: 'hipMemPrefetchAsync not implemented'
     Unit_hipMemAdvise_TstFlags: 'hipMemAdvise not implemented'
     Unit_hipMemAdvise_NegtveTsts: 'hipMemAdvise not implemented'
     Unit_hipMemAdvise_PrefrdLoc: 'hipMemAdvise not implemented'
@@ -24,10 +19,6 @@ ANY:
     Unit_hipMemAdvise_TstSetUnsetPrfrdLoc: 'hipMemAdvise not implemented'
     Unit_hipMemRangeGetAttributes_TstFlgs: 'hipMemAdvise not implemented'
     Unit_hipMemRangeGetAttributes_NegativeTst: 'hipMemAdvise not implemented'
-    Unit_hipMallocManaged_Advanced: 'hipMemAdvise, hipMemPrefetchAsync, hipMemRangeGetAttribute not implemented'
-    Unit_hipMallocManaged_FlgParam: 'Needs hipMemPrefetchAsync/hipMemAdvise to keep host/device coherent across devices'
-    Unit_hipMallocManaged_AccessMultiStream: 'Needs hipMemPrefetchAsync + stream synchronization to make managed data coherent'
-    Unit_hipMemFaultStackAllocation_Check: 'Fails until hipMemPrefetchAsync/managed synchronization is implemented'
     hipDeviceMalloc: 'Failed'
     TestUndefKernelArg: 'Intermittend L0 segfault'
     hipPromoteInt-signed_constant_compare: 'constVal used for signed comparison'
@@ -298,8 +289,6 @@ ANY:
     Unit_hipMemGetInfo_ParaMultiSmall: ''
     Unit_hipMemGetInfo_ParaNonDiv: ''
     Unit_hipMemGetInfo_ParaSmall: ''
-    Unit_hipMemPrefetchAsync_NonPageSz: 'hipMemPrefetchAsync not implemented'
-    Unit_hipMemPrefetchAsyncOneToAll: 'hipMemPrefetchAsync not implemented'
     Unit_hipMemset2DASyncMulti: ''
     Unit_hipMemset2DAsync_MultiThread: ''
     Unit_hipMemset3DASyncMulti: ''
@@ -402,6 +391,7 @@ ANY:
   OPENCL_GPU:
     hipKernelLaunchIsNonBlocking: ''
     Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
+    Unit_hipMemFaultStackAllocation_Check: 'SVM page fault after kernel - Catch2 SIGSEGV handler intercepts before driver can handle'
   OPENCL_POCL:
     hipDeviceMalloc: 'Either segfault or hang inside the malloc kernel'
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'

@@ -459,9 +459,7 @@ public:
       override;
 
   virtual std::shared_ptr<chipstar::Event>
-  memPrefetchImpl(const void *Ptr, size_t Count) override {
-    UNIMPLEMENTED(nullptr);
-  }
+  memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) override;
 
   void setCmdQueueOwnership(bool isOwnedByChip) {
     zeCmdQOwnership_ = isOwnedByChip;
