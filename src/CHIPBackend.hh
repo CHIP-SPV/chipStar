@@ -1839,7 +1839,7 @@ protected:
 
   // Keep hold on the default logger instance to make sure that it is
   // not destructed before the backend finishes uninitialization.
-  std::shared_ptr<spdlog::logger> Logger;
+  std::shared_ptr<chipStar_spdlog::logger> Logger;
 
 public:
   void setReinitializeFlag(bool Flag) { ReinitializeFlag_ = Flag; }

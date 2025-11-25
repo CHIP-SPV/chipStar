@@ -1301,7 +1301,7 @@ int chipstar::Backend::getQueuePriorityRange() {
 
 chipstar::Backend::Backend() {
   logDebug("Backend Base Constructor");
-  Logger = spdlog::default_logger();
+  Logger = chipStar_spdlog::default_logger();
 };
 
 chipstar::Backend::~Backend() {
@@ -1922,7 +1922,7 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
 }
 
 void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
-  if (shouldLog(spdlog::level::info)) {
+  if (shouldLog(chipStar_spdlog::level::info)) {
     std::stringstream InfoStr;
     InfoStr << "\nLaunching kernel " << ExItem->getKernel()->getName() << "\n";
     InfoStr << "GridDim: <" << ExItem->getGrid().x << ", "

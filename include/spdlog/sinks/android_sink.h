@@ -24,7 +24,7 @@
 #define SPDLOG_ANDROID_RETRIES 2
 #endif
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 
 /*
@@ -75,21 +75,21 @@ protected:
     void flush_() override {}
 
 private:
-    static android_LogPriority convert_to_android_(spdlog::level::level_enum level)
+    static android_LogPriority convert_to_android_(chipStar_spdlog::level::level_enum level)
     {
         switch (level)
         {
-        case spdlog::level::trace:
+        case chipStar_spdlog::level::trace:
             return ANDROID_LOG_VERBOSE;
-        case spdlog::level::debug:
+        case chipStar_spdlog::level::debug:
             return ANDROID_LOG_DEBUG;
-        case spdlog::level::info:
+        case chipStar_spdlog::level::info:
             return ANDROID_LOG_INFO;
-        case spdlog::level::warn:
+        case chipStar_spdlog::level::warn:
             return ANDROID_LOG_WARN;
-        case spdlog::level::err:
+        case chipStar_spdlog::level::err:
             return ANDROID_LOG_ERROR;
-        case spdlog::level::critical:
+        case chipStar_spdlog::level::critical:
             return ANDROID_LOG_FATAL;
         default:
             return ANDROID_LOG_DEFAULT;
@@ -118,4 +118,4 @@ inline std::shared_ptr<logger> android_logger_st(const std::string &logger_name,
     return Factory::template create<sinks::android_sink_st>(logger_name, tag);
 }
 
-} // namespace spdlog
+} // namespace chipStar_spdlog

@@ -8,7 +8,7 @@
 
 #include <vector>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 template<typename T>
 class circular_q
@@ -69,4 +69,4 @@ private:
     size_t overrun_counter_ = 0;
 };
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

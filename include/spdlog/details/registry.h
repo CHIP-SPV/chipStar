@@ -29,7 +29,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 class thread_pool;
 
@@ -78,9 +78,9 @@ public:
     }
 
     // Return raw ptr to the default logger.
-    // To be used directly by the spdlog default api (e.g. spdlog::info)
+    // To be used directly by the spdlog default api (e.g. chipStar_spdlog::info)
     // This make the default API faster, but cannot be used concurrently with set_default_logger().
-    // e.g do not call set_default_logger() from one thread while calling spdlog::info() from another.
+    // e.g do not call set_default_logger() from one thread while calling chipStar_spdlog::info() from another.
     logger *get_default_raw()
     {
         return default_logger_.get();
@@ -245,7 +245,7 @@ private:
 #endif
 
         const char *default_logger_name = "";
-        default_logger_ = std::make_shared<spdlog::logger>(default_logger_name, std::move(color_sink));
+        default_logger_ = std::make_shared<chipStar_spdlog::logger>(default_logger_name, std::move(color_sink));
         loggers_[default_logger_name] = default_logger_;
 
 #endif // SPDLOG_DISABLE_DEFAULT_LOGGER
@@ -272,7 +272,7 @@ private:
     std::recursive_mutex tp_mutex_;
     std::unordered_map<std::string, std::shared_ptr<logger>> loggers_;
     std::unique_ptr<formatter> formatter_;
-    level::level_enum level_ = spdlog::logger::default_level();
+    level::level_enum level_ = chipStar_spdlog::logger::default_level();
     level::level_enum flush_level_ = level::off;
     log_err_handler err_handler_;
     std::shared_ptr<thread_pool> tp_;
@@ -282,4 +282,4 @@ private:
 };
 
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

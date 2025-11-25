@@ -11,7 +11,7 @@
 #include <string>
 #include <utility>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 struct log_msg
 {
@@ -52,4 +52,4 @@ struct log_msg
     const string_view_t payload;
 };
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

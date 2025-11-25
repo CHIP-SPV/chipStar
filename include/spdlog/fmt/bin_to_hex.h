@@ -17,11 +17,11 @@
 // Examples:
 //
 // std::vector<char> v(200, 0x0b);
-// logger->info("Some buffer {}", spdlog::to_hex(v));
+// logger->info("Some buffer {}", chipStar_spdlog::to_hex(v));
 // char buf[128];
-// logger->info("Some buffer {:X}", spdlog::to_hex(std::begin(buf), std::end(buf)));
+// logger->info("Some buffer {:X}", chipStar_spdlog::to_hex(std::begin(buf), std::end(buf)));
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 
 template<typename It>
@@ -64,12 +64,12 @@ inline details::bytes_range<It> to_hex(const It range_begin, const It range_end)
     return details::bytes_range<It>(range_begin, range_end);
 }
 
-} // namespace spdlog
+} // namespace chipStar_spdlog
 
 namespace fmt {
 
 template<typename T>
-struct formatter<spdlog::details::bytes_range<T>>
+struct formatter<chipStar_spdlog::details::bytes_range<T>>
 {
     const std::size_t line_size = 100;
     const char delimiter = ' ';
@@ -109,7 +109,7 @@ struct formatter<spdlog::details::bytes_range<T>>
 
     // format the given bytes range as hex
     template<typename FormatContext, typename Container>
-    auto format(const spdlog::details::bytes_range<Container> &the_range, FormatContext &ctx) -> decltype(ctx.out())
+    auto format(const chipStar_spdlog::details::bytes_range<Container> &the_range, FormatContext &ctx) -> decltype(ctx.out())
     {
         SPDLOG_CONSTEXPR const char *hex_upper = "0123456789ABCDEF";
         SPDLOG_CONSTEXPR const char *hex_lower = "0123456789abcdef";

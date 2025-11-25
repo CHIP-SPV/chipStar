@@ -19,13 +19,13 @@
 #include <memory>
 #include <string>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 
 // Default logger factory-  creates synchronous loggers
 struct synchronous_factory
 {
     template<typename Sink, typename... SinkArgs>
-    static std::shared_ptr<spdlog::logger> create(std::string logger_name, SinkArgs &&... args)
+    static std::shared_ptr<chipStar_spdlog::logger> create(std::string logger_name, SinkArgs &&... args)
     {
         auto sink = std::make_shared<Sink>(std::forward<SinkArgs>(args)...);
         auto new_logger = std::make_shared<logger>(std::move(logger_name), std::move(sink));
@@ -40,32 +40,32 @@ using default_factory = synchronous_factory;
 // The logger's level, formatter and flush level will be set according the
 // global settings.
 // Example:
-// spdlog::create<daily_file_sink_st>("logger_name", "dailylog_filename", 11, 59);
+// chipStar_spdlog::create<daily_file_sink_st>("logger_name", "dailylog_filename", 11, 59);
 template<typename Sink, typename... SinkArgs>
-inline std::shared_ptr<spdlog::logger> create(std::string logger_name, SinkArgs &&... sink_args)
+inline std::shared_ptr<chipStar_spdlog::logger> create(std::string logger_name, SinkArgs &&... sink_args)
 {
     return default_factory::create<Sink>(std::move(logger_name), std::forward<SinkArgs>(sink_args)...);
 }
 
 // Return an existing logger or nullptr if a logger with such name doesn't
 // exist.
-// example: spdlog::get("my_logger")->info("hello {}", "world");
+// example: chipStar_spdlog::get("my_logger")->info("hello {}", "world");
 inline std::shared_ptr<logger> get(const std::string &name)
 {
     return details::registry::instance().get(name);
 }
 
 // Set global formatter. Each sink in each logger will get a clone of this object
-inline void set_formatter(std::unique_ptr<spdlog::formatter> formatter)
+inline void set_formatter(std::unique_ptr<chipStar_spdlog::formatter> formatter)
 {
     details::registry::instance().set_formatter(std::move(formatter));
 }
 
 // Set global format string.
-// example: spdlog::set_pattern("%Y-%m-%d %H:%M:%S.%e %l : %v");
+// example: chipStar_spdlog::set_pattern("%Y-%m-%d %H:%M:%S.%e %l : %v");
 inline void set_pattern(std::string pattern, pattern_time_type time_type = pattern_time_type::local)
 {
-    set_formatter(std::unique_ptr<spdlog::formatter>(new pattern_formatter(std::move(pattern), time_type)));
+    set_formatter(std::unique_ptr<chipStar_spdlog::formatter>(new pattern_formatter(std::move(pattern), time_type)));
 }
 
 // Set global logging level
@@ -101,7 +101,7 @@ inline void register_logger(std::shared_ptr<logger> logger)
 
 // Apply a user defined function on all registered loggers
 // Example:
-// spdlog::apply_all([&](std::shared_ptr<spdlog::logger> l) {l->flush();});
+// chipStar_spdlog::apply_all([&](std::shared_ptr<chipStar_spdlog::logger> l) {l->flush();});
 inline void apply_all(const std::function<void(std::shared_ptr<logger>)> &fun)
 {
     details::registry::instance().apply_all(fun);
@@ -125,38 +125,38 @@ inline void shutdown()
     details::registry::instance().shutdown();
 }
 
-// Automatic registration of loggers when using spdlog::create() or spdlog::create_async
+// Automatic registration of loggers when using chipStar_spdlog::create() or chipStar_spdlog::create_async
 inline void set_automatic_registration(bool automatic_registation)
 {
     details::registry::instance().set_automatic_registration(automatic_registation);
 }
 
 // API for using default logger (stdout_color_mt),
-// e.g: spdlog::info("Message {}", 1);
+// e.g: chipStar_spdlog::info("Message {}", 1);
 //
-// The default logger object can be accessed using the spdlog::default_logger():
+// The default logger object can be accessed using the chipStar_spdlog::default_logger():
 // For example, to add another sink to it:
-// spdlog::default_logger()->sinks()->push_back(some_sink);
+// chipStar_spdlog::default_logger()->sinks()->push_back(some_sink);
 //
-// The default logger can replaced using spdlog::set_default_logger(new_logger).
+// The default logger can replaced using chipStar_spdlog::set_default_logger(new_logger).
 // For example, to replace it with a file logger.
 //
 // IMPORTANT:
 // The default API is thread safe (for _mt loggers), but:
 // set_default_logger() *should not* be used concurrently with the default API.
-// e.g do not call set_default_logger() from one thread while calling spdlog::info() from another.
+// e.g do not call set_default_logger() from one thread while calling chipStar_spdlog::info() from another.
 
-inline std::shared_ptr<spdlog::logger> default_logger()
+inline std::shared_ptr<chipStar_spdlog::logger> default_logger()
 {
     return details::registry::instance().default_logger();
 }
 
-inline spdlog::logger *default_logger_raw()
+inline chipStar_spdlog::logger *default_logger_raw()
 {
     return details::registry::instance().get_default_raw();
 }
 
-inline void set_default_logger(std::shared_ptr<spdlog::logger> default_logger)
+inline void set_default_logger(std::shared_ptr<chipStar_spdlog::logger> default_logger)
 {
     details::registry::instance().set_default_logger(std::move(default_logger));
 }
@@ -296,7 +296,7 @@ inline void critical(const wchar_t *fmt, const Args &... args)
 
 #endif // SPDLOG_WCHAR_TO_UTF8_SUPPORT
 
-} // namespace spdlog
+} // namespace chipStar_spdlog
 
 
 
@@ -315,49 +315,49 @@ inline void critical(const wchar_t *fmt, const Args &... args)
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_TRACE
 #define SPDLOG_LOGGER_TRACE(logger, ...)\
-    if(logger->should_log(spdlog::level::trace))\
-        logger->log(spdlog::source_loc{SPDLOG_FILE_BASENAME(__FILE__), __LINE__}, spdlog::level::trace, __VA_ARGS__)
-#define SPDLOG_TRACE(...) SPDLOG_LOGGER_TRACE(spdlog::default_logger_raw(), __VA_ARGS__)
+    if(logger->should_log(chipStar_spdlog::level::trace))\
+        logger->log(chipStar_spdlog::source_loc{SPDLOG_FILE_BASENAME(__FILE__), __LINE__}, chipStar_spdlog::level::trace, __VA_ARGS__)
+#define SPDLOG_TRACE(...) SPDLOG_LOGGER_TRACE(chipStar_spdlog::default_logger_raw(), __VA_ARGS__)
 #else
 #define SPDLOG_LOGGER_TRACE(logger, ...) (void)0
 #define SPDLOG_TRACE(...) (void)0
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
-#define SPDLOG_LOGGER_DEBUG(logger, ...) logger->log(spdlog::level::debug, __VA_ARGS__)
-#define SPDLOG_DEBUG(...) SPDLOG_LOGGER_DEBUG(spdlog::default_logger_raw(), __VA_ARGS__)
+#define SPDLOG_LOGGER_DEBUG(logger, ...) logger->log(chipStar_spdlog::level::debug, __VA_ARGS__)
+#define SPDLOG_DEBUG(...) SPDLOG_LOGGER_DEBUG(chipStar_spdlog::default_logger_raw(), __VA_ARGS__)
 #else
 #define SPDLOG_LOGGER_DEBUG(logger, ...) (void)0
 #define SPDLOG_DEBUG(...) (void)0
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_INFO
-#define SPDLOG_LOGGER_INFO(logger, ...) logger->log(spdlog::level::info, __VA_ARGS__)
-#define SPDLOG_INFO(...) SPDLOG_LOGGER_INFO(spdlog::default_logger_raw(), __VA_ARGS__)
+#define SPDLOG_LOGGER_INFO(logger, ...) logger->log(chipStar_spdlog::level::info, __VA_ARGS__)
+#define SPDLOG_INFO(...) SPDLOG_LOGGER_INFO(chipStar_spdlog::default_logger_raw(), __VA_ARGS__)
 #else
 #define SPDLOG_LOGGER_INFO(logger, ...) (void)0
 #define SPDLOG_INFO(...) (void)0
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_WARN
-#define SPDLOG_LOGGER_WARN(logger, ...) logger->log(spdlog::level::warn, __VA_ARGS__)
-#define SPDLOG_WARN(...) SPDLOG_LOGGER_WARN(spdlog::default_logger_raw(), __VA_ARGS__)
+#define SPDLOG_LOGGER_WARN(logger, ...) logger->log(chipStar_spdlog::level::warn, __VA_ARGS__)
+#define SPDLOG_WARN(...) SPDLOG_LOGGER_WARN(chipStar_spdlog::default_logger_raw(), __VA_ARGS__)
 #else
 #define SPDLOG_LOGGER_WARN(logger, ...) (void)0
 #define SPDLOG_WARN(...) (void)0
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_ERROR
-#define SPDLOG_LOGGER_ERROR(logger, ...) logger->log(spdlog::level::err, __VA_ARGS__)
-#define SPDLOG_ERROR(...) SPDLOG_LOGGER_ERROR(spdlog::default_logger_raw(), __VA_ARGS__)
+#define SPDLOG_LOGGER_ERROR(logger, ...) logger->log(chipStar_spdlog::level::err, __VA_ARGS__)
+#define SPDLOG_ERROR(...) SPDLOG_LOGGER_ERROR(chipStar_spdlog::default_logger_raw(), __VA_ARGS__)
 #else
 #define SPDLOG_LOGGER_ERROR(logger, ...) (void)0
 #define SPDLOG_ERROR(...) (void)0
 #endif
 
 #if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_CRITICAL
-#define SPDLOG_LOGGER_CRITICAL(logger, ...) logger->log(spdlog::level::critical, __VA_ARGS__)
-#define SPDLOG_CRITICAL(...) SPDLOG_LOGGER_CRITICAL(spdlog::default_logger_raw(), __VA_ARGS__)
+#define SPDLOG_LOGGER_CRITICAL(logger, ...) logger->log(chipStar_spdlog::level::critical, __VA_ARGS__)
+#define SPDLOG_CRITICAL(...) SPDLOG_LOGGER_CRITICAL(chipStar_spdlog::default_logger_raw(), __VA_ARGS__)
 #else
 #define SPDLOG_LOGGER_CRITICAL(logger, ...) (void)0
 #define SPDLOG_CRITICAL(...) (void)0

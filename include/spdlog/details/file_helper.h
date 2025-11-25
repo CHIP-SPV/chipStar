@@ -19,7 +19,7 @@
 #include <thread>
 #include <tuple>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 
 class file_helper
@@ -122,7 +122,7 @@ public:
     // ".mylog" => (".mylog". "")
     // "my_folder/.mylog" => ("my_folder/.mylog", "")
     // "my_folder/.mylog.txt" => ("my_folder/.mylog", ".txt")
-    static std::tuple<filename_t, filename_t> split_by_extenstion(const spdlog::filename_t &fname)
+    static std::tuple<filename_t, filename_t> split_by_extenstion(const chipStar_spdlog::filename_t &fname)
     {
         auto ext_index = fname.rfind('.');
 
@@ -130,14 +130,14 @@ public:
         // extension
         if (ext_index == filename_t::npos || ext_index == 0 || ext_index == fname.size() - 1)
         {
-            return std::make_tuple(fname, spdlog::filename_t());
+            return std::make_tuple(fname, chipStar_spdlog::filename_t());
         }
 
         // treat casese like "/etc/rc.d/somelogfile or "/abc/.hiddenfile"
         auto folder_index = fname.rfind(details::os::folder_sep);
         if (folder_index != filename_t::npos && folder_index >= ext_index - 1)
         {
-            return std::make_tuple(fname, spdlog::filename_t());
+            return std::make_tuple(fname, chipStar_spdlog::filename_t());
         }
 
         // finally - return a valid base and extension tuple
@@ -149,4 +149,4 @@ private:
     filename_t _filename;
 };
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

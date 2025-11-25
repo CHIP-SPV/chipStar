@@ -15,7 +15,7 @@
 #include <mutex>
 #include <ostream>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 template<typename Mutex>
 class ostream_sink final : public base_sink<Mutex>
@@ -54,4 +54,4 @@ using ostream_sink_mt = ostream_sink<std::mutex>;
 using ostream_sink_st = ostream_sink<details::null_mutex>;
 
 } // namespace sinks
-} // namespace spdlog
+} // namespace chipStar_spdlog

@@ -28,7 +28,7 @@
 //
 // WARNING: If the log pattern contains any date/time while this flag is on, the
 // result is undefined.
-//          You must set new pattern(spdlog::set_pattern(..") without any
+//          You must set new pattern(chipStar_spdlog::set_pattern(..") without any
 //          date/time in it
 //
 // #define SPDLOG_NO_DATETIME

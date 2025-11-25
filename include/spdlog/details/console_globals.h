@@ -21,7 +21,7 @@
 #include <windows.h>
 #endif
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 struct console_stdout
 {
@@ -71,4 +71,4 @@ struct console_nullmutex
     }
 };
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

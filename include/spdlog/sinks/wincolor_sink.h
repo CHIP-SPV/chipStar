@@ -20,7 +20,7 @@
 #include <unordered_map>
 #include <wincon.h>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 /*
  * Windows color console sink. Uses WriteConsoleA to write to the console with
@@ -97,10 +97,10 @@ public:
     void set_pattern(const std::string &pattern) override final
     {
         std::lock_guard<mutex_t> lock(mutex_);
-        formatter_ = std::unique_ptr<spdlog::formatter>(new pattern_formatter(pattern));
+        formatter_ = std::unique_ptr<chipStar_spdlog::formatter>(new pattern_formatter(pattern));
     }
 
-    void set_formatter(std::unique_ptr<spdlog::formatter> sink_formatter) override final
+    void set_formatter(std::unique_ptr<chipStar_spdlog::formatter> sink_formatter) override final
     {
         std::lock_guard<mutex_t> lock(mutex_);
         formatter_ = std::move(sink_formatter);
@@ -140,4 +140,4 @@ using wincolor_stderr_sink_mt = wincolor_sink<details::console_stderr, details::
 using wincolor_stderr_sink_st = wincolor_sink<details::console_stderr, details::console_nullmutex>;
 
 } // namespace sinks
-} // namespace spdlog
+} // namespace chipStar_spdlog

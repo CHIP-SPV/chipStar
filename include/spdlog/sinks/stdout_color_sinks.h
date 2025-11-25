@@ -15,7 +15,7 @@
 #include "spdlog/sinks/ansicolor_sink.h"
 #endif
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 #ifdef _WIN32
 using stdout_color_sink_mt = wincolor_stdout_sink_mt;
@@ -53,4 +53,4 @@ inline std::shared_ptr<logger> stderr_color_st(const std::string &logger_name)
 {
     return Factory::template create<sinks::stderr_color_sink_mt>(logger_name);
 }
-} // namespace spdlog
+} // namespace chipStar_spdlog
