@@ -387,18 +387,18 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
 
   // Allocate storage for the device variables.
   for (auto &VarInfo : VarInfos) {
-    size_t Size = (*VarInfo.second)[0];
-    size_t Alignment = (*VarInfo.second)[1];
-    size_t HasInitializer = (*VarInfo.second)[2];
-    assert(Size && "Unexpected zero sized device variable.");
-    assert(Alignment && "Unexpected alignment requirement.");
-
     auto *Var = VarInfo.first;
 
     // Skip the device heap variable as it's handled specially by initDeviceHeap
     if (Var->getName() == ChipDeviceHeapName) {
       continue;
     }
+
+    size_t Size = (*VarInfo.second)[0];
+    size_t Alignment = (*VarInfo.second)[1];
+    size_t HasInitializer = (*VarInfo.second)[2];
+    assert(Size && "Unexpected zero sized device variable.");
+    assert(Alignment && "Unexpected alignment requirement.");
 
     Var->setDevAddr(
         Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeDevice));
