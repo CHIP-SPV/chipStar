@@ -20,7 +20,7 @@
 #include <mutex>
 #include <string>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 
 /*
@@ -86,7 +86,7 @@ private:
     tm now_tm(log_clock::time_point tp)
     {
         time_t tnow = log_clock::to_time_t(tp);
-        return spdlog::details::os::localtime(tnow);
+        return chipStar_spdlog::details::os::localtime(tnow);
     }
 
     log_clock::time_point next_rotation_tp_()
@@ -133,4 +133,4 @@ inline std::shared_ptr<logger> daily_logger_st(
 {
     return Factory::template create<sinks::daily_file_sink_st>(logger_name, filename, hour, minute, truncate);
 }
-} // namespace spdlog
+} // namespace chipStar_spdlog

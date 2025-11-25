@@ -10,10 +10,10 @@
 #include <thread>
 #include <vector>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 
-using async_logger_ptr = std::shared_ptr<spdlog::async_logger>;
+using async_logger_ptr = std::shared_ptr<chipStar_spdlog::async_logger>;
 
 enum class async_msg_type
 {
@@ -128,7 +128,7 @@ public:
         // "\tthreads_n: " << threads_n << std::endl;
         if (threads_n == 0 || threads_n > 1000)
         {
-            throw spdlog_ex("spdlog::thread_pool(): invalid threads_n param (valid "
+            throw spdlog_ex("chipStar_spdlog::thread_pool(): invalid threads_n param (valid "
                             "range is 1-1000)");
         }
         for (size_t i = 0; i < threads_n; i++)
@@ -235,4 +235,4 @@ private:
 };
 
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

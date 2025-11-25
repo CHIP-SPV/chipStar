@@ -53,11 +53,11 @@
 #define __has_feature(x) 0 // Compatibility with non-clang compilers.
 #endif
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 namespace os {
 
-inline spdlog::log_clock::time_point now() SPDLOG_NOEXCEPT
+inline chipStar_spdlog::log_clock::time_point now() SPDLOG_NOEXCEPT
 {
 
 #if defined __linux__ && defined SPDLOG_CLOCK_COARSE
@@ -258,7 +258,7 @@ inline int utc_minutes_offset(const std::tm &tm = details::os::localtime())
     auto rv = GetDynamicTimeZoneInformation(&tzinfo);
 #endif
     if (rv == TIME_ZONE_ID_INVALID)
-        throw spdlog::spdlog_ex("Failed getting timezone info. ", errno);
+        throw chipStar_spdlog::spdlog_ex("Failed getting timezone info. ", errno);
 
     int offset = -tzinfo.Bias;
     if (tm.tm_isdst)
@@ -418,4 +418,4 @@ inline bool in_terminal(FILE *file) SPDLOG_NOEXCEPT
 }
 } // namespace os
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

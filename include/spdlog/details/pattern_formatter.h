@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 
 // padding information.
@@ -79,7 +79,7 @@ public:
         }
     }
 
-    scoped_pad(spdlog::string_view_t txt, padding_info &padinfo, fmt::memory_buffer &dest)
+    scoped_pad(chipStar_spdlog::string_view_t txt, padding_info &padinfo, fmt::memory_buffer &dest)
         : scoped_pad(txt.size(), padinfo, dest)
     {
     }
@@ -998,7 +998,7 @@ class pattern_formatter final : public formatter
 {
 public:
     explicit pattern_formatter(
-        std::string pattern, pattern_time_type time_type = pattern_time_type::local, std::string eol = spdlog::details::os::default_eol)
+        std::string pattern, pattern_time_type time_type = pattern_time_type::local, std::string eol = chipStar_spdlog::details::os::default_eol)
         : pattern_(std::move(pattern))
         , eol_(std::move(eol))
         , pattern_time_type_(time_type)
@@ -1009,7 +1009,7 @@ public:
     }
 
     // use by default full formatter for if pattern is not given
-    explicit pattern_formatter(pattern_time_type time_type = pattern_time_type::local, std::string eol = spdlog::details::os::default_eol)
+    explicit pattern_formatter(pattern_time_type time_type = pattern_time_type::local, std::string eol = chipStar_spdlog::details::os::default_eol)
         : pattern_("%+")
         , eol_(std::move(eol))
         , pattern_time_type_(time_type)
@@ -1312,4 +1312,4 @@ private:
         }
     }
 };
-} // namespace spdlog
+} // namespace chipStar_spdlog

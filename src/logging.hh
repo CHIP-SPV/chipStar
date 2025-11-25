@@ -38,7 +38,7 @@ extern void _setupSpdlog();
 template <typename... TypeArgs>
 void logTrace(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
-  spdlog::trace(Fmt, std::forward<const TypeArgs>(Args)...);
+  chipStar_spdlog::trace(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logTrace(...) void(0)
@@ -48,7 +48,7 @@ void logTrace(const char *Fmt, const TypeArgs &...Args) {
 template <typename... TypeArgs>
 void logDebug(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
-  spdlog::debug(Fmt, std::forward<const TypeArgs>(Args)...);
+  chipStar_spdlog::debug(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logDebug(...) void(0)
@@ -58,7 +58,7 @@ void logDebug(const char *Fmt, const TypeArgs &...Args) {
 template <typename... TypeArgs>
 void logInfo(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
-  spdlog::info(Fmt, std::forward<const TypeArgs>(Args)...);
+  chipStar_spdlog::info(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logInfo(...) void(0)
@@ -68,7 +68,7 @@ void logInfo(const char *Fmt, const TypeArgs &...Args) {
 template <typename... TypeArgs>
 void logWarn(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
-  spdlog::warn(Fmt, std::forward<const TypeArgs>(Args)...);
+  chipStar_spdlog::warn(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logWarn(...) void(0)
@@ -78,7 +78,7 @@ void logWarn(const char *Fmt, const TypeArgs &...Args) {
 template <typename... TypeArgs>
 void logError(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
-  spdlog::error(Fmt, std::forward<const TypeArgs>(Args)...);
+  chipStar_spdlog::error(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logError(...) void(0)
@@ -88,14 +88,14 @@ void logError(const char *Fmt, const TypeArgs &...Args) {
 template <typename... TypeArgs>
 void logCritical(const char *Fmt, const TypeArgs &...Args) {
   setupSpdlog();
-  spdlog::critical(Fmt, std::forward<const TypeArgs>(Args)...);
+  chipStar_spdlog::critical(Fmt, std::forward<const TypeArgs>(Args)...);
 }
 #else
 #define logCritical(...) void(0)
 #endif
 
-inline bool shouldLog(spdlog::level::level_enum MsgLevel) {
-  return spdlog::default_logger()->should_log(MsgLevel);
+inline bool shouldLog(chipStar_spdlog::level::level_enum MsgLevel) {
+  return chipStar_spdlog::default_logger()->should_log(MsgLevel);
 }
 
 #endif

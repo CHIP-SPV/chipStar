@@ -21,7 +21,7 @@
 #include <string>
 #include <tuple>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 
 //
@@ -152,4 +152,4 @@ inline std::shared_ptr<logger> rotating_logger_st(
 {
     return Factory::template create<sinks::rotating_file_sink_st>(logger_name, filename, max_file_size, max_files);
 }
-} // namespace spdlog
+} // namespace chipStar_spdlog

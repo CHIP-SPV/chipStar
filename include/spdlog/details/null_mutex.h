@@ -8,7 +8,7 @@
 #include <atomic>
 // null, no cost dummy "mutex" and dummy "atomic" int
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 struct null_mutex
 {
@@ -42,4 +42,4 @@ struct null_atomic_int
 };
 
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

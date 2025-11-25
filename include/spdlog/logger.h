@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 
 class logger
 {
@@ -101,19 +101,19 @@ public:
 #endif // SPDLOG_WCHAR_TO_UTF8_SUPPORT
 
     // T can be statically converted to string_view
-    template<class T, typename std::enable_if<std::is_convertible<T, spdlog::string_view_t>::value, T>::type * = nullptr>
+    template<class T, typename std::enable_if<std::is_convertible<T, chipStar_spdlog::string_view_t>::value, T>::type * = nullptr>
     void log(level::level_enum lvl, const T &);
 
     // T can be statically converted to string_view
-    template<class T, typename std::enable_if<std::is_convertible<T, spdlog::string_view_t>::value, T>::type * = nullptr>
+    template<class T, typename std::enable_if<std::is_convertible<T, chipStar_spdlog::string_view_t>::value, T>::type * = nullptr>
     void log(source_loc loc, level::level_enum lvl, const T &);
 
     // T cannot be statically converted to string_view
-    template<class T, typename std::enable_if<!std::is_convertible<T, spdlog::string_view_t>::value, T>::type * = nullptr>
+    template<class T, typename std::enable_if<!std::is_convertible<T, chipStar_spdlog::string_view_t>::value, T>::type * = nullptr>
     void log(level::level_enum lvl, const T &);
 
     // T cannot be statically converted to string_view
-    template<class T, typename std::enable_if<!std::is_convertible<T, spdlog::string_view_t>::value, T>::type * = nullptr>
+    template<class T, typename std::enable_if<!std::is_convertible<T, chipStar_spdlog::string_view_t>::value, T>::type * = nullptr>
     void log(source_loc loc, level::level_enum lvl, const T &);
 
     template<typename T>
@@ -177,12 +177,12 @@ protected:
 
     const std::string name_;
     std::vector<sink_ptr> sinks_;
-    spdlog::level_t level_{spdlog::logger::default_level()};
-    spdlog::level_t flush_level_{level::off};
+    chipStar_spdlog::level_t level_{chipStar_spdlog::logger::default_level()};
+    chipStar_spdlog::level_t flush_level_{level::off};
     log_err_handler err_handler_{[this](const std::string &msg) { this->default_err_handler_(msg); }};
     std::atomic<time_t> last_err_time_{0};
     std::atomic<size_t> msg_counter_{1};
 };
-} // namespace spdlog
+} // namespace chipStar_spdlog
 
 #include "details/logger_impl.h"

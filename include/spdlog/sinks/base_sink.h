@@ -16,7 +16,7 @@
 #include "spdlog/formatter.h"
 #include "spdlog/sinks/sink.h"
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 template<typename Mutex>
 class base_sink : public sink
@@ -44,7 +44,7 @@ public:
         set_pattern_(pattern);
     }
 
-    void set_formatter(std::unique_ptr<spdlog::formatter> sink_formatter) final
+    void set_formatter(std::unique_ptr<chipStar_spdlog::formatter> sink_formatter) final
     {
         std::lock_guard<Mutex> lock(mutex_);
         set_formatter_(std::move(sink_formatter));
@@ -56,14 +56,14 @@ protected:
 
     virtual void set_pattern_(const std::string &pattern)
     {
-        set_formatter_(details::make_unique<spdlog::pattern_formatter>(pattern));
+        set_formatter_(details::make_unique<chipStar_spdlog::pattern_formatter>(pattern));
     }
 
-    virtual void set_formatter_(std::unique_ptr<spdlog::formatter> sink_formatter)
+    virtual void set_formatter_(std::unique_ptr<chipStar_spdlog::formatter> sink_formatter)
     {
         formatter_ = std::move(sink_formatter);
     }
     Mutex mutex_;
 };
 } // namespace sinks
-} // namespace spdlog
+} // namespace chipStar_spdlog

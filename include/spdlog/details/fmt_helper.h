@@ -9,14 +9,14 @@
 #include "spdlog/fmt/fmt.h"
 
 // Some fmt helpers to efficiently format and pad ints and strings
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 namespace fmt_helper {
 
 template<size_t Buffer_Size>
-inline spdlog::string_view_t to_string_view(const fmt::basic_memory_buffer<char, Buffer_Size> &buf) SPDLOG_NOEXCEPT
+inline chipStar_spdlog::string_view_t to_string_view(const fmt::basic_memory_buffer<char, Buffer_Size> &buf) SPDLOG_NOEXCEPT
 {
-    return spdlog::string_view_t(buf.data(), buf.size());
+    return chipStar_spdlog::string_view_t(buf.data(), buf.size());
 }
 
 template<size_t Buffer_Size1, size_t Buffer_Size2>
@@ -27,7 +27,7 @@ inline void append_buf(const fmt::basic_memory_buffer<char, Buffer_Size1> &buf, 
 }
 
 template<size_t Buffer_Size>
-inline void append_string_view(spdlog::string_view_t view, fmt::basic_memory_buffer<char, Buffer_Size> &dest)
+inline void append_string_view(chipStar_spdlog::string_view_t view, fmt::basic_memory_buffer<char, Buffer_Size> &dest)
 {
     auto *buf_ptr = view.data();
     if (buf_ptr != nullptr)
@@ -119,4 +119,4 @@ inline ToDuration time_fraction(const log_clock::time_point &tp)
 
 } // namespace fmt_helper
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

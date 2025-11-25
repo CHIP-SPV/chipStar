@@ -17,7 +17,7 @@
 #include <condition_variable>
 #include <mutex>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace details {
 
 template<typename T>
@@ -115,7 +115,7 @@ private:
     std::mutex queue_mutex_;
     std::condition_variable push_cv_;
     std::condition_variable pop_cv_;
-    spdlog::details::circular_q<T> q_;
+    chipStar_spdlog::details::circular_q<T> q_;
 };
 } // namespace details
-} // namespace spdlog
+} // namespace chipStar_spdlog

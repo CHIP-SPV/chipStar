@@ -64,7 +64,7 @@
 #define SPDLOG_FILE_BASENAME(file) SPDLOG_STRRCHR("/" file, '/') + 1
 #endif
 
-namespace spdlog {
+namespace chipStar_spdlog {
 
 class formatter;
 
@@ -122,16 +122,16 @@ enum level_enum {
 static string_view_t level_string_views[] SPDLOG_LEVEL_NAMES;
 static const char *short_level_names[]{"T", "D", "I", "W", "E", "C", "O"};
 
-inline string_view_t &to_string_view(spdlog::level::level_enum l)
+inline string_view_t &to_string_view(chipStar_spdlog::level::level_enum l)
     SPDLOG_NOEXCEPT {
   return level_string_views[l];
 }
 
-inline const char *to_short_c_str(spdlog::level::level_enum l) SPDLOG_NOEXCEPT {
+inline const char *to_short_c_str(chipStar_spdlog::level::level_enum l) SPDLOG_NOEXCEPT {
   return short_level_names[l];
 }
 
-inline spdlog::level::level_enum from_str(const std::string &name)
+inline chipStar_spdlog::level::level_enum from_str(const std::string &name)
     SPDLOG_NOEXCEPT {
   int level = 0;
   for (const auto &level_str : level_string_views) {

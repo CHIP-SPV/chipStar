@@ -16,7 +16,7 @@
 #include <memory>
 #include <mutex>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 
 namespace sinks {
 
@@ -53,10 +53,10 @@ public:
     void set_pattern(const std::string &pattern) override
     {
         std::lock_guard<mutex_t> lock(mutex_);
-        formatter_ = std::unique_ptr<spdlog::formatter>(new pattern_formatter(pattern));
+        formatter_ = std::unique_ptr<chipStar_spdlog::formatter>(new pattern_formatter(pattern));
     }
 
-    void set_formatter(std::unique_ptr<spdlog::formatter> sink_formatter) override
+    void set_formatter(std::unique_ptr<chipStar_spdlog::formatter> sink_formatter) override
     {
         std::lock_guard<mutex_t> lock(mutex_);
         formatter_ = std::move(sink_formatter);
@@ -99,4 +99,4 @@ inline std::shared_ptr<logger> stderr_logger_st(const std::string &logger_name)
 {
     return Factory::template create<sinks::stderr_sink_st>(logger_name);
 }
-} // namespace spdlog
+} // namespace chipStar_spdlog

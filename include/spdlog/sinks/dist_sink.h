@@ -21,7 +21,7 @@
 // Distribution sink (mux). Stores a vector of sinks which get called when log
 // is called
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 
 template<typename Mutex>
@@ -73,10 +73,10 @@ protected:
 
     void set_pattern_(const std::string &pattern) override
     {
-        set_formatter_(details::make_unique<spdlog::pattern_formatter>(pattern));
+        set_formatter_(details::make_unique<chipStar_spdlog::pattern_formatter>(pattern));
     }
 
-    void set_formatter_(std::unique_ptr<spdlog::formatter> sink_formatter) override
+    void set_formatter_(std::unique_ptr<chipStar_spdlog::formatter> sink_formatter) override
     {
         base_sink<Mutex>::formatter_ = std::move(sink_formatter);
         for (auto &sink : sinks_)
@@ -91,4 +91,4 @@ using dist_sink_mt = dist_sink<std::mutex>;
 using dist_sink_st = dist_sink<details::null_mutex>;
 
 } // namespace sinks
-} // namespace spdlog
+} // namespace chipStar_spdlog

@@ -14,7 +14,7 @@
 
 #include <mutex>
 
-namespace spdlog {
+namespace chipStar_spdlog {
 namespace sinks {
 
 template<typename Mutex>
@@ -46,4 +46,4 @@ inline std::shared_ptr<logger> null_logger_st(const std::string &logger_name)
     return null_logger;
 }
 
-} // namespace spdlog
+} // namespace chipStar_spdlog
