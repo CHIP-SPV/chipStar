@@ -138,6 +138,16 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # Use LLVM 21-specific data layout patch for version 21, skip LLVM 20 version
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 21 ]; then
+          echo "  Skipping $patch_name (using LLVM 21-specific patch instead)"
+          continue
+        fi
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 21)"
+          continue
+        fi
+        
         echo "  Applying $patch_name..."
         git apply "$patch" || {
           echo "Error: Failed to apply $patch_name"
