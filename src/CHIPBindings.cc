@@ -4841,7 +4841,15 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
       memset(AllocInfo->HostPtr, Value, SizeBytes);
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
     } else if (AllocInfo->MemoryType == hipMemoryTypeManaged) {
-      UNIMPLEMENTED(hipErrorTbd);
+      // For managed memory (from hipHostRegister), we need to memset both
+      // device and host sides. Device memset is already done above.
+      // Host memset ensures the host-accessible memory is also updated.
+      logDebug("AllocInfo->MemoryType == hipMemoryTypeManaged - executing "
+               "memset on host");
+      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
+          AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
+      memset(AllocInfo->HostPtr, Value, SizeBytes);
+      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
     } else if (AllocInfo->MemoryType == hipMemoryTypeDevice) {
       CHIPERR_LOG_AND_THROW(
           "hipMemoryTypeDevice can't have an associated HostPtr", hipErrorTbd);
