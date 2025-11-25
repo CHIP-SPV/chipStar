@@ -613,10 +613,20 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
     HipDeviceProps_.minor = 0;
   }
 
+  // Check if unified memory is supported based on allocation strategy.
+  // SVM (fine or coarse grain) and Intel USM support unified memory,
+  // but BufferDevAddr does not (allocateBufferDevAddr returns nullptr
+  // for unified memory types).
+  AllocationStrategy AllocStrat = getContext()->getAllocStrategy();
+  bool HasUnifiedMemorySupport = 
+      (AllocStrat == AllocationStrategy::FineGrainSVM) ||
+      (AllocStrat == AllocationStrategy::CoarseGrainSVM) ||
+      (AllocStrat == AllocationStrategy::IntelUSM);
+
   // OpenCL 3.0 devices support basic CUDA managed memory via coarse-grain SVM,
   // but some of the functions such as prefetch and advice are unimplemented
   // in chipStar.
-  HipDeviceProps_.managedMemory = 0;
+  HipDeviceProps_.managedMemory = HasUnifiedMemorySupport ? 1 : 0;
   // TODO: Populate these from SVM/USM properties. Advertise the safe
   // defaults for now. Uninitialized properties cause undeterminism.
   HipDeviceProps_.directManagedMemAccessFromHost = 0;

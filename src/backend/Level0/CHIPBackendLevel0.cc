@@ -2421,7 +2421,9 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   // Level0 devices support basic CUDA managed memory via USM,
   // but some of the functions such as prefetch and advice are unimplemented
   // in chipStar.
-  HipDeviceProps_.managedMemory = 0;
+  // Level0 supports unified shared memory via zeMemAllocShared, which is used
+  // in allocateImpl() for hipMemoryTypeUnified allocations.
+  HipDeviceProps_.managedMemory = 1;
   // TODO: Populate these from SVM/USM properties. Advertise the safe
   // defaults for now. Uninitialized properties cause undeterminism.
   HipDeviceProps_.directManagedMemAccessFromHost = 0;
