@@ -3,7 +3,6 @@ ANY:
   ALL:
     hipDeviceMalloc: 'Failed'
     TestUndefKernelArg: 'Intermittend L0 segfault'
-    Unit_hipMemFaultStackAllocation_Check: 'Missing managed memory checks'
     hipPromoteInt-signed_constant_compare: 'constVal used for signed comparison'
     Unit_hipGraph_SimpleGraphWithKernel: 'Temp disabled graphs'
     Unit_hipStreamBeginCapture_BasicFunctional: 'Temp disabled graphs'
@@ -221,9 +220,6 @@ ANY:
     Unit_hipHostGetFlags_DifferentThreads: ''
     Unit_hipHostGetFlags_InvalidArgs: ''
     Unit_hipHostGetFlags_flagCombos: ''
-    Unit_hipHostRegister_ReferenceFromKernelandhipMemset - double: 'case AllocInfo->MemoryType == hipMemoryTypeManaged in function HipMemSetInternal is not implemented'
-    Unit_hipHostRegister_ReferenceFromKernelandhipMemset - float: 'case AllocInfo->MemoryType == hipMemoryTypeManaged in function HipMemSetInternal is not implemented'
-    Unit_hipHostRegister_ReferenceFromKernelandhipMemset - int: 'case AllocInfo->MemoryType == hipMemoryTypeManaged in function HipMemSetInternal is not implemented'
     Unit_hipIpcCloseMemHandle_Negative_Close_In_Originating_Process: ''
     Unit_hipIpcCloseMemHandle_Positive_Reference_Counting: ''
     Unit_hipIpcGetMemHandle_Positive_Unique_Handles_Reused_Memory: ''

@@ -201,8 +201,13 @@ MemoryManager::allocateBufferDevAddr(size_t Size, size_t Alignment,
   case hipMemoryTypeHost:
   case hipMemoryTypeManaged:
   case hipMemoryTypeUnified:
-    logWarn("hipMemoryTypeHost/Managed/Unified memory types are not currently "
-            "supported.");
+    // The cl_ext_buffer_device_address extension only supports device memory
+    // buffers, not unified/host memory. Unified memory requires SVM or USM
+    // allocation strategies. When BufferDevAddr is used, managedMemory is
+    // correctly reported as 0 in device properties.
+    logWarn("hipMemoryTypeHost/Managed/Unified memory types are not supported "
+            "with BufferDevAddr allocation strategy. Use SVM or USM strategy "
+            "for unified memory support.");
     return Result;
   }
 
