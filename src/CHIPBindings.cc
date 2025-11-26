@@ -3477,6 +3477,19 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
     return hipErrorStreamCaptureInvalidated;
   }
 
+  // If this is a blocking stream (not the default stream), also sync with
+  // the default stream per HIP/CUDA implicit synchronization semantics.
+  // Blocking streams implicitly synchronize with the NULL/default stream.
+  if (ChipQueue->getQueueFlags().isBlocking() &&
+      !ChipQueue->isDefaultLegacyQueue() &&
+      !ChipQueue->isDefaultPerThreadQueue()) {
+    auto Dev = Backend->getActiveDevice();
+    Dev->getLegacyDefaultQueue()->finish();
+    if (Dev->isPerThreadStreamUsed()) {
+      Dev->getPerThreadDefaultQueue()->finish();
+    }
+  }
+
   ChipQueue->finish();
   return hipSuccess;
 }
