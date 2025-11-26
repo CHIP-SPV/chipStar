@@ -270,13 +270,18 @@ fi
 # Forcing the use of gcc and g++ to avoid issues with intel compilers
 # NOTE: chipStar uses the external SPIRV-LLVM-Translator tool exclusively for SPIRV generation,
 # so we don't need LLVM's experimental/native SPIRV target at all
+LLVM_TARGETS="host"
+if [ "$VERSION" -ge 20 ]; then
+  LLVM_TARGETS="${LLVM_TARGETS};SPIRV"
+fi
+
 COMMON_CMAKE_OPTIONS=(
   "-DCMAKE_CXX_COMPILER=g++"
   "-DCMAKE_C_COMPILER=gcc"
   "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}"
   "-DCMAKE_BUILD_TYPE=Release"
   "-DLLVM_ENABLE_PROJECTS=\"clang;openmp;clang-tools-extra\""
-  "-DLLVM_TARGETS_TO_BUILD=\"host;SPIRV\""
+  "-DLLVM_TARGETS_TO_BUILD=${LLVM_TARGETS}"
   "-DLLVM_ENABLE_ASSERTIONS=On"
   "-DCMAKE_CXX_LINK_FLAGS=\"-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64\""
   "-DCLANG_DEFAULT_PIE_ON_LINUX=off"
