@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@pglc.io>
+Date: Wed, 26 Nov 2025 12:00:00 +0000
+Subject: [PATCH] llvm-link: inherit data layout from first archive member
+
+When loading an archive file, llvm-link creates an empty "ArchiveModule"
+with no data layout. When this is linked with modules that have a data
+layout set, it produces a warning about mismatched data layouts.
+
+Fix this by inheriting the data layout and target triple from the first
+bitcode member in the archive.
+---
+ llvm/tools/llvm-link/llvm-link.cpp | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/llvm/tools/llvm-link/llvm-link.cpp b/llvm/tools/llvm-link/llvm-link.cpp
+index abcdef123456..789012345678 100644
+--- a/llvm/tools/llvm-link/llvm-link.cpp
++++ b/llvm/tools/llvm-link/llvm-link.cpp
+@@ -177,6 +177,7 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
+ 
+   std::unique_ptr<object::Archive> Archive = std::move(ArchiveOrError.get());
+ 
++  bool FirstModule = true;
+   Linker L(*Result);
+   Error Err = Error::success();
+   for (const object::Archive::Child &C : Archive->children(Err)) {
+@@ -225,6 +226,17 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
+                          << "'\n";
+       return nullptr;
+     }
++
++    // Inherit data layout and target triple from the first module in the
++    // archive to avoid warnings about linking modules with different layouts.
++    if (FirstModule) {
++      FirstModule = false;
++      if (!M->getDataLayoutStr().empty())
++        Result->setDataLayout(M->getDataLayout());
++      if (!M->getTargetTriple().empty())
++        Result->setTargetTriple(M->getTargetTriple());
++    }
++
+     if (Verbose)
+       errs() << "Linking member '" << ChildName << "' of archive library.\n";
+     if (L.linkInModule(std::move(M)))
