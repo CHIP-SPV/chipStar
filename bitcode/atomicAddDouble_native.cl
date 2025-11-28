@@ -42,8 +42,8 @@
   double __chip_atomic_##NAME##_f64(__chip_obfuscated_ptr_t address,           \
                                     double i) {                                \
     return atomic_##OP##_explicit(                                             \
-        (volatile __generic double *)UNCOVER_OBFUSCATED_PTR(address), i,       \
-        memory_order_##ORDER, memory_scope_##SCOPE);                           \
+        (volatile __generic atomic_double *)UNCOVER_OBFUSCATED_PTR(address),   \
+        i, memory_order_##ORDER, memory_scope_##SCOPE);                        \
   }
 
 #define DEF_CHIP_ATOMIC2F(NAME, OP)                                            \

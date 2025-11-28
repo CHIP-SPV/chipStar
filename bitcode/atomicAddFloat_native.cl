@@ -41,7 +41,7 @@
 #define DEF_CHIP_ATOMIC2F_ORDER_SCOPE(NAME, OP, ORDER, SCOPE)                  \
   float __chip_atomic_##NAME##_f32(__chip_obfuscated_ptr_t address, float i) { \
     return atomic_##OP##_explicit(                                             \
-        (volatile __generic float *)UNCOVER_OBFUSCATED_PTR(address), i, \
+        (volatile __generic atomic_float *)UNCOVER_OBFUSCATED_PTR(address), i, \
         memory_order_##ORDER, memory_scope_##SCOPE);                           \
   }
 

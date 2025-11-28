@@ -10,19 +10,17 @@
 // lowered/mangled function and global variable names needed to implement
 // hiprtcGetLoweredName().
 //
-// This pass looks for a magic variable produced from:
+// This pass looks for magic variables analogous to 1):
 //
-//   extern "C" __device__ constexpr void *_chip_name_exprs[] = {
-//     (void *)<name expression 1>,
-//     (void *)<name expression 2>,
-//     ...
-//   };
+//   extern "C" __device__ constexpr auto *_chip_name_exprs_<num>
+//     = <name expression>;
 //
-// and writes the lowered names, respectively, into a file passed in another
-// magic C-string variable '_chip_name_expr_output_file' (because pass plugin
-// provided command-line options do not work yet).
+// and writes the lowered names into a file passed in another magic C-string
+// variable '_chip_name_expr_output_file' (because pass plugin provided
+// command-line options do not work yet). The entries in the file are ordered by
+// <num>.
 //
-// Finally, the magic variables are removed from the module.
+// Finally, the all the mentioned magic variables are removed from the module.
 //
 // Copyright (c) 2021-22 chipStar developers
 //===----------------------------------------------------------------------===//
@@ -36,6 +34,7 @@
 
 #include <fstream>
 #include <optional>
+#include <map>
 
 #define PASS_NAME "emit-lowered-names"
 #define DEBUG_TYPE PASS_NAME
@@ -63,29 +62,45 @@ static std::optional<StringRef> getString(Constant *C) {
   return std::nullopt;
 }
 
-// Traverse constant expression to extract lowered name expressions.
-static std::vector<std::string> getLoweredNames(Constant *C) {
+// Traverse global variables to extract lowered name expressions.
+static std::vector<std::string>
+getLoweredNames(std::map<unsigned, GlobalVariable *> NameExprGVs) {
   std::vector<std::string> Result;
-  C = C->stripPointerCasts();
-
-  if (auto *CA = dyn_cast<ConstantAggregate>(C)) {
-    for (Value *Op : CA->operand_values()) {
-      auto *COp = cast<Constant>(Op)->stripPointerCasts();
-      if (auto *F = dyn_cast<Function>(COp))
-        Result.emplace_back(F->hasName() ? F->getName() : "");
-      else
-        Result.emplace_back("");
-    }
+  for (auto &[Ignored, GV] : NameExprGVs) {
+    auto *C = GV->getInitializer()->stripPointerCasts();
+    if (auto *F = dyn_cast<Function>(C))
+      Result.emplace_back(F->hasName() ? F->getName() : "");
+    else
+      Result.emplace_back("");
   }
 
   return Result;
 }
 
 static bool emitLoweredNames(Module &M) {
-  auto *LoweredNamesGV = M.getGlobalVariable("_chip_name_exprs");
-  if (!LoweredNamesGV)
+
+  std::map<unsigned, GlobalVariable *> NameExprGVs;
+  for (auto &GV : M.globals()) {
+    if (!GV.hasName())
+      continue;
+    StringRef GVName = GV.getName();
+    if (GVName.starts_with("_chip_name_expr_output_file") ||
+        !GVName.consume_front("_chip_name_expr_"))
+      continue;
+
+    assert(GV.hasInitializer() && "_chip_name_expr_<num> is uninitialized!");
+
+    unsigned Num;
+    [[maybe_unused]] bool Error = GVName.consumeInteger(/*radix=*/10, Num);
+    assert(!Error && "Unexpected _chip_name_expr name format!");
+
+    assert(NameExprGVs.count(Num) == 0 &&
+           "Duplicate _chip_name_expr_<num> variables!");
+    NameExprGVs[Num] = &GV;
+  }
+
+  if (NameExprGVs.empty())
     return false;
-  assert(LoweredNamesGV->hasInitializer());
 
   std::ofstream OutputStream;
   auto *OutputGV = M.getGlobalVariable("_chip_name_expr_output_file");
@@ -96,15 +111,15 @@ static bool emitLoweredNames(Module &M) {
   }
 
   if (OutputStream.is_open())
-    for (const auto &LoweredName :
-         getLoweredNames(LoweredNamesGV->getInitializer()))
+    for (const auto &LoweredName : getLoweredNames(NameExprGVs))
       OutputStream << LoweredName << "\n";
 
   if (OutputGV && OutputGV->hasNUses(0))
     OutputGV->eraseFromParent();
 
-  if (LoweredNamesGV->hasNUses(0))
-    LoweredNamesGV->eraseFromParent();
+  for (auto &[Ignored, GV] : NameExprGVs)
+    if (GV->hasNUses(0))
+      GV->eraseFromParent();
 
   return true;
 }
