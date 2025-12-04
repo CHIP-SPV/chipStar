@@ -154,6 +154,7 @@ struct CHIPContextUSMExts {
   clDeviceMemAllocINTEL_fn clDeviceMemAllocINTEL;
   clHostMemAllocINTEL_fn clHostMemAllocINTEL;
   clMemFreeINTEL_fn clMemFreeINTEL;
+  clEnqueueMigrateMemINTEL_fn clEnqueueMigrateMemINTEL;
 };
 
 using const_alloc_iterator = ConstMapKeyIterator<
@@ -218,6 +219,10 @@ public:
     return AllocStrategy_;
   }
 
+  const CHIPContextUSMExts &getUSMExtensions() const noexcept {
+    return USM_;
+  }
+
   // Add getter methods for the new bools
   bool isHostAllocUsed() const { return hostAllocUsed; }
   bool isDeviceAllocUsed() const { return deviceAllocUsed; }
@@ -268,6 +273,10 @@ public:
 
   AllocationStrategy getAllocStrategy() const noexcept {
     return MemManager_.getAllocStrategy();
+  }
+
+  const CHIPContextUSMExts &getUSMExtensions() const noexcept {
+    return MemManager_.getUSMExtensions();
   }
 
   cl_int clSetKernelArgDevicePointerEXT(cl_kernel Kernel, cl_uint ArgIdx,
