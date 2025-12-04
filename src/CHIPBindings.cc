@@ -599,7 +599,103 @@ hipError_t hipMemRangeGetAttributes(void **data, size_t *data_sizes,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(data, data_sizes, attributes, dev_ptr);
+
+  // num_attributes of 0 is an error
+  if (num_attributes == 0) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // count of 0 is an error
+  if (count == 0) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // Find the allocation info - check all devices
+  chipstar::AllocationInfo *AllocInfo = nullptr;
+  for (auto *Dev : Backend->getDevices()) {
+    AllocInfo = Dev->AllocTracker->getAllocInfo(dev_ptr);
+    if (AllocInfo)
+      break;
+  }
+
+  if (!AllocInfo) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // Only managed/unified memory supports these attributes
+  if (AllocInfo->MemoryType != hipMemoryTypeManaged &&
+      AllocInfo->MemoryType != hipMemoryTypeUnified) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // Process each attribute
+  for (size_t i = 0; i < num_attributes; ++i) {
+    void *AttrData = data[i];
+    size_t AttrDataSize = data_sizes[i];
+    hipMemRangeAttribute Attr = attributes[i];
+
+    // Validate data size for each attribute
+    if (AttrDataSize == 0) {
+      RETURN(hipErrorInvalidValue);
+    }
+
+    switch (Attr) {
+    case hipMemRangeAttributeLastPrefetchLocation: {
+      if (AttrDataSize != sizeof(int)) {
+        RETURN(hipErrorInvalidValue);
+      }
+      int *PrefetchLoc = static_cast<int *>(AttrData);
+      *PrefetchLoc = AllocInfo->LastPrefetchLocation;
+      break;
+    }
+    case hipMemRangeAttributeReadMostly: {
+      if (AttrDataSize != sizeof(int)) {
+        RETURN(hipErrorInvalidValue);
+      }
+      int *ReadMostly = static_cast<int *>(AttrData);
+      *ReadMostly = AllocInfo->ReadMostly ? 1 : 0;
+      break;
+    }
+    case hipMemRangeAttributePreferredLocation: {
+      if (AttrDataSize != sizeof(int)) {
+        RETURN(hipErrorInvalidValue);
+      }
+      int *PrefLoc = static_cast<int *>(AttrData);
+      *PrefLoc = AllocInfo->PreferredLocation;
+      break;
+    }
+    case hipMemRangeAttributeAccessedBy: {
+      if ((AttrDataSize % sizeof(int)) != 0) {
+        RETURN(hipErrorInvalidValue);
+      }
+      int *AccessedBy = static_cast<int *>(AttrData);
+      size_t MaxDevices = AttrDataSize / sizeof(int);
+      size_t NumDevices = std::min(MaxDevices, AllocInfo->AccessedBy.size());
+      for (size_t j = 0; j < NumDevices; ++j) {
+        AccessedBy[j] = AllocInfo->AccessedBy[j];
+      }
+      // Fill remaining with hipInvalidDeviceId (-2)
+      for (size_t j = NumDevices; j < MaxDevices; ++j) {
+        AccessedBy[j] = hipInvalidDeviceId;
+      }
+      break;
+    }
+    case hipMemRangeAttributeCoherencyMode: {
+      if (AttrDataSize != sizeof(hipMemRangeCoherencyMode)) {
+        RETURN(hipErrorInvalidValue);
+      }
+      hipMemRangeCoherencyMode *Mode =
+          static_cast<hipMemRangeCoherencyMode *>(AttrData);
+      *Mode = hipMemRangeCoherencyModeFineGrain;
+      break;
+    }
+    default:
+      RETURN(hipErrorInvalidValue);
+    }
+  }
+
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -2514,8 +2610,14 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
   CHIPInitialize();
   NULLCHECK(Data, DevPtr);
 
+  // Count of 0 is an error
   if (Count == 0) {
-    RETURN(hipSuccess);
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // DataSize of 0 is an error
+  if (DataSize == 0) {
+    RETURN(hipErrorInvalidValue);
   }
 
   // Find the allocation info - check all devices
@@ -2531,14 +2633,15 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
   }
 
   // Only managed/unified memory supports these attributes
-  if (AllocInfo->MemoryType != hipMemoryTypeManaged && 
+  if (AllocInfo->MemoryType != hipMemoryTypeManaged &&
       AllocInfo->MemoryType != hipMemoryTypeUnified) {
     RETURN(hipErrorInvalidValue);
   }
 
   switch (Attribute) {
   case hipMemRangeAttributeLastPrefetchLocation: {
-    if (DataSize < sizeof(int)) {
+    // DataSize must be exactly sizeof(int)
+    if (DataSize != sizeof(int)) {
       RETURN(hipErrorInvalidValue);
     }
     int *PrefetchLoc = static_cast<int *>(Data);
@@ -2546,7 +2649,8 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
     break;
   }
   case hipMemRangeAttributeReadMostly: {
-    if (DataSize < sizeof(int)) {
+    // DataSize must be exactly sizeof(int)
+    if (DataSize != sizeof(int)) {
       RETURN(hipErrorInvalidValue);
     }
     int *ReadMostly = static_cast<int *>(Data);
@@ -2554,7 +2658,8 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
     break;
   }
   case hipMemRangeAttributePreferredLocation: {
-    if (DataSize < sizeof(int)) {
+    // DataSize must be exactly sizeof(int)
+    if (DataSize != sizeof(int)) {
       RETURN(hipErrorInvalidValue);
     }
     int *PrefLoc = static_cast<int *>(Data);
@@ -2562,9 +2667,8 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
     break;
   }
   case hipMemRangeAttributeAccessedBy: {
-    // This returns an array of device IDs
-    // DataSize should be at least sizeof(int) * num_devices
-    if (DataSize < sizeof(int)) {
+    // DataSize must be a multiple of sizeof(int)
+    if (DataSize == 0 || (DataSize % sizeof(int)) != 0) {
       RETURN(hipErrorInvalidValue);
     }
     int *AccessedBy = static_cast<int *>(Data);
@@ -2573,19 +2677,18 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
     for (size_t i = 0; i < NumDevices; ++i) {
       AccessedBy[i] = AllocInfo->AccessedBy[i];
     }
-    // Fill remaining with -1 if there's space
+    // Fill remaining with hipInvalidDeviceId (-2)
     for (size_t i = NumDevices; i < MaxDevices; ++i) {
-      AccessedBy[i] = -1;
+      AccessedBy[i] = hipInvalidDeviceId;
     }
     break;
   }
   case hipMemRangeAttributeCoherencyMode: {
-    // Not implemented yet, return default
-    if (DataSize < sizeof(hipMemRangeCoherencyMode)) {
+    if (DataSize != sizeof(hipMemRangeCoherencyMode)) {
       RETURN(hipErrorInvalidValue);
     }
     hipMemRangeCoherencyMode *Mode = static_cast<hipMemRangeCoherencyMode *>(Data);
-    *Mode = hipMemRangeCoherencyModeFineGrain; // Default
+    *Mode = hipMemRangeCoherencyModeFineGrain;
     break;
   }
   default:
@@ -4137,8 +4240,15 @@ hipError_t hipMemAdvise(const void *Ptr, size_t Count, hipMemoryAdvise Advice,
   CHIPInitialize();
   NULLCHECK(Ptr);
 
-  if (Ptr == 0 || Count == 0) {
-    RETURN(hipSuccess);
+  // Count of 0 is an error
+  if (Count == 0) {
+    RETURN(hipErrorInvalidValue);
+  }
+
+  // Validate device ID - must be a valid device or hipCpuDeviceId (-1)
+  int NumDevices = Backend->getNumDevices();
+  if (DstDevId != hipCpuDeviceId && (DstDevId < 0 || DstDevId >= NumDevices)) {
+    RETURN(hipErrorInvalidDevice);
   }
 
   // Find the allocation info - check all devices
@@ -4148,20 +4258,26 @@ hipError_t hipMemAdvise(const void *Ptr, size_t Count, hipMemoryAdvise Advice,
     if (AllocInfo)
       break;
   }
-  
+
   // If pointer is not in any known allocation, return error
   if (!AllocInfo) {
-    CHIPERR_LOG_AND_THROW("Pointer not found in any allocation",
-                          hipErrorInvalidValue);
+    RETURN(hipErrorInvalidValue);
   }
-  
+
+  // Validate that count doesn't exceed allocation size
+  uintptr_t PtrAddr = reinterpret_cast<uintptr_t>(Ptr);
+  uintptr_t AllocStart = reinterpret_cast<uintptr_t>(AllocInfo->DevPtr);
+  size_t Offset = PtrAddr - AllocStart;
+  if (Offset + Count > AllocInfo->Size) {
+    RETURN(hipErrorInvalidValue);
+  }
+
   // Only managed/unified memory supports memory advice
-  if (AllocInfo->MemoryType != hipMemoryTypeManaged && 
+  if (AllocInfo->MemoryType != hipMemoryTypeManaged &&
       AllocInfo->MemoryType != hipMemoryTypeUnified) {
-    CHIPERR_LOG_AND_THROW("Memory advice is only supported for managed memory",
-                          hipErrorInvalidValue);
+    RETURN(hipErrorInvalidValue);
   }
-  
+
   // Apply the advice hint - these are hints and don't need backend support
   switch (Advice) {
   case hipMemAdviseSetReadMostly:
@@ -4174,7 +4290,7 @@ hipError_t hipMemAdvise(const void *Ptr, size_t Count, hipMemoryAdvise Advice,
     AllocInfo->PreferredLocation = DstDevId;
     break;
   case hipMemAdviseUnsetPreferredLocation:
-    AllocInfo->PreferredLocation = -1;
+    AllocInfo->PreferredLocation = hipInvalidDeviceId;
     break;
   case hipMemAdviseSetAccessedBy:
     // Add device to list if not already there
@@ -4190,8 +4306,12 @@ hipError_t hipMemAdvise(const void *Ptr, size_t Count, hipMemoryAdvise Advice,
                     DstDevId),
         AllocInfo->AccessedBy.end());
     break;
+  case hipMemAdviseSetCoarseGrain:
+  case hipMemAdviseUnsetCoarseGrain:
+    // Coarse grain hints are accepted but not acted upon
+    break;
   default:
-    CHIPERR_LOG_AND_THROW("Invalid memory advice value", hipErrorInvalidValue);
+    RETURN(hipErrorInvalidValue);
   }
 
   RETURN(hipSuccess);
