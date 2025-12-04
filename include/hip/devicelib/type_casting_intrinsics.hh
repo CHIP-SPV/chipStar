@@ -307,27 +307,27 @@ extern "C++" inline __device__ double __longlong_as_double(long long int x) {
   return __chip_longlong_as_double(x);
 }
 
-extern "C++" __device__ double __chip_uint2double_rn(unsigned int x);
+extern "C" __device__ double __chip_uint2double_rn(unsigned int x);
 extern "C++" inline __device__ double __uint2double_rn(unsigned int x) {
   return __chip_uint2double_rn(x);
 }
 
-extern "C++" __device__ float __chip_uint2float_rd(unsigned int x);
+extern "C" __device__ float __chip_uint2float_rd(unsigned int x);
 extern "C++" inline __device__ float __uint2float_rd(unsigned int x) {
   return __chip_uint2float_rd(x);
 }
 
-extern "C++" __device__ float __chip_uint2float_rn(unsigned int x);
+extern "C" __device__ float __chip_uint2float_rn(unsigned int x);
 extern "C++" inline __device__ float __uint2float_rn(unsigned int x) {
   return __chip_uint2float_rn(x);
 }
 
-extern "C++" __device__ float __chip_uint2float_ru(unsigned int x);
+extern "C" __device__ float __chip_uint2float_ru(unsigned int x);
 extern "C++" inline __device__ float __uint2float_ru(unsigned int x) {
   return __chip_uint2float_ru(x);
 }
 
-extern "C++" __device__ float __chip_uint2float_rz(unsigned int x);
+extern "C" __device__ float __chip_uint2float_rz(unsigned int x);
 extern "C++" inline __device__ float __uint2float_rz(unsigned int x) {
   return __chip_uint2float_rz(x);
 }
@@ -337,37 +337,37 @@ extern "C++" inline __device__ float __uint_as_float(unsigned int x) {
   return __chip_uint_as_float(x);
 }
 
-extern "C++" __device__ double __chip_ull2double_rd(unsigned long long int x);
+extern "C" __device__ double __chip_ull2double_rd(unsigned long long int x);
 extern "C++" inline __device__ double __ull2double_rd(unsigned long long int x) {
   return __chip_ull2double_rd(x);
 }
 
-extern "C++" __device__ double __chip_ull2double_rn(unsigned long long int x);
+extern "C" __device__ double __chip_ull2double_rn(unsigned long long int x);
 extern "C++" inline __device__ double __ull2double_rn(unsigned long long int x) {
   return __chip_ull2double_rn(x);
 }
 
-extern "C++" __device__ double __chip_ull2double_ru(unsigned long long int x);
+extern "C" __device__ double __chip_ull2double_ru(unsigned long long int x);
 extern "C++" inline __device__ double __ull2double_ru(unsigned long long int x) {
   return __chip_ull2double_ru(x);
 }
 
-extern "C++" __device__ double __chip_ull2double_rz(unsigned long long int x);
+extern "C" __device__ double __chip_ull2double_rz(unsigned long long int x);
 extern "C++" inline __device__ double __ull2double_rz(unsigned long long int x) {
   return __chip_ull2double_rz(x);
 }
 
-extern "C++" __device__ float __chip_ull2float_rd(unsigned long long int x);
+extern "C" __device__ float __chip_ull2float_rd(unsigned long long int x);
 extern "C++" inline __device__ float __ull2float_rd(unsigned long long int x) {
   return __chip_ull2float_rd(x);
 }
 
-extern "C++" __device__ float __chip_ull2float_rn(unsigned long long int x);
+extern "C" __device__ float __chip_ull2float_rn(unsigned long long int x);
 extern "C++" inline __device__ float __ull2float_rn(unsigned long long int x) {
   return __chip_ull2float_rn(x);
 }
 
-extern "C++" __device__ float __chip_ull2float_ru(unsigned long long int x);
+extern "C" __device__ float __chip_ull2float_ru(unsigned long long int x);
 extern "C++" inline __device__ float __ull2float_ru(unsigned long long int x) {
   return __chip_ull2float_ru(x);
 }

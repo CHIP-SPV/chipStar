@@ -126,3 +126,5 @@ add_hip_runtime_test(TestEventRecordCircularDep.cpp)
 
 # Test that blocking streams implicitly synchronize with the default stream.
 add_hip_runtime_test(TestDefaultStreamImplicitSync.hip)
+
+add_hip_runtime_test(TestTypeCastIntrinsics.hip)
