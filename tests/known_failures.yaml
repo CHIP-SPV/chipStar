@@ -391,7 +391,6 @@ ANY:
   OPENCL_GPU:
     hipKernelLaunchIsNonBlocking: ''
     Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
-    Unit_hipMemFaultStackAllocation_Check: 'SVM page fault after kernel - Catch2 SIGSEGV handler intercepts before driver can handle'
   OPENCL_POCL:
     hipDeviceMalloc: 'Either segfault or hang inside the malloc kernel'
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'

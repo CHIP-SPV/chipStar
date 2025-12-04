@@ -103,6 +103,9 @@ void MemoryManager::init(CHIPContextOpenCL *ChipCtxCl_) {
     USM_.clMemFreeINTEL =
         (clMemFreeINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
             Plat(), "clMemFreeINTEL");
+    USM_.clEnqueueMigrateMemINTEL =
+        (clEnqueueMigrateMemINTEL_fn)::clGetExtensionFunctionAddressForPlatform(
+            Plat(), "clEnqueueMigrateMemINTEL");
   } else {
     std::memset(&USM_, 0, sizeof(USM_));
   }
@@ -159,8 +162,13 @@ std::shared_ptr<void> MemoryManager::allocateUSM(size_t Size, size_t Alignment,
     break;
   case hipMemoryTypeManaged:
   case hipMemoryTypeUnified:
-    RawPtr = USM_.clSharedMemAllocINTEL(Context_(), Device_(), nullptr, Size,
-                                        Alignment, &Err);
+    // Use host memory for managed/unified allocations to ensure host
+    // accessibility is maintained even when GPU accesses the memory.
+    // Intel's USM shared allocations use page migration that can leave
+    // host mappings invalid after device access, causing segfaults.
+    // Host memory remains accessible from both host and device.
+    RawPtr =
+        USM_.clHostMemAllocINTEL(Context_(), nullptr, Size, Alignment, &Err);
     break;
   }
 

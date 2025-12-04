@@ -1991,7 +1991,56 @@ CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
     break;
   }
     
-  case AllocationStrategy::IntelUSM:
+  case AllocationStrategy::IntelUSM: {
+    // Check if device is CPU - prefetch is no-op on CPU since memory is host-accessible
+    auto *ChipDevOcl = static_cast<CHIPDeviceOpenCL *>(getDevice());
+    bool isCpuDevice = (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_CPU);
+    auto &USM = Ctx->getUSMExtensions();
+    
+    if (isCpuDevice) {
+      // For CPU devices, just enqueue a marker as prefetch is meaningless
+      logTrace("Prefetch on CPU device - no-op\n");
+      cl::Context *ClContext_ = ((CHIPContextOpenCL *)ChipContext_)->get();
+      cl_int Err;
+      std::static_pointer_cast<CHIPEventOpenCL>(PrefetchEvent)->ClEvent =
+          clCreateUserEvent(ClContext_->get(), &Err);
+      clStatus = Err;
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateUserEvent);
+      clStatus = clSetUserEventStatus(
+          std::static_pointer_cast<CHIPEventOpenCL>(PrefetchEvent)->ClEvent,
+          CL_COMPLETE);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetUserEventStatus);
+    } else if (USM.clEnqueueMigrateMemINTEL) {
+      // Use Intel USM specific migration API for GPU
+      logTrace("clEnqueueMigrateMemINTEL {} / {} B, flags: {}\n", Ptr, Count, MigrationFlags);
+      {
+        std::lock_guard<std::mutex> lock(g_intel_opencl_driver_mutex);
+        clStatus = USM.clEnqueueMigrateMemINTEL(
+            get()->get(), Ptr, Count, MigrationFlags,
+            SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+            std::static_pointer_cast<CHIPEventOpenCL>(PrefetchEvent)->getNativePtr());
+      }
+      if (clStatus != CL_SUCCESS) {
+        CHIPERR_LOG_AND_THROW("clEnqueueMigrateMemINTEL failed with error " +
+                              std::to_string(clStatus), hipErrorTbd);
+      }
+    } else {
+      // Fallback to SVM migrate if Intel USM migrate not available
+      logTrace("clEnqueueSVMMigrateMem (fallback) {} / {} B, flags: {}\n", Ptr, Count, MigrationFlags);
+      const void *SvmPtrs[] = {Ptr};
+      const size_t Sizes[] = {Count};
+      {
+        std::lock_guard<std::mutex> lock(g_intel_opencl_driver_mutex);
+        clStatus = ::clEnqueueSVMMigrateMem(
+            get()->get(), 1, SvmPtrs, Sizes, MigrationFlags,
+            SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+            std::static_pointer_cast<CHIPEventOpenCL>(PrefetchEvent)->getNativePtr());
+      }
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueSVMMigrateMem);
+    }
+    break;
+  }
+    
   case AllocationStrategy::CoarseGrainSVM:
   case AllocationStrategy::FineGrainSVM: {
     logTrace("clEnqueueSVMMigrateMem {} / {} B, flags: {}\n", Ptr, Count, MigrationFlags);
