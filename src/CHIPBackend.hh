@@ -486,7 +486,7 @@ struct AllocationInfo {
   // Managed memory attributes
   int LastPrefetchLocation = -2; ///< Device ID where memory was last prefetched, -2 if never prefetched
   bool ReadMostly = false; ///< Whether memory range is marked as read-mostly
-  int PreferredLocation = -1; ///< Preferred device location, -1 if not set
+  int PreferredLocation = -2; ///< Preferred device location, -2 (hipInvalidDeviceId) if not set
   std::vector<int> AccessedBy; ///< List of device IDs that access this memory
 
   /// True if the allocation is accessible from device.
