@@ -3,8 +3,12 @@
 
 #include "CHIPBackend.hh"
 
-__global__ void dummyKernel() {
-  // no-op
+// Simple compute-bound kernel - no arguments, no device memory access
+__global__ void slowKernel() {
+  volatile int x = 0;
+  for (int i = 0; i < 1000000; i++) {
+    x += i;
+  }
 }
 
 int main() {
@@ -18,27 +22,24 @@ int main() {
     return 1;
   }
 
-  // Launch a dummy kernel in streamA and record an event
-  dummyKernel<<<1, 1, 0, streamA>>>();
+  // Launch a slow kernel in streamA and record an event
+  slowKernel<<<1, 1, 0, streamA>>>();
   hipEventRecord(streamAKernelEvent, streamA);
 
-  // Get the chipStar event from the HIP event handle
   auto *chipEventA = static_cast<chipstar::Event *>(streamAKernelEvent);
 
-  // StreamB waits on the event from streamA
   hipStreamWaitEvent(streamB, streamAKernelEvent, 0);
 
-  // Get the chipStar queue corresponding to streamB
   auto *chipQueueB = Backend->findQueue(static_cast<chipstar::Queue *>(streamB));
-  
-  // The last event in streamB should be the barrier we just created
   auto lastEventB = chipQueueB->getLastEvent();
   
   bool foundCorrectDependency = false;
   
   if (lastEventB) {
-    // Check if the barrier event has the correct dependency
-    // First try direct dependency (old behavior)
+    LOCK(Backend->EventsMtx);
+    std::lock_guard<std::mutex> lockB(lastEventB->DependsOnListMtx);
+    std::lock_guard<std::mutex> lockA(chipEventA->DependsOnListMtx);
+    
     for (const auto &dep : lastEventB->DependsOnList) {
       if (dep.get() == chipEventA) {
         foundCorrectDependency = true;
@@ -46,10 +47,7 @@ int main() {
       }
     }
     
-    // If not found directly, check if barrier depends on the same things as the user event
-    // (new circular dependency prevention behavior)
     if (!foundCorrectDependency && !chipEventA->DependsOnList.empty()) {
-      // Check if barrier's dependencies match the user event's dependencies
       for (const auto &userEventDep : chipEventA->DependsOnList) {
         for (const auto &barrierDep : lastEventB->DependsOnList) {
           if (userEventDep.get() == barrierDep.get()) {
@@ -65,7 +63,6 @@ int main() {
   std::cout << (foundCorrectDependency ? "PASS: barrier correctly depends on foreign event" 
                                        : "FAIL: barrier missing cross-stream dependency") << std::endl;
 
-  // Cleanup
   hipStreamSynchronize(streamA);
   hipStreamSynchronize(streamB);
 
@@ -73,4 +70,4 @@ int main() {
   hipStreamDestroy(streamA);
   hipStreamDestroy(streamB);
   return foundCorrectDependency ? 0 : 1;
-} 
+}
