@@ -269,7 +269,6 @@ public:
   const std::string &getJitFlagsOverride() const { return JitFlagsOverride_; }
   bool hasJitOverride() const { return !JitFlagsOverride_.empty(); }
   bool getLazyJit() const { return LazyJit_; }
-  int getL0CollectEventsTimeout() const { return L0CollectEventsTimeout_; }
   unsigned long getL0EventTimeout() const {
     if (L0EventTimeout_ == 0)
       return UINT64_MAX;

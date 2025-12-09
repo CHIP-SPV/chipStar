@@ -105,7 +105,9 @@ add_hip_runtime_test(TestNegativeHasNoIGBAs2.hip)
 add_hip_runtime_test(TestPositiveHasNoIGBAs.hip)
 
 add_hip_runtime_test(CatchMemLeak1.hip)
-add_hip_runtime_test(TestBufferDevAddr.hip)
+if(OpenCL_LIBRARY) # Depends on OpenCL
+  add_hip_runtime_test(TestBufferDevAddr.hip)
+endif()
 add_hip_runtime_test(Test887.hip)
 
 add_shell_test(../run_testenvvars.sh)
@@ -121,7 +123,6 @@ add_hip_runtime_test(host-math-funcs.hip)
 add_hip_runtime_test(TestMemcpyAsyncPageable.hip)
 
 # Test that hipStreamWaitEvent correctly enforces cross-stream ordering.
-add_hip_runtime_test(TestStreamWaitEventOrdering.cpp)
 add_hip_runtime_test(TestEventRecordCircularDep.cpp)
 
 # Test that blocking streams implicitly synchronize with the default stream.

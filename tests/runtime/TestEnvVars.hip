@@ -114,7 +114,6 @@ void testDeviceTypeFilteringWithOpenCL() {
         assertEqual(true, envVars.getLazyJit(), "CHIP_LAZY_JIT");
         assertEqual(std::string(""), envVars.getJitFlags(), "CHIP_JIT_FLAGS");
         assertEqual(std::string(""), envVars.getJitFlagsOverride(), "CHIP_JIT_FLAGS_OVERRIDE");
-        assertEqual(1000, envVars.getL0CollectEventsTimeout(), "CHIP_L0_COLLECT_EVENTS_TIMEOUT");
         assertEqual(static_cast<unsigned long>(2000), envVars.getL0EventTimeout(), "CHIP_L0_EVENT_TIMEOUT");
         assertEqual(true, envVars.getOCLDisableQueueProfiling(), "CHIP_OCL_DISABLE_QUEUE_PROFILING");
         assertEqual(std::string("custom_strategy"), envVars.getOclUseAllocStrategy().value_or(""), "CHIP_OCL_USE_ALLOC_STRATEGY");
@@ -164,7 +163,6 @@ void testManualDeviceSelection() {
         assertEqual(true, envVars.getLazyJit(), "CHIP_LAZY_JIT");
         assertEqual(std::string(""), envVars.getJitFlags(), "CHIP_JIT_FLAGS");
         assertEqual(std::string(""), envVars.getJitFlagsOverride(), "CHIP_JIT_FLAGS_OVERRIDE");
-        assertEqual(1000, envVars.getL0CollectEventsTimeout(), "CHIP_L0_COLLECT_EVENTS_TIMEOUT");
         assertEqual(static_cast<unsigned long>(2000), envVars.getL0EventTimeout(), "CHIP_L0_EVENT_TIMEOUT");
         assertEqual(true, envVars.getOCLDisableQueueProfiling(), "CHIP_OCL_DISABLE_QUEUE_PROFILING");
         assertEqual(std::string("custom_strategy"), envVars.getOclUseAllocStrategy().value_or(""), "CHIP_OCL_USE_ALLOC_STRATEGY");
@@ -200,7 +198,6 @@ void testDefaultValues() {
         assertEqual(true, envVars.getLazyJit(), "Default CHIP_LAZY_JIT");
         assertEqual(std::string(""), envVars.getJitFlags(), "Default CHIP_JIT_FLAGS");
         assertEqual(std::string(""), envVars.getJitFlagsOverride(), "Default CHIP_JIT_FLAGS_OVERRIDE");
-        assertEqual(0, envVars.getL0CollectEventsTimeout(), "Default CHIP_L0_COLLECT_EVENTS_TIMEOUT");
         assertEqual(UINT64_MAX, envVars.getL0EventTimeout(), "Default CHIP_L0_EVENT_TIMEOUT");
         assertEqual(false, envVars.getOCLDisableQueueProfiling(), "Default CHIP_OCL_DISABLE_QUEUE_PROFILING");
         assertEqual(false, envVars.getOclUseAllocStrategy().has_value(), "Default CHIP_OCL_USE_ALLOC_STRATEGY");
