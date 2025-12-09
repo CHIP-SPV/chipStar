@@ -266,6 +266,7 @@ class FencedCmdList {
   ze_command_list_handle_t ZeCmdList_ = nullptr;
   ze_fence_handle_t ZeFence_ = nullptr;
   ze_fence_desc_t ZeFenceDesc_ = {ZE_STRUCTURE_TYPE_FENCE_DESC, nullptr, 0};
+  ze_command_queue_handle_t AssociatedQueue_ = nullptr;
 
 public:
   FencedCmdList(ze_device_handle_t &DevLz, ze_context_handle_t &CtxLz,
@@ -288,6 +289,7 @@ public:
   }
 
   void execute(ze_command_queue_handle_t &CmdQLz) {
+    AssociatedQueue_ = CmdQLz;
     zeStatus = zeFenceCreate(CmdQLz, &ZeFenceDesc_, &ZeFence_);
     CHIPERR_CHECK_LOG_AND_ABORT("Failed to create fence");
     zeStatus = zeCommandListClose(ZeCmdList_);
@@ -303,16 +305,33 @@ public:
     return zeStatus == ZE_RESULT_SUCCESS;
   }
 
+  /**
+   * @brief Destroy the fence if it exists. Per Level Zero spec, fences must
+   * be destroyed before their associated command queue. This method allows
+   * explicit fence destruction when a queue is being destroyed.
+   */
+  void destroyFence() {
+    if (ZeFence_) {
+      zeStatus = zeFenceDestroy(ZeFence_);
+      CHIPERR_CHECK_LOG_AND_ABORT("Failed to destroy fence");
+      ZeFence_ = nullptr;
+      AssociatedQueue_ = nullptr;
+    }
+  }
+
   ~FencedCmdList() {
     zeStatus = zeCommandListDestroy(ZeCmdList_);
     CHIPERR_CHECK_LOG_AND_ABORT("Failed to destroy command list");
 
-    zeStatus = zeFenceDestroy(ZeFence_);
-    CHIPERR_CHECK_LOG_AND_ABORT("Failed to destroy fence");
+    if (ZeFence_) {
+      zeStatus = zeFenceDestroy(ZeFence_);
+      CHIPERR_CHECK_LOG_AND_ABORT("Failed to destroy fence");
+    }
   }
 
   ze_command_list_handle_t &getCmdList() { return ZeCmdList_; }
   ze_fence_handle_t &getFence() { return ZeFence_; }
+  ze_command_queue_handle_t getAssociatedQueue() const { return AssociatedQueue_; }
 };
 
 class CHIPQueueLevel0 : public chipstar::Queue {
@@ -487,6 +506,14 @@ public:
    * return back to the pool upon destruction
    */
   Borrowed<FencedCmdList> getCmdListReg();
+
+  /**
+   * @brief Destroy all fences in the pool that are assocated with a given queue.
+   * Per Level Zero spec, fences must be destroyed before the command queue.
+   *
+   * @param Queue The queue handle whose fences should be destroyed
+   */
+  void destroyFencesForQueue(ze_command_queue_handle_t Queue);
 
   /**
    * @brief Ger a shared_event from the pool, creating one if none are

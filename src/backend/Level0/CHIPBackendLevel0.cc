@@ -822,6 +822,22 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
     // The EventMonitor should handle shutdown gracefully without queue sync
   }
 
+  // Per Level Zero spec, fences must be destroyed before the command queue.
+  // Destroy fences in ActiveCmdLists that were created with this queue.
+  if (zeCmdQOwnership_) {
+    auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+    {
+      LOCK(BackendLz->ActiveCmdListsMtx);
+      for (auto &CmdList : BackendLz->ActiveCmdLists) {
+        if (CmdList->getAssociatedQueue() == ZeCmdQ_) {
+          CmdList->destroyFence();
+        }
+      }
+    }
+    // Also destroy fences in the context's pool
+    ChipCtxLz_->destroyFencesForQueue(ZeCmdQ_);
+  }
+
   // The application must not call this function from
   // simultaneous threads with the same command queue handle.
   // Done. Destructor should not be called by multiple threads
@@ -1003,6 +1019,25 @@ Borrowed<FencedCmdList> CHIPContextLevel0::getCmdListReg() {
 
     auto CmdList = std::make_unique<FencedCmdList>(ZeDev, ZeCtx, ZeCmdListDesc);
     return Borrowed<FencedCmdList>(CmdList.release(), ReturnToPool);
+  }
+}
+
+void CHIPContextLevel0::destroyFencesForQueue(ze_command_queue_handle_t Queue) {
+  LOCK(FencedCmdListsMtx_);
+  // Iterate through pool and destroy fences that were created with this queue
+  std::stack<std::unique_ptr<FencedCmdList>> TempStack;
+  while (!FencedCmdListsPool_.empty()) {
+    auto CmdList = std::move(FencedCmdListsPool_.top());
+    FencedCmdListsPool_.pop();
+    if (CmdList->getAssociatedQueue() == Queue) {
+      CmdList->destroyFence();
+    }
+    TempStack.push(std::move(CmdList));
+  }
+  // Move everything back to the pool
+  while (!TempStack.empty()) {
+    FencedCmdListsPool_.push(std::move(TempStack.top()));
+    TempStack.pop();
   }
 }
 
