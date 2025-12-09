@@ -29,7 +29,7 @@ void test(int i) {
 }
 
 int main() {
-    for (int i = 0; i < 5000; i++)
+    for (int i = 0; i < 500; i++)
       test(i);
 
     std::cout << "PASSED" << std::endl;

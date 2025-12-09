@@ -46,6 +46,7 @@
 #include <CL/opencl.hpp>
 #pragma GCC diagnostic pop
 
+#include <atomic>
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
 #include "spirv.hh"
@@ -397,6 +398,11 @@ class CHIPQueueOpenCL : public chipstar::Queue {
   /// Set to true when this instance is shared with another API.
   bool UsedInInterOp = false;
 
+  /// Track if queue is empty (never had work submitted)
+  /// True upon creation and after finish() completes
+  /// False when any work is enqueued
+  std::atomic<bool> IsEmptyQueue_{true};
+
 protected:
   /**
    * @brief Map memory to device.
@@ -457,6 +463,8 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) override;
 
+  virtual bool query() override;
+
   /// Enqueues a virtual command that deletes the give host array
   /// after previously enqueud commands have finished.
   ///
@@ -478,6 +486,9 @@ public:
   };
 
 private:
+  std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
+  addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
+
   void switchModeTo(QueueMode Mode);
 };
 

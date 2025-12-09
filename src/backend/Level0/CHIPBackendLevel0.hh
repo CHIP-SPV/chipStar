@@ -225,11 +225,6 @@ class CHIPEventMonitorLevel0 : public chipstar::EventMonitor {
   int LastPrint_ = 0;
 
   /**
-   * @brief Go through all events in Backend::Events, update their status, upon
-   * status change release dependencies and command lists, return to event pool
-   */
-  void checkEvents();
-  /**
    * @brief Check if stop was requested for this monitor, if so handle all
    * outstanding events
    */
@@ -338,6 +333,8 @@ protected:
   // Ensure pattern buffer is allocated (lazy initialization)
   void ensurePatternBufferAllocated();
 
+  virtual bool query() override;
+
   // In case of interop queue may or may not be owned by chipStar
   // Ownership indicator helps during teardown
   bool zeCmdQOwnership_{true};
@@ -378,6 +375,11 @@ public:
   ze_command_list_handle_t getCmdListImmCopy();
   CHIPDeviceLevel0 *getDeviceLz() { return ChipDevLz_; }
   CHIPContextLevel0 *getContextLz() { return ChipCtxLz_; }
+  
+  // Helper function to create a marker event with its lock
+  std::tuple<std::shared_ptr<chipstar::Event>, std::unique_lock<std::mutex>>
+  createMarkerEventWithLock(CHIPContextLevel0* Ctx, const std::string& Name);
+  
   std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
   addDependenciesQueueSync(std::shared_ptr<chipstar::Event> TargetEvent);
 
@@ -472,7 +474,7 @@ class CHIPContextLevel0 : public chipstar::Context {
   size_t CmdListsReused_ = 0;
   size_t EventsRequested_ = 0;
   size_t EventsReused_ = 0;
-  size_t EventPoolSize_ = 1000;
+  size_t EventPoolSize_ = 10;
   std::mutex FencedCmdListsMtx_;
   std::stack<std::unique_ptr<FencedCmdList>> FencedCmdListsPool_;
 
@@ -490,6 +492,12 @@ public:
    * @brief Ger a shared_event from the pool, creating one if none are
    */
   std::shared_ptr<CHIPEventLevel0> getEventFromPool();
+
+  /**
+   * @brief Process finished events from Backend::Events, update their status,
+   * release dependencies and return to event pool
+   */
+  void checkEvents() override;
 
   bool ownsZeContext = true;
   void setZeContextOwnership(bool keepOwnership) {
@@ -758,6 +766,20 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   createEventShared(chipstar::Context *ChipCtx, chipstar::EventFlags Flags,
                     std::string Msg) override;
+
+  /**
+   * @brief Create an event with a dedicated event pool (not from shared pool).
+   *
+   * This is a workaround for Intel Data Center GPU Max (Ponte Vecchio) driver
+   * bug where events used on immediate command lists cannot be reused as wait
+   * events on regular command lists. Callback events need dedicated pools.
+   *
+   * @param ChipCtx Context to create event in
+   * @param Msg Debug message for the event
+   * @return Shared pointer to the new event with its own pool
+   */
+  std::shared_ptr<chipstar::Event>
+  createEventDedicated(chipstar::Context *ChipCtx, std::string Msg);
 
   virtual chipstar::Event *
   createEvent(chipstar::Context *ChipCtx,
