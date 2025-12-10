@@ -104,10 +104,8 @@ void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
 
 void CHIPGraphNodeMemcpy::execute(chipstar::Queue *Queue) const {
   if (Dst_ && Src_) {
-    auto Status = hipMemcpyInternal(Dst_, Src_, Count_, Kind_);
-    if (Status != hipSuccess)
-      CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
-                            hipErrorTbd);
+    // Use Queue's memCopyAsync to ensure work goes to the correct queue
+    Queue->memCopyAsync(Dst_, Src_, Count_, Kind_);
   } else {
     auto Status = hipMemcpy3DAsyncInternal(&Params_, Queue);
     if (Status != hipSuccess)
@@ -412,11 +410,8 @@ void CHIPGraphNodeEventRecord::execute(chipstar::Queue *Queue) const {
 
 void CHIPGraphNodeMemcpyFromSymbol::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Dst_, Symbol_);
-  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
   auto Status = hipMemcpyFromSymbolAsyncInternal(Dst_, Symbol_, SizeBytes_,
-                                                 Offset_, Kind_, ChipQueue);
-  if (Status == hipSuccess)
-    ChipQueue->finish();
+                                                 Offset_, Kind_, Queue);
   if (Status != hipSuccess)
     CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
                           hipErrorTbd);
@@ -424,11 +419,8 @@ void CHIPGraphNodeMemcpyFromSymbol::execute(chipstar::Queue *Queue) const {
 
 void CHIPGraphNodeMemcpyToSymbol::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Symbol_, Src_);
-  auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
   auto Status = hipMemcpyToSymbolAsyncInternal(Symbol_, Src_, SizeBytes_,
-                                               Offset_, Kind_, ChipQueue);
-  if (Status == hipSuccess)
-    ChipQueue->finish();
+                                               Offset_, Kind_, Queue);
   if (Status != hipSuccess)
     CHIPERR_LOG_AND_THROW("Error enountered while executing a graph node",
                           hipErrorTbd);
