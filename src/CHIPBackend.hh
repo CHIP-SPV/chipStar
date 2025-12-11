@@ -1774,6 +1774,12 @@ public:
   virtual bool isAllocatedPtrMappedToVM(void *Ptr) = 0;
 
   /**
+   * @brief Process finished events, update their status, release dependencies
+   * and return to event pool. Default implementation does nothing.
+   */
+  virtual void checkEvents() {}
+
+  /**
    * @brief Free memory
    *
    * @param ptr pointer to the memory location to be deallocated. Internally
@@ -1995,6 +2001,11 @@ public:
   void removeContext(chipstar::Context *ChipContext);
 
   /**
+   * @brief Call checkEvents for all contexts
+   */
+  void checkEventsForAllContexts();
+
+  /**
    * @brief Configure an upcoming kernel call
    *
    * @param grid
@@ -2090,7 +2101,6 @@ protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
   hipGraph_t CaptureGraph_;
-  std::mutex LastEventMtx;
   /// @brief  node for creating a dependency chain between subsequent record
   /// events when in graph capture mode
   CHIPGraphNode *LastNode_ = nullptr;
@@ -2106,10 +2116,6 @@ protected:
   chipstar::Device *ChipDevice_;
   /// Context to which device belongs to
   chipstar::Context *ChipContext_;
-
-  /** Keep track of what was the last event submitted to this queue. Required
-   * for enforcing proper queue syncronization as per HIP/CUDA API. */
-  std::shared_ptr<chipstar::Event> LastEvent_ = nullptr;
 
   enum class MANAGED_MEM_STATE { PRE_KERNEL, POST_KERNEL };
 
@@ -2129,9 +2135,75 @@ public:
     isPerThreadDefaultQueue_ = Status;
   }
 
-  std::pair<SharedEventVector, LockGuardVector>
-  getSyncQueuesLastEvents(std::shared_ptr<chipstar::Event> LastEvent,
-                          bool IncludeSelfLastEvent);
+protected:
+  template<typename EventHandle>
+  std::pair<std::vector<EventHandle>, LockGuardVector>
+  addDependenciesQueueSyncImpl(
+      chipstar::Backend* BackendPtr,
+      std::shared_ptr<chipstar::Event> TargetEvent,
+      std::function<EventHandle(chipstar::Queue*, std::shared_ptr<chipstar::Event>&)> CreateMarkerInQueue) {
+    
+    std::vector<EventHandle> EventHandles;
+    std::vector<std::unique_ptr<std::unique_lock<std::mutex>>> EventLocks;
+
+    // Lock the backend events mutex
+    EventLocks.push_back(
+        std::make_unique<std::unique_lock<std::mutex>>(BackendPtr->EventsMtx));
+
+    // Lock the device queue mutex
+    EventLocks.push_back(
+        std::make_unique<std::unique_lock<std::mutex>>(ChipDevice_->QueueAddRemoveMtx));
+
+    // If this is a default stream (legacy or per-thread), create markers for all blocking queues
+    if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
+      // Create markers for all blocking queues
+      for (auto &q : ChipDevice_->getQueuesNoLock()) {
+        if (q->getQueueFlags().isBlocking()) {
+          // Create a marker event in the other queue
+          std::shared_ptr<chipstar::Event> ChipMarkerEvent;
+          EventHandle handle = CreateMarkerInQueue(q, ChipMarkerEvent);
+          
+          // Add the marker to the list of events to wait on
+          EventHandles.push_back(handle);
+
+          // Track the marker event so it gets properly managed by the event monitor
+          BackendPtr->trackEvent(ChipMarkerEvent);
+
+          // Add dependency to the target event
+          TargetEvent->addDependency(ChipMarkerEvent);
+        }
+      }
+    } else if (this->getQueueFlags().isBlocking()) {
+      // This is a blocking queue, sync with default streams
+      // Create marker for legacy default stream
+      auto LegacyDefaultQueue = ChipDevice_->getLegacyDefaultQueue();
+      if (LegacyDefaultQueue) {
+        std::shared_ptr<chipstar::Event> ChipMarkerEvent;
+        EventHandle handle = CreateMarkerInQueue(LegacyDefaultQueue, ChipMarkerEvent);
+        
+        EventHandles.push_back(handle);
+        BackendPtr->trackEvent(ChipMarkerEvent);
+        TargetEvent->addDependency(ChipMarkerEvent);
+      }
+
+      // Create marker for per-thread default stream if used
+      if (ChipDevice_->isPerThreadStreamUsedNoLock()) {
+        auto PerThreadDefaultQueue = ChipDevice_->getPerThreadDefaultQueueNoLock();
+        if (PerThreadDefaultQueue) {
+          std::shared_ptr<chipstar::Event> ChipMarkerEvent;
+          EventHandle handle = CreateMarkerInQueue(PerThreadDefaultQueue, ChipMarkerEvent);
+          
+          EventHandles.push_back(handle);
+          BackendPtr->trackEvent(ChipMarkerEvent);
+          TargetEvent->addDependency(ChipMarkerEvent);
+        }
+      }
+    }
+
+    return {EventHandles, std::move(EventLocks)};
+  }
+
+public:
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
   virtual void MemMap(const chipstar::AllocationInfo *AllocInfo,
                       MEM_MAP_TYPE MapType) {}
@@ -2184,19 +2256,6 @@ public:
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
 
-  virtual std::shared_ptr<chipstar::Event> getLastEvent() {
-    LOCK(LastEventMtx); // Queue::LastEvent_
-    if (LastEvent_)
-      LastEvent_->isDeletedSanityCheck();
-    return LastEvent_;
-  }
-
-  virtual std::shared_ptr<chipstar::Event> getLastEventNoLock() {
-    if (LastEvent_)
-      LastEvent_->isDeletedSanityCheck();
-    return LastEvent_;
-  }
-
   /**
    * @brief Construct a new Queue object
    *
@@ -2219,8 +2278,6 @@ public:
   virtual ~Queue();
 
   chipstar::QueueFlags getQueueFlags() { return QueueFlags_; }
-  virtual void
-  updateLastEvent(const std::shared_ptr<chipstar::Event> &NewEvent);
 
   /**
    * @brief Blocking memory copy
@@ -2343,16 +2400,7 @@ public:
    * @return false
    */
 
-  bool query() {
-    if (!LastEvent_)
-      return true;
-
-    if (LastEvent_->updateFinishStatus(false))
-      if (LastEvent_->isFinished())
-        return true;
-
-    return false;
-  };
+  virtual bool query() = 0;
 
   /**
    * @brief Insert an event into this queue
