@@ -905,7 +905,12 @@ ze_command_list_handle_t CHIPQueueLevel0::getCmdListImmCopy() {
 }
 
 void CHIPContextLevel0::checkEvents() {
-  // LOCK(Backend->EventsMtx);
+  // Use try_lock to avoid deadlock with EventMonitor thread's checkCmdLists()
+  // which also locks EventsMtx. If we can't get the lock, skip this iteration.
+  std::unique_lock<std::mutex> Lock(Backend->EventsMtx, std::try_to_lock);
+  if (!Lock.owns_lock()) {
+    return; // EventMonitor thread is already processing events
+  }
   
   // Collect events to delete first, then process them
   std::vector<size_t> EventsToDelete;
