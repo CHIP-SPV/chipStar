@@ -767,20 +767,6 @@ public:
   createEventShared(chipstar::Context *ChipCtx, chipstar::EventFlags Flags,
                     std::string Msg) override;
 
-  /**
-   * @brief Create an event with a dedicated event pool (not from shared pool).
-   *
-   * This is a workaround for Intel Data Center GPU Max (Ponte Vecchio) driver
-   * bug where events used on immediate command lists cannot be reused as wait
-   * events on regular command lists. Callback events need dedicated pools.
-   *
-   * @param ChipCtx Context to create event in
-   * @param Msg Debug message for the event
-   * @return Shared pointer to the new event with its own pool
-   */
-  std::shared_ptr<chipstar::Event>
-  createEventDedicated(chipstar::Context *ChipCtx, std::string Msg);
-
   virtual chipstar::Event *
   createEvent(chipstar::Context *ChipCtx,
               chipstar::EventFlags Flags = chipstar::EventFlags()) override;

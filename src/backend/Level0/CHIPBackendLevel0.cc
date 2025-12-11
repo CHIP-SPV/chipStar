@@ -2007,23 +2007,6 @@ std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
   return Event;
 }
 
-std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventDedicated(
-    chipstar::Context *ChipCtx, std::string Msg) {
-  // Create event with its own dedicated event pool (not from shared pool).
-  // This is a workaround for Intel Data Center GPU Max (Ponte Vecchio) driver
-  // bug where events used on immediate command lists cannot be reused as wait
-  // events on regular command lists after being reset.
-  auto Event = std::make_shared<CHIPEventLevel0>(
-      (CHIPContextLevel0 *)ChipCtx, chipstar::EventFlags());
-  if (!Msg.empty()) {
-    Event->Msg = Msg;
-  }
-  logDebug("CHIPBackendLevel0::createEventDedicated: Context {} Event {} Msg: {}",
-           (void *)ChipCtx, (void *)Event.get(), Msg);
-  Event->isDeletedSanityCheck();
-  return Event;
-}
-
 chipstar::Event *CHIPBackendLevel0::createEvent(chipstar::Context *ChipCtx,
                                                 chipstar::EventFlags Flags) {
   auto Event = new CHIPEventLevel0((CHIPContextLevel0 *)ChipCtx, Flags);
