@@ -588,9 +588,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto ChipContextLz =
       static_cast<CHIPContextLevel0 *>(ChipQueue->getContext());
 
-  // Use dedicated events for callbacks (not from shared pool).
   // GpuReady syncs with previous events
-  GpuReady = BackendLz->createEventDedicated(ChipContextLz, "GpuReady");
+  GpuReady = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "GpuReady");
   auto GpuReadyLz = std::static_pointer_cast<CHIPEventLevel0>(GpuReady);
   
   // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
@@ -600,18 +599,18 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   
   // This will get triggered manually
   CpuCallbackComplete =
-      BackendLz->createEventDedicated(ChipContextLz, "CpuCallbackComplete");
+      BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "CpuCallbackComplete");
   auto CpuCallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CpuCallbackComplete);
 
   // This will get triggered when the CPU is done
-  GpuAck = BackendLz->createEventDedicated(ChipContextLz, "GpuAck");
+  GpuAck = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "GpuAck");
   auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
 
   // Need to create another event as GpuAck will be destroyed once callback is
   // complete
   auto CallbackComplete =
-      BackendLz->createEventDedicated(ChipContextLz, "CallbackComplete");
+      BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "CallbackComplete");
   auto CallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
 
