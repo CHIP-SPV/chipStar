@@ -588,24 +588,16 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto ChipContextLz =
       static_cast<CHIPContextLevel0 *>(ChipQueue->getContext());
 
-  Borrowed<FencedCmdList> CommandList = ChipContextLz->getCmdListReg();
-
   // Use dedicated events for callbacks (not from shared pool).
-  // Workaround for Intel Data Center GPU Max driver bug where events used on
-  // immediate command lists cannot be reused as wait events on regular command
-  // lists. Since callbacks use regular command lists, we need fresh events.
-
   // GpuReady syncs with previous events
   GpuReady = BackendLz->createEventDedicated(ChipContextLz, "GpuReady");
   auto GpuReadyLz = std::static_pointer_cast<CHIPEventLevel0>(GpuReady);
+  
+  // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
+  // (addDependenciesQueueSync may lock other queue's CommandListMtx)
   auto [QueueSyncEvents, EventLocks] =
       ChipQueueLz->addDependenciesQueueSync(GpuReady);
-  // Add a barrier so that it signals
-  zeStatus = zeCommandListAppendBarrier(
-      CommandList->getCmdList(), GpuReadyLz->get(), QueueSyncEvents.size(),
-      QueueSyncEvents.data());
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
-
+  
   // This will get triggered manually
   CpuCallbackComplete =
       BackendLz->createEventDedicated(ChipContextLz, "CpuCallbackComplete");
@@ -615,10 +607,6 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   // This will get triggered when the CPU is done
   GpuAck = BackendLz->createEventDedicated(ChipContextLz, "GpuAck");
   auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
-  zeStatus =
-      zeCommandListAppendBarrier(CommandList->getCmdList(), GpuAckLz->get(), 1,
-                                 &CpuCallbackCompleteLz->get());
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
   // Need to create another event as GpuAck will be destroyed once callback is
   // complete
@@ -626,7 +614,23 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
       BackendLz->createEventDedicated(ChipContextLz, "CallbackComplete");
   auto CallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
-  zeStatus = zeCommandListAppendBarrier(CommandList->getCmdList(),
+
+  // Lock before using immediate command list
+  LOCK(ChipQueueLz->CommandListMtx);
+  ze_command_list_handle_t CommandList = ChipQueueLz->getCmdListImm();
+
+  // Add a barrier so that it signals
+  zeStatus = zeCommandListAppendBarrier(
+      CommandList, GpuReadyLz->get(), QueueSyncEvents.size(),
+      QueueSyncEvents.data());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+
+  zeStatus =
+      zeCommandListAppendBarrier(CommandList, GpuAckLz->get(), 1,
+                                 &CpuCallbackCompleteLz->get());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+
+  zeStatus = zeCommandListAppendBarrier(CommandList,
                                         CallbackCompleteLz->get(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
   ChipQueueLz->executeCommandList(CommandList, CallbackComplete);
