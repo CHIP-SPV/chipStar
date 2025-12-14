@@ -1554,6 +1554,11 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
 
+  // Flush the queue to ensure the callback fires on drivers like ARM Mali
+  // that require explicit flush for event callbacks to be triggered
+  clStatus = clFlush(this->get()->get());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+
   // Wait for the callback thread to enqueue its marker
   // This is blocking but necessary to get the marker event handle
   while (!markerReady.load()) {
