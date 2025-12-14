@@ -1791,6 +1791,13 @@ CHIPQueueOpenCL::addDependenciesQueueSync(
                                            &MarkerEvent);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
 
+    // Flush the other queue to ensure the marker event is submitted.
+    // This is required for cross-queue synchronization on some OpenCL drivers
+    // (e.g., Arm Mali) that may wait for the source queue to be flushed before
+    // allowing the marker event to be used as a dependency in another queue.
+    clStatus = clFlush(OtherQueue->get()->get());
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+
     // Create chipstar event wrapper for tracking
     markerEv = BackendOcl->createEventShared(Ctx, chipstar::EventFlags(),
                                              "QueueSyncMarker");
