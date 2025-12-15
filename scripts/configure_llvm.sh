@@ -172,9 +172,27 @@ if [ "$EMIT_ONLY" != "on" ]; then
     echo "Applying SPIRV-Translator patches..."
     for patch in "$TRANSLATOR_PATCH_DIR"/*.patch; do
       if [ -f "$patch" ]; then
-        echo "  Applying $(basename $patch)..."
+        patch_name=$(basename $patch)
+        
+        # Skip fp_fast_mode patch for LLVM 17/18/19 (test file structure changed, opaque pointers are default)
+        if [[ "$patch_name" == *"fp_fast_mode"* ]] && ([ "$VERSION" -eq 17 ] || [ "$VERSION" -eq 18 ] || [ "$VERSION" -eq 19 ]); then
+          echo "  Skipping $patch_name (not needed for LLVM ${VERSION})"
+          continue
+        fi
+        
+        # Use version-specific patch for LLVM 17/18, skip the original for LLVM 17/18
+        if [[ "$patch_name" == "0002-Pretend-the-SPIR-ver-needed-by-shuffles-is-1.2.patch" ]] && ([ "$VERSION" -eq 17 ] || [ "$VERSION" -eq 18 ]); then
+          echo "  Skipping $patch_name (using LLVM 17/18-specific patch instead)"
+          continue
+        fi
+        if [[ "$patch_name" == "0002-Pretend-the-SPIR-ver-needed-by-shuffles-is-1.2-llvm17-18.patch" ]] && [ "$VERSION" -ne 17 ] && [ "$VERSION" -ne 18 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 17/18)"
+          continue
+        fi
+        
+        echo "  Applying $patch_name..."
         git apply "$patch" || {
-          echo "Error: Failed to apply $(basename $patch)"
+          echo "Error: Failed to apply $patch_name"
           exit 1
         }
       fi
@@ -285,6 +303,10 @@ COMMON_CMAKE_OPTIONS=(
   "-DLLVM_ENABLE_ASSERTIONS=On"
   "-DCMAKE_CXX_LINK_FLAGS=\"-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64\""
   "-DCLANG_DEFAULT_PIE_ON_LINUX=off"
+  "-DLLVM_INCLUDE_TESTS=OFF"
+  "-DLLVM_INCLUDE_EXAMPLES=OFF"
+  "-DLLVM_INCLUDE_BENCHMARKS=OFF"
+  "-DLLVM_INCLUDE_DOCS=OFF"
 )
 
 if [ -n "${BINUTILS_HEADER_DIR}" ]; then

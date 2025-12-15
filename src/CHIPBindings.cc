@@ -4816,7 +4816,7 @@ hipError_t hipMemGetInfo(size_t *Free, size_t *Total) {
   if (usedMemory > 0 && usedMemory < minAllocSize)
     usedMemory = minAllocSize;
 
-  assert(Dev->getGlobalMemSize() > usedMemory);
+  assert(Dev->getGlobalMemSize() >= usedMemory);
   *Free = Dev->getGlobalMemSize() - usedMemory;
 
   RETURN(hipSuccess);

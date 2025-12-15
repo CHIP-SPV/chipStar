@@ -170,7 +170,10 @@ chipstar::AllocationTracker::getAllocInfo(const void *Ptr) {
 
 bool chipstar::AllocationTracker::reserveMem(size_t Bytes) {
   LOCK(AllocationTrackerMtx); // reading chipstar::AllocTracker::GlobalMemSize
-  if (Bytes <= (GlobalMemSize - TotalMemSize)) {
+  // Use strict less-than to ensure we don't allocate exactly 100% of memory.
+  // Allocating all available memory would leave 0 bytes free which causes
+  // issues with subsequent allocations and memory queries.
+  if (Bytes < (GlobalMemSize - TotalMemSize)) {
     TotalMemSize += Bytes;
     if (TotalMemSize > MaxMemUsed)
       MaxMemUsed = TotalMemSize;

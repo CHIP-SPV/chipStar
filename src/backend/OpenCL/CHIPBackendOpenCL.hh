@@ -58,21 +58,20 @@ static thread_local cl_int clStatus;
 
 #define OCL_DEFAULT_QUEUE_PRIORITY CL_QUEUE_PRIORITY_MED_KHR
 
-// Temporary definitions (copied from <POCL>/include/CL/cl_ext_pocl.h)
-// until the extension is made official.
+// cl_ext_buffer_device_address extension definitions (official Khronos values)
 #ifndef cl_ext_buffer_device_address
 #define cl_ext_buffer_device_address
 
-#ifndef CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT
-#define CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT 0x11B8
+#ifndef CL_MEM_DEVICE_PRIVATE_ADDRESS_EXT
+#define CL_MEM_DEVICE_PRIVATE_ADDRESS_EXT 0x5000
 #endif
 
 #ifndef CL_MEM_DEVICE_ADDRESS_EXT
-#define CL_MEM_DEVICE_ADDRESS_EXT (1ul << 31)
+#define CL_MEM_DEVICE_ADDRESS_EXT 0x5001
 #endif
 
-#ifndef CL_MEM_DEVICE_PTR_EXT
-#define CL_MEM_DEVICE_PTR_EXT 0xff01
+#ifndef CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT
+#define CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT 0x5002
 #endif
 
 typedef cl_ulong cl_mem_device_address_EXT;
