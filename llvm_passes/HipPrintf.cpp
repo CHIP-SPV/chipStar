@@ -410,43 +410,54 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
             // No output, the return value suffices.
             continue;
           } else if (FmtStr == "%s" || FmtStr == "%*s") {
-            // This is a string printout, we do not pass the format string
-            // in that case, but just call a string printer.
-            // We can use the normal printf if the %s arg can be resolved to
-            // a literal C string. However, it must be moved to constant AS
-            // for OpenCL compatibility.
+            // Handle %s format specifier. Two strategies:
+            // 1. For literal strings: inline content directly into format string
+            //    This avoids IGC bug with UniformConstant %s args and preserves
+            //    atomicity in multi-threaded kernels.
+            // 2. For dynamic strings: use _cl_print_str to print char-by-char
             Value *OrigArg = *OrigCallArgI++;
+
+            // Try to extract literal string content
             bool IsEmpty = false;
-            if (Value *ConstantSpaceCStr =
-                    cloneStrArgToConstantAS(OrigArg, B, &IsEmpty)) {
-              if (IsEmpty)
-                continue; // empty str arg to a %s, no output needed
-              // We could copy the arg to constant space, printf it
-              // directly. No format string needed.
-              toAdd += FmtStr;
-              Args.push_back(ConstantSpaceCStr);
-            } else {
-              if (!toAdd.empty()) {
-                Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
-                toAdd.clear();
-                CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
-                Args.clear();
-              }
-              if (ASSUME_PRINTF_SUPPORTS_GLOBAL_STRING_ARGS) {
+            ConstantExpr *CE = dyn_cast<ConstantExpr>(OrigArg);
+            if (CE != nullptr) {
+              Value *StrOpr = CE->getOperand(0);
+              GlobalVariable *OrigStr = findGlobalStr(StrOpr);
+              if (OrigStr != nullptr && OrigStr->hasInitializer()) {
+                std::string LiteralContent = getCDSAsString(OrigStr, IsEmpty);
                 if (IsEmpty)
-                  continue;
-                // Create a constant space format string for %s.
-                Args.push_back(getOrCreateStrLiteralArg("%s", B));
-                // ...and then assume the data arg can point to a generic
-                // address space string (eventually residing in global AS).
-                Args.push_back(OrigArg);
-                CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
-              } else {
-                Args.push_back(OrigArg);
-                CallInst::Create(getOrCreatePrintStringF(), Args, "",
-                                 &OrigCall);
+                  continue; // empty str arg, no output needed
+                // Inline the literal string into the format string.
+                // Escape any % chars to prevent them being treated as format specs.
+                for (char C : LiteralContent) {
+                  if (C == '%')
+                    toAdd += "%%";
+                  else
+                    toAdd += C;
+                }
+                continue; // Done with this %s, proceed to next format piece
               }
             }
+
+            // Dynamic string - use _cl_print_str
+            // First flush any pending format string
+            if (!toAdd.empty()) {
+              Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
+              toAdd.clear();
+              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+              Args.clear();
+            }
+
+            // _cl_print_str expects a generic address space pointer
+            auto *Int8Ty = IntegerType::get(M_->getContext(), 8);
+            PointerType *GenericPtrTy =
+                PointerType::get(Int8Ty, SPIRV_OPENCL_GENERIC_AS);
+            Value *GenericPtr =
+                B.CreateAddrSpaceCast(OrigArg, GenericPtrTy, "str.generic");
+
+            Args.push_back(GenericPtr);
+            CallInst::Create(getOrCreatePrintStringF(), Args, "", &OrigCall);
+            Args.clear();
             continue;
           }
 
