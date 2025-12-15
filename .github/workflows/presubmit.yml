@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        llvm-version: [16, 17, 18]
+        llvm-version: [16, 17, 18, 19]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -125,14 +125,26 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        pocl-version: [4, 5, 6]
-        llvm-version: [16, 17, 18]
+        pocl-version: [4, 5, 6, 7]
+        llvm-version: [16, 17, 18, 19]
         exclude:
           - pocl-version: 4
             llvm-version: 17
           - pocl-version: 4
             llvm-version: 18
+          - pocl-version: 4
+            llvm-version: 19
           - pocl-version: 5
+            llvm-version: 18
+          - pocl-version: 5
+            llvm-version: 19
+          - pocl-version: 6
+            llvm-version: 19
+          - pocl-version: 7
+            llvm-version: 16
+          - pocl-version: 7
+            llvm-version: 17
+          - pocl-version: 7
             llvm-version: 18
       fail-fast: false
     steps:
@@ -223,6 +235,9 @@ jobs:
           - backend: pocl
             pocl-version: 6
             llvm-version: 18
+          - backend: pocl
+            pocl-version: 7
+            llvm-version: 19
       fail-fast: false
     steps:
       - name: Install spirv-tools & headers
