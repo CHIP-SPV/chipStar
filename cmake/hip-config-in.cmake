@@ -148,12 +148,8 @@ endif()
 
 include( "${CMAKE_CURRENT_LIST_DIR}/hip-targets.cmake" )
 
-#Using find_dependency to locate the dependency for the packages
-#This makes the cmake generated file xxxx-targets to supply the linker libraries
-# without worrying other transitive dependencies
-if(NOT WIN32)
-  find_dependency(Threads)
-endif()
+# Required for Threads::Threads target used by hip::CHIP
+find_dependency(Threads)
 
 set( hip_LIBRARIES hip::host hip::device)
 set( hip_LIBRARY ${hip_LIBRARIES})
