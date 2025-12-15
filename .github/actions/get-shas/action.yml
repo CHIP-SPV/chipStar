@@ -41,6 +41,6 @@ runs:
     - id: pocl-sha
       run: scripts/get_sha.sh >> $GITHUB_OUTPUT
       env:
-        URL: https://api.github.com/repos/pocl/pocl/git/refs/tags/v${{ inputs.pocl-version }}.0
+        URL: https://api.github.com/repos/pocl/pocl/git/refs/tags/v${{ inputs.pocl-version }}
         TOKEN: u:${{ github.token }}
       shell: bash

@@ -198,11 +198,11 @@ MemoryManager::allocateBufferDevAddr(size_t Size, size_t Alignment,
     break;
 
   case hipMemoryTypeDevice: {
-    const cl_mem_flags MemFlags = CL_MEM_READ_WRITE | CL_MEM_DEVICE_ADDRESS_EXT;
+    const cl_mem_flags MemFlags = CL_MEM_READ_WRITE | CL_MEM_DEVICE_PRIVATE_ADDRESS_EXT;
     Buf = cl::Buffer(Context_, MemFlags, Size, nullptr, &Err);
     if (Err != CL_SUCCESS)
       break;
-    Err = Buf.getInfo(CL_MEM_DEVICE_PTR_EXT, &RawPtr);
+    Err = Buf.getInfo(CL_MEM_DEVICE_ADDRESS_EXT, &RawPtr);
     DevPtrToBuffer_.insert(std::make_pair(RawPtr, Buf.get()));
     break;
   }
