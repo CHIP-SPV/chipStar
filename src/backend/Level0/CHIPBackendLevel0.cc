@@ -588,8 +588,13 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto ChipContextLz =
       static_cast<CHIPContextLevel0 *>(ChipQueue->getContext());
 
+  // Use dedicated events for callbacks (not from shared pool).
+  // Workaround for Intel Data Center GPU Max driver bug where events used on
+  // immediate command lists cannot be reused as wait events on regular command
+  // lists. Since callbacks use a dedicated immediate command list, we need
+  // fresh events.
   // GpuReady syncs with previous events
-  GpuReady = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "GpuReady");
+  GpuReady = BackendLz->createEventDedicated(ChipContextLz, "GpuReady");
   auto GpuReadyLz = std::static_pointer_cast<CHIPEventLevel0>(GpuReady);
   
   // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
@@ -599,18 +604,18 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   
   // This will get triggered manually
   CpuCallbackComplete =
-      BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "CpuCallbackComplete");
+      BackendLz->createEventDedicated(ChipContextLz, "CpuCallbackComplete");
   auto CpuCallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CpuCallbackComplete);
 
   // This will get triggered when the CPU is done
-  GpuAck = BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "GpuAck");
+  GpuAck = BackendLz->createEventDedicated(ChipContextLz, "GpuAck");
   auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
 
   // Need to create another event as GpuAck will be destroyed once callback is
   // complete
   auto CallbackComplete =
-      BackendLz->createEventShared(ChipContextLz, chipstar::EventFlags(), "CallbackComplete");
+      BackendLz->createEventDedicated(ChipContextLz, "CallbackComplete");
   auto CallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
 
@@ -632,6 +637,10 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   zeStatus = zeCommandListAppendBarrier(CommandList,
                                         CallbackCompleteLz->get(), 0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  
+  // Track GpuReady event so it can be properly monitored for completion
+  Backend->trackEvent(GpuReady);
+  
   ChipQueueLz->executeCommandList(CommandList, CallbackComplete);
 }
 
@@ -2002,6 +2011,23 @@ std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventShared(
     Event->Msg = Msg;
   }
   logDebug("CHIPBackendLevel0::createEventShared: Context {} Event {} Msg: {}",
+           (void *)ChipCtx, (void *)Event.get(), Msg);
+  Event->isDeletedSanityCheck();
+  return Event;
+}
+
+std::shared_ptr<chipstar::Event> CHIPBackendLevel0::createEventDedicated(
+    chipstar::Context *ChipCtx, std::string Msg) {
+  // Create event with its own dedicated event pool (not from shared pool).
+  // This is a workaround for Intel Data Center GPU Max (Ponte Vecchio) driver
+  // bug where events used on immediate command lists cannot be reused as wait
+  // events on regular command lists after being reset.
+  auto Event = std::make_shared<CHIPEventLevel0>(
+      (CHIPContextLevel0 *)ChipCtx, chipstar::EventFlags());
+  if (!Msg.empty()) {
+    Event->Msg = Msg;
+  }
+  logDebug("CHIPBackendLevel0::createEventDedicated: Context {} Event {} Msg: {}",
            (void *)ChipCtx, (void *)Event.get(), Msg);
   Event->isDeletedSanityCheck();
   return Event;
