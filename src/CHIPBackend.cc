@@ -1186,20 +1186,21 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
   // Discover device-only variables (e.g., template instantiations) that weren't
   // registered via __hipRegisterVar. These have shadow kernels but no host symbol.
   static int DummyHostPtr = 0;
-  static std::vector<SPVVariable*> SyntheticVars;
-  
+  // Use unique_ptr for automatic cleanup when the program exits
+  static std::vector<std::unique_ptr<SPVVariable>> SyntheticVars;
+
   for (auto *Kernel : Mod->getKernels()) {
-    const std::string& KernelName = Kernel->getName();
+    const std::string &KernelName = Kernel->getName();
     size_t PrefixLen = strlen(ChipVarInfoPrefix);
-    
+
     // Check if this is a variable info shadow kernel
     if (KernelName.length() <= PrefixLen ||
         KernelName.substr(0, PrefixLen) != ChipVarInfoPrefix)
       continue;
-    
+
     // Extract variable name
     std::string VarName = KernelName.substr(PrefixLen);
-    
+
     // Check if we already processed this variable
     bool AlreadyRegistered = false;
     for (const auto &Info : SrcMod->Variables) {
@@ -1209,27 +1210,25 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
         break;
       }
     }
-    
+
     if (AlreadyRegistered)
       continue;
-    
+
     // This is a device-only variable - create a DeviceVar for it without a host pointer
     logTrace("Found device-only variable: {} (no host symbol)", VarName);
-    
+
     // Create a synthetic SPVVariable for this device-only variable
-    // Manually allocate and initialize all fields
-    SPVVariable *SyntheticVar = (SPVVariable *)malloc(sizeof(SPVVariable));
-    SyntheticVar->Parent = const_cast<SPVModule*>(SrcMod);
-    new (&SyntheticVar->Ptr) HostPtr(&DummyHostPtr);  // placement new for HostPtr
-    new (&SyntheticVar->Name) std::string(VarName);    // placement new for std::string
-    SyntheticVar->Size = 0;
-    
-    auto *Var = new chipstar::DeviceVar(SyntheticVar);
+    // Use aggregate initialization since SPVVariable has no default constructor
+    auto *RawVar = new SPVVariable{
+        {const_cast<SPVModule *>(SrcMod), HostPtr(&DummyHostPtr), VarName}, 0};
+    std::unique_ptr<SPVVariable> SyntheticVar(RawVar);
+
+    auto *Var = new chipstar::DeviceVar(SyntheticVar.get());
     Mod->addDeviceVariable(Var);
-    
-    // Store the synthetic variable so it persists
-    SyntheticVars.push_back(SyntheticVar);
-    
+
+    // Store the synthetic variable so it persists (unique_ptr handles cleanup)
+    SyntheticVars.push_back(std::move(SyntheticVar));
+
     // Note: We don't add to DeviceVarLookup_ since there's no host pointer to look up
   }
 
