@@ -21,6 +21,10 @@
  */
 
 static void __attribute__((used)) _cl_print_str(__generic const char *S) {
+  if (S == 0) {
+    printf("(null)");
+    return;
+  }
   unsigned Pos = 0;
   char C;
   while ((C = S[Pos]) != 0) {
