@@ -222,6 +222,8 @@ int main() {
     
     CHECK_ZE(zeEventHostReset(syncEvent1));
     CHECK_ZE(zeCommandListAppendSignalEvent(defaultQueue, syncEvent1));
+    // FIX: Wait for event from host to ensure it's signaled
+    CHECK_ZE(zeEventHostSynchronize(syncEvent1, UINT64_MAX));
     
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuReady, 1, &syncEvent1));
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuAck, 1, &cb1->HostSignal));
@@ -255,6 +257,9 @@ int main() {
     CHECK_ZE(zeEventHostReset(syncEvent2));
     std::cout << " signal on defaultQueue..." << std::flush;
     CHECK_ZE(zeCommandListAppendSignalEvent(defaultQueue, syncEvent2));
+    // FIX: Wait for event from host to ensure it's signaled
+    std::cout << " hostWait..." << std::flush;
+    CHECK_ZE(zeEventHostSynchronize(syncEvent2, UINT64_MAX));
     
     std::cout << " barrier1(wait sync)..." << std::flush;
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuReady, 1, &syncEvent2));
