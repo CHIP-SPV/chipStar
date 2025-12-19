@@ -2,17 +2,15 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -g
 LDFLAGS = -lze_loader -lpthread
 
-TARGET = repro
+all: repro repro_min
 
-all: $(TARGET)
+repro: repro.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
 
-$(TARGET): repro.cpp
+repro_min: repro_min.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET)
+	rm -f repro repro_min
 
-run: $(TARGET)
-	ZE_AFFINITY_MASK=0.0 ./$(TARGET)
-
-.PHONY: all clean run
+.PHONY: all clean
