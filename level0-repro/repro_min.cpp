@@ -1,4 +1,4 @@
-// L0 bug: Host sync hangs when monitor thread also syncing (Aurora)
+// L0 bug: zeEventHostSynchronize hangs with concurrent event pool creation (Aurora)
 #include <level_zero/ze_api.h>
 #include <thread>
 #include <atomic>
@@ -6,11 +6,11 @@
 #define C(x) if((x)!=ZE_RESULT_SUCCESS){std::cerr<<"FAIL:"<<#x<<"\n";return 1;}
 
 std::atomic<bool> stop{false};
-ze_event_handle_t monitorEvt;
+ze_event_handle_t evt;
 
-void monitorThread() {
+void syncThread() {
   while (!stop.load()) {
-    zeEventHostSynchronize(monitorEvt, 1000);
+    zeEventHostSynchronize(evt, 1000);
   }
 }
 
@@ -28,39 +28,26 @@ int main() {
   
   ze_command_queue_desc_t qd={ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC};
   qd.flags=ZE_COMMAND_QUEUE_FLAG_IN_ORDER;
-  ze_command_list_handle_t cl1,cl2;
-  C(zeCommandListCreateImmediate(ctx,dev,&qd,&cl1));
-  C(zeCommandListCreateImmediate(ctx,dev,&qd,&cl2));
+  ze_command_list_handle_t cl; C(zeCommandListCreateImmediate(ctx,dev,&qd,&cl));
   
   ze_event_pool_desc_t pd={ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
-  pd.flags=ZE_EVENT_POOL_FLAG_HOST_VISIBLE; pd.count=4;
+  pd.flags=ZE_EVENT_POOL_FLAG_HOST_VISIBLE; pd.count=1;
   ze_event_pool_handle_t pool; C(zeEventPoolCreate(ctx,&pd,0,nullptr,&pool));
   
   ze_event_desc_t ed={ZE_STRUCTURE_TYPE_EVENT_DESC};
   ed.signal=ed.wait=ZE_EVENT_SCOPE_FLAG_HOST;
-  ed.index=0; C(zeEventCreate(pool,&ed,&monitorEvt));
-  ed.index=1; ze_event_handle_t gpuReady; C(zeEventCreate(pool,&ed,&gpuReady));
-  ed.index=2; ze_event_handle_t hostSignal; C(zeEventCreate(pool,&ed,&hostSignal));
-  ed.index=3; ze_event_handle_t marker; C(zeEventCreate(pool,&ed,&marker));
+  C(zeEventCreate(pool,&ed,&evt));
   
-  std::thread t(monitorThread);
+  std::thread t(syncThread);
   
-  // cl1 signals gpuReady, waits for hostSignal, then signals marker
-  C(zeCommandListAppendBarrier(cl1,gpuReady,0,nullptr));
-  C(zeCommandListAppendBarrier(cl1,nullptr,1,&hostSignal));
-  C(zeCommandListAppendBarrier(cl1,marker,0,nullptr));
+  for(int i=0;i<10;i++){
+    ze_event_pool_handle_t p;
+    C(zeEventPoolCreate(ctx,&pd,0,nullptr,&p));
+    zeEventPoolDestroy(p);
+  }
   
-  // Poll for gpuReady then signal hostSignal
-  while(zeEventQueryStatus(gpuReady)!=ZE_RESULT_SUCCESS){}
-  C(zeEventHostSignal(hostSignal));
-  
-  // Main thread waits for marker - THIS HANGS
-  C(zeEventHostSynchronize(marker,UINT64_MAX));
-  
-  stop=true; zeEventHostSignal(monitorEvt); t.join();
-  zeEventDestroy(monitorEvt); zeEventDestroy(gpuReady);
-  zeEventDestroy(hostSignal); zeEventDestroy(marker);
-  zeEventPoolDestroy(pool); zeCommandListDestroy(cl1);
-  zeCommandListDestroy(cl2); zeContextDestroy(ctx);
+  stop=true; zeEventHostSignal(evt); t.join();
+  zeEventDestroy(evt); zeEventPoolDestroy(pool);
+  zeCommandListDestroy(cl); zeContextDestroy(ctx);
   std::cout<<"PASS\n"; return 0;
 }
