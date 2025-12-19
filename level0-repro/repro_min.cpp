@@ -18,17 +18,18 @@ void syncThread() {
 
 int main() {
   C(zeInit(0));
-  uint32_t dc=1;
+  uint32_t dc=0;
   ze_driver_handle_t drv; 
   C(zeDriverGet(&dc,nullptr)); 
   if(dc==0){std::cerr<<"No drivers\n";return 1;}
   C(zeDriverGet(&dc,&drv));
   
-  uint32_t nc=1;
-  ze_device_handle_t dev; 
+  uint32_t nc=0;
   C(zeDeviceGet(drv,&nc,nullptr));
   if(nc==0){std::cerr<<"No devices\n";return 1;}
-  C(zeDeviceGet(drv,&nc,&dev));
+  ze_device_handle_t devs[16];
+  C(zeDeviceGet(drv,&nc,devs));
+  ze_device_handle_t dev=devs[0];
   
   uint32_t sc=0; 
   zeDeviceGetSubDevices(dev,&sc,nullptr);
