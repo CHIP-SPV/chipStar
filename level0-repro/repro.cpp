@@ -81,10 +81,17 @@ int main() {
   // Use first device
   ze_device_handle_t device = devices[0];
   
-  // Check for subdevices
+  // Check for subdevices - use subdevice if available (mimics ZE_AFFINITY_MASK=0.0)
   uint32_t subDeviceCount = 0;
   CHECK_ZE(zeDeviceGetSubDevices(device, &subDeviceCount, nullptr));
   std::cout << "Device 0 has " << subDeviceCount << " subdevices" << std::endl;
+  
+  if (subDeviceCount > 0) {
+    std::vector<ze_device_handle_t> subDevices(subDeviceCount);
+    CHECK_ZE(zeDeviceGetSubDevices(device, &subDeviceCount, subDevices.data()));
+    device = subDevices[0];  // Use subdevice 0, like ZE_AFFINITY_MASK=0.0
+    std::cout << "Using subdevice 0" << std::endl;
+  }
 
   // Create context
   ze_context_desc_t contextDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC};
