@@ -20,12 +20,15 @@ void syncThread() {
 int main() {
   CHECK(zeInit(0));
   
-  uint32_t cnt = 1;
+  uint32_t drvCnt = 0;
+  CHECK(zeDriverGet(&drvCnt, nullptr));
   ze_driver_handle_t drv;
-  CHECK(zeDriverGet(&cnt, &drv));
-  CHECK(zeDeviceGet(drv, &cnt, nullptr));
+  CHECK(zeDriverGet(&drvCnt, &drv));
+  
+  uint32_t devCnt = 0;
+  CHECK(zeDeviceGet(drv, &devCnt, nullptr));
   ze_device_handle_t dev;
-  CHECK(zeDeviceGet(drv, &cnt, &dev));
+  CHECK(zeDeviceGet(drv, &devCnt, &dev));
   
   ze_context_desc_t ctxDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC};
   CHECK(zeContextCreate(drv, &ctxDesc, &ctx));
