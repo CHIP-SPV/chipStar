@@ -650,45 +650,48 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // ***********************************************************************
 
 void CHIPEventMonitorLevel0::checkCallbacks() {
-  CHIPCallbackDataLevel0 *CbData = nullptr;
-  
-  // First, try to get a callback from the queue with minimal lock time
+  size_t queueSize = 0;
   {
-    LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
+    LOCK(Backend->CallbackQueueMtx);
+    queueSize = Backend->CallbackQueue.size();
+  }
+  
+  // Process up to queueSize callbacks to avoid infinite loop
+  for (size_t i = 0; i < queueSize; i++) {
+    CHIPCallbackDataLevel0 *CbData = nullptr;
+    
+    // Get a callback from the queue
+    {
+      LOCK(Backend->CallbackQueueMtx);
+      if (Backend->CallbackQueue.size() == 0)
+        return;
+      CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
+      Backend->CallbackQueue.pop();
+    }
 
-    if (Backend->CallbackQueue.size() == 0)
+    if (!CbData)
       return;
 
-    // get the callback item
-    CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
-    Backend->CallbackQueue.pop();
+    LOCK(CbData->CallbackDataMtx);
+
+    // Check if callback is ready
+    logTrace("checkCallbacks: checking event status for {}",
+             static_cast<void *>(CbData->GpuReady.get()));
+    CbData->GpuReady->updateFinishStatus(false);
+    if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+      // Not ready, push to back
+      LOCK(Backend->CallbackQueueMtx);
+      Backend->CallbackQueue.push(CbData);
+      continue;
+    }
+
+    // Execute the callback
+    CbData->execute(hipSuccess);
+    CbData->CpuCallbackComplete->hostSignal();
+    CbData->GpuAck->wait();
+
+    delete CbData;
   }
-  // CallbackQueueMtx is now released before potentially blocking operations
-
-  if (!CbData)
-    return;
-
-  LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
-  LOCK(CbData->CallbackDataMtx);
-
-  // Update zeStatus - this can block on zeEventQueryStatus
-  logTrace("checkCallbacks: checking event "
-           "status for {}",
-           static_cast<void *>(CbData->GpuReady.get()));
-  CbData->GpuReady->updateFinishStatus(false);
-  if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
-    // if not ready, push to the back
-    LOCK(Backend->CallbackQueueMtx);
-    Backend->CallbackQueue.push(CbData);
-    return;
-  }
-
-  CbData->execute(hipSuccess);
-  CbData->CpuCallbackComplete->hostSignal();
-  CbData->GpuAck->wait();
-
-  delete CbData;
-  pthread_yield();
 }
 
 void CHIPEventMonitorLevel0::checkCmdLists() {
