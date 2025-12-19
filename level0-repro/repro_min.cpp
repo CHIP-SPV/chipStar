@@ -24,6 +24,11 @@ int main() {
   ze_device_handle_t dev; C(zeDeviceGet(drv,&nc,&dev));
   std::cout<<"3"<<std::flush;
   
+  // Use subdevice 0 if available (matches ZE_AFFINITY_MASK=0.0 behavior)
+  uint32_t sc=0; zeDeviceGetSubDevices(dev,&sc,nullptr);
+  if(sc>0){ ze_device_handle_t sd; zeDeviceGetSubDevices(dev,&sc,&sd); dev=sd; }
+  std::cout<<"s"<<std::flush;
+  
   ze_context_desc_t cd={ZE_STRUCTURE_TYPE_CONTEXT_DESC};
   ze_context_handle_t ctx; C(zeContextCreate(drv,&cd,&ctx));
   std::cout<<"4"<<std::flush;
