@@ -16,12 +16,12 @@ void monitorThread() {
 int main() {
   std::cout<<"1"<<std::flush; C(zeInit(0));
   
-  uint32_t n=0; C(zeDriverGet(&n,nullptr));
-  ze_driver_handle_t drv; C(zeDriverGet(&n,&drv));
+  uint32_t dc=0; C(zeDriverGet(&dc,nullptr));
+  ze_driver_handle_t drv; C(zeDriverGet(&dc,&drv));
   std::cout<<"2"<<std::flush;
   
-  C(zeDeviceGet(drv,&n,nullptr));
-  ze_device_handle_t dev; C(zeDeviceGet(drv,&n,&dev));
+  uint32_t nc=0; C(zeDeviceGet(drv,&nc,nullptr));
+  ze_device_handle_t dev; C(zeDeviceGet(drv,&nc,&dev));
   std::cout<<"3"<<std::flush;
   
   ze_context_desc_t cd={ZE_STRUCTURE_TYPE_CONTEXT_DESC};
