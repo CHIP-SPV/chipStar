@@ -16,8 +16,9 @@ void monitorThread() {
 
 int main() {
   C(zeInit(0));
-  uint32_t dc=1, nc=1;
+  uint32_t dc=0;
   ze_driver_handle_t drv; C(zeDriverGet(&dc,nullptr)); C(zeDriverGet(&dc,&drv));
+  uint32_t nc=0;
   ze_device_handle_t dev; C(zeDeviceGet(drv,&nc,nullptr)); C(zeDeviceGet(drv,&nc,&dev));
   uint32_t sc=0; zeDeviceGetSubDevices(dev,&sc,nullptr);
   if(sc>0){ze_device_handle_t sds[16];uint32_t c=sc;zeDeviceGetSubDevices(dev,&c,sds);dev=sds[0];}
