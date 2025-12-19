@@ -32,24 +32,36 @@ ze_event_handle_t hostSignalEvent1 = nullptr;
 ze_event_handle_t hostSignalEvent2 = nullptr;
 std::atomic<bool> done{false};
 
+// GpuReady events that need to be polled
+ze_event_handle_t gpuReadyEvent1 = nullptr;
+ze_event_handle_t gpuReadyEvent2 = nullptr;
+
 void callbackMonitorThread() {
   // Simulates the EventMonitor thread that executes callbacks
+  // chipStar polls zeEventQueryStatus to check if GpuReady event is signaled
   while (!done.load()) {
-    if (callback1Ready.load() && hostSignalEvent1) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      std::cout << "Monitor: Executing callback 1, signaling event..."
-                << std::endl;
-      CHECK_ZE(zeEventHostSignal(hostSignalEvent1));
-      callback1Ready = false;
-      hostSignalEvent1 = nullptr;
+    // Poll GpuReady events like chipStar does
+    if (callback1Ready.load() && gpuReadyEvent1) {
+      ze_result_t status = zeEventQueryStatus(gpuReadyEvent1);
+      if (status == ZE_RESULT_SUCCESS) {
+        std::cout << "Monitor: GpuReady1 signaled, executing callback 1..."
+                  << std::endl;
+        CHECK_ZE(zeEventHostSignal(hostSignalEvent1));
+        callback1Ready = false;
+        hostSignalEvent1 = nullptr;
+        gpuReadyEvent1 = nullptr;
+      }
     }
-    if (callback2Ready.load() && hostSignalEvent2) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      std::cout << "Monitor: Executing callback 2, signaling event..."
-                << std::endl;
-      CHECK_ZE(zeEventHostSignal(hostSignalEvent2));
-      callback2Ready = false;
-      hostSignalEvent2 = nullptr;
+    if (callback2Ready.load() && gpuReadyEvent2) {
+      ze_result_t status = zeEventQueryStatus(gpuReadyEvent2);
+      if (status == ZE_RESULT_SUCCESS) {
+        std::cout << "Monitor: GpuReady2 signaled, executing callback 2..."
+                  << std::endl;
+        CHECK_ZE(zeEventHostSignal(hostSignalEvent2));
+        callback2Ready = false;
+        hostSignalEvent2 = nullptr;
+        gpuReadyEvent2 = nullptr;
+      }
     }
     std::this_thread::sleep_for(std::chrono::microseconds(200));
   }
@@ -106,11 +118,17 @@ int main() {
   cmdQueueDesc.mode = ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS;
   cmdQueueDesc.priority = ZE_COMMAND_QUEUE_PRIORITY_NORMAL;
 
+  // Create 3 command lists like chipStar: default queue, stream1, stream2
+  ze_command_list_handle_t defaultQueue;
+  CHECK_ZE(zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &defaultQueue));
+  
   ze_command_list_handle_t stream1;
   CHECK_ZE(zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &stream1));
 
   ze_command_list_handle_t stream2;
   CHECK_ZE(zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &stream2));
+  
+  std::cout << "Created 3 command lists (default, stream1, stream2)" << std::endl;
 
   // Create event pool
   ze_event_pool_desc_t eventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
@@ -135,15 +153,19 @@ int main() {
   // event1 - user event (for hipEventRecord)
   ze_event_handle_t event1 = createEvent();
 
-  // Callback 1 events
+  // Callback 1 events (GpuReady, CpuCallbackComplete/hostSignal, GpuAck)
+  ze_event_handle_t cb1_gpuReady = createEvent();
   ze_event_handle_t cb1_hostSignal = createEvent();
   ze_event_handle_t cb1_gpuAck = createEvent();
   hostSignalEvent1 = cb1_hostSignal;
+  gpuReadyEvent1 = cb1_gpuReady;
 
   // Callback 2 events
+  ze_event_handle_t cb2_gpuReady = createEvent();
   ze_event_handle_t cb2_hostSignal = createEvent();
   ze_event_handle_t cb2_gpuAck = createEvent();
   hostSignalEvent2 = cb2_hostSignal;
+  gpuReadyEvent2 = cb2_gpuReady;
 
   // Marker events for synchronization
   ze_event_handle_t markerEvent = createEvent();
@@ -157,7 +179,9 @@ int main() {
 
   std::cout << "Simulating: hipLaunchHostFunc on stream1 (callback 1)..."
             << std::endl;
-  // Append barrier that waits on hostSignal and signals gpuAck
+  // Signal GpuReady - indicates work before callback is done
+  CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1_gpuReady, 0, nullptr));
+  // Append barrier that waits on hostSignal (CpuCallbackComplete) and signals gpuAck
   CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1_gpuAck, 1, &cb1_hostSignal));
   callback1Ready = true;
 
@@ -172,6 +196,8 @@ int main() {
 
   std::cout << "Simulating: hipLaunchHostFunc on stream1 (callback 2)..."
             << std::endl;
+  // Signal GpuReady - indicates work before callback is done  
+  CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2_gpuReady, 0, nullptr));
   // Append barrier for second callback
   CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2_gpuAck, 1, &cb2_hostSignal));
   callback2Ready = true;
@@ -198,13 +224,16 @@ int main() {
 
   // Cleanup
   zeEventDestroy(event1);
+  zeEventDestroy(cb1_gpuReady);
   zeEventDestroy(cb1_hostSignal);
   zeEventDestroy(cb1_gpuAck);
+  zeEventDestroy(cb2_gpuReady);
   zeEventDestroy(cb2_hostSignal);
   zeEventDestroy(cb2_gpuAck);
   zeEventDestroy(markerEvent);
   zeEventDestroy(workEvent);
   zeEventPoolDestroy(eventPool);
+  zeCommandListDestroy(defaultQueue);
   zeCommandListDestroy(stream1);
   zeCommandListDestroy(stream2);
   zeContextDestroy(context);
