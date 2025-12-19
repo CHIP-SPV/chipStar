@@ -700,6 +700,17 @@ void CHIPEventMonitorLevel0::checkCmdLists() {
       BackendLz->ActiveCmdLists.end());
 }
 
+void CHIPEventMonitorLevel0::checkEvents() {
+  // Call CHIPContextLevel0::checkEvents() for all Level0 contexts
+  auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
+  for (auto *ChipContext : BackendLz->ChipContexts) {
+    auto *ChipContextLz = static_cast<CHIPContextLevel0 *>(ChipContext);
+    if (ChipContextLz) {
+      ChipContextLz->checkEvents();
+    }
+  }
+}
+
 void CHIPEventMonitorLevel0::checkExit() {
   LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
   /**
@@ -709,14 +720,7 @@ void CHIPEventMonitorLevel0::checkExit() {
    * EventCommandListMap
    */
   if (Stop) {
-    // Call CHIPContextLevel0::checkEvents() for all Level0 contexts
-    auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
-    for (auto *ChipContext : BackendLz->ChipContexts) {
-      auto *ChipContextLz = static_cast<CHIPContextLevel0 *>(ChipContext);
-      if (ChipContextLz) {
-        ChipContextLz->checkEvents();
-      }
-    }
+    checkEvents();
     pthread_exit(0);
   }
 }
@@ -727,7 +731,7 @@ void CHIPEventMonitorLevel0::monitor() {
   while (true) {
     usleep(200);
     checkCallbacks();
-    // checkEvents();
+    checkEvents();
     checkCmdLists();
     checkExit();
   } // endless loop
@@ -975,8 +979,8 @@ void CHIPContextLevel0::checkEvents() {
 }
 
 std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
-  // Perform maintenance tasks that were previously done by EventMonitor thread
-  checkEvents();
+  // Event cleanup is now done by the EventMonitor thread to avoid blocking
+  // the main thread with zeEventQueryStatus calls that can spin
   
   // go through all pools and try to get an allocated event
   LOCK(ContextMtx); // Context::EventPool

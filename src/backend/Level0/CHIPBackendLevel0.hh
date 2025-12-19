@@ -234,6 +234,8 @@ class CHIPEventMonitorLevel0 : public chipstar::EventMonitor {
 
   void checkCmdLists();
 
+  void checkEvents();
+
 public:
   ~CHIPEventMonitorLevel0() {
     logTrace("CHIPEventMonitorLevel0 DEST");
