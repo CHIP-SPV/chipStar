@@ -221,10 +221,10 @@ int main() {
     cb1->GpuAckDone = createEventWithPool(context, cb1->GpuAckDonePool);
     
     CHECK_ZE(zeEventHostReset(syncEvent1));
-    
-    // FIX: Add barrier BEFORE signaling to avoid race
-    CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuReady, 1, &syncEvent1));
     CHECK_ZE(zeCommandListAppendSignalEvent(defaultQueue, syncEvent1));
+    // FIX: Sync defaultQueue to ensure event is signaled before stream1 waits
+    CHECK_ZE(zeCommandListHostSynchronize(defaultQueue, UINT64_MAX));
+    CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuReady, 1, &syncEvent1));
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuAck, 1, &cb1->HostSignal));
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuAckDone, 0, nullptr));
     
@@ -254,14 +254,14 @@ int main() {
     
     std::cout << " reset..." << std::flush;
     CHECK_ZE(zeEventHostReset(syncEvent2));
-    
-    // FIX: Add barrier BEFORE signaling to avoid race where event is signaled
-    // before barrier is added (immediate command lists execute immediately)
-    std::cout << " barrier1(wait sync)..." << std::flush;
-    CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuReady, 1, &syncEvent2));
-    
     std::cout << " signal on defaultQueue..." << std::flush;
     CHECK_ZE(zeCommandListAppendSignalEvent(defaultQueue, syncEvent2));
+    // FIX: Sync defaultQueue to ensure event is signaled before stream1 waits
+    std::cout << " sync defaultQueue..." << std::flush;
+    CHECK_ZE(zeCommandListHostSynchronize(defaultQueue, UINT64_MAX));
+    
+    std::cout << " barrier1(wait sync)..." << std::flush;
+    CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuReady, 1, &syncEvent2));
     std::cout << " barrier2(wait host)..." << std::flush;
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuAck, 1, &cb2->HostSignal));
     std::cout << " barrier3..." << std::flush;
