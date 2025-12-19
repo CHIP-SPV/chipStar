@@ -222,8 +222,7 @@ int main() {
     
     CHECK_ZE(zeEventHostReset(syncEvent1));
     CHECK_ZE(zeCommandListAppendSignalEvent(defaultQueue, syncEvent1));
-    // FIX: Sync defaultQueue to ensure event is signaled before stream1 waits
-    CHECK_ZE(zeCommandListHostSynchronize(defaultQueue, UINT64_MAX));
+    
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuReady, 1, &syncEvent1));
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuAck, 1, &cb1->HostSignal));
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb1->GpuAckDone, 0, nullptr));
@@ -252,9 +251,13 @@ int main() {
     cb2->GpuAck = createEventWithPool(context, cb2->GpuAckPool);
     cb2->GpuAckDone = createEventWithPool(context, cb2->GpuAckDonePool);
     
-    // Removed cross-queue sync - signal GpuReady directly on stream1
-    std::cout << " barrier1..." << std::flush;
-    CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuReady, 0, nullptr));
+    std::cout << " reset..." << std::flush;
+    CHECK_ZE(zeEventHostReset(syncEvent2));
+    std::cout << " signal on defaultQueue..." << std::flush;
+    CHECK_ZE(zeCommandListAppendSignalEvent(defaultQueue, syncEvent2));
+    
+    std::cout << " barrier1(wait sync)..." << std::flush;
+    CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuReady, 1, &syncEvent2));
     std::cout << " barrier2(wait host)..." << std::flush;
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuAck, 1, &cb2->HostSignal));
     std::cout << " barrier3..." << std::flush;
