@@ -1,4 +1,4 @@
-// L0 bug: zeEventHostSynchronize hangs with concurrent event pool creation (Aurora)
+// L0 bug: Cross-queue event sync hangs with concurrent zeEventHostSynchronize (Aurora)
 #include <level_zero/ze_api.h>
 #include <thread>
 #include <atomic>
@@ -58,35 +58,61 @@ int main() {
 
   ze_command_queue_desc_t cmdQueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC};
   cmdQueueDesc.flags = ZE_COMMAND_QUEUE_FLAG_IN_ORDER;
-  ze_command_list_handle_t commandList;
-  C(zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &commandList));
+  
+  // Create two queues for cross-queue synchronization
+  ze_command_list_handle_t queue1, queue2;
+  C(zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &queue1));
+  C(zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &queue2));
 
+  // Create sync event pool
   ze_event_pool_desc_t poolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
   poolDesc.flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-  poolDesc.count = 1;
+  poolDesc.count = 3;
   ze_event_pool_handle_t pool;
   C(zeEventPoolCreate(context, &poolDesc, 0, nullptr, &pool));
 
+  // Create events
   ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC};
-  eventDesc.index = 0;
   eventDesc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
   eventDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+  
+  eventDesc.index = 0;
+  ze_event_handle_t syncEvent;
+  C(zeEventCreate(pool, &eventDesc, &syncEvent));
+  
+  eventDesc.index = 1;
+  ze_event_handle_t markerEvent;
+  C(zeEventCreate(pool, &eventDesc, &markerEvent));
+  
+  eventDesc.index = 2;
   C(zeEventCreate(pool, &eventDesc, &evt));
+  
+  // Signal evt so sync thread has something to wait on
+  C(zeEventHostSignal(evt));
 
+  // Start sync thread - it will be actively calling zeEventHostSynchronize
   std::thread t(syncThread);
 
-  for(int i=0; i<10; i++) {
-    ze_event_pool_handle_t p;
-    C(zeEventPoolCreate(context, &poolDesc, 0, nullptr, &p));
-    zeEventPoolDestroy(p);
-  }
+  // CRITICAL: Signal event on queue1, then barrier on queue2 waits for it
+  // BUG: Without host sync, barrier may not see event signaled on another queue
+  // The sync thread calling zeEventHostSynchronize concurrently triggers the bug
+  C(zeEventHostReset(syncEvent));
+  C(zeCommandListAppendSignalEvent(queue1, syncEvent));
+  // NOTE: NOT calling zeEventHostSynchronize here - this is the bug!
+  C(zeCommandListAppendBarrier(queue2, markerEvent, 1, &syncEvent));
+
+  // Wait for marker - THIS HANGS
+  C(zeEventHostSynchronize(markerEvent, UINT64_MAX));
 
   stop = true;
   zeEventHostSignal(evt);
   t.join();
+  zeEventDestroy(syncEvent);
+  zeEventDestroy(markerEvent);
   zeEventDestroy(evt);
   zeEventPoolDestroy(pool);
-  zeCommandListDestroy(commandList);
+  zeCommandListDestroy(queue1);
+  zeCommandListDestroy(queue2);
   zeContextDestroy(context);
   std::cout << "PASS\n";
   return 0;
