@@ -234,23 +234,30 @@ int main() {
   std::cout << "Simulating: more kernel + memcpy on stream1..." << std::endl;
   CHECK_ZE(zeCommandListAppendSignalEvent(stream1, workEvent));
 
-  std::cout << "Simulating: hipLaunchHostFunc (callback 2)..." << std::endl;
+  std::cout << "Simulating: hipLaunchHostFunc (callback 2)..." << std::flush;
   {
     CallbackData* cb2 = new CallbackData();
     cb2->id = 2;
     
+    std::cout << " creating events..." << std::flush;
     cb2->GpuReady = createEventWithPool(context, cb2->GpuReadyPool);
     cb2->HostSignal = createEventWithPool(context, cb2->HostSignalPool);
     cb2->GpuAck = createEventWithPool(context, cb2->GpuAckPool);
     cb2->GpuAckDone = createEventWithPool(context, cb2->GpuAckDonePool);
     
+    std::cout << " reset..." << std::flush;
     CHECK_ZE(zeEventHostReset(syncEvent2));
+    std::cout << " signal on defaultQueue..." << std::flush;
     CHECK_ZE(zeCommandListAppendSignalEvent(defaultQueue, syncEvent2));
     
+    std::cout << " barrier1(wait sync)..." << std::flush;
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuReady, 1, &syncEvent2));
+    std::cout << " barrier2(wait host)..." << std::flush;
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuAck, 1, &cb2->HostSignal));
+    std::cout << " barrier3..." << std::flush;
     CHECK_ZE(zeCommandListAppendBarrier(stream1, cb2->GpuAckDone, 0, nullptr));
     
+    std::cout << " done" << std::endl;
     {
       std::lock_guard<std::mutex> lock(callbackMtx);
       pendingCallbacks.push_back(cb2);
