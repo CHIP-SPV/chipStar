@@ -3,7 +3,7 @@
 #include <thread>
 #include <atomic>
 #include <iostream>
-#define C(x) if((x)!=ZE_RESULT_SUCCESS){std::cerr<<"FAIL:"<<#x<<"\n";return 1;}
+#define C(x) do{ze_result_t r=(x);if(r!=ZE_RESULT_SUCCESS){std::cerr<<"FAIL:"<<#x<<" = "<<r<<"\n";return 1;}}while(0)
 
 std::atomic<bool> stop{false};
 ze_event_handle_t evt = nullptr;
@@ -17,7 +17,8 @@ void syncThread() {
 }
 
 int main() {
-  C(zeInit(0));
+  ze_result_t r=zeInit(0);
+  if(r!=ZE_RESULT_SUCCESS){std::cerr<<"zeInit failed: "<<r<<"\n";return 1;}
   uint32_t dc=0;
   ze_driver_handle_t drv; 
   C(zeDriverGet(&dc,nullptr)); 
