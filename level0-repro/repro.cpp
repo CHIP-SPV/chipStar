@@ -46,12 +46,17 @@ std::atomic<bool> done{false};
 std::mutex callbackMtx;
 std::vector<CallbackData*> pendingCallbacks;
 
+static std::atomic<int> poolCounter{0};
+
 ze_event_handle_t createEventWithPool(ze_context_handle_t context,
                                        ze_event_pool_handle_t& outPool) {
+  int id = poolCounter++;
+  std::cout << "[pool" << id << ":create..." << std::flush;
   ze_event_pool_desc_t poolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
   poolDesc.flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
   poolDesc.count = 1;
   CHECK_ZE(zeEventPoolCreate(context, &poolDesc, 0, nullptr, &outPool));
+  std::cout << "evt..." << std::flush;
 
   ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC};
   eventDesc.index = 0;
@@ -60,6 +65,7 @@ ze_event_handle_t createEventWithPool(ze_context_handle_t context,
   
   ze_event_handle_t event;
   CHECK_ZE(zeEventCreate(outPool, &eventDesc, &event));
+  std::cout << "ok]" << std::flush;
   return event;
 }
 
