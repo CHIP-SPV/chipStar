@@ -13,7 +13,7 @@ int main(){
   ze_driver_handle_t drv; C(zeDriverGet(&dc,nullptr)); C(zeDriverGet(&dc,&drv));
   ze_device_handle_t dev; C(zeDeviceGet(drv,&nc,nullptr)); C(zeDeviceGet(drv,&nc,&dev));
   zeDeviceGetSubDevices(dev,&sc,nullptr);
-  if(sc>0){ze_device_handle_t sd;zeDeviceGetSubDevices(dev,&sc,&sd);dev=sd;}
+  if(sc>0){ze_device_handle_t sds[16];uint32_t c=sc;zeDeviceGetSubDevices(dev,&c,sds);dev=sds[0];}
   ze_context_desc_t cd={ZE_STRUCTURE_TYPE_CONTEXT_DESC};
   ze_context_handle_t ctx; C(zeContextCreate(drv,&cd,&ctx));
   ze_command_queue_desc_t qd={ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC};
