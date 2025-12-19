@@ -18,40 +18,46 @@ void syncThread() {
 }
 
 int main() {
+  std::cout << "init..." << std::flush;
   CHECK(zeInit(0));
   
+  std::cout << "drv..." << std::flush;
   uint32_t drvCnt = 0;
   CHECK(zeDriverGet(&drvCnt, nullptr));
   ze_driver_handle_t drv;
   CHECK(zeDriverGet(&drvCnt, &drv));
   
+  std::cout << "dev..." << std::flush;
   uint32_t devCnt = 0;
   CHECK(zeDeviceGet(drv, &devCnt, nullptr));
   ze_device_handle_t dev;
   CHECK(zeDeviceGet(drv, &devCnt, &dev));
   
+  std::cout << "ctx..." << std::flush;
   ze_context_desc_t ctxDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC};
   CHECK(zeContextCreate(drv, &ctxDesc, &ctx));
   
-  // Create event for sync thread to wait on
+  std::cout << "pool..." << std::flush;
   ze_event_pool_desc_t poolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
   poolDesc.flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
   poolDesc.count = 1;
   ze_event_pool_handle_t pool;
   CHECK(zeEventPoolCreate(ctx, &poolDesc, 0, nullptr, &pool));
   
+  std::cout << "evt..." << std::flush;
   ze_event_desc_t evtDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC};
   evtDesc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
   evtDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
   CHECK(zeEventCreate(pool, &evtDesc, &waitEvent));
   
+  std::cout << "thread..." << std::flush;
   std::thread t(syncThread);
   
-  // Create pools while sync thread is in zeEventHostSynchronize - this hangs
+  std::cout << "loop:" << std::flush;
   for (int i = 0; i < 10; i++) {
     std::cout << i << std::flush;
     ze_event_pool_handle_t p;
-    CHECK(zeEventPoolCreate(ctx, &poolDesc, 0, nullptr, &p));  // HANGS HERE
+    CHECK(zeEventPoolCreate(ctx, &poolDesc, 0, nullptr, &p));
     zeEventPoolDestroy(p);
   }
   std::cout << " PASS" << std::endl;
