@@ -650,33 +650,37 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 // ***********************************************************************
 
 void CHIPEventMonitorLevel0::checkCallbacks() {
-  CHIPCallbackDataLevel0 *CbData;
-  LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
+  CHIPCallbackDataLevel0 *CbData = nullptr;
+  
+  // First, try to get a callback from the queue with minimal lock time
   {
     LOCK(Backend->CallbackQueueMtx); // Backend::CallbackQueue
 
-    if ((Backend->CallbackQueue.size() == 0))
+    if (Backend->CallbackQueue.size() == 0)
       return;
 
     // get the callback item
     CbData = (CHIPCallbackDataLevel0 *)Backend->CallbackQueue.front();
-
-    // Lock the item and members
-    assert(CbData);
-    LOCK( // Backend::CallbackQueue
-        CbData->CallbackDataMtx);
     Backend->CallbackQueue.pop();
+  }
+  // CallbackQueueMtx is now released before potentially blocking operations
 
-    // Update zeStatus
-    logTrace("checkCallbacks: checking event "
-             "status for {}",
-             static_cast<void *>(CbData->GpuReady.get()));
-    CbData->GpuReady->updateFinishStatus(false);
-    if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
-      // if not ready, push to the back
-      Backend->CallbackQueue.push(CbData);
-      return;
-    }
+  if (!CbData)
+    return;
+
+  LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
+  LOCK(CbData->CallbackDataMtx);
+
+  // Update zeStatus - this can block on zeEventQueryStatus
+  logTrace("checkCallbacks: checking event "
+           "status for {}",
+           static_cast<void *>(CbData->GpuReady.get()));
+  CbData->GpuReady->updateFinishStatus(false);
+  if (CbData->GpuReady->getEventStatus() != EVENT_STATUS_RECORDED) {
+    // if not ready, push to the back
+    LOCK(Backend->CallbackQueueMtx);
+    Backend->CallbackQueue.push(CbData);
+    return;
   }
 
   CbData->execute(hipSuccess);
