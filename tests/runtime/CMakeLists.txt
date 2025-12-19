@@ -130,3 +130,8 @@ add_hip_runtime_test(TestDefaultStreamImplicitSync.hip)
 
 add_hip_runtime_test(TestTypeCastIntrinsics.hip)
 add_hip_runtime_test(TestHipLaunchHostFunc.cpp)
+
+# Test hipLaunchHostFunc with multi-stream and events (from PR #1071)
+add_hip_runtime_test(TestHipLaunchHostFuncMultiStream.cpp)
+set_tests_properties(TestHipLaunchHostFuncMultiStream PROPERTIES
+  TIMEOUT 30)
