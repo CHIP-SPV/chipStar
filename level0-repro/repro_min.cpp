@@ -1,4 +1,5 @@
-// Minimal L0 reproducer: zeEventPoolCreate hangs with concurrent zeEventHostSynchronize
+// Minimal L0 bug: zeEventPoolCreate hangs with concurrent zeEventHostSynchronize
+// 100% repro on Aurora without ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
 #include <level_zero/ze_api.h>
 #include <thread>
 #include <atomic>
@@ -7,62 +8,46 @@
 #define C(x) if((x)!=ZE_RESULT_SUCCESS){std::cerr<<"FAIL:"<<#x<<"\n";return 1;}
 
 std::atomic<bool> stop{false};
-ze_event_handle_t syncEvt;
+ze_event_handle_t evt;
 
-void monitorThread() {
-  while(!stop) zeEventHostSynchronize(syncEvt, 1000);
-}
+void syncThread() { while(!stop) zeEventHostSynchronize(evt,1000); }
 
 int main() {
-  std::cout<<"1"<<std::flush; C(zeInit(0));
-  
+  C(zeInit(0));
   uint32_t dc=0; C(zeDriverGet(&dc,nullptr));
   ze_driver_handle_t drv; C(zeDriverGet(&dc,&drv));
-  std::cout<<"2"<<std::flush;
-  
   uint32_t nc=0; C(zeDeviceGet(drv,&nc,nullptr));
   ze_device_handle_t dev; C(zeDeviceGet(drv,&nc,&dev));
-  std::cout<<"3"<<std::flush;
   
-  // Use subdevice 0 if available (matches ZE_AFFINITY_MASK=0.0 behavior)
   uint32_t sc=0; zeDeviceGetSubDevices(dev,&sc,nullptr);
   if(sc>0){ ze_device_handle_t sd; zeDeviceGetSubDevices(dev,&sc,&sd); dev=sd; }
-  std::cout<<"s"<<std::flush;
   
   ze_context_desc_t cd={ZE_STRUCTURE_TYPE_CONTEXT_DESC};
   ze_context_handle_t ctx; C(zeContextCreate(drv,&cd,&ctx));
-  std::cout<<"4"<<std::flush;
   
-  // Create immediate command list (required to trigger bug)
   ze_command_queue_desc_t qd={ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC};
   qd.flags=ZE_COMMAND_QUEUE_FLAG_IN_ORDER;
-  qd.mode=ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS;
-  ze_command_list_handle_t cl;
-  C(zeCommandListCreateImmediate(ctx,dev,&qd,&cl));
-  std::cout<<"5"<<std::flush;
+  ze_command_list_handle_t cl; C(zeCommandListCreateImmediate(ctx,dev,&qd,&cl));
   
   ze_event_pool_desc_t pd={ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
   pd.flags=ZE_EVENT_POOL_FLAG_HOST_VISIBLE; pd.count=1;
   ze_event_pool_handle_t pool; C(zeEventPoolCreate(ctx,&pd,0,nullptr,&pool));
   
   ze_event_desc_t ed={ZE_STRUCTURE_TYPE_EVENT_DESC};
-  ed.signal=ZE_EVENT_SCOPE_FLAG_HOST; ed.wait=ZE_EVENT_SCOPE_FLAG_HOST;
-  C(zeEventCreate(pool,&ed,&syncEvt));
-  std::cout<<"6"<<std::flush;
+  ed.signal=ed.wait=ZE_EVENT_SCOPE_FLAG_HOST;
+  C(zeEventCreate(pool,&ed,&evt));
   
-  std::thread t(monitorThread);
+  std::thread t(syncThread);
   
-  // This loop hangs in zeEventPoolCreate
   for(int i=0;i<10;i++){
-    std::cout<<(char)('a'+i)<<std::flush;
     ze_event_pool_handle_t p;
-    C(zeEventPoolCreate(ctx,&pd,0,nullptr,&p));
+    C(zeEventPoolCreate(ctx,&pd,0,nullptr,&p)); // HANGS
     zeEventPoolDestroy(p);
   }
-  std::cout<<" PASS\n";
   
-  stop=true; zeEventHostSignal(syncEvt); t.join();
-  zeEventDestroy(syncEvt); zeEventPoolDestroy(pool);
+  stop=true; zeEventHostSignal(evt); t.join();
+  zeEventDestroy(evt); zeEventPoolDestroy(pool);
   zeCommandListDestroy(cl); zeContextDestroy(ctx);
+  std::cout<<"PASS\n";
   return 0;
 }
