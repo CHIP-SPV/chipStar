@@ -14,6 +14,7 @@
 #include <chrono>
 #include <atomic>
 #include <cstdlib>
+#include <vector>
 
 #define CHECK_ZE(call)                                                         \
   do {                                                                         \
@@ -72,9 +73,18 @@ int main() {
 
   uint32_t deviceCount = 0;
   CHECK_ZE(zeDeviceGet(driver, &deviceCount, nullptr));
-  ze_device_handle_t device;
-  deviceCount = 1;
-  CHECK_ZE(zeDeviceGet(driver, &deviceCount, &device));
+  std::cout << "Found " << deviceCount << " devices" << std::endl;
+  
+  std::vector<ze_device_handle_t> devices(deviceCount);
+  CHECK_ZE(zeDeviceGet(driver, &deviceCount, devices.data()));
+  
+  // Use first device
+  ze_device_handle_t device = devices[0];
+  
+  // Check for subdevices
+  uint32_t subDeviceCount = 0;
+  CHECK_ZE(zeDeviceGetSubDevices(device, &subDeviceCount, nullptr));
+  std::cout << "Device 0 has " << subDeviceCount << " subdevices" << std::endl;
 
   // Create context
   ze_context_desc_t contextDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC};
