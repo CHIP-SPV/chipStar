@@ -57,7 +57,12 @@ void callbackMonitorThread() {
 int main() {
   std::cout << "Initializing Level Zero..." << std::endl;
 
-  CHECK_ZE(zeInit(0));
+  ze_result_t initResult = zeInit(0);
+  std::cout << "zeInit returned: " << initResult << " (0x" << std::hex << initResult << std::dec << ")" << std::endl;
+  if (initResult != ZE_RESULT_SUCCESS) {
+    std::cerr << "zeInit failed!" << std::endl;
+    return 1;
+  }
 
   // Get driver and device
   uint32_t driverCount = 0;
