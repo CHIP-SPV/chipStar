@@ -1,4 +1,4 @@
-// L0 bug: Cross-queue event sync hangs with concurrent zeEventHostSynchronize (Aurora)
+// L0 bug: Cross-queue event sync hangs (Aurora) - MINIMAL REPRODUCER
 #include <level_zero/ze_api.h>
 #include <thread>
 #include <atomic>
@@ -7,113 +7,63 @@
 #define C(x) do{ze_result_t r=(x);if(r!=ZE_RESULT_SUCCESS){std::cerr<<"FAIL:"<<#x<<" = "<<r<<"\n";return 1;}}while(0)
 
 std::atomic<bool> stop{false};
-ze_event_handle_t evt = nullptr;
+ze_event_handle_t monitorEvt = nullptr;
 
-void syncThread() {
-  while (!stop.load()) {
-    if (evt != nullptr) {
-      zeEventHostSynchronize(evt, 1000);
-    }
+void monitorThread() {
+  while (!stop.load() && monitorEvt != nullptr) {
+    zeEventHostSynchronize(monitorEvt, 1000);
   }
 }
 
 int main() {
-  ze_result_t initResult = zeInit(0);
-  if (initResult != ZE_RESULT_SUCCESS) {
-    std::cerr << "zeInit failed: " << initResult << std::endl;
-    return 1;
-  }
-
-  uint32_t driverCount = 0;
-  C(zeDriverGet(&driverCount, nullptr));
-  if(driverCount == 0) {
-    std::cerr << "No drivers found\n";
-    return 1;
-  }
-  ze_driver_handle_t driver;
-  C(zeDriverGet(&driverCount, &driver));
-
-  uint32_t deviceCount = 0;
-  C(zeDeviceGet(driver, &deviceCount, nullptr));
-  if(deviceCount == 0) {
-    std::cerr << "No devices found\n";
-    return 1;
-  }
-  std::vector<ze_device_handle_t> devices(deviceCount);
-  C(zeDeviceGet(driver, &deviceCount, devices.data()));
-  ze_device_handle_t device = devices[0];
-
-  uint32_t subDeviceCount = 0;
-  zeDeviceGetSubDevices(device, &subDeviceCount, nullptr);
-  if (subDeviceCount > 0) {
-    std::vector<ze_device_handle_t> subDevices(subDeviceCount);
-    uint32_t count = subDeviceCount;
-    C(zeDeviceGetSubDevices(device, &count, subDevices.data()));
-    device = subDevices[0];
-  }
-
-  ze_context_desc_t contextDesc = {ZE_STRUCTURE_TYPE_CONTEXT_DESC};
-  ze_context_handle_t context;
-  C(zeContextCreate(driver, &contextDesc, &context));
-
-  ze_command_queue_desc_t cmdQueueDesc = {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC};
-  cmdQueueDesc.flags = ZE_COMMAND_QUEUE_FLAG_IN_ORDER;
+  C(zeInit(0));
+  uint32_t dc=0; ze_driver_handle_t drv; C(zeDriverGet(&dc,nullptr)); C(zeDriverGet(&dc,&drv));
+  uint32_t nc=0; std::vector<ze_device_handle_t> devs(16); C(zeDeviceGet(drv,&nc,nullptr)); C(zeDeviceGet(drv,&nc,devs.data()));
+  ze_device_handle_t dev=devs[0];
+  uint32_t sc=0; zeDeviceGetSubDevices(dev,&sc,nullptr);
+  if(sc>0){std::vector<ze_device_handle_t> sds(16);uint32_t c=sc;C(zeDeviceGetSubDevices(dev,&c,sds.data()));dev=sds[0];}
   
-  // Create two queues for cross-queue synchronization
-  ze_command_list_handle_t queue1, queue2;
-  C(zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &queue1));
-  C(zeCommandListCreateImmediate(context, device, &cmdQueueDesc, &queue2));
-
-  // Create sync event pool
-  ze_event_pool_desc_t poolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
-  poolDesc.flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-  poolDesc.count = 3;
-  ze_event_pool_handle_t pool;
-  C(zeEventPoolCreate(context, &poolDesc, 0, nullptr, &pool));
-
-  // Create events
-  ze_event_desc_t eventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC};
-  eventDesc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
-  eventDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+  ze_context_desc_t cd={ZE_STRUCTURE_TYPE_CONTEXT_DESC};
+  ze_context_handle_t ctx; C(zeContextCreate(drv,&cd,&ctx));
   
-  eventDesc.index = 0;
-  ze_event_handle_t syncEvent;
-  C(zeEventCreate(pool, &eventDesc, &syncEvent));
+  ze_command_queue_desc_t qd={ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC};
+  qd.flags=ZE_COMMAND_QUEUE_FLAG_IN_ORDER;
+  qd.mode=ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS;
+  ze_command_list_handle_t q1,q2;
+  C(zeCommandListCreateImmediate(ctx,dev,&qd,&q1));
+  C(zeCommandListCreateImmediate(ctx,dev,&qd,&q2));
   
-  eventDesc.index = 1;
-  ze_event_handle_t markerEvent;
-  C(zeEventCreate(pool, &eventDesc, &markerEvent));
+  ze_event_pool_desc_t pd={ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
+  pd.flags=ZE_EVENT_POOL_FLAG_HOST_VISIBLE; pd.count=3;
+  ze_event_pool_handle_t pool; C(zeEventPoolCreate(ctx,&pd,0,nullptr,&pool));
   
-  eventDesc.index = 2;
-  C(zeEventCreate(pool, &eventDesc, &evt));
+  ze_event_desc_t ed={ZE_STRUCTURE_TYPE_EVENT_DESC};
+  ed.signal=ed.wait=ZE_EVENT_SCOPE_FLAG_HOST;
+  ed.index=0; ze_event_handle_t syncEvt; C(zeEventCreate(pool,&ed,&syncEvt));
+  ed.index=1; ze_event_handle_t marker; C(zeEventCreate(pool,&ed,&marker));
   
-  // Signal evt so sync thread has something to wait on
-  C(zeEventHostSignal(evt));
-
-  // Start sync thread - it will be actively calling zeEventHostSynchronize
-  std::thread t(syncThread);
-
-  // CRITICAL: Signal event on queue1, then barrier on queue2 waits for it
-  // BUG: Without host sync, barrier may not see event signaled on another queue
-  // The sync thread calling zeEventHostSynchronize concurrently triggers the bug
-  C(zeEventHostReset(syncEvent));
-  C(zeCommandListAppendSignalEvent(queue1, syncEvent));
-  // NOTE: NOT calling zeEventHostSynchronize here - this is the bug!
-  C(zeCommandListAppendBarrier(queue2, markerEvent, 1, &syncEvent));
-
-  // Wait for marker - THIS HANGS
-  C(zeEventHostSynchronize(markerEvent, UINT64_MAX));
-
-  stop = true;
-  zeEventHostSignal(evt);
-  t.join();
-  zeEventDestroy(syncEvent);
-  zeEventDestroy(markerEvent);
-  zeEventDestroy(evt);
-  zeEventPoolDestroy(pool);
-  zeCommandListDestroy(queue1);
-  zeCommandListDestroy(queue2);
-  zeContextDestroy(context);
-  std::cout << "PASS\n";
-  return 0;
+  ze_event_pool_desc_t mpd={ZE_STRUCTURE_TYPE_EVENT_POOL_DESC};
+  mpd.flags=ZE_EVENT_POOL_FLAG_HOST_VISIBLE; mpd.count=1;
+  ze_event_pool_handle_t mpool; C(zeEventPoolCreate(ctx,&mpd,0,nullptr,&mpool));
+  ze_event_desc_t med={ZE_STRUCTURE_TYPE_EVENT_DESC};
+  med.index=0; med.signal=med.wait=ZE_EVENT_SCOPE_FLAG_HOST;
+  C(zeEventCreate(mpool,&med,&monitorEvt));
+  C(zeEventHostSignal(monitorEvt));
+  
+  std::thread t(monitorThread);
+  
+  // BUG PATTERN: Signal on q1, barrier on q2 waits - WITHOUT host sync
+  C(zeEventHostReset(syncEvt));
+  C(zeCommandListAppendSignalEvent(q1,syncEvt));
+  // MISSING: zeEventHostSynchronize(syncEvt) - this is the bug!
+  C(zeCommandListAppendBarrier(q2,marker,1,&syncEvt));
+  
+  // Wait for marker - HANGS because q2 barrier never completes
+  C(zeEventHostSynchronize(marker,UINT64_MAX));
+  
+  stop=true; zeEventHostSignal(monitorEvt); t.join();
+  zeEventDestroy(syncEvt); zeEventDestroy(marker); zeEventDestroy(monitorEvt);
+  zeEventPoolDestroy(pool); zeEventPoolDestroy(mpool);
+  zeCommandListDestroy(q1); zeCommandListDestroy(q2); zeContextDestroy(ctx);
+  std::cout<<"PASS\n"; return 0;
 }
