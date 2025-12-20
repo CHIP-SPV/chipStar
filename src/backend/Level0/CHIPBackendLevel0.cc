@@ -627,6 +627,17 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto CallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
 
+  // Workaround for Level Zero driver bug on Aurora: when using immediate
+  // command lists, barriers may not see events signaled on other queues
+  // unless we first wait for them from the host. Use a short timeout to
+  // avoid blocking forever if events aren't ready yet - the GPU-side
+  // barrier will still enforce proper ordering.
+  // Setting this timeout to UINT64_MAX will cause a hang when running callback samples in parallel. 
+  for (auto &SyncEvent : QueueSyncEvents) {
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostSynchronize);
+    zeEventHostSynchronize(SyncEvent, 1);
+  }
+
   // Lock before using immediate command list
   LOCK(ChipQueueLz->CommandListMtx);
   ze_command_list_handle_t CommandList = ChipQueueLz->getCmdListImm();
@@ -898,6 +909,11 @@ CHIPQueueLevel0::addDependenciesQueueSync(
 
     zeStatus = zeCommandListAppendSignalEvent(OtherCommandList, MarkerEventLz->peek());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+
+    // Force immediate command list to flush pending commands to the GPU.
+    // Without this, the signal command may not be processed by the time
+    // we call zeEventHostSynchronize, causing a hang.
+    zeCommandListHostSynchronize(OtherCommandList, 0);
 
     // Set the event state to indicate it's been enqueued
     MarkerEventLz->SignalEnqueued_ = true;
