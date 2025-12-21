@@ -70,6 +70,8 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: true
       - uses: actions/cache@v3
         id: spirv-tools
         env:
@@ -78,45 +80,76 @@ jobs:
           path: ~/opt/SPIRV-Tools/v2023.2
           key: ${{ runner.os }}-build-${{ env.cache-name }}
           fail-on-cache-miss: true
-      - id: get-shas
+      - name: Set cache key for LLVM 16/17
+        if: matrix.llvm-version == 16 || matrix.llvm-version == 17
+        id: get-shas
         uses: ./.github/actions/get-shas
         with:
-          pocl-version: ${{ matrix.pocl-version }}
           llvm-version: ${{ matrix.llvm-version }}
+      - name: Set cache key for LLVM 18/19
+        if: matrix.llvm-version == 18 || matrix.llvm-version == 19
+        id: set-branch-key
+        run: |
+          echo "cache-key=${{ runner.os }}-build-cache-llvm-${{ matrix.llvm-version }}-release-${{ matrix.llvm-version }}.x" >> $GITHUB_OUTPUT
+      - name: Compute LLVM cache key
+        id: compute-llvm-key
+        run: |
+          if [ "${{ matrix.llvm-version }}" == "18" ] || [ "${{ matrix.llvm-version }}" == "19" ]; then
+            echo "cache-key=${{ steps.set-branch-key.outputs.cache-key }}" >> $GITHUB_OUTPUT
+          else
+            echo "cache-key=${{ steps.get-shas.outputs.llvm-cache-key }}" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/cache@v3
         id: llvm
-        env:
-          cache-name: cache-llvm-${{ matrix.llvm-version }}
         with:
           path: ~/opt/llvm/${{ matrix.llvm-version }}
-          key: ${{ steps.get-shas.outputs.llvm-cache-key }}
-      - run: sudo apt update; sudo apt install -y gcc cmake
+          key: ${{ steps.compute-llvm-key.outputs.cache-key }}
+      - name: Install dependencies
         if: steps.llvm.outputs.cache-hit != 'true'
-      - uses: actions/checkout@v3
+        run: sudo apt update; sudo apt install -y gcc cmake git python3 patch
+      - name: Checkout CHIP-SPV llvm-project for LLVM 16/17
+        if: (matrix.llvm-version == 16 || matrix.llvm-version == 17) && steps.llvm.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
         with:
           repository: CHIP-SPV/llvm-project
           ref: ${{ steps.get-shas.outputs.llvm-sha }}
           path: llvm-${{ matrix.llvm-version }}
-        if: steps.llvm.outputs.cache-hit != 'true'
-      - uses: actions/checkout@v3
+      - name: Checkout SPIRV-LLVM-Translator for LLVM 16/17
+        if: (matrix.llvm-version == 16 || matrix.llvm-version == 17) && steps.llvm.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
         with:
           repository: KhronosGroup/SPIRV-LLVM-Translator
           ref: ${{ steps.get-shas.outputs.spirv-llvm-sha }}
           path: llvm-${{ matrix.llvm-version }}/llvm/projects/SPIRV-LLVM-Translator
-        if: steps.llvm.outputs.cache-hit != 'true'
-      - run: mkdir -p llvm-${{ matrix.llvm-version }}/build
-        if: steps.llvm.outputs.cache-hit != 'true'
-      - run: cmake -S llvm -B build -DLLVM_ENABLE_PROJECTS="clang;openmp" -DCMAKE_INSTALL_PREFIX=$HOME/opt/llvm/${{ matrix.llvm-version }} -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_SPIRV_INCLUDE_TESTS=OFF
+      - name: Configure LLVM 16/17
+        if: (matrix.llvm-version == 16 || matrix.llvm-version == 17) && steps.llvm.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p llvm-${{ matrix.llvm-version }}/build
+          cmake -S llvm -B build -DLLVM_ENABLE_PROJECTS="clang;openmp" -DCMAKE_INSTALL_PREFIX=$HOME/opt/llvm/${{ matrix.llvm-version }} -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_SPIRV_INCLUDE_TESTS=OFF
         env:
           PKG_CONFIG_PATH: ~/opt/SPIRV-Tools/v2023.2/lib/pkgconfig/
         working-directory: llvm-${{ matrix.llvm-version }}
-        if: steps.llvm.outputs.cache-hit != 'true'
-      - run: cmake --build . --parallel 4
+      - name: Build LLVM 16/17
+        if: (matrix.llvm-version == 16 || matrix.llvm-version == 17) && steps.llvm.outputs.cache-hit != 'true'
+        run: cmake --build . --parallel 4
         working-directory: llvm-${{ matrix.llvm-version }}/build
-        if: steps.llvm.outputs.cache-hit != 'true'
-      - run: cmake --install .
+      - name: Install LLVM 16/17
+        if: (matrix.llvm-version == 16 || matrix.llvm-version == 17) && steps.llvm.outputs.cache-hit != 'true'
+        run: cmake --install .
         working-directory: llvm-${{ matrix.llvm-version }}/build
-        if: steps.llvm.outputs.cache-hit != 'true'
+      - name: Configure LLVM 18/19 with configure_llvm.sh
+        if: (matrix.llvm-version == 18 || matrix.llvm-version == 19) && steps.llvm.outputs.cache-hit != 'true'
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version ${{ matrix.llvm-version }} --install-dir $HOME/opt/llvm/${{ matrix.llvm-version }} --link-type static
+      - name: Build LLVM 18/19
+        if: (matrix.llvm-version == 18 || matrix.llvm-version == 19) && steps.llvm.outputs.cache-hit != 'true'
+        run: cmake --build . --parallel 4
+        working-directory: llvm-project/llvm/build_${{ matrix.llvm-version }}
+      - name: Install LLVM 18/19
+        if: (matrix.llvm-version == 18 || matrix.llvm-version == 19) && steps.llvm.outputs.cache-hit != 'true'
+        run: cmake --install .
+        working-directory: llvm-project/llvm/build_${{ matrix.llvm-version }}
 
   pocl:
     needs: [pre_job, llvm, spirv-tools]
@@ -125,19 +158,9 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        pocl-version: [4, 5, 6, 7]
+        pocl-version: [6, 7]
         llvm-version: [16, 17, 18, 19]
         exclude:
-          - pocl-version: 4
-            llvm-version: 17
-          - pocl-version: 4
-            llvm-version: 18
-          - pocl-version: 4
-            llvm-version: 19
-          - pocl-version: 5
-            llvm-version: 18
-          - pocl-version: 5
-            llvm-version: 19
           - pocl-version: 6
             llvm-version: 19
           - pocl-version: 7
@@ -172,13 +195,22 @@ jobs:
           key: ${{ runner.os }}-build-${{ env.cache-name }}
           fail-on-cache-miss: true
         if: steps.pocl.outputs.cache-hit != 'true'
+      - name: Compute LLVM cache key for PoCL
+        id: compute-llvm-key-pocl
+        run: |
+          if [ "${{ matrix.llvm-version }}" == "18" ] || [ "${{ matrix.llvm-version }}" == "19" ]; then
+            echo "cache-key=${{ runner.os }}-build-cache-llvm-${{ matrix.llvm-version }}-release-${{ matrix.llvm-version }}.x" >> $GITHUB_OUTPUT
+          else
+            echo "cache-key=${{ steps.get-shas.outputs.llvm-cache-key }}" >> $GITHUB_OUTPUT
+          fi
+        if: steps.pocl.outputs.cache-hit != 'true'
       - uses: actions/cache@v3
         id: llvm
         env:
           cache-name: cache-llvm-${{ matrix.llvm-version }}
         with:
           path: ~/opt/llvm/${{ matrix.llvm-version }}
-          key: ${{ steps.get-shas.outputs.llvm-cache-key }}
+          key: ${{ steps.compute-llvm-key-pocl.outputs.cache-key }}
           fail-on-cache-miss: true
         if: steps.pocl.outputs.cache-hit != 'true'
       - run: sudo add-apt-repository ppa:ocl-icd/ppa; sudo apt update
@@ -218,15 +250,6 @@ jobs:
         include:
           # PoCL backend with specific version combinations
           - backend: pocl
-            pocl-version: 4
-            llvm-version: 16
-          - backend: pocl
-            pocl-version: 5
-            llvm-version: 16
-          - backend: pocl
-            pocl-version: 5
-            llvm-version: 17
-          - backend: pocl
             pocl-version: 6
             llvm-version: 16
           - backend: pocl
@@ -264,13 +287,21 @@ jobs:
         with:
           pocl-version: ${{ matrix.pocl-version }}
           llvm-version: ${{ matrix.llvm-version }}
+      - name: Compute LLVM cache key for chipstar
+        id: compute-llvm-key-chipstar
+        run: |
+          if [ "${{ matrix.llvm-version }}" == "18" ] || [ "${{ matrix.llvm-version }}" == "19" ]; then
+            echo "cache-key=${{ runner.os }}-build-cache-llvm-${{ matrix.llvm-version }}-release-${{ matrix.llvm-version }}.x" >> $GITHUB_OUTPUT
+          else
+            echo "cache-key=${{ steps.get-shas.outputs.llvm-cache-key }}" >> $GITHUB_OUTPUT
+          fi
       - uses: actions/cache@v3
         id: llvm
         env:
           cache-name: cache-llvm-${{ matrix.llvm-version }}
         with:
           path: ~/opt/llvm/${{ matrix.llvm-version }}
-          key: ${{ steps.get-shas.outputs.llvm-cache-key }}
+          key: ${{ steps.compute-llvm-key-chipstar.outputs.cache-key }}
           fail-on-cache-miss: true
       - uses: actions/cache@v3
         id: pocl
