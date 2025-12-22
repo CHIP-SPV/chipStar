@@ -172,9 +172,17 @@ if [ "$EMIT_ONLY" != "on" ]; then
     echo "Applying SPIRV-Translator patches..."
     for patch in "$TRANSLATOR_PATCH_DIR"/*.patch; do
       if [ -f "$patch" ]; then
-        echo "  Applying $(basename $patch)..."
+        patch_name=$(basename $patch)
+        
+        # Skip fp_fast_mode patch for LLVM 18/19 (test file structure changed, opaque pointers are default)
+        if [[ "$patch_name" == *"fp_fast_mode"* ]] && ([ "$VERSION" -eq 18 ] || [ "$VERSION" -eq 19 ]); then
+          echo "  Skipping $patch_name (not needed for LLVM ${VERSION})"
+          continue
+        fi
+        
+        echo "  Applying $patch_name..."
         git apply "$patch" || {
-          echo "Error: Failed to apply $(basename $patch)"
+          echo "Error: Failed to apply $patch_name"
           exit 1
         }
       fi
