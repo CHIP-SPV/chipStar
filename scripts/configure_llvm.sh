@@ -180,6 +180,16 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # Use version-specific patch for LLVM 17/18, skip the original for LLVM 17/18
+        if [[ "$patch_name" == "0002-Pretend-the-SPIR-ver-needed-by-shuffles-is-1.2.patch" ]] && ([ "$VERSION" -eq 17 ] || [ "$VERSION" -eq 18 ]); then
+          echo "  Skipping $patch_name (using LLVM 17/18-specific patch instead)"
+          continue
+        fi
+        if [[ "$patch_name" == "0002-Pretend-the-SPIR-ver-needed-by-shuffles-is-1.2-llvm17-18.patch" ]] && [ "$VERSION" -ne 17 ] && [ "$VERSION" -ne 18 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 17/18)"
+          continue
+        fi
+        
         echo "  Applying $patch_name..."
         git apply "$patch" || {
           echo "Error: Failed to apply $patch_name"
