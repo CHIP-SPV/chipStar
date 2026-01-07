@@ -3995,8 +3995,9 @@ static inline hipError_t hipMallocInternal(void **Ptr, size_t Size) {
   }
   // Lock the default queue in case map/unmap operations needed
   LOCK(::Backend->getActiveDevice()->getDefaultQueue()->QueueMtx)
+  // Use hipMemoryTypeUnified instead of hipMemoryTypeDevice for host-accessible memory
   void *RetVal = Backend->getActiveContext()->allocate(
-      Size, hipMemoryType::hipMemoryTypeDevice);
+      Size, hipMemoryType::hipMemoryTypeUnified);
   ERROR_IF((!RetVal), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
