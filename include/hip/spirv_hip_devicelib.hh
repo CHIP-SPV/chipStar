@@ -215,9 +215,7 @@ EXPORT unsigned long long clock64() {
 //       in future it will be changed with more reliable implementation.
 //       It is encouraged to use clock64() over clock() so that chance of data
 //       loss can be avoided.
-#ifdef __HIP_DEVICE_COMPILE__
 EXPORT long clock() { return (long)clock64(); }
-#endif
 
 EXPORT unsigned long long wall_clock64() {
   atomicAdd(&__chip_clk_counter, 1);
@@ -227,9 +225,7 @@ EXPORT unsigned long long wall_clock64() {
 //       in future it will be changed with more reliable implementation.
 //       It is encouraged to use clock64() over clock() so that chance of data
 //       loss can be avoided.
-#ifdef __HIP_DEVICE_COMPILE__
 EXPORT long wall_clock() { return (long)wall_clock64(); }
-#endif
 
 #include <hip/spirv_hip_runtime.h>
 
