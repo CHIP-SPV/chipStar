@@ -524,11 +524,9 @@
 #include <CL/cl_ext.h>
 #endif
 
-#if defined(__APPLE__) || defined(__MACOSX)
-#include <OpenCL/opencl.h>
-#else
+// Always use CL/opencl.h, even on macOS, to use chipStar's bundled headers
+// instead of Apple's framework headers
 #include <CL/opencl.h>
-#endif // !__APPLE__
 
 #if (__cplusplus >= 201103L || _MSVC_LANG >= 201103L )
 #define CL_HPP_NOEXCEPT_ noexcept
