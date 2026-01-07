@@ -440,7 +440,21 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
 
   // Skip if the module does not have device variables needing initialization.
   auto *NonSymbolResetKernel = findKernel(ChipNonSymbolResetKernelName);
-  if (ChipVars_.empty() && !NonSymbolResetKernel) {
+
+  // Check if there are any actual device variables to initialize
+  bool HasDeviceVarsToInit = false;
+  for (auto *Var : ChipVars_) {
+    if (Var->hasInitializer()) {
+      HasDeviceVarsToInit = true;
+      break;
+    }
+  }
+
+  // Skip if no variables need initialization
+  // Note: We also skip the reset kernel if there are no ChipVars, as the reset
+  // kernel may try to access device variables that were optimized away
+  if (!HasDeviceVarsToInit && (ChipVars_.empty() || !NonSymbolResetKernel)) {
+    logDebug("Skipping device variable initialization - no variables to initialize");
     DeviceVariablesInitialized_ = true;
     return;
   }
@@ -456,9 +470,13 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   }
 
   // Launch kernel for resetting host-inaccessible global device variables.
-  if (NonSymbolResetKernel) {
+  // Only launch if we actually have device variables, to avoid accessing
+  // variables that may have been optimized away
+  if (NonSymbolResetKernel && HasDeviceVarsToInit) {
     queueKernel(Queue, NonSymbolResetKernel);
     QueuedKernels = true;
+  } else if (NonSymbolResetKernel && !HasDeviceVarsToInit) {
+    logDebug("Skipping reset kernel - no device variables found (likely optimized away)");
   }
 
   if (QueuedKernels)
