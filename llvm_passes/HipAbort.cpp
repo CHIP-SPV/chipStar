@@ -78,7 +78,10 @@ InverseCallGraphNode *HipAbortPass::getInvertedCGNode(Function *F) {
 /// Get corresponding inverted call graph node for 'CGN'.
 InverseCallGraphNode *
 HipAbortPass::getInvertedCGNode(const CallGraphNode *CGN) {
-  return getInvertedCGNode(CGN->getFunction());
+  auto *F = CGN->getFunction();
+  if (!F)
+    return nullptr;
+  return getInvertedCGNode(F);
 }
 
 /// Create or get already created node for inverted call graph for the regular
@@ -86,6 +89,8 @@ HipAbortPass::getInvertedCGNode(const CallGraphNode *CGN) {
 InverseCallGraphNode *
 HipAbortPass::getOrCreateInvertedCGNode(const CallGraphNode *CGN) {
   auto *F = CGN->getFunction();
+  if (!F)
+    return nullptr;
   if (!InverseCallGraph.count(F))
     InverseCallGraph[F] = new InverseCallGraphNode(CGN);
   return getInvertedCGNode(F);
@@ -102,6 +107,8 @@ void HipAbortPass::buildInvertedCallGraph(const CallGraph &CG) {
     assert(CGCaller);
 
     auto *ICGCaller = getOrCreateInvertedCGNode(CGCaller);
+    if (!ICGCaller)
+      continue; // Skip nodes with null functions
 
     if (!CGCaller->size()) {
       // The function does not call anything, thus, won't abort either.
@@ -114,6 +121,8 @@ void HipAbortPass::buildInvertedCallGraph(const CallGraph &CG) {
       if (CGCalleeNode == CG.getCallsExternalNode())
         continue;
       auto *ICGCallee = getOrCreateInvertedCGNode(CGCalleeNode);
+      if (!ICGCallee)
+        continue; // Skip nodes with null functions
       ICGCallee->Callers.insert(ICGCaller);
     }
   }
@@ -142,8 +151,9 @@ static CallInst *getCallInst(const CallRecord &CR) {
 static InverseCallGraphNode *popAny(std::set<InverseCallGraphNode *> &Set) {
   assert(Set.size() && "Can't extract an element from empty container!");
   auto EltIt = Set.begin();
+  auto *Result = *EltIt;
   Set.erase(EltIt);
-  return *EltIt;
+  return Result;
 }
 
 void HipAbortPass::analyze(const CallGraph &CG) {
@@ -157,15 +167,19 @@ void HipAbortPass::analyze(const CallGraph &CG) {
         CGNode == CG.getCallsExternalNode())
       continue; // Only interested in functions with definition.
     auto *F = CGNode->getFunction();
-    if (F->isDeclaration())
+    if (!F || F->isDeclaration())
       continue;
 
-    if (F->getCallingConv() == CallingConv::SPIR_KERNEL)
-      KernelNodes.push_back(getInvertedCGNode(F));
+    if (F->getCallingConv() == CallingConv::SPIR_KERNEL) {
+      auto *KernelNode = getOrCreateInvertedCGNode(CGNode);
+      if (KernelNode)
+        KernelNodes.push_back(KernelNode);
+    }
 
     for (auto &CGRecord : *CGNode) {
       auto *CI = getCallInst(CGRecord);
-      assert(CI);
+      if (!CI)
+        continue;  // Skip nodes without call instructions
       bool IndirectCall = !CI->getCalledFunction();
       LLVM_DEBUG({
         if (IndirectCall) {
@@ -179,7 +193,9 @@ void HipAbortPass::analyze(const CallGraph &CG) {
       });
 
       if (callsAbort(CI) || IndirectCall) {
-        WorkList.insert(getInvertedCGNode(F));
+        auto *ICGNode = getOrCreateInvertedCGNode(CGNode);
+        if (ICGNode)
+          WorkList.insert(ICGNode);
         break;
       }
     }
@@ -219,7 +235,7 @@ bool HipAbortPass::mayCallAbort(const CallInst *CI) const {
     return true; // Current analysis does not extend beyond indirect calls.
 
   auto *Callee = CI->getCalledFunction();
-  if (InverseCallGraph.count(Callee))
+  if (!InverseCallGraph.count(Callee))
     return false; // Reaching this could also mean incomplete analysis.
 
   return InverseCallGraph.at(Callee)->mayCallAbort();
@@ -239,7 +255,8 @@ void HipAbortPass::processFunctions(Module &M) {
     auto *CGNode = ICGNode->OrigNode;
     for (auto &CGRecord : *CGNode) {
       auto *CI = getCallInst(CGRecord);
-      assert(CI);
+      if (!CI)
+        continue;  // Skip nodes without call instructions
       if (callsAbort(CI)) {
         CallsToHandle.insert(CI);
         AbortCallsToHandle.insert(CI);
@@ -261,13 +278,7 @@ void HipAbortPass::processFunctions(Module &M) {
   std::map<Function *, BasicBlock *> AbortReturnBlocks;
 
   for (auto Call : CallsToHandle) {
-#if LLVM_VERSION_MAJOR >= 22
-    // Since it's a call, it will precede an instruction (at least a
-    // terminator).
-    auto *InstrAfterCall = cast<Instruction>(Call->getNextNode());
-#else
     Instruction *InstrAfterCall = Call->getNextNonDebugInstruction();
-#endif
     Function *Func = Call->getParent()->getParent();
     llvm::BasicBlock *OrigBB = InstrAfterCall->getParent();
     llvm::BasicBlock *FallThrough = OrigBB->splitBasicBlock(InstrAfterCall);
@@ -282,11 +293,7 @@ void HipAbortPass::processFunctions(Module &M) {
                          ReturnBlock);
     }
 
-#if LLVM_VERSION_MAJOR >=22
-    InstrAfterCall = cast<Instruction>(Call->getNextNode());
-#else
     InstrAfterCall = Call->getNextNonDebugInstruction();
-#endif
     IRBuilder<> B(InstrAfterCall);
     LoadInst *FlagLoad =
         B.CreateLoad(AbortFlag->getValueType(), AbortFlag, true, "abort_flag");
