@@ -525,7 +525,9 @@ public:
     CHIPASSERT(HostPtr && "HostPtr is null");
     CHIPASSERT(DevPtr && "DevPtr is null");
     auto AllocInfo = this->getAllocInfo(DevPtr);
-    if (AllocInfo->HostPtr)
+    // For unified/SVM memory (like POCL), HostPtr is initially set to DevPtr.
+    // Only error if HostPtr is already set to a DIFFERENT pointer.
+    if (AllocInfo->HostPtr && AllocInfo->HostPtr != DevPtr)
       // HIP test suite expects hipErrorInvalidValue, HIP API does not
       // meantion it. If we followed CUDA Runtime API, we'd return
       // hipErrorHostMemoryAlreadyRegistered.
