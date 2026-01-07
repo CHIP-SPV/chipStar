@@ -933,24 +933,31 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 
   // TODO: Reuse already compiled modules.
 
-  auto AppendSource = [&](auto &Source) -> void {
+  auto AppendSource = [&](auto &Source, const std::string &Name) -> void {
+    if (ChipEnvVars.getDumpSpirv()) {
+      auto Str = std::string_view(reinterpret_cast<const char *>(Source.data()),
+                                  Source.size());
+      if (auto DumpPath = dumpSpirv(Str, Name))
+        logDebug("Dumped runtime object '{}' SPIR-V binary to '{}'", Name,
+                 fs::absolute(*DumpPath).c_str());
+    }
     Objects.push_back(compileIL(Ctx, ChipDev, Source));
   };
 
   if (ChipDev.hasFP32AtomicAdd())
-    AppendSource(chipstar::atomicAddFloat_native);
+    AppendSource(chipstar::atomicAddFloat_native, "atomicAddFloat_native");
   else
-    AppendSource(chipstar::atomicAddFloat_emulation);
+    AppendSource(chipstar::atomicAddFloat_emulation, "atomicAddFloat_emulation");
 
   if (ChipDev.hasDoubles()) {
     if (ChipDev.hasFP64AtomicAdd())
-      AppendSource(chipstar::atomicAddDouble_native);
+      AppendSource(chipstar::atomicAddDouble_native, "atomicAddDouble_native");
     else
-      AppendSource(chipstar::atomicAddDouble_emulation);
+      AppendSource(chipstar::atomicAddDouble_emulation, "atomicAddDouble_emulation");
   }
 
   if (ChipDev.hasBallot())
-    AppendSource(chipstar::ballot_native);
+    AppendSource(chipstar::ballot_native, "ballot_native");
 
   // No fall-back implementation for ballot - let linker raise an error.
 }
