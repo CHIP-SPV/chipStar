@@ -26,6 +26,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#if __cplusplus >= 201103L
+#include <thread>
+#endif
 
 #include <hip/driver_types.h>
 #include <hip/spirv_hip_host_defines.h>
