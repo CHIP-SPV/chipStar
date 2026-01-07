@@ -40,5 +40,6 @@ int main() {
   assert(OutH == 42);
 
   hipFree(OutD);
+  std::cout << "PASSED\n";
   return 0;
 }
