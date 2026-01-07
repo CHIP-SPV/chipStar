@@ -95,8 +95,8 @@ int main() {
   launchUnaryFn<bool>([] __device__(auto x) { return std::abs(x); });
   launchUnaryFn<unsigned char>([] __device__(auto x) { return std::abs(x); });
   launchUnaryFn<unsigned short>([] __device__(auto x) { return std::abs(x); });
-  launchUnaryFn<int>([] __device__(auto x) { return std::sin(x); });
-  launchUnaryFn<int>([] __device__(auto x) { return std::cos(x); });
+  launchUnaryFn<int>([] __device__(auto x) { return std::sin(static_cast<double>(x)); });
+  launchUnaryFn<int>([] __device__(auto x) { return std::cos(static_cast<double>(x)); });
   launchUnaryFn<int>([] __device__(int x) { return std::tan(x); });
   launchUnaryFn<int>([] __device__(int x) { return std::asin(x); });
   launchUnaryFn<int>([] __device__(auto x) { return std::acos(x); });
@@ -104,16 +104,16 @@ int main() {
   launchUnaryFn<int>([] __device__(auto x) { return std::sinh(x); });
   launchUnaryFn<int>([] __device__(auto x) { return std::cosh(x); });
   launchUnaryFn<int>([] __device__(int x) { return std::tanh(x); });
-  launchUnaryFn<int>([] __device__(int x) { return std::floor(x); });
-  launchUnaryFn<int>([] __device__(int x) { return std::ceil(x); });
-  launchUnaryFn<int>([] __device__(int x) { return std::log2(x); }, 2);
-  launchUnaryFn<int>([] __device__(int x) { return std::log10(x); }, 2);
-  launchUnaryFn<int>([] __device__(int x) { return std::erf(x); });
-  launchUnaryFn<int>([] __device__(int x) { return std::erfc(x); });
-  launchUnaryFn<int>([] __device__(int x) { return std::sqrt(x); });
-  launchUnaryFn<int>([] __device__(int x) { return std::lgamma(x); }, 1);
-  launchUnaryFn<int>([] __device__(int x) { return std::nearbyint(x); });
-  launchUnaryFn<int>([] __device__(int x) { return std::exp(x); });
+  launchUnaryFn<int>([] __device__(int x) { return std::floor(static_cast<double>(x)); });
+  launchUnaryFn<int>([] __device__(int x) { return std::ceil(static_cast<double>(x)); });
+  launchUnaryFn<int>([] __device__(int x) { return std::log2(static_cast<double>(x)); }, 2);
+  launchUnaryFn<int>([] __device__(int x) { return std::log10(static_cast<double>(x)); }, 2);
+  launchUnaryFn<int>([] __device__(int x) { return std::erf(static_cast<double>(x)); });
+  launchUnaryFn<int>([] __device__(int x) { return std::erfc(static_cast<double>(x)); });
+  launchUnaryFn<int>([] __device__(int x) { return std::sqrt(static_cast<double>(x)); });
+  launchUnaryFn<int>([] __device__(int x) { return std::lgamma(static_cast<double>(x)); }, 1);
+  launchUnaryFn<int>([] __device__(int x) { return std::nearbyint(static_cast<double>(x)); });
+  launchUnaryFn<int>([] __device__(int x) { return std::exp(static_cast<double>(x)); });
   launchUnaryFn<int>([] __device__(int x) { return std::lrint(x); });
 
   // Known issue:
