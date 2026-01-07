@@ -41,6 +41,30 @@ THE SOFTWARE.
 #include <cassert>
 #include <mutex>
 #include <utility>
+#include <libgen.h>
+#include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
+/// Get the current executable name for descriptive SPIR-V dump filenames
+static std::string getExecutableName() {
+#ifdef __APPLE__
+  char exePath[1024];
+  uint32_t size = sizeof(exePath);
+  if (_NSGetExecutablePath(exePath, &size) == 0) {
+    return basename(exePath);
+  }
+#elif defined(__linux__)
+  char exePath[1024];
+  ssize_t len = readlink("/proc/self/exe", exePath, sizeof(exePath) - 1);
+  if (len != -1) {
+    exePath[len] = '\0';
+    return basename(exePath);
+  }
+#endif
+  return "main";
+}
 
 /// Register a source module. The 'Source' must be non-empty and its
 /// lifetime must last until the unregistration.
@@ -167,10 +191,12 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
   //       compilation time in the backend.
 
   auto DumpBinary = [](const std::vector<uint32_t> &Bin) -> void {
-    if (ChipEnvVars.getDumpSpirv())
-      if (auto DumpPath = dumpSpirv(Bin))
+    if (ChipEnvVars.getDumpSpirv()) {
+      std::string exeName = getExecutableName();
+      if (auto DumpPath = dumpSpirv(Bin, exeName))
         logDebug("Dumped SPIR-V binary to '{}'",
                  fs::absolute(*DumpPath).c_str());
+    }
   };
 
   std::vector<uint32_t> Binary;
@@ -179,10 +205,12 @@ SPVModule *SPVRegister::getFinalizedSource(SPVModule *SrcMod) {
                        SrcMod->OriginalBinary_.size(), PreventNameDemangling,
                        Binary)) {
     logError("Failure in SPIR-V preprocessing.");
-    if (ChipEnvVars.getDumpSpirv())
-      if (auto DumpPath = dumpSpirv(SrcMod->OriginalBinary_))
+    if (ChipEnvVars.getDumpSpirv()) {
+      std::string exeName = getExecutableName();
+      if (auto DumpPath = dumpSpirv(SrcMod->OriginalBinary_, exeName))
         logDebug("Dumped SPIR-V binary to '{}'",
                  fs::absolute(*DumpPath).c_str());
+    }
     CHIPERR_LOG_AND_THROW("SPIR-V preprocessing failure.", hipErrorTbd);
   }
 

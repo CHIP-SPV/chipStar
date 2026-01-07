@@ -85,6 +85,24 @@ std::optional<fs::path> dumpSpirv(std::string_view Spirv) {
   return FileName;
 }
 
+/// Dump the SPIR-V to a file with a descriptive name
+///
+/// On success return the path to the file.
+std::optional<fs::path> dumpSpirv(std::string_view Spirv, std::string_view Name) {
+  std::string HashSum = generateShortHash(Spirv, 6);
+  std::string FileName = "hip-spirv-" + std::string(Name) + "-" + HashSum + ".spv";
+  std::ofstream SpirvFile(FileName, std::ios::binary);
+  if (!SpirvFile) {
+    std::cerr << "Error: Could not open file " << FileName << " for writing"
+              << std::endl;
+    return std::nullopt;
+  }
+
+  SpirvFile.write(Spirv.data(), Spirv.size());
+  SpirvFile.close();
+  return FileName;
+}
+
 /// Returns true if the hipcc can be executed by the user.
 static bool canExecuteHipcc(const fs::path &HipccPath) {
   if (!fs::exists(HipccPath))
