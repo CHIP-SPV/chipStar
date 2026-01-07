@@ -1,4 +1,5 @@
 #include "hip/hip_runtime.h"
+#include "hip/devicelib/type_casting_intrinsics.hh"
 #include <iostream>
 
 // CHIP-SPV/chipStar#302
