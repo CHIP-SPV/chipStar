@@ -18,7 +18,7 @@ ninja -t clean CHIP && ninja CHIP
 |--------|-------------|--------|
 | 1 | Fix cucc.py return type bug | ✅ Done |
 | 2 | Fix OpenCL constant in MemoryManager | ✅ Done |
-| 3 | Fix memory type in CHIPBindings | ⬚ TODO |
+| 3 | Fix memory type in CHIPBindings | ✅ Done |
 | 4 | Remove unused header include | ✅ Done |
 | 5 | Add type definitions to devicelib headers | ✅ Done |
 | 6 | Fix function attribute in int_math.hh | ✅ Done |
@@ -26,31 +26,33 @@ ninja -t clean CHIP && ninja CHIP
 | 8 | Add type definitions to sync_and_util.hh | ❌ Not needed |
 | 9 | Add is_convertible template specializations | ✅ Done |
 | 10 | Clean up spirv_hip_runtime.h header | ✅ Done |
-| 11 | Add standard includes to spirv_hip.hh | ⬚ TODO |
+| 11 | Add standard includes to spirv_hip.hh | ✅ Done |
 | 12 | Add device-compatible types and numeric_limits | ✅ Done |
-| 13 | Add device-compatible type traits to spirv_hip_vector_types.h | ⬚ TODO |
-| 14 | Add vector_element_type helper to VecAdd.cpp | ⬚ TODO |
-| 15 | Fix null pointer safety in HipAbort.cpp | ⬚ TODO |
+| 13 | Add device-compatible type traits to spirv_hip_vector_types.h | ✅ Done |
+| 14 | Add vector_element_type helper to VecAdd.cpp | ✅ Done |
+| 15 | Fix null pointer safety in HipAbort.cpp | ✅ Done |
 | 16 | Modernize printf to std::cout in tests | ✅ Done |
-| 17 | Fix test type casting issues | ⬚ TODO |
-| 18 | Fix TestLazyModuleInit test | ⬚ TODO |
-| 19 | Add device compilation guard to hipInfo | ⬚ TODO |
-| 20 | Update OpenCL header includes | ⬚ TODO |
-| 21 | Add debug build cache behavior | ⬚ TODO |
-| 22 | Fix shared_ptr usage in CHIPBackend | ⬚ TODO |
-| 23 | Improve device variable initialization logic | ⬚ TODO |
-| 24 | Improve error handling for unified memory | ⬚ TODO |
-| 25 | Add debug logging for kernel name lookup | ⬚ TODO |
-| 26 | Fix OpenCL type names and add deprecation macros | ⬚ TODO |
-| 27 | Improve OpenCL linking logic | ⬚ TODO |
-| 28 | Add SPIR-V dumping with names | ⬚ TODO |
-| 29 | Fix callback data structure | ⬚ TODO |
-| 30 | Remove cl_ext_buffer_device_address check | ⬚ TODO |
+| 17 | Fix test type casting issues | ✅ Done |
+| 18 | Fix TestLazyModuleInit test | ✅ Done |
+| 19 | Add device compilation guard to hipInfo | ✅ Done |
+| 20 | Update OpenCL header includes | ✅ Done |
+| 21 | Add debug build cache behavior | ✅ Already in codebase |
+| 22 | Fix shared_ptr usage in CHIPBackend | ⚠️ Requires structural changes |
+| 23 | Improve device variable initialization logic | ⚠️ Requires structural changes |
+| 24 | Improve error handling for unified memory | ⚠️ Requires structural changes |
+| 25 | Add debug logging for kernel name lookup | ⚠️ Requires structural changes |
+| 26 | Fix OpenCL type names and add deprecation macros | ⚠️ Requires structural changes |
+| 27 | Improve OpenCL linking logic | ⚠️ Requires structural changes |
+| 28 | Add SPIR-V dumping with names | ⚠️ Requires structural changes |
+| 29 | Fix callback data structure | ⚠️ Requires structural changes |
+| 30 | Remove cl_ext_buffer_device_address check | ⚠️ Requires structural changes |
 
-**Overall Progress:** 11/30 commits done (~37%)
+**Overall Progress:** 20/30 commits done (~67%)
 
 **Additional fixes applied (not in original plan):**
 - Remove redundant __HIP_DEVICE_COMPILE__ guards from clock()/wall_clock()
+
+**Note on commits 22-30:** These backend changes from macos-clean have structural incompatibilities with the current codebase (inheritance changes in Backend class). They require more careful integration or should be applied as part of a full merge from macos-clean.
 
 ---
 
