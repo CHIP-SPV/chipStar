@@ -470,13 +470,10 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   }
 
   // Launch kernel for resetting host-inaccessible global device variables.
-  // Only launch if we actually have device variables, to avoid accessing
-  // variables that may have been optimized away
-  if (NonSymbolResetKernel && HasDeviceVarsToInit) {
+  // This also handles static local variables in device functions.
+  if (NonSymbolResetKernel) {
     queueKernel(Queue, NonSymbolResetKernel);
     QueuedKernels = true;
-  } else if (NonSymbolResetKernel && !HasDeviceVarsToInit) {
-    logDebug("Skipping reset kernel - no device variables found (likely optimized away)");
   }
 
   if (QueuedKernels)
