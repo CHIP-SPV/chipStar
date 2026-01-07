@@ -37,11 +37,11 @@ ninja -t clean CHIP && ninja CHIP
 | 19 | Add device compilation guard to hipInfo | ✅ Done |
 | 20 | Update OpenCL header includes | ✅ Done |
 | 21 | Add debug build cache behavior | ✅ Already in codebase |
-| 22 | Fix shared_ptr usage in CHIPBackend | ⚠️ Requires structural changes |
+| 22 | Fix shared_ptr usage in CHIPBackend | ✅ Already in codebase |
 | 23 | Improve device variable initialization logic | ⚠️ Requires structural changes |
-| 24 | Improve error handling for unified memory | ⚠️ Requires structural changes |
-| 25 | Add debug logging for kernel name lookup | ⚠️ Requires structural changes |
-| 26 | Fix OpenCL type names and add deprecation macros | ⚠️ Requires structural changes |
+| 24 | Improve error handling for unified memory | ✅ Done |
+| 25 | Add debug logging for kernel name lookup | ✅ Done |
+| 26 | Fix OpenCL type names and add deprecation macros | ✅ Done |
 | 27 | Improve OpenCL linking logic | ⚠️ Requires structural changes |
 | 28 | Add SPIR-V dumping with names | ⚠️ Requires structural changes |
 | 29 | Fix callback data structure | ⚠️ Requires structural changes |
