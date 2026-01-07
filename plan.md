@@ -42,7 +42,7 @@ ninja -t clean CHIP && ninja CHIP
 | 24 | Improve error handling for unified memory | ✅ Done |
 | 25 | Add debug logging for kernel name lookup | ✅ Done |
 | 26 | Fix OpenCL type names and add deprecation macros | ✅ Done |
-| 27 | Improve OpenCL linking logic | ⚠️ Requires structural changes |
+| 27 | Improve OpenCL linking logic | ✅ Done (partial - skip link + diagnostics) |
 | 28 | Add SPIR-V dumping with names | ⚠️ Requires structural changes |
 | 29 | Fix callback data structure | ⚠️ Requires structural changes |
 | 30 | Remove cl_ext_buffer_device_address check | ⚠️ Requires structural changes |
