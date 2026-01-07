@@ -41,6 +41,14 @@
 
 #include <CL/cl_ext.h>
 
+#define CL_DEPRECATED(start, end)
+#define CL_EXT_SUFFIX__VERSION_1_0_DEPRECATED
+#define CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+#define CL_EXT_SUFFIX__VERSION_1_0
+#define CL_EXT_SUFFIX__VERSION_1_1
+#define CL_EXT_SUFFIX__VERSION_1_2
+#define GCL_API_SUFFIX__VERSION_1_1
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-braces"
 #include <CL/opencl.hpp>
@@ -74,10 +82,10 @@ static thread_local cl_int clStatus;
 #define CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT 0x5002
 #endif
 
-typedef cl_ulong cl_mem_device_address_EXT;
+typedef cl_ulong cl_mem_device_address_ext;
 
 typedef cl_int(CL_API_CALL *clSetKernelArgDevicePointerEXT_fn)(
-    cl_kernel kernel, cl_uint arg_index, cl_mem_device_address_EXT dev_addr);
+    cl_kernel kernel, cl_uint arg_index, cl_mem_device_address_ext dev_addr);
 
 #endif // cl_ext_buffer_device_address
 
@@ -290,9 +298,9 @@ public:
     }
     assert(clSetKernelArgDevicePointerEXT_);
     static_assert(
-        sizeof(cl_mem_device_address_EXT) == sizeof(void *),
-        "sizeof(cl_mem_device_address_EXT) does not match host pointer size!");
-    auto IntPtr = reinterpret_cast<cl_mem_device_address_EXT>(DevPtr);
+        sizeof(cl_mem_device_address_ext) == sizeof(void *),
+        "sizeof(cl_mem_device_address_ext) does not match host pointer size!");
+    auto IntPtr = reinterpret_cast<cl_mem_device_address_ext>(DevPtr);
     return clSetKernelArgDevicePointerEXT_(Kernel, ArgIdx, IntPtr);
   }
 
