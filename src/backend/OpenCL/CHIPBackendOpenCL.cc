@@ -1207,32 +1207,69 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
     auto linkStart = std::chrono::high_resolution_clock::now();
 
-    std::string Flags = "";
-    // Check if running on Intel GPU OpenCL driver
-    std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
-    bool isIntelGPU =
-        (vendor.find("Intel") != std::string::npos) &&
-        (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
+    // If only main program (no device libraries added), skip linking and build directly
+    if (ClObjects.size() == 1) {
+      logInfo("Only one program object, building directly instead of linking");
+      Program_ = ClMainObj;
+      cl_device_id dev_id = ChipDevOcl->get()->get();
+      Err = clBuildProgram(Program_.get(), 1, &dev_id,
+                           buildOptions.c_str(), nullptr, nullptr);
+      if (Err != CL_SUCCESS) {
+        dumpProgramLog(*ChipDevOcl, Program_);
+        CHIPERR_LOG_AND_THROW("Program build failed.", hipErrorInitializationError);
+      }
+    } else {
+      std::string Flags = "";
+      // Check if running on Intel GPU OpenCL driver
+      std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
+      bool isIntelGPU =
+          (vendor.find("Intel") != std::string::npos) &&
+          (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
 
-    if (isIntelGPU) {
-      // Only Intel GPU driver seems to need compile flags at the link step
-      Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
-                                           : ChipEnvVars.getJitFlags() + " " +
-                                                 Backend->getDefaultJitFlags();
-    }
+      if (isIntelGPU) {
+        // Only Intel GPU driver seems to need compile flags at the link step
+        Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
+                                             : ChipEnvVars.getJitFlags() + " " +
+                                                   Backend->getDefaultJitFlags();
+      }
 
-    logInfo("JIT Link flags: {}", Flags);
-    Program_ =
-        cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
-    auto linkEnd = std::chrono::high_resolution_clock::now();
-    auto linkDuration = std::chrono::duration_cast<std::chrono::microseconds>(
-        linkEnd - linkStart);
-    logTrace("cl::linkProgram took {} microseconds", linkDuration.count());
+      logInfo("JIT Link flags: {}", Flags);
+      logInfo("Linking {} program objects", ClObjects.size());
 
-    if (Err != CL_SUCCESS) {
-      dumpProgramLog(*ChipDevOcl, Program_);
-      CHIPERR_LOG_AND_THROW("Device library link step failed.",
-                            hipErrorInitializationError);
+      // Diagnostic logging for each program object
+      for (size_t i = 0; i < ClObjects.size(); i++) {
+        cl_int queryErr;
+        cl_program_binary_type binaryType;
+        queryErr = clGetProgramBuildInfo(ClObjects[i].get(), ChipDevOcl->get()->get(),
+                                         CL_PROGRAM_BINARY_TYPE,
+                                         sizeof(binaryType), &binaryType, nullptr);
+        if (queryErr == CL_SUCCESS) {
+          const char* typeStr = "UNKNOWN";
+          switch(binaryType) {
+            case CL_PROGRAM_BINARY_TYPE_NONE: typeStr = "NONE"; break;
+            case CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT: typeStr = "COMPILED_OBJECT"; break;
+            case CL_PROGRAM_BINARY_TYPE_LIBRARY: typeStr = "LIBRARY"; break;
+            case CL_PROGRAM_BINARY_TYPE_EXECUTABLE: typeStr = "EXECUTABLE"; break;
+          }
+          logInfo("  Program[{}]: binary_type = {} ({})", i, typeStr, (int)binaryType);
+        } else {
+          logWarn("  Program[{}]: Failed to query binary type, error = {}", i, queryErr);
+        }
+      }
+
+      Program_ =
+          cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
+      auto linkEnd = std::chrono::high_resolution_clock::now();
+      auto linkDuration = std::chrono::duration_cast<std::chrono::microseconds>(
+          linkEnd - linkStart);
+      logTrace("cl::linkProgram took {} microseconds", linkDuration.count());
+
+      if (Err != CL_SUCCESS) {
+        logError("clLinkProgram failed with error code: {} (0x{:x})", Err, (unsigned)Err);
+        dumpProgramLog(*ChipDevOcl, Program_);
+        CHIPERR_LOG_AND_THROW("Device library link step failed.",
+                              hipErrorInitializationError);
+      }
     }
 
     save(Program_, cacheName);
