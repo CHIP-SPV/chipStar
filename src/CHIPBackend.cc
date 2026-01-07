@@ -314,6 +314,10 @@ chipstar::Kernel *chipstar::Module::findKernel(const std::string &Name) {
 chipstar::Kernel *chipstar::Module::getKernelByName(const std::string &Name) {
   auto *Kernel = findKernel(Name);
   if (!Kernel) {
+    logDebug("getKernelByName failed for '{}', available kernels:", Name);
+    for (auto *K : ChipKernels_) {
+      logDebug("  - '{}'", K->getName());
+    }
     std::string Msg = "Failed to find kernel via kernel name: " + Name;
     CHIPERR_LOG_AND_THROW(Msg, hipErrorLaunchFailure);
   }
