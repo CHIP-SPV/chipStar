@@ -20,8 +20,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+#ifndef __HIP_DEVICE_COMPILE__
 #include <iostream>
 #include <iomanip>
+#endif
 
 #include <hip/hip_runtime.h>
 
@@ -62,6 +64,7 @@ void printCompilerInfo() {
 
 double bytesToGB(size_t s) { return (double)s / (1024.0 * 1024.0 * 1024.0); }
 
+#ifndef __HIP_DEVICE_COMPILE__
 #define printLimit(w1, limit, units)                                                               \
     {                                                                                              \
         size_t val;                                                                                \
@@ -202,3 +205,4 @@ int main(int argc, char* argv[]) {
 
     std::cout << std::endl;
 }
+#endif // __HIP_DEVICE_COMPILE__
