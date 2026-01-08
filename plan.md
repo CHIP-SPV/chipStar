@@ -44,10 +44,10 @@ ninja -t clean CHIP && ninja CHIP
 | 26 | Fix OpenCL type names and add deprecation macros | ✅ Done |
 | 27 | Improve OpenCL linking logic | ✅ Done (partial - skip link + diagnostics) |
 | 28 | Add SPIR-V dumping with names | ✅ Done |
-| 29 | Fix callback data structure | ⚠️ Requires structural changes |
-| 30 | Remove cl_ext_buffer_device_address check | ⚠️ Requires structural changes |
+| 29 | Fix callback data structure | ⚠️ Requires structural changes (different sync strategy) |
+| 30 | Remove cl_ext_buffer_device_address check | ❌ Not needed (macOS passes SVM check first) |
 
-**Overall Progress:** 21/30 commits done (~70%)
+**Overall Progress:** 22/30 commits done (~73%)
 
 **Additional fixes applied (not in original plan):**
 - Remove redundant __HIP_DEVICE_COMPILE__ guards from clock()/wall_clock()
