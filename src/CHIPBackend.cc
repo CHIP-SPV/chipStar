@@ -450,10 +450,13 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
     }
   }
 
-  // Skip if no variables need initialization
-  // Note: We also skip the reset kernel if there are no ChipVars, as the reset
-  // kernel may try to access device variables that were optimized away
-  if (!HasDeviceVarsToInit && (ChipVars_.empty() || !NonSymbolResetKernel)) {
+  // Skip only if ALL conditions are true:
+  // - No device vars need initialization
+  // - ChipVars is empty (no global device variables)
+  // - No reset kernel exists (no static local variables)
+  // We must run NonSymbolResetKernel if it exists, even with empty ChipVars,
+  // because it handles static local variables in device functions.
+  if (!HasDeviceVarsToInit && ChipVars_.empty() && !NonSymbolResetKernel) {
     logDebug("Skipping device variable initialization - no variables to initialize");
     DeviceVariablesInitialized_ = true;
     return;
