@@ -3995,9 +3995,14 @@ static inline hipError_t hipMallocInternal(void **Ptr, size_t Size) {
   }
   // Lock the default queue in case map/unmap operations needed
   LOCK(::Backend->getActiveDevice()->getDefaultQueue()->QueueMtx)
-  // Use hipMemoryTypeUnified instead of hipMemoryTypeDevice for host-accessible memory
-  void *RetVal = Backend->getActiveContext()->allocate(
-      Size, hipMemoryType::hipMemoryTypeUnified);
+  // On macOS (clvk), use unified memory for proper SVM semantics
+  // On other platforms, use device memory (works with POCL, Intel OpenCL, Level Zero)
+#ifdef __APPLE__
+  hipMemoryType MemType = hipMemoryType::hipMemoryTypeUnified;
+#else
+  hipMemoryType MemType = hipMemoryType::hipMemoryTypeDevice;
+#endif
+  void *RetVal = Backend->getActiveContext()->allocate(Size, MemType);
   ERROR_IF((!RetVal), hipErrorMemoryAllocation);
 
   *Ptr = RetVal;
