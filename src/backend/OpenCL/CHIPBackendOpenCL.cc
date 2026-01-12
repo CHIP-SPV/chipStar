@@ -2471,7 +2471,11 @@ void CHIPBackendOpenCL::uninitialize() {
     // Wait longer and more aggressively for threads to exit
     for (int i = 0; i < 300;
          i++) { // Max 30 seconds instead of 20 for extra safety
+#ifdef __APPLE__
+      sched_yield();
+#else
       pthread_yield();
+#endif
       usleep(100000); // 100ms per iteration
 
       activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);

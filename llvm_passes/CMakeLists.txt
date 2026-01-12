@@ -107,6 +107,14 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipVerify.cpp
     ${EXTRA_OBJS})
 
+# On macOS, MODULE libraries need explicit linking against LLVM
+if(APPLE AND LLVM_LINK_LLVM_DYLIB)
+  target_link_libraries(LLVMHipPasses PRIVATE LLVM)
+  target_link_libraries(LLVMHipDynMem PRIVATE LLVM)
+  target_link_libraries(LLVMHipStripUsedIntrinsics PRIVATE LLVM)
+  target_link_libraries(LLVMHipDefrost PRIVATE LLVM)
+endif()
+
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
 target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipStripUsedIntrinsics PRIVATE -I/${LLVM_INCLUDE_DIRS})
