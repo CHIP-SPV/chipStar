@@ -619,23 +619,37 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto CallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
 
-  // Workaround for Level Zero driver bug on Aurora: when using immediate
-  // command lists, barriers may not see events signaled on other queues
-  // unless we first wait for them from the host. This ensures the events
-  // are fully visible before the GPU barrier starts waiting.
-  for (auto &SyncEvent : QueueSyncEvents) {
-    zeStatus = zeEventHostSynchronize(SyncEvent, UINT64_MAX);
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostSynchronize);
-  }
+  // Create a marker on the copy command list to sync with pending copy ops.
+  // This is needed because Level0 uses separate command lists for compute and
+  // copy operations, and a barrier on getCmdListImm() won't wait for work on
+  // getCmdListImmCopy().
+  auto CopyMarker =
+      BackendLz->createEventDedicated(ChipContextLz, "CopyMarkerForCallback");
+  auto CopyMarkerLz = std::static_pointer_cast<CHIPEventLevel0>(CopyMarker);
 
-  // Lock before using immediate command list
+  // Lock before using immediate command lists
   LOCK(ChipQueueLz->CommandListMtx);
   ze_command_list_handle_t CommandList = ChipQueueLz->getCmdListImm();
+  ze_command_list_handle_t CopyCommandList = ChipQueueLz->getCmdListImmCopy();
 
-  // Add a barrier so that it signals
-  zeStatus = zeCommandListAppendBarrier(
-      CommandList, GpuReadyLz->get(), QueueSyncEvents.size(),
-      QueueSyncEvents.data());
+  // Append barrier on copy command list - waits for all pending copies and
+  // signals CopyMarker
+  zeStatus = zeCommandListAppendBarrier(CopyCommandList, CopyMarkerLz->get(),
+                                        0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+
+  // Build the list of events to wait on: QueueSyncEvents + CopyMarker
+  std::vector<ze_event_handle_t> EventsToWaitOn;
+  EventsToWaitOn.reserve(QueueSyncEvents.size() + 1);
+  for (auto &E : QueueSyncEvents) {
+    EventsToWaitOn.push_back(E);
+  }
+  EventsToWaitOn.push_back(CopyMarkerLz->get());
+
+  // Add a barrier that waits for both queue sync events AND the copy marker
+  zeStatus = zeCommandListAppendBarrier(CommandList, GpuReadyLz->get(),
+                                        EventsToWaitOn.size(),
+                                        EventsToWaitOn.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
   zeStatus =
