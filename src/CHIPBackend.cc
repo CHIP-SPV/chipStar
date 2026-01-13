@@ -1472,7 +1472,11 @@ void chipstar::Backend::waitForThreadExit() {
            activeThreads - 1);
 
   for (int i = 0; i < 50; i++) { // Max 5 seconds
+#ifdef __APPLE__
+    sched_yield();
+#else
     pthread_yield();
+#endif
     usleep(100000); // 100ms per iteration
 
     activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
@@ -1539,7 +1543,7 @@ chipstar::Context *chipstar::Backend::getActiveContext() {
   LOCK(::Backend->ActiveCtxMtx); // reading Backend::ChipCtxStack
   // assert(ChipCtxStack.size() > 0 && "Context stack is empty");
   if (ChipCtxStack.size() == 0) {
-    logDebug("Context stack is empty for thread {}", pthread_self());
+    logDebug("Context stack is empty for thread {}", (void*)pthread_self());
     ChipCtxStack.push(PrimaryContext);
   }
   return ChipCtxStack.top();
