@@ -9,3 +9,4 @@ test_find_cmake/*
 report.*
 test_logs/*
 *.pyc
+.DS_Store
