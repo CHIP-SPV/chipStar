@@ -372,7 +372,7 @@ public:
 
   void join() {
     assert(Thread_);
-    logDebug("Joining chipstar::Event Monitor Thread {}", Thread_);
+    logDebug("Joining chipstar::Event Monitor Thread {}", (void*)Thread_);
     int Status = pthread_join(Thread_, nullptr);
     if (Status != 0) {
       logError("Failed to call join() {}", Status);
@@ -391,7 +391,7 @@ public:
     auto Res = pthread_create(&Thread_, 0, monitorWrapper, (void *)this);
     if (Res)
       CHIPERR_LOG_AND_THROW("Failed to create thread", hipErrorTbd);
-    logDebug("Thread Created with ID : {}", Thread_);
+    logDebug("Thread Created with ID : {}", (void*)Thread_);
   }
 
   void stop() {
