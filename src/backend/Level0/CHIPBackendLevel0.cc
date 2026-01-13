@@ -613,58 +613,68 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
 
   // Need to create another event as GpuAck will be destroyed once callback is
-  // complete
-  auto CallbackComplete =
+  // complete. Store in member variable so checkCallbacks() can access it.
+  CallbackComplete =
       BackendLz->createEventDedicated(ChipContextLz, "CallbackComplete");
   auto CallbackCompleteLz =
       std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
 
-  // Create a marker on the copy command list to sync with pending copy ops.
+  // Create markers on both command lists to sync with pending operations.
   // This is needed because Level0 uses separate command lists for compute and
-  // copy operations, and a barrier on getCmdListImm() won't wait for work on
-  // getCmdListImmCopy().
+  // copy operations. We need to wait for all previous work on BOTH lists.
   auto CopyMarker =
       BackendLz->createEventDedicated(ChipContextLz, "CopyMarkerForCallback");
   auto CopyMarkerLz = std::static_pointer_cast<CHIPEventLevel0>(CopyMarker);
+
+  auto ComputeMarker =
+      BackendLz->createEventDedicated(ChipContextLz, "ComputeMarkerForCallback");
+  auto ComputeMarkerLz = std::static_pointer_cast<CHIPEventLevel0>(ComputeMarker);
 
   // Lock before using immediate command lists
   LOCK(ChipQueueLz->CommandListMtx);
   ze_command_list_handle_t CommandList = ChipQueueLz->getCmdListImm();
   ze_command_list_handle_t CopyCommandList = ChipQueueLz->getCmdListImmCopy();
 
-  // Append barrier on copy command list - waits for all pending copies and
-  // signals CopyMarker
+  // Append barrier on copy command list - waits for all pending copies
   zeStatus = zeCommandListAppendBarrier(CopyCommandList, CopyMarkerLz->get(),
                                         0, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
-  // Build the list of events to wait on: QueueSyncEvents + CopyMarker
+  // Append barrier on compute command list - waits for all pending compute ops
+  zeStatus = zeCommandListAppendBarrier(CommandList, ComputeMarkerLz->get(),
+                                        0, nullptr);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+
+  // Build the list of events to wait on: QueueSyncEvents + both markers
   std::vector<ze_event_handle_t> EventsToWaitOn;
-  EventsToWaitOn.reserve(QueueSyncEvents.size() + 1);
+  EventsToWaitOn.reserve(QueueSyncEvents.size() + 2);
   for (auto &E : QueueSyncEvents) {
     EventsToWaitOn.push_back(E);
   }
   EventsToWaitOn.push_back(CopyMarkerLz->get());
+  EventsToWaitOn.push_back(ComputeMarkerLz->get());
 
-  // Add a barrier that waits for both queue sync events AND the copy marker
+  // Add a barrier that waits for queue sync events AND both command list markers
   zeStatus = zeCommandListAppendBarrier(CommandList, GpuReadyLz->get(),
                                         EventsToWaitOn.size(),
                                         EventsToWaitOn.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
-  zeStatus =
-      zeCommandListAppendBarrier(CommandList, GpuAckLz->get(), 1,
-                                 &CpuCallbackCompleteLz->get());
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
-
-  zeStatus = zeCommandListAppendBarrier(CommandList,
-                                        CallbackCompleteLz->get(), 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  // NOTE: We don't add a barrier waiting on CpuCallbackComplete here.
+  // Instead, we submit it in checkCallbacks() AFTER the callback completes.
+  // This avoids race conditions where the GPU barrier may not see the
+  // host-signaled event under heavy parallel load.
   
   // Track GpuReady event so it can be properly monitored for completion
   Backend->trackEvent(GpuReady);
   
   ChipQueueLz->executeCommandList(CommandList, CallbackComplete);
+  
+  // Force immediate command list to flush its pending commands to the GPU.
+  // Under heavy parallel load, the driver may batch commands and delay
+  // execution. A zero-timeout sync forces the flush without blocking.
+  zeCommandListHostSynchronize(CommandList, 0);
+  zeCommandListHostSynchronize(CopyCommandList, 0);
 }
 
 // End CHIPCallbackDataLevel0
@@ -703,8 +713,44 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
   }
 
   CbData->execute(hipSuccess);
+  
+  // Signal all callback events from the host. This bypasses the GPU barrier
+  // synchronization which can be unreliable under heavy parallel load.
+  // The barriers submitted to the GPU command list will still ensure proper
+  // ordering of subsequent GPU work (they wait on CpuCallbackComplete).
   CbData->CpuCallbackComplete->hostSignal();
-  CbData->GpuAck->wait();
+  
+  // Submit barriers to GPU for subsequent work to wait on
+  auto ChipQueueLz = static_cast<CHIPQueueLevel0 *>(CbData->ChipQueue);
+  auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(CbData->GpuAck);
+  auto CpuCallbackCompleteLz = 
+      std::static_pointer_cast<CHIPEventLevel0>(CbData->CpuCallbackComplete);
+  auto CallbackCompleteLz = 
+      std::static_pointer_cast<CHIPEventLevel0>(CbData->CallbackComplete);
+  
+  {
+    LOCK(ChipQueueLz->CommandListMtx);
+    ze_command_list_handle_t CommandList = ChipQueueLz->getCmdListImm();
+    
+    // Barrier waits on CpuCallbackComplete and signals GpuAck
+    ze_result_t zeStatus = zeCommandListAppendBarrier(
+        CommandList, GpuAckLz->get(), 1, &CpuCallbackCompleteLz->get());
+    if (zeStatus != ZE_RESULT_SUCCESS) {
+      logError("zeCommandListAppendBarrier failed: {}", zeStatus);
+    }
+    
+    // Final barrier signals CallbackComplete  
+    zeStatus = zeCommandListAppendBarrier(CommandList, CallbackCompleteLz->get(), 
+                                          0, nullptr);
+    if (zeStatus != ZE_RESULT_SUCCESS) {
+      logError("zeCommandListAppendBarrier failed: {}", zeStatus);
+    }
+  }
+  
+  // Signal GpuAck from host as well to unblock immediately
+  // (the GPU barrier will also signal it, but host signal ensures we don't wait)
+  CbData->GpuAck->hostSignal();
+  CbData->CallbackComplete->hostSignal();
 
   delete CbData;
   pthread_yield();
