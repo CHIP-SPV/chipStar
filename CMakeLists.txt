@@ -237,9 +237,6 @@ option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
-option(CHIP_BUILD_HIPBLAS "When enabled, hipBLAS will be built and installed along chipStar" OFF)
-option(CHIP_BUILD_HIPFFT "When enabled, hipFFT will be built and installed along chipStar" OFF)
-option(CHIP_BUILD_HIPSOLVER "When enabled, hipSOLVER will be built and installed along chipStar" OFF)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
 
@@ -738,14 +735,6 @@ file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/
      DESTINATION ${CMAKE_BINARY_DIR}/include)
 file(COPY ${CMAKE_SOURCE_DIR}/include/
      DESTINATION ${CMAKE_BINARY_DIR}/include)
-if(CHIP_BUILD_HIPBLAS)
-  file(COPY ${CMAKE_SOURCE_DIR}/H4I-HipBLAS/include/
-       DESTINATION ${CMAKE_BINARY_DIR}/include)
-endif()
-if(CHIP_BUILD_HIPFFT)
-  file(COPY ${CMAKE_SOURCE_DIR}/H4I-HipFFT/include/
-       DESTINATION ${CMAKE_BINARY_DIR}/include)
-endif()
 
 # Setup .hipInfo. One for install and another for build directory.
 string(TIMESTAMP _timestamp UTC)
@@ -879,27 +868,6 @@ install(EXPORT CHIPTargets
 # enable the build_tests target
 SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
 
-if (CHIP_BUILD_HIPBLAS OR CHIP_BUILD_HIPFFT OR CHIP_BUILD_HIPSOLVER)
-  add_subdirectory(H4I-MKLShim)
-  add_dependencies(MKLShim CHIP)
-endif()
-
-if (CHIP_BUILD_HIPBLAS)
-  add_subdirectory(H4I-HipBLAS)
-  add_dependencies(hipblas CHIP MKLShim)
-endif()
-
-if (CHIP_BUILD_HIPFFT)
-  add_subdirectory(H4I-HipFFT)
-  # for picking up hip_version.h
-  target_include_directories(hipfft PUBLIC ${CMAKE_BINARY_DIR}/include)
-  add_dependencies(hipfft CHIP MKLShim)
-endif()
-
-if (CHIP_BUILD_HIPSOLVER)
-  add_subdirectory(H4I-HipSOLVER)
-  add_dependencies(hipsolver CHIP MKLShim)
-endif()
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
 set(CMAKE_WARN_DEPRECATED OFF)
