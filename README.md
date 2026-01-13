@@ -21,15 +21,43 @@ The name chipStar comes from `c`uda and `hip` and the word `Star` which means as
 
 ## Library Support
 
-The following libraries have been ported to work on Intel GPUs via MKL:
-- [hipBLAS](https://github.com/CHIP-SPV/H4I-HipBLAS) (Can be built as a part of chipStar by adding `-DCHIP_BUILD_HIPBLAS=ON`)
-- [hipFFT](https://github.com/CHIP-SPV/H4I-HipFFT) (Can be built as a part of chipStar by adding `-DCHIP_BUILD_HIPFFT=ON`)
-- [hipSOLVER](https://github.com/CHIP-SPV/H4I-HipSOLVER)
-- [hipCUB](https://github.com/CHIP-SPV/hipCUB)
+chipStar supports a growing set of HIP/ROCm libraries. Use `install_chipstar.py` to install chipStar along with any of these libraries:
 
-The following libraries have been ported and should work on any platform:
-- [rocRAND](https://github.com/CHIP-SPV/rocRAND)
-- [rocPRIM](https://github.com/CHIP-SPV/rocPRIM)
+```bash
+# Interactive mode with TUI
+./install_chipstar.py
+
+# Install specific components
+./install_chipstar.py --components chipstar,rocprim,hipcub
+
+# Install everything
+./install_chipstar.py --all --install-dir ~/install/HIP
+
+# List available components
+./install_chipstar.py --list
+```
+
+### Platform-Independent Libraries
+
+These libraries have been ported to work with chipStar on any supported platform:
+
+- [rocPRIM](https://github.com/CHIP-SPV/rocPRIM) - Parallel primitives library
+- [hipCUB](https://github.com/CHIP-SPV/hipCUB) - CUB-like primitives for HIP
+- [rocThrust](https://github.com/CHIP-SPV/rocThrust) - Thrust parallel algorithms
+- [rocRAND](https://github.com/CHIP-SPV/rocRAND) - Random number generation
+- [hipRAND](https://github.com/CHIP-SPV/hipRAND) - HIP random number interface
+- [rocSPARSE](https://github.com/CHIP-SPV/rocSPARSE) - Sparse matrix operations
+- [hipSPARSE](https://github.com/CHIP-SPV/hipSPARSE) - HIP sparse matrix interface
+- [hipMM](https://github.com/CHIP-SPV/hipMM) - HIP memory manager (RMM port)
+
+### Intel MKL-Based Libraries
+
+These libraries are ported for Intel GPUs using oneAPI MKL as backend:
+
+- [H4I-MKLShim](https://github.com/CHIP-SPV/H4I-MKLShim) - Intel MKL shim layer (required by libraries below)
+- [H4I-HipBLAS](https://github.com/CHIP-SPV/H4I-HipBLAS) - hipBLAS via MKL
+- [H4I-HipFFT](https://github.com/CHIP-SPV/H4I-HipFFT) - hipFFT via MKL
+- [H4I-HipSOLVER](https://github.com/CHIP-SPV/H4I-HipSOLVER) - hipSOLVER via MKL
 
 *If there is a library that you need that is not yet supported, please open an issue stating which libraries you require and what application you are trying to build.*
 
@@ -145,8 +173,6 @@ cmake .. \
     -DCMAKE_INSTALL_PREFIX=/path/to/install
 make all build_tests install -j8
 ```
-
-You can also compile and install hipBLAS by adding `-DCHIP_BUILD_HIPBLAS=ON`
 
 NOTE: If you don't have libOpenCL.so (for example from the `ocl-icd-opencl-dev` package), but only libOpenCL.so.1 installed, CMake fails to find it and disables the OpenCL backend. This [issue](https://github.com/CHIP-SPV/chipStar/issues/542) describes a workaround.
 
