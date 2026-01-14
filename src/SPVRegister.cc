@@ -125,13 +125,9 @@ void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
     // In case of **templated** and **inline qualified** __constant__
     // variables, there may be duplicate __hipRegisterVar() calls.
     // Similar to functions, record the first one and ignore duplicates.
+    // This also handles special abort/heap variables which may have
+    // multiple registrations with the same host pointer and name.
     if (HostPtrLookup_[Ptr]->Name == Name) {
-      return;
-    }
-    // A variable made for abort() and device-side malloc implementation is an
-    // exception to this due to the way it's modeled.
-    if ((Name == ChipDeviceAbortFlagName || Name == ChipDeviceHeapName) &&
-        HostPtrLookup_[Ptr]->Name == Name) {
       return;
     }
     assert(false && "Host-pointer is already mapped to a different variable.");
