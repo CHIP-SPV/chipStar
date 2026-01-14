@@ -6,6 +6,10 @@
 #include "backend/OpenCL/CHIPBackendOpenCL.hh"
 
 #include <unistd.h>
+#ifdef __APPLE__
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+#endif
 
 void check(bool Ok, size_t Line) {
   if (!Ok) {
