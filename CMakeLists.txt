@@ -819,6 +819,10 @@ install(
 )
 install(EXPORT hip-targets FILE hip-targets.cmake NAMESPACE hip:: DESTINATION lib/cmake/hip COMPONENT binary)
 
+# Install hip-lang-config.cmake for CMake's native HIP language support
+install(FILES ${CMAKE_SOURCE_DIR}/cmake/hip-lang/hip-lang-config.cmake
+  DESTINATION ${CONFIG_LANG_PACKAGE_INSTALL_DIR})
+
 # Generate hip_version.h
 set(_pchStatus 0)
 set(_versionInfoHeader
