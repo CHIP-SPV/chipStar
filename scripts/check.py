@@ -67,7 +67,7 @@ if args.device_type == "cpu":
     device_type_stripped = "cpu"
     env_vars = f"CHIP_BE={args.backend} CHIP_DEVICE_TYPE=cpu"
 elif args.device_type == "pocl":
-    device_type_stripped = "cpu"  # For test file naming, pocl tests use cpu test lists
+    device_type_stripped = "pocl"  # Use OPENCL_POCL test list for pocl-specific known failures
     env_vars = f"CHIP_BE={args.backend} CHIP_DEVICE_TYPE=pocl"
 else:
     # Let chipStar auto-detect available devices
