@@ -23,6 +23,9 @@
 #include "CHIPBackend.hh"
 #include <atomic>
 
+// Definition of thread_local static member (required when not using 'inline')
+thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefaultQueue;
+
 // Global counter for threads that have called HIP APIs
 std::atomic<int> GlobalActiveThreads{0};
 
