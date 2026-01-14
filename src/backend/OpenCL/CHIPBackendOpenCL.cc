@@ -1978,6 +1978,31 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 void CHIPQueueOpenCL::finish() {
+  // Workaround for Mali driver bug: Flush all queues before finishing any.
+  // The Mali-G52 OpenCL driver deadlocks when one queue waits on events from
+  // another queue that hasn't been flushed. This ensures all pending commands
+  // are submitted to the device before we wait.
+  // Note: We use getQueuesNoLock() because the caller (e.g., hipDeviceSynchronize)
+  // may already hold QueueAddRemoveMtx.
+  {
+    auto *Dev = static_cast<CHIPDeviceOpenCL *>(ChipDevice_);
+    for (auto &Q : Dev->getQueuesNoLock()) {
+      auto *OclQueue = static_cast<CHIPQueueOpenCL *>(Q);
+      if (OclQueue->ClRegularQueue_.get()) {
+        cl_int FlushStatus = clFlush(OclQueue->ClRegularQueue_.get());
+        if (FlushStatus != CL_SUCCESS) {
+          logWarn("clFlush failed on queue {}: {}", (void*)Q, FlushStatus);
+        }
+      }
+      if (OclQueue->ClProfilingQueue_.get()) {
+        cl_int FlushStatus = clFlush(OclQueue->ClProfilingQueue_.get());
+        if (FlushStatus != CL_SUCCESS) {
+          logWarn("clFlush failed on profiling queue {}: {}", (void*)Q, FlushStatus);
+        }
+      }
+    }
+  }
+
   // Finish both queues to ensure all commands complete
   // This is necessary because we might have commands on both regular and profiling queues
   if (ClRegularQueue_.get()) {
