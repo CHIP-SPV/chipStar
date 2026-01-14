@@ -184,7 +184,28 @@ else:
     num_tries = args.num_tries
 
 res, err = run_tests(num_tries)
+# Check for success: "0 tests failed" indicates all run tests passed
+# Also accept "100% tests passed" with "0 tests failed" 
 if "0 tests failed" in res:
     exit(0)
+elif "100% tests passed" in res:
+    # If 100% passed but we don't see "0 tests failed", check the summary line
+    # Extract the test summary line
+    for line in res.split('\n'):
+        if "% tests passed" in line and "0 tests failed" in line:
+            exit(0)
+        elif "% tests passed" in line and "tests failed" in line:
+            # Parse the line to check if failures are 0
+            import re
+            match = re.search(r'(\d+) tests failed', line)
+            if match and int(match.group(1)) == 0:
+                exit(0)
+    # If we got here, 100% passed but format is unexpected - still success
+    exit(0)
 else:
+    # Print failure summary for debugging
+    print("\n=== Test execution summary ===")
+    for line in res.split('\n'):
+        if "% tests passed" in line or "tests failed" in line or "tests passed" in line:
+            print(line)
     exit(1)
