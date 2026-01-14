@@ -435,7 +435,6 @@ salami:
     Unit_hipEventRecord: 'Timeout'
     Unit_hipMultiThreadStreams1_AsyncSame: 'Timeout'
     hipTestDeviceSymbol: 'Timeout'
-    TestEventRecordCircularDep: 'Timeout on Mali-G52'
     Unit_hipGraphAddEventRecordNode_Functional_Simple: ''
     Unit_hipGraphAddEventRecordNode_Functional_WithoutFlags: '' 
     Unit_hipGraphAddEventRecordNode_Functional_WithFlags: '' 
