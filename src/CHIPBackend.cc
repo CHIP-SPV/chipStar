@@ -1185,51 +1185,66 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
 
   // Discover device-only variables (e.g., template instantiations) that weren't
   // registered via __hipRegisterVar. These have shadow kernels but no host symbol.
+  // Static variables protected by DeviceVarMtx to ensure thread safety.
   static int DummyHostPtr = 0;
   // Use unique_ptr for automatic cleanup when the program exits
   static std::vector<std::unique_ptr<SPVVariable>> SyntheticVars;
 
-  for (auto *Kernel : Mod->getKernels()) {
-    const std::string &KernelName = Kernel->getName();
-    size_t PrefixLen = strlen(ChipVarInfoPrefix);
+  {
+    LOCK(DeviceVarMtx); // Protect static SyntheticVars from concurrent access
+    for (auto *Kernel : Mod->getKernels()) {
+      const std::string &KernelName = Kernel->getName();
+      size_t PrefixLen = strlen(ChipVarInfoPrefix);
 
-    // Check if this is a variable info shadow kernel
-    if (KernelName.length() <= PrefixLen ||
-        KernelName.substr(0, PrefixLen) != ChipVarInfoPrefix)
-      continue;
+      // Check if this is a variable info shadow kernel
+      if (KernelName.length() <= PrefixLen ||
+          KernelName.substr(0, PrefixLen) != ChipVarInfoPrefix)
+        continue;
 
-    // Extract variable name
-    std::string VarName = KernelName.substr(PrefixLen);
+      // Extract variable name
+      std::string VarName = KernelName.substr(PrefixLen);
 
-    // Check if we already processed this variable
-    bool AlreadyRegistered = false;
-    for (const auto &Info : SrcMod->Variables) {
-      std::string NameTmp(Info.Name.begin(), Info.Name.end());
-      if (NameTmp == VarName) {
-        AlreadyRegistered = true;
-        break;
+      // Check if we already processed this variable
+      bool AlreadyRegistered = false;
+      for (const auto &Info : SrcMod->Variables) {
+        std::string NameTmp(Info.Name.begin(), Info.Name.end());
+        if (NameTmp == VarName) {
+          AlreadyRegistered = true;
+          break;
+        }
       }
+
+      if (AlreadyRegistered)
+        continue;
+
+      // Check if already in SyntheticVars (another thread may have added it)
+      bool AlreadySynthesized = false;
+      for (const auto &SV : SyntheticVars) {
+        if (SV->Name == VarName) {
+          AlreadySynthesized = true;
+          break;
+        }
+      }
+      if (AlreadySynthesized)
+        continue;
+
+      // This is a device-only variable - create a DeviceVar for it
+      logTrace("Found device-only variable: {} (no host symbol)", VarName);
+
+      // Create a synthetic SPVVariable for this device-only variable
+      // Use aggregate initialization since SPVVariable has no default constructor
+      auto *RawVar = new SPVVariable{
+          {const_cast<SPVModule *>(SrcMod), HostPtr(&DummyHostPtr), VarName}, 0};
+      std::unique_ptr<SPVVariable> SyntheticVar(RawVar);
+
+      auto *Var = new chipstar::DeviceVar(SyntheticVar.get());
+      Mod->addDeviceVariable(Var);
+
+      // Store the synthetic variable so it persists (unique_ptr handles cleanup)
+      SyntheticVars.push_back(std::move(SyntheticVar));
+
+      // Note: We don't add to DeviceVarLookup_ since there's no host pointer
     }
-
-    if (AlreadyRegistered)
-      continue;
-
-    // This is a device-only variable - create a DeviceVar for it without a host pointer
-    logTrace("Found device-only variable: {} (no host symbol)", VarName);
-
-    // Create a synthetic SPVVariable for this device-only variable
-    // Use aggregate initialization since SPVVariable has no default constructor
-    auto *RawVar = new SPVVariable{
-        {const_cast<SPVModule *>(SrcMod), HostPtr(&DummyHostPtr), VarName}, 0};
-    std::unique_ptr<SPVVariable> SyntheticVar(RawVar);
-
-    auto *Var = new chipstar::DeviceVar(SyntheticVar.get());
-    Mod->addDeviceVariable(Var);
-
-    // Store the synthetic variable so it persists (unique_ptr handles cleanup)
-    SyntheticVars.push_back(std::move(SyntheticVar));
-
-    // Note: We don't add to DeviceVarLookup_ since there's no host pointer to look up
   }
 
 #ifndef NDEBUG
