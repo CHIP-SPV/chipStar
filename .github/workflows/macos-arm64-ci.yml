@@ -55,7 +55,14 @@ jobs:
           echo "LIBRARY_PATH=${LIBRARY_PATH}" >> $GITHUB_ENV
       
       - name: Build
+        shell: /bin/bash {0}
         run: |
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
+          module load llvm/19.0
+          module load ocl-icd-loader
+          module load pocl
+          
           rm -rf build
           mkdir -p build
           cd build
@@ -63,7 +70,14 @@ jobs:
           ninja && ninja build_tests
 
       - name: Run
+        shell: /bin/bash {0}
         run: |
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
+          module load llvm/19.0
+          module load ocl-icd-loader
+          module load pocl
+          
           cd build
           ../scripts/check.py ./ pocl opencl
 
