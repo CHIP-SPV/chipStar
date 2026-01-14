@@ -418,6 +418,14 @@ salami:
   OPENCL_POCL:
 pastrami: # macOS ARM64 CI
   ALL:
+    hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'Helgrind/valgrind not available on macOS'
+    implicitCasts: 'Test not built on macOS'
+    sincospifSpotTest: 'Test not built on macOS'
+    firstTouch: 'Test not built on macOS'
+    TestHiprtcCPPKernels: 'Test not built on macOS'
+    TestHiprtcOptions: 'Test not built on macOS'
+    TestShellMetacharacters: 'Test not built on macOS'
+    TestConstantMemory: 'Test not built on macOS'
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
@@ -430,13 +438,6 @@ pastrami: # macOS ARM64 CI
     TestBufferDevAddr: 'hipErrorOutOfMemory with BufferDevAddr on PoCL'
     hipTestResetStaticVar: 'Subprocess aborted'
     TestRecordEventBlocking: 'Subprocess aborted'
-    implicitCasts: 'Not built/run on macOS'
-    sincospifSpotTest: 'Not built/run on macOS'
-    firstTouch: 'Not built/run on macOS'
-    TestHiprtcCPPKernels: 'Not built/run on macOS'
-    TestHiprtcOptions: 'Not built/run on macOS'
-    TestShellMetacharacters: 'Not built/run on macOS'
-    TestConstantMemory: 'Not built/run on macOS'
 x4\d\d\dc\ds\db0n0: # aurora intel_compute_runtime/release/775.20
   ALL:
   LEVEL0_GPU:
