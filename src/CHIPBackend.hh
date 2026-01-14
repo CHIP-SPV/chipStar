@@ -1353,7 +1353,9 @@ public:
   size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
 
   chipstar::Queue *LegacyDefaultQueue;
-  inline static thread_local std::unique_ptr<chipstar::Queue>
+  // Note: On macOS, inline static thread_local has issues with TLS wrapper
+  // symbol export in shared libraries. Define in CHIPBackend.cc instead.
+  static thread_local std::unique_ptr<chipstar::Queue>
       PerThreadDefaultQueue;
 
   /**
