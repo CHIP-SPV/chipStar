@@ -34,6 +34,10 @@ jobs:
           export CHIP_DEVICE_TYPE=pocl
           export OCL_ICD_VENDORS=/Users/paulius/install/pocl/etc/OpenCL/vendors/
           
+          # Add SPIRV-Tools from homebrew to CMAKE_PREFIX_PATH
+          export SPIRV_TOOLS_PREFIX=$(brew --prefix spirv-tools)
+          export CMAKE_PREFIX_PATH="${SPIRV_TOOLS_PREFIX}:${CMAKE_PREFIX_PATH}"
+          
           # Patch PoCL rpaths if not already done
           for lib in /Users/paulius/install/pocl/lib/libpocl.2.15.0.dylib /Users/paulius/install/pocl/lib/libpocl.2.dylib; do
             if [ -f "$lib" ]; then
