@@ -423,11 +423,20 @@ pastrami: # macOS ARM64 CI
   OPENCL_GPU:
   OPENCL_POCL:
     Unit_hipHostMalloc_CoherentAccess: 'Timeout'
-    TestRDCWithSingleHipccCmd: 'Failed'
-    TestRDCWithMultipleHipccCmds: 'Failed'
+    TestRDCWithSingleHipccCmd: 'llvm-objcopy MachO not supported for -fgpu-rdc'
+    TestRDCWithMultipleHipccCmds: 'llvm-objcopy MachO not supported for -fgpu-rdc'
+    TestStaticLibRDC: 'llvm-objcopy MachO not supported for -fgpu-rdc'
     TestLazyModuleInit: 'Failed'
-    TestBufferDevAddr: 'Failed'
+    TestBufferDevAddr: 'hipErrorOutOfMemory with BufferDevAddr on PoCL'
     hipTestResetStaticVar: 'Subprocess aborted'
+    TestRecordEventBlocking: 'Subprocess aborted'
+    implicitCasts: 'Not built/run on macOS'
+    sincospifSpotTest: 'Not built/run on macOS'
+    firstTouch: 'Not built/run on macOS'
+    TestHiprtcCPPKernels: 'Not built/run on macOS'
+    TestHiprtcOptions: 'Not built/run on macOS'
+    TestShellMetacharacters: 'Not built/run on macOS'
+    TestConstantMemory: 'Not built/run on macOS'
 x4\d\d\dc\ds\db0n0: # aurora intel_compute_runtime/release/775.20
   ALL:
   LEVEL0_GPU:
