@@ -22,7 +22,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <vector>
 #include <string>
 #include <fstream>
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 
 
 #if defined(_WIN32) || defined(__CYGWIN__)

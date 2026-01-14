@@ -27,7 +27,9 @@ THE SOFTWARE.
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 
 #include "../include/HIPUtil.hpp"
 

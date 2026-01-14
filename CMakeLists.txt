@@ -414,47 +414,7 @@ file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
 
 add_subdirectory(bin)
 
-add_subdirectory(tools/spirv-extractor)
-add_subdirectory(tools/opencl-spirv-compiler)
-if (CHIP_SKIP_TESTS_WITH_DOUBLES)
-  set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirv-extractor" "--check-for-doubles")
-  else()
-  set(SKIP_DOUBLE_TESTS "")
-endif()
-
-# once hipcc.bin is built, execute hipcc ./samples/hipSample.cpp
-add_custom_command(
-  OUTPUT ${CMAKE_BINARY_DIR}/hipInfo
-  COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
-  DEPENDS ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp hipcc.bin CHIP devicelib_bc
-)
-
-add_custom_target(hipInfoBin ALL
-  DEPENDS ${CMAKE_BINARY_DIR}/hipInfo
-)
-
-execute_process(
-  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
-    --generate ${CMAKE_BINARY_DIR}/test_lists
-    --target-llvm-major-version ${LLVM_VERSION_MAJOR}
-  RESULT_VARIABLE result_var
-  ERROR_VARIABLE error_var
-)
-message("Result: ${result_var}")
-# if the script fails, print the error and abort
-if(NOT result_var EQUAL 0)
-  message(FATAL_ERROR "manage_known_failures.py: ${error_var}")
-endif()
-# chipStar BINARIES & TESTS
-# =============================================================================
-
-# =============================================================================
-# chipStar COMPILATION SETUP
-# For building on top of HIP-COMMON
-target_compile_definitions(
-  CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
-
+# Find SPIRV-Tools before adding spirv-extractor subdirectory
 find_package(SPIRV-Tools)
 if (NOT SPIRV-Tools_FOUND)
   message(STATUS "spirv-tools not found, building...")
@@ -510,6 +470,47 @@ if (NOT SPIRV-Tools_FOUND)
 else()
   message(STATUS "spirv-tools: ${SPIRV-Tools_FOUND}")
 endif()
+
+add_subdirectory(tools/spirv-extractor)
+add_subdirectory(tools/opencl-spirv-compiler)
+if (CHIP_SKIP_TESTS_WITH_DOUBLES)
+  set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirv-extractor" "--check-for-doubles")
+  else()
+  set(SKIP_DOUBLE_TESTS "")
+endif()
+
+# once hipcc.bin is built, execute hipcc ./samples/hipSample.cpp
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/hipInfo
+  COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
+  DEPENDS ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp hipcc.bin CHIP devicelib_bc
+)
+
+add_custom_target(hipInfoBin ALL
+  DEPENDS ${CMAKE_BINARY_DIR}/hipInfo
+)
+
+execute_process(
+  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
+    --generate ${CMAKE_BINARY_DIR}/test_lists
+    --target-llvm-major-version ${LLVM_VERSION_MAJOR}
+  RESULT_VARIABLE result_var
+  ERROR_VARIABLE error_var
+)
+message("Result: ${result_var}")
+# if the script fails, print the error and abort
+if(NOT result_var EQUAL 0)
+  message(FATAL_ERROR "manage_known_failures.py: ${error_var}")
+endif()
+# chipStar BINARIES & TESTS
+# =============================================================================
+
+# =============================================================================
+# chipStar COMPILATION SETUP
+# For building on top of HIP-COMMON
+target_compile_definitions(
+  CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
 target_link_libraries(CHIP PRIVATE SPIRV-Tools)
 

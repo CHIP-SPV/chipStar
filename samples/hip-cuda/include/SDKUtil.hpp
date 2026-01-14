@@ -38,7 +38,9 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <string.h>
 #include <vector>
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 #include <math.h>
 #include <numeric>
 #include <stdint.h>
@@ -49,6 +51,17 @@ THE SOFTWARE.
 #define _aligned_free  __mingw_aligned_free
 #endif // __MINGW32__  and __MINGW64_VERSION_MAJOR
 
+// macOS doesn't have memalign, provide compatibility wrapper using posix_memalign
+#ifdef __APPLE__
+#include <stdlib.h>
+inline void* memalign(size_t alignment, size_t size) {
+    void* ptr = nullptr;
+    if (posix_memalign(&ptr, alignment, size) != 0) {
+        return nullptr;
+    }
+    return ptr;
+}
+#endif
 
 #ifndef _WIN32
 #if defined(__INTEL_COMPILER)
@@ -60,7 +73,11 @@ THE SOFTWARE.
 #include <windows.h>
 #else
 #include <sys/time.h>
+#ifdef __APPLE__
+#include <limits.h>
+#else
 #include <linux/limits.h>
+#endif
 #include <unistd.h>
 #endif
 
