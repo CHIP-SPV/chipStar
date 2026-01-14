@@ -237,7 +237,7 @@ class InteractiveInstaller:
         self.current_menu = "main"  # main, components, paths, confirm
     
     def get_component_by_index(self, idx: int) -> Component:
-        return self.component_List[idx]
+        return self.component_list[idx]
     
     def resolve_dependencies(self, component: Component) -> List[str]:
         """Get all dependencies recursively."""
