@@ -1,7 +1,7 @@
 # this include allows us to reference defaults in anl/ci-resource/defaults
 include:
   - project: 'anl/ci-resources/defaults'
-    ref: gitlab_testing
+    ref: main
     file:
       - '/runners.yml'
 
