@@ -30,6 +30,7 @@ ANY:
     Print_Out_Attributes: 'old HIP tests + new HIP API'
     TestIndirectCall: ''
     Unit_HMM_OverSubscriptionTst: ''
+    Unit_hipMemRangeGetAttribute_TstCountParam: 'hipMemRangeGetAttribute is not implemented'
     Unit_hipGraphAddKernelNode_Negative: 'Invalid test'
     Unit_hipCreateTextureObject_ArgValidation: 'TestContext crashes during initialization because it is not properly configured to handle an Intel GPU.'
     Unit_hipCreateTextureObject_LinearResource: 'TestContext crashes during initialization because it is not properly configured to handle an Intel GPU.'
