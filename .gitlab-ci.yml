@@ -1,0 +1,29 @@
+# this include allows us to reference defaults in anl/ci-resource/defaults
+include:
+  - project: 'anl/ci-resources/defaults'
+    ref: gitlab_testing
+    file:
+      - '/runners.yml'
+
+variables:
+  PROJ: "chipStar_test"
+  QUEUE: "debug"
+  TIME: "1:00:00"
+  WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/test"
+  ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=${TIME},filesystems=home -A ${PROJ}"
+
+stages:
+    - .pre
+
+setup:
+  stage: .pre
+  extends: .aurora-shell-runner
+  script:
+    # FIXME: For the time being we delete ${WRK_DIR} if it exists.
+    - rm -rf ${WRK_DIR}
+    - mkdir -p ${WRK_DIR}
+    - cd ${WRK_DIR}
+      # setup chipStar
+    - git clone -b gitlab_testing https://github.com/CHIP-SPV/chipStar.git
+    - cd chipStar
+    - module list
