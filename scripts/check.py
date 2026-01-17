@@ -183,37 +183,8 @@ if args.total_runtime:
 else:
     num_tries = args.num_tries
 
-res, ctest_return_code = run_tests(num_tries)
-# Check for success: "0 tests failed" is the authoritative indicator
-# If we see "0 tests failed", succeed regardless of ctest return code
-# (ctest can return non-zero for "Not Run" tests even when all run tests pass)
+res, err = run_tests(num_tries)
 if "0 tests failed" in res:
     exit(0)
-elif "100% tests passed" in res:
-    # If 100% passed, also check for 0 failures in the summary
-    for line in res.split('\n'):
-        if "% tests passed" in line and "0 tests failed" in line:
-            exit(0)
-        elif "% tests passed" in line and "tests failed" in line:
-            # Parse the line to check if failures are 0
-            import re
-            match = re.search(r'(\d+) tests failed', line)
-            if match and int(match.group(1)) == 0:
-                exit(0)
-    # If 100% passed but format is unexpected, still success
-    exit(0)
-elif ctest_return_code == 0:
-    # If ctest returned 0 but we don't see clear success indicators,
-    # check the output more carefully
-    for line in res.split('\n'):
-        if "% tests passed" in line and "0 tests failed" in line:
-            exit(0)
-    # If ctest succeeded but we can't parse output, assume success
-    exit(0)
 else:
-    # Print failure summary for debugging
-    print(f"\n=== Test execution failed (ctest return code: {ctest_return_code}) ===")
-    for line in res.split('\n'):
-        if "% tests passed" in line or "tests failed" in line or "tests passed" in line:
-            print(line)
     exit(1)
