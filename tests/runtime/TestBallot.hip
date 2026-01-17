@@ -22,7 +22,7 @@ void checkBallot(unsigned BlockSize, uint64_t In,
   }
 
   if (OutH != In) {
-    printf("FAILED: BlockSize=%u:\nError: Expected '%lu'. Got '%lu'\n", BlockSize, In,
+    printf("FAILED: BlockSize=%u:\nError: Expected '%llu'. Got '%llu'\n", BlockSize, In,
            OutH);
     exit(1);
   }
