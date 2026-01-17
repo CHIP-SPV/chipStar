@@ -30,6 +30,7 @@ ANY:
     Print_Out_Attributes: 'old HIP tests + new HIP API'
     TestIndirectCall: ''
     Unit_HMM_OverSubscriptionTst: ''
+    Unit_hipMemRangeGetAttribute_TstCountParam: 'hipMemRangeGetAttribute is not implemented'
     Unit_hipGraphAddKernelNode_Negative: 'Invalid test'
     Unit_hipCreateTextureObject_ArgValidation: 'TestContext crashes during initialization because it is not properly configured to handle an Intel GPU.'
     Unit_hipCreateTextureObject_LinearResource: 'TestContext crashes during initialization because it is not properly configured to handle an Intel GPU.'
@@ -359,7 +360,6 @@ salami:
   OPENCL_GPU:
     TestStaticLibRDC: 'Compiler without static library support'
     TestBallot: 'Unsupported SPIR-V capability: SubgroupDispatch'
-    TestEventRecordCircularDep: 'ARM Mali driver bug: clFinish hangs with circular cross-stream event dependencies and event reuse'
     hipDynamicShared: 'flaky'
     clock: 'timing dependent, flaky'
     hipStreamSemantics: 'TestStreamSemantics_2 (non-blocking stream):  Failed, then timeout'
@@ -419,6 +419,28 @@ salami:
     cuda-matrixMul: '' 
     cuda-bandwidthTest: '' 
   OPENCL_POCL:
+pastrami: # macOS ARM64 CI
+  ALL:
+    hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'Helgrind/valgrind not available on macOS'
+    implicitCasts: 'Test not built on macOS'
+    sincospifSpotTest: 'Test not built on macOS'
+    firstTouch: 'Test not built on macOS'
+    TestHiprtcCPPKernels: 'Test not built on macOS'
+    TestHiprtcOptions: 'Test not built on macOS'
+    TestShellMetacharacters: 'Test not built on macOS'
+    TestConstantMemory: 'Test not built on macOS'
+  LEVEL0_GPU:
+  OPENCL_CPU:
+  OPENCL_GPU:
+  OPENCL_POCL:
+    Unit_hipHostMalloc_CoherentAccess: 'Timeout'
+    TestRDCWithSingleHipccCmd: 'llvm-objcopy MachO not supported for -fgpu-rdc'
+    TestRDCWithMultipleHipccCmds: 'llvm-objcopy MachO not supported for -fgpu-rdc'
+    TestStaticLibRDC: 'llvm-objcopy MachO not supported for -fgpu-rdc'
+    TestLazyModuleInit: 'Failed'
+    TestBufferDevAddr: 'hipErrorOutOfMemory with BufferDevAddr on PoCL'
+    hipTestResetStaticVar: 'Subprocess aborted'
+    TestRecordEventBlocking: 'Subprocess aborted'
 x4\d\d\dc\ds\db0n0: # aurora intel_compute_runtime/release/775.20
   ALL:
   LEVEL0_GPU:

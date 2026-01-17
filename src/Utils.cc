@@ -27,10 +27,14 @@
 #include <fstream>
 #include <random>
 
+#ifdef __APPLE__
+#include <dlfcn.h>
+#else
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
 #include <link.h>
+#endif
 
 bool isConvertibleToInt(const std::string &str) {
   try {
@@ -157,6 +161,7 @@ std::optional<std::string> readFromFile(const fs::path Path) {
   return std::nullopt;
 }
 
+#ifndef __APPLE__
 static int dlIterateCallback(struct dl_phdr_info *Info, size_t Size,
                              void *Data) {
   std::string *Res = static_cast<std::string *>(Data);
@@ -169,13 +174,27 @@ static int dlIterateCallback(struct dl_phdr_info *Info, size_t Size,
   Res->assign(DlName);
   return 1;
 }
+#endif
 
 std::optional<fs::path> getHIPCCPath() {
   static std::once_flag Flag;
   static std::optional<fs::path> HIPCCPath;
 
   std::string LibCHIPPath("/dev/null");
+#ifdef __APPLE__
+  // On macOS, use dladdr to find the library path
+  Dl_info info;
+  if (dladdr((void*)getHIPCCPath, &info) && info.dli_fname) {
+    std::string DlName(info.dli_fname);
+    size_t Pos = DlName.find("/libCHIP.dylib");
+    if (Pos != std::string::npos) {
+      DlName.erase(Pos);
+      LibCHIPPath = DlName;
+    }
+  }
+#else
   dl_iterate_phdr(dlIterateCallback, static_cast<void *>(&LibCHIPPath));
+#endif
 
   std::call_once(Flag, [&]() {
     for (const auto &ExeCand : {fs::path(LibCHIPPath) / "bin/hipcc",
