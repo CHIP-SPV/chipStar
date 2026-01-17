@@ -92,8 +92,21 @@ endforeach()
 # =============================================================================
 # chipStar CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
-  message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  if(APPLE)
+    # On macOS, search DYLD_LIBRARY_PATH and LIBRARY_PATH for ocl-icd-loader
+    # Prefer ocl-icd-loader over macOS OpenCL framework (which lacks SPIR-V support)
+    message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL in DYLD_LIBRARY_PATH/LIBRARY_PATH")
+    find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.dylib
+      PATHS ENV DYLD_LIBRARY_PATH ENV LIBRARY_PATH
+      NO_DEFAULT_PATH NO_CACHE)
+    if(NOT OpenCL_LIBRARY)
+      # Fallback to default search (will find macOS framework)
+      find_library(OpenCL_LIBRARY NAMES OpenCL NO_CACHE)
+    endif()
+  else()
+    message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
+    find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  endif()
 endif()
 
 if(OpenCL_LIBRARY)
