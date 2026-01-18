@@ -550,6 +550,9 @@ public:
 
 class CHIPModuleLevel0 : public chipstar::Module {
   ze_module_handle_t ZeModule_ = nullptr;
+  // Device library modules created during fallback linking.
+  // These must remain alive after zeModuleDynamicLink.
+  std::vector<ze_module_handle_t> LinkedDeviceLibModules_;
 
 public:
   CHIPModuleLevel0(const SPVModule &Src) : Module(Src) {}
@@ -566,6 +569,16 @@ public:
       auto Result = zeModuleDestroy(ZeModule_);
       assert(Result == ZE_RESULT_SUCCESS && "Double free?");
     }
+    // Destroy device library modules after main module.
+    // After zeModuleDynamicLink, all modules are linked together.
+    // Destroying the main module should handle cleanup, but we destroy
+    // device library modules explicitly to be safe.
+    for (auto LibModule : LinkedDeviceLibModules_) {
+      if (LibModule) {
+        zeModuleDestroy(LibModule);
+      }
+    }
+    LinkedDeviceLibModules_.clear();
   }
 
   /**

@@ -4397,6 +4397,15 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
   if (!HostPtr || !SizeBytes)
     RETURN(hipErrorInvalidValue);
 
+  // Validate that the size doesn't exceed available device memory.
+  // Attempting to register more memory than available should fail.
+  size_t FreeMem = 0, TotalMem = 0;
+  if (hipMemGetInfo(&FreeMem, &TotalMem) != hipSuccess) {
+    // If we can't get memory info, skip validation
+  } else if (SizeBytes > FreeMem) {
+    RETURN(hipErrorInvalidValue);
+  }
+
   // TODO fixOpenCLTests - make this a class
   if (Flags) {
     // Currently, the flags are ignored. This only exists to satisfy hip-tests.

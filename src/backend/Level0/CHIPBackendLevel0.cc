@@ -3138,6 +3138,105 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
 
   logTrace("Module compilation took {} ms", duration.count());
 
+  // Workaround for B570: zeModuleCreate with multiple SPIR-V inputs via
+  // experimental extension may create a module that isn't fully linked.
+  // Test kernel creation on first kernel to detect this, and if it fails
+  // with MODULE_UNLINKED, fall back to creating separate modules and linking.
+  bool ModuleNeedsRelink = false;
+  if (ILSizes.size() > 1) {
+    uint32_t TestKernelCount = 0;
+    zeStatus = zeModuleGetKernelNames(ZeModule_, &TestKernelCount, nullptr);
+    if (zeStatus == ZE_RESULT_SUCCESS && TestKernelCount > 0) {
+      std::vector<const char *> TestKernelNames(TestKernelCount);
+      zeStatus = zeModuleGetKernelNames(ZeModule_, &TestKernelCount,
+                                         TestKernelNames.data());
+      if (zeStatus == ZE_RESULT_SUCCESS && TestKernelNames[0]) {
+        ze_kernel_desc_t TestKernelDesc = {
+            ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr, 0, TestKernelNames[0]};
+        ze_kernel_handle_t TestKernel;
+        zeStatus = zeKernelCreate(ZeModule_, &TestKernelDesc, &TestKernel);
+        if (zeStatus == ZE_RESULT_ERROR_INVALID_MODULE_UNLINKED) {
+          logWarn("Module created with multiple inputs is unlinked. "
+                  "Attempting fallback: create separate modules and link.");
+          ModuleNeedsRelink = true;
+        } else if (zeStatus == ZE_RESULT_SUCCESS) {
+          zeKernelDestroy(TestKernel);
+        }
+      }
+    }
+  }
+
+  if (ModuleNeedsRelink) {
+    // Destroy the unlinked module
+    if (ZeModule_) {
+      zeModuleDestroy(ZeModule_);
+      ZeModule_ = nullptr;
+    }
+
+    // Create main module (first input)
+    ze_module_desc_t MainModuleDesc = {
+        ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, ZE_MODULE_FORMAT_IL_SPIRV,
+        ILSizes[0], ILInputs[0], BuildFlags[0], nullptr};
+    ze_module_handle_t MainModule =
+        compileIL(ChipCtxLz->get(), LzDev->get(), MainModuleDesc, LzDev);
+    if (!MainModule) {
+      CHIPERR_LOG_AND_THROW("Failed to create main module in fallback",
+                            hipErrorTbd);
+    }
+
+    // Create device library modules (remaining inputs)
+    std::vector<ze_module_handle_t> DeviceLibModules;
+    for (size_t i = 1; i < ILSizes.size(); i++) {
+      ze_module_desc_t LibModuleDesc = {
+          ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, ZE_MODULE_FORMAT_IL_SPIRV,
+          ILSizes[i], ILInputs[i], BuildFlags[i], nullptr};
+      ze_module_handle_t LibModule =
+          compileIL(ChipCtxLz->get(), LzDev->get(), LibModuleDesc, LzDev);
+      if (!LibModule) {
+        // Clean up on failure
+        zeModuleDestroy(MainModule);
+        for (auto LibMod : DeviceLibModules) {
+          zeModuleDestroy(LibMod);
+        }
+        CHIPERR_LOG_AND_THROW("Failed to create device library module in fallback",
+                              hipErrorTbd);
+      }
+      DeviceLibModules.push_back(LibModule);
+    }
+
+    // Link all modules together
+    std::vector<ze_module_handle_t> ModulesToLink;
+    ModulesToLink.push_back(MainModule);
+    ModulesToLink.insert(ModulesToLink.end(), DeviceLibModules.begin(),
+                         DeviceLibModules.end());
+
+    ze_module_build_log_handle_t LinkLog = nullptr;
+    zeStatus = zeModuleDynamicLink(ModulesToLink.size(),
+                                    ModulesToLink.data(), &LinkLog);
+    if (zeStatus == ZE_RESULT_SUCCESS) {
+      logTrace("Fallback module linking succeeded");
+      ZeModule_ = MainModule; // Use main module as the linked module
+      // Store device library modules - they must remain alive after linking.
+      // They will be destroyed in the destructor.
+      LinkedDeviceLibModules_ = std::move(DeviceLibModules);
+    } else {
+      logWarn("Fallback module linking failed: {}", resultToString(zeStatus));
+      if (LinkLog) {
+        dumpBuildLog(std::move(LinkLog));
+      }
+      // Clean up
+      zeModuleDestroy(MainModule);
+      for (auto LibModule : DeviceLibModules) {
+        zeModuleDestroy(LibModule);
+      }
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleDynamicLink);
+    }
+  }
+
+  if (!ZeModule_) {
+    CHIPERR_LOG_AND_THROW("Module is null after compilation", hipErrorTbd);
+  }
+
   uint32_t KernelCount = 0;
   zeStatus = zeModuleGetKernelNames(ZeModule_, &KernelCount, nullptr);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetKernelNames);
