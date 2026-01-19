@@ -439,6 +439,7 @@ pastrami: # macOS ARM64 CI
     TestBufferDevAddr: 'hipErrorOutOfMemory with BufferDevAddr on PoCL'
     hipTestResetStaticVar: 'Subprocess aborted'
     TestRecordEventBlocking: 'Subprocess aborted'
+    Unit_hipMemFaultStackAllocation_Check: 'Bus error - hipMallocManaged with large local arrays causes stack overflow in PoCL CPU driver'
 x4\d\d\dc\ds\db0n0: # aurora intel_compute_runtime/release/775.20
   ALL:
   LEVEL0_GPU:

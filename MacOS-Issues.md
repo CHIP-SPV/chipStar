@@ -123,3 +123,116 @@ cmake .. -G Ninja \
 
 ### CI Configuration
 The macOS ARM64 CI workflow (`.github/workflows/macos-arm64-ci.yml`) currently uses LLVM 19.0 with static linking. If upgrading to LLVM 21+, consider switching to dynamic linking or applying the CMake fix above.
+
+---
+
+## Issue 3: LLVM 21 Darwin Toolchain Crashes (macOS-specific)
+
+When using LLVM 21 with HIP-SPIRV on macOS, the clang driver crashes with assertion failures like:
+
+```
+Assertion failed: (TargetInitialized && "Target not initialized!"), function isTargetWatchOSBased, file Darwin.h
+```
+
+### Root Cause
+The Darwin toolchain in LLVM 21 assumes the target is always initialized when certain methods are called (e.g., `addClangWarningOptions`, `getSupportedSanitizers`). When Darwin is used as the host toolchain for HIP offloading (via HIPSPVToolChain), the target may not be fully initialized.
+
+### Required Patches
+Several patches to the LLVM source are needed:
+
+1. **Darwin.cpp - addClangWarningOptions**: Add guard for uninitialized target
+2. **Darwin.cpp - getSupportedSanitizers**: Add guard for uninitialized target  
+3. **Darwin.cpp - CheckObjCARC**: Add guard for uninitialized target
+4. **AlignedAllocation.h**: Handle unknown OS types instead of llvm_unreachable
+5. **HIPSPV.cpp**: Don't delegate addClangTargetOptions to host (avoids -faligned-alloc-unavailable on SPIRV)
+6. **CGCUDANV.cpp**: Use Mach-O section naming for HIP fatbin on macOS
+7. **HIPUtility.cpp**: Use Mach-O section naming when generating fatbin assembly
+
+These patches are in the llvm-project directory used for building LLVM 21.
+
+---
+
+## Issue 4: LLVM 21 HIP Fatbin Section Names (Mach-O)
+
+### Symptom
+```
+fatal error: error in backend: Global variable '' has an invalid section specifier '.hip_fatbin': mach-o section specifier requires a segment and section separated by a comma.
+```
+
+### Root Cause
+LLVM's HIP codegen uses ELF-style section names (`.hip_fatbin`, `.hipFatBinSegment`) which are invalid on macOS. Mach-O requires `segment,section` format.
+
+### Fix
+Patches to `CGCUDANV.cpp` and `HIPUtility.cpp` to use `__HIP,__hip_fatbin` format on macOS.
+
+---
+
+## Issue 5: Missing C++ Headers for SPIRV Device Compilation
+
+### Symptom
+```
+fatal error: 'cstddef' file not found
+```
+
+### Root Cause
+The SPIRV device compilation doesn't find standard library headers when the SDK path isn't set.
+
+### Workaround
+Pass the sysroot explicitly:
+```bash
+hipcc --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk myfile.cpp
+```
+
+Or set it in cmake/build system.
+
+---
+
+## Issue 6: Apple SDK TargetConditionals.h Error for SPIRV Targets
+
+### Symptom
+```
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/TargetConditionals.h:353:14: error: unrecognized arch using compiler with __is_target_arch support
+```
+
+### Root Cause
+Apple's `TargetConditionals.h` uses the `__is_target_arch()` builtin to detect the target architecture. When compiling for SPIRV device targets, this builtin doesn't recognize SPIRV architectures and falls through to an `#error` directive.
+
+### Fix
+Two patches to `clang/lib/Lex/PPMacroExpansion.cpp`:
+
+1. **Hide `__is_target_arch` builtin for SPIRV targets**: Make `__has_builtin(__is_target_arch)` return false when the target is spirv/spirv32/spirv64. This causes `TargetConditionals.h` to use fallback logic instead.
+
+2. **Return false for CPU arch queries on SPIRV targets**: When `__is_target_arch(arm64)` etc. is called on a SPIRV target, return false gracefully instead of potentially hitting edge cases.
+
+This patch is included in `llvm-patches/llvm-21-macos.patch`.
+
+---
+
+## Complete LLVM 21 macOS Patch
+
+All LLVM 21 macOS compatibility issues are addressed in a single patch file:
+
+```
+llvm-patches/llvm-21-macos.patch
+```
+
+### Files Modified
+1. `clang/lib/Lex/PPMacroExpansion.cpp` - Hide `__is_target_arch` for SPIRV
+2. `clang/lib/Driver/ToolChains/Darwin.cpp` - Guards for uninitialized targets
+3. `clang/include/clang/Basic/AlignedAllocation.h` - Handle unknown OS types
+4. `clang/lib/Driver/ToolChains/HIPSPV.cpp` - Don't delegate host flags to device
+5. `clang/lib/CodeGen/CGCUDANV.cpp` - Mach-O section naming for HIP
+6. `clang/lib/Driver/ToolChains/HIPUtility.cpp` - Mach-O section naming in assembly
+7. `llvm/lib/Frontend/Offloading/OffloadWrapper.cpp` - Hidden visibility for Darwin
+8. `clang/lib/Basic/Targets/SPIR.h` - Data layout adjustments
+9. `llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp` - Data layout adjustments  
+10. `llvm/tools/llvm-link/llvm-link.cpp` - Archive linking improvements
+
+### Applying the Patch
+```bash
+cd /path/to/llvm-project
+git apply /path/to/chipStar/llvm-patches/llvm-21-macos.patch
+```
+
+### Branch
+The patch is also available as a branch: `llvm-21-macos` in the local llvm-project directory.

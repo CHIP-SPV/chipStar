@@ -132,6 +132,17 @@ endif()
 message(STATUS "Using clang-offload-bundler: ${CLANG_OFFLOAD_BUNDLER}")
 
 # Execute llvm-spirv and check for errors
+# On macOS, ensure DYLD_LIBRARY_PATH includes the LLVM lib directory
+# so llvm-spirv can find the correct libLLVM.dylib
+if(APPLE)
+  set(OLD_DYLD_LIBRARY_PATH "$ENV{DYLD_LIBRARY_PATH}")
+  if(OLD_DYLD_LIBRARY_PATH)
+    set(ENV{DYLD_LIBRARY_PATH} "${CLANG_ROOT_PATH}/lib:${OLD_DYLD_LIBRARY_PATH}")
+  else()
+    set(ENV{DYLD_LIBRARY_PATH} "${CLANG_ROOT_PATH}/lib")
+  endif()
+endif()
+
 execute_process(
     COMMAND ${LLVM_SPIRV} --version
     RESULT_VARIABLE LLVM_SPIRV_ERROR
