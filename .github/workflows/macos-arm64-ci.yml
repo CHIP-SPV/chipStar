@@ -26,7 +26,7 @@ jobs:
           export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load llvm/19.0
+          module load llvm/21.0
           module load ocl-icd-loader
           module load pocl
           
@@ -59,7 +59,7 @@ jobs:
         run: |
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load llvm/19.0
+          module load llvm/21.0
           module load ocl-icd-loader
           module load pocl
           
@@ -74,7 +74,7 @@ jobs:
         run: |
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load llvm/19.0
+          module load llvm/21.0
           module load ocl-icd-loader
           module load pocl
           
