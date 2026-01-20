@@ -4398,13 +4398,16 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
     RETURN(hipErrorInvalidValue);
 
   // Validate that the size doesn't exceed available device memory.
-  // Attempting to register more memory than available should fail.
-  size_t FreeMem = 0, TotalMem = 0;
-  if (hipMemGetInfo(&FreeMem, &TotalMem) != hipSuccess) {
-    // If we can't get memory info, skip validation
-  } else if (SizeBytes > FreeMem) {
+  // Note: We access device memory info directly here (not via hipMemGetInfo)
+  // because we already hold ApiMtx and hipMemGetInfo would deadlock.
+  // We use >= because allocating exactly all free memory should also fail
+  // (need some headroom for internal allocations).
+  auto *Dev = Backend->getActiveDevice();
+  size_t TotalMem = Dev->getGlobalMemSize();
+  size_t UsedMem = Dev->getUsedGlobalMem();
+  size_t FreeMem = (TotalMem > UsedMem) ? (TotalMem - UsedMem) : 0;
+  if (SizeBytes >= FreeMem)
     RETURN(hipErrorInvalidValue);
-  }
 
   // TODO fixOpenCLTests - make this a class
   if (Flags) {
@@ -4838,8 +4841,11 @@ hipError_t hipMemGetInfo(size_t *Free, size_t *Total) {
   if (usedMemory > 0 && usedMemory < minAllocSize)
     usedMemory = minAllocSize;
 
-  assert(Dev->getGlobalMemSize() >= usedMemory);
-  *Free = Dev->getGlobalMemSize() - usedMemory;
+  if (*Total <= usedMemory) {
+    *Free = 0;
+  } else {
+    *Free = *Total - usedMemory;
+  }
 
   RETURN(hipSuccess);
   CHIP_CATCH
