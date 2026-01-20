@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < sizeElements; i++) {
         float ref = A_h[i] + B_h[i];
         if (C_h[i] != ref) {
-            printf("error:%d computed=%6.6f, reference=%6.6f\n", i, C_h[i], ref);
+            // printf("error:%d computed=%6.6f, reference=%6.6f\n", i, C_h[i], ref);
             pass = false;
         }
     };
