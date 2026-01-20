@@ -14,6 +14,7 @@ variables:
 
 stages:
     - .pre
+    - my_batch
 
 setup:
   stage: .pre
@@ -27,3 +28,11 @@ setup:
     - git clone -b gitlab_testing https://github.com/CHIP-SPV/chipStar.git
     - cd chipStar
     - module list
+
+submit_batch:
+  stage: my_batch
+  extends: .aurora-batch-runner
+  script:
+    - id
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
