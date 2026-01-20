@@ -2870,6 +2870,10 @@ static void dumpBuildLog(ze_module_build_log_handle_t &&Log) {
 void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
           CHIPDeviceLevel0 *device) {
   const void *pNextConst = desc.pNext;
+  // If pNext is null, we can't use the experimental multi-input path for caching
+  if (!pNextConst) {
+    return;
+  }
   ze_module_program_exp_desc_t *ProgramDesc =
       const_cast<ze_module_program_exp_desc_t *>(
           reinterpret_cast<const ze_module_program_exp_desc_t *>(pNextConst));
@@ -2962,6 +2966,10 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
 
 bool load(ze_module_desc_t &desc, CHIPDeviceLevel0 *device) {
   const void *pNextConst = desc.pNext;
+  // If pNext is null, we can't use the experimental multi-input path for caching
+  if (!pNextConst) {
+    return false;
+  }
   ze_module_program_exp_desc_t *ProgramDesc =
       const_cast<ze_module_program_exp_desc_t *>(
           reinterpret_cast<const ze_module_program_exp_desc_t *>(pNextConst));
