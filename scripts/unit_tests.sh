@@ -148,7 +148,7 @@ if [ "$host" = "salami" ]; then
   module load $CLANG
 else
   module use ~/modulefiles
-  module load oneapi/2024 $CLANG opencl/dgpu 
+  module load oneapi/2025.0.4 $CLANG opencl/dgpu 
   module list
 fi
 
