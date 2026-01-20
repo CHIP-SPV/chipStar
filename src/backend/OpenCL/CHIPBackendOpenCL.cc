@@ -2742,10 +2742,10 @@ void CHIPBackendOpenCL::initializeImpl() {
     }
 
     if (foundPlatformIdx == -1) {
-      logCritical("No OpenCL platforms found with devices of type {} that "
-                  "support SPIR-V",
-                  ChipEnvVars.getDevice().str());
-      std::exit(1);
+      std::string Msg = "No OpenCL platforms found with devices of type ";
+      Msg += std::string(ChipEnvVars.getDevice().str());
+      Msg += " that support SPIR-V";
+      CHIPERR_LOG_AND_THROW(Msg, hipErrorInitializationError);
     }
 
     SelectedPlatformIdx = foundPlatformIdx;
