@@ -484,7 +484,12 @@ unsigned long CHIPEventLevel0::getFinishTime() {
   uint64_t TimerResolution = Props->timerResolution;
   uint32_t TimestampValidBits = Props->timestampValidBits;
 
-  uint32_t T = (Timestamp_ & (((uint64_t)1 << TimestampValidBits) - 1));
+  // Use 64-bit to handle devices with 64-bit timestamps (e.g. B570)
+  // Handle TimestampValidBits == 64 specially to avoid undefined behavior
+  // (shifting by 64 bits is UB for 64-bit types)
+  uint64_t mask = (TimestampValidBits >= 64) ? UINT64_MAX 
+                                              : (((uint64_t)1 << TimestampValidBits) - 1);
+  uint64_t T = (Timestamp_ & mask);
   T = T * TimerResolution;
 
   return T;
@@ -517,8 +522,9 @@ float CHIPEventLevel0::getElapsedTime(chipstar::Event *OtherIn) {
         hipErrorNotReady);
   }
 
-  uint32_t Started = this->getFinishTime();
-  uint32_t Finished = Other->getFinishTime();
+  // Use 64-bit to handle devices with 64-bit timestamps (e.g. B570)
+  uint64_t Started = this->getFinishTime();
+  uint64_t Finished = Other->getFinishTime();
   auto StartedCPU = this->getHostTimestamp();
   auto FinishedCPU = Other->getHostTimestamp();
 
