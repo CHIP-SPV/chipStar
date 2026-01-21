@@ -5,6 +5,23 @@ include:
     file:
       - '/runners.yml'
 
+default:
+  before_script:
+    - |
+      # Define the function in the default before_script
+      function build_library() {
+          local name="$1" 
+	  git clone git@github.com:CHIP-SPV/$name.git
+          cd $name
+          # removing hypens since not valid in identifiers
+    	  eval export gitcommit_"${name//-/}"=$(git rev-parse HEAD)
+	  mkdir build
+	  cd build
+          MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF ..
+    	  make install -j24
+	  }
+	 
+
 variables:
   PROJ: "chipStar_test"
   QUEUE: "debug"
@@ -14,7 +31,8 @@ variables:
 
 stages:
     - .pre
-    - my_batch
+    - build_chipstar
+    - build_libraries
 
 setup:
   stage: .pre
@@ -29,10 +47,50 @@ setup:
     - cd chipStar
     - module list
 
-submit_batch:
-  stage: my_batch
+# testing with hand script
+aurora_build_test:
+  stage: build_chipstar
   extends: .aurora-batch-runner
   script:
-    - id
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
+    - cd ${WRK_DIR}/chipStar
+    # first test with already installed clang. will update to patch and build 
+    - module use /soft/modulefiles
+    - module load cmake chipStar/.llvm19/20251107-19/release
+    - git submodule update --init --recursive
+    - rm -rf build
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora ..
+    - gitcommit=$(git rev-parse HEAD)
+    - make -j48
+    - make install
+
+# # testing with install script
+# chipStar_script_test:
+#   stage: builds_chipstar
+#   extends: .aurora-batch-runner
+#   script:
+#     - hostname
+#     - echo "Running on $(hostname) with setuid shell runner"
+    
+# testing with hand script
+aurora_build_libraries:
+  stage: build_libraries
+  extends: .aurora-batch-runner
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - cd ${WRK_DIR}
+    - git clone git@github.com:CHIP-SPV/H4I-MKLShim.git
+    - cd H4I-MKLShim
+    - mkdir build
+    - cd build
+    - MKL_DIR=$MKLROOT cmake -DCMAKE_CXX_COMPILER=icpx -DCMAKE_C_COMPILER=icx -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora ..
+    - make install -j24
+    - cd ${WRK_DIR}
+    - build_library "H4I-HipBLAS"
+    - build_library "H4I-HipSOLVER"
+    - build_library "H4I-HipFFT"
+
