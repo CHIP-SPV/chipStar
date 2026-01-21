@@ -26,6 +26,7 @@
 // Check if UR API is available
 #if INTEL_MKL_VERSION >= 20250000
   #include <sycl/backend.hpp>
+  #include <sycl/ext/oneapi/backend/level_zero.hpp>
   // Check if ur_native_handle_t is defined
   #ifdef UR_API_H_INCLUDED
     #define HAS_UR_API 1
@@ -130,29 +131,32 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, float *A,
   } else if (!hipBackendName.compare("level0")) {
     // handle L0 here
     // Extract the native information
-    ze_driver_handle_t hDriver = (ze_driver_handle_t)nativeHandlers[1];
     ze_device_handle_t hDevice = (ze_device_handle_t)nativeHandlers[2];
     ze_context_handle_t hContext = (ze_context_handle_t)nativeHandlers[3];
     ze_command_queue_handle_t hQueue =
         (ze_command_queue_handle_t)nativeHandlers[4];
     ze_command_list_handle_t hCommandList =
         (ze_command_list_handle_t)nativeHandlers[5];
+#if !HAS_UR_API
+    // hDriver only needed for older PI API paths
+    ze_driver_handle_t hDriver = (ze_driver_handle_t)nativeHandlers[1];
+#endif
 
     bool isImmCmdList = hCommandList ? true : false;
 
 #if HAS_UR_API
-    // MKL 2025 uses UR API
-    sycl::platform sycl_platform =
-        sycl::detail::make_platform((ur_native_handle_t)hDriver, sycl::backend::ext_oneapi_level_zero);
+    // MKL 2025 uses UR API - use templated make_* functions for L0
+    // Use templated make_device which does proper platform/device lookup
     sycl::device sycl_device = 
-        sycl::detail::make_device((ur_native_handle_t)hDevice, sycl::backend::ext_oneapi_level_zero);
+        sycl::make_device<sycl::backend::ext_oneapi_level_zero>(hDevice);
+    sycl::platform sycl_platform = sycl_device.get_platform();
 
     std::vector<sycl::device> sycl_devices(1);
     sycl_devices[0] = sycl_device;
-    // Use the specific device from CHIP-SPV, not all system devices
+    // Use the specific device from chipStar
     sycl::context sycl_context = 
         sycl::detail::make_context((ur_native_handle_t)hContext, {}, sycl::backend::ext_oneapi_level_zero, false,
-	 sycl_platform.get_devices());
+         sycl_devices);
 
     if (isImmCmdList) {
         sycl_queue = sycl::detail::make_queue((ur_native_handle_t)hCommandList, true, sycl_context, &sycl_device, true, 
