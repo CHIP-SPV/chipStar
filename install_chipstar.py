@@ -213,7 +213,7 @@ class InstallConfig:
                  date_stamp=None, llvm_dir=None, dry_run=False, verbose=True, module_format="tcl"):
         self.install_base = install_base if install_base else Path.home() / "install" / "HIP"
         self.module_base = module_base if module_base else Path.home() / "modulefiles" / "HIP"
-        self.staging_dir = staging_dir if staging_dir else Path.home() / "chipStar-staging"
+        self.staging_dir = staging_dir if staging_dir else Path("/tmp")
         self.jobs = jobs if jobs else (os.cpu_count() or 8)
         self.date_stamp = date_stamp if date_stamp else datetime.now().strftime("%Y.%m.%d")
         self.llvm_dir = llvm_dir
@@ -344,13 +344,16 @@ class InteractiveInstaller:
         clear_screen()
         self.render_header()
         
-        print(f"  {Colors.DIM}[ENTER] to edit, [ESC] to go back{Colors.NC}\n")
+        print(f"  {Colors.DIM}[ENTER] to edit/toggle, [ESC] to go back{Colors.NC}\n")
         
+        module_format_display = "Lua" if self.config.module_format == "lua" else "TCL"
         paths = [
             ("Install Directory", str(self.config.install_base)),
             ("Module Directory", str(self.config.module_base)),
             ("Staging Directory", str(self.config.staging_dir)),
             ("Parallel Jobs", str(self.config.jobs)),
+            ("Name Postfix", str(self.config.date_stamp)),
+            ("Module Format", module_format_display),
             ("< Back to Main Menu", ""),
         ]
         
@@ -358,13 +361,23 @@ class InteractiveInstaller:
             if i == self.cursor_pos:
                 if value:
                     print(f"  {Colors.CYAN}>{Colors.NC} {Colors.BOLD}{name}{Colors.NC}")
-                    print(f"      {Colors.GREEN}{value}{Colors.NC}")
+                    if i == 5:  # Module Format - show as radio button
+                        tcl_selected = "(●)" if self.config.module_format == "tcl" else "(○)"
+                        lua_selected = "(●)" if self.config.module_format == "lua" else "(○)"
+                        print(f"      {Colors.GREEN}{tcl_selected} TCL  {lua_selected} Lua{Colors.NC}")
+                    else:
+                        print(f"      {Colors.GREEN}{value}{Colors.NC}")
                 else:
                     print(f"  {Colors.CYAN}>{Colors.NC} {Colors.BOLD}{name}{Colors.NC}")
             else:
                 if value:
                     print(f"    {name}")
-                    print(f"      {Colors.DIM}{value}{Colors.NC}")
+                    if i == 5:  # Module Format - show as radio button
+                        tcl_selected = "(●)" if self.config.module_format == "tcl" else "(○)"
+                        lua_selected = "(●)" if self.config.module_format == "lua" else "(○)"
+                        print(f"      {Colors.DIM}{tcl_selected} TCL  {lua_selected} Lua{Colors.NC}")
+                    else:
+                        print(f"      {Colors.DIM}{value}{Colors.NC}")
                 else:
                     print(f"    {name}")
             print()
@@ -383,6 +396,8 @@ class InteractiveInstaller:
         print(f"  Module Directory:  {Colors.GREEN}{self.config.module_base}{Colors.NC}")
         print(f"  Staging Directory: {Colors.GREEN}{self.config.staging_dir}{Colors.NC}")
         print(f"  Parallel Jobs:     {Colors.GREEN}{self.config.jobs}{Colors.NC}")
+        print(f"  Name Postfix:      {Colors.GREEN}{self.config.date_stamp}{Colors.NC}")
+        print(f"  Module Format:     {Colors.GREEN}{self.config.module_format.upper()}{Colors.NC}")
         print()
         
         print(f"  {Colors.BOLD}Components to Install ({len(enabled)}):{Colors.NC}")
@@ -405,6 +420,10 @@ class InteractiveInstaller:
     
     def edit_path(self, index: int):
         """Edit a path configuration."""
+        if index == 5:  # Module Format - toggle between TCL and Lua
+            self.config.module_format = "lua" if self.config.module_format == "tcl" else "tcl"
+            return
+        
         print(f"\n  {Colors.YELLOW}Enter new value (or press Enter to keep current):{Colors.NC}")
         
         if index == 0:
@@ -422,6 +441,10 @@ class InteractiveInstaller:
                 self.config.jobs = int(new_val)
             except ValueError:
                 pass
+        elif index == 4:
+            new_val = input_with_default("  Name Postfix", str(self.config.date_stamp))
+            if new_val:
+                self.config.date_stamp = new_val
     
     def run_main_menu(self) -> Optional[str]:
         """Run main menu interaction."""
@@ -447,6 +470,14 @@ class InteractiveInstaller:
         
         return "main"
     
+    def disable_with_dependents(self, component: Component):
+        """Disable a component and all components that depend on it."""
+        component.enabled = False
+        # Find all components that depend on this one
+        for comp in self.component_list:
+            if component.name in comp.depends_on and comp.enabled:
+                self.disable_with_dependents(comp)
+    
     def run_component_menu(self) -> str:
         """Run component selection menu."""
         num_items = self.render_component_menu()
@@ -460,11 +491,8 @@ class InteractiveInstaller:
         elif key == ' ':
             comp = self.get_component_by_index(self.cursor_pos)
             if comp.enabled:
-                # Check if anything depends on this
-                dependents = [c for c in self.component_list 
-                             if comp.name in c.depends_on and c.enabled]
-                if not dependents:
-                    comp.enabled = False
+                # Disable this component and anything that depends on it
+                self.disable_with_dependents(comp)
             else:
                 self.enable_with_deps(comp)
         elif key == 'a' or key == 'A':
@@ -1255,7 +1283,8 @@ class Builder:
         self.config.module_base.mkdir(parents=True, exist_ok=True)
         
         if self.config.module_format == "lua":
-            module_file = self.config.module_base / f"{name}.lua"
+            module_file = self.config.module_base / name / f"{version}.lua"
+            module_file.parent.mkdir(parents=True, exist_ok=True)
             content = f'''-- -*- lua -*-
 local install_dir = "{install_dir}"
 
@@ -1372,7 +1401,7 @@ Examples:
     
     parser.add_argument(
         "--staging-dir", "-s", type=str,
-        help="Staging directory for cloning and building (default: ~/chipStar-staging)"
+        help="Staging directory for cloning and building (default: /tmp)"
     )
     
     parser.add_argument(
