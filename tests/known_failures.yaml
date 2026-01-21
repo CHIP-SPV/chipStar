@@ -342,15 +342,10 @@ cupcake:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
-    hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'Helgrind false positives from OpenCL runtime threads on B570'
-    hip_sycl_interop: 'Subprocess abort on OpenCL dgpu with B570'
-    hip_sycl_interop_no_buffers: 'Subprocess abort on OpenCL dgpu with B570'
   OPENCL_POCL:
 meatloaf:
   ALL:
-    Unit_hipMultiStream_sameDevice: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
-    Unit_hipStreamCreate_MultistreamBasicFunctionalities: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
-    Unit_hipDeviceSynchronize_Functional: 'Started randomly failing on CI node with CL_OUT_OF_RESOURCES'
+    hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'Helgrind false positives from OpenCL runtime threads on B570'
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
