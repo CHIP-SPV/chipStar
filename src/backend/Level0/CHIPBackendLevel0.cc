@@ -1143,15 +1143,11 @@ void CHIPQueueLevel0::initializeCmdListImm() {
                                           &ZeCmdListImm_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
 
-  if (QueueDescriptorCopy_.ordinal < 0) {
-    logTrace("Creating immediate command list for copy");
-    zeStatus = zeCommandListCreateImmediate(
-        ZeCtx_, ZeDev_, &QueueDescriptorCopy_, &ZeCmdListImmCopy_);
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
-  } else {
-    logTrace("Using same command list for copy");
-    ZeCmdListImmCopy_ = ZeCmdListImm_;
-  }
+  // TODO: Using separate copy command lists requires fixing inter-queue
+  // synchronization. For now, always reuse the compute command list.
+  // See: https://github.com/CHIP-SPV/chipStar/issues/1136
+  logTrace("Reusing compute command list for copy operations");
+  ZeCmdListImmCopy_ = ZeCmdListImm_;
 }
 
 void CHIPDeviceLevel0::initializeQueueGroupProperties() {
