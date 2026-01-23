@@ -92,8 +92,21 @@ endforeach()
 # =============================================================================
 # chipStar CMAKE DEPENDENCIES
 if(NOT DEFINED OpenCL_LIBRARY)
-  message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
-  find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  if(APPLE)
+    # On macOS, search DYLD_LIBRARY_PATH and LIBRARY_PATH for ocl-icd-loader
+    # Prefer ocl-icd-loader over macOS OpenCL framework (which lacks SPIR-V support)
+    message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL in DYLD_LIBRARY_PATH/LIBRARY_PATH")
+    find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.dylib
+      PATHS ENV DYLD_LIBRARY_PATH ENV LIBRARY_PATH
+      NO_DEFAULT_PATH NO_CACHE)
+    if(NOT OpenCL_LIBRARY)
+      # Fallback to default search (will find macOS framework)
+      find_library(OpenCL_LIBRARY NAMES OpenCL NO_CACHE)
+    endif()
+  else()
+    message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
+    find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+  endif()
 endif()
 
 if(OpenCL_LIBRARY)
@@ -413,47 +426,7 @@ file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
 
 add_subdirectory(bin)
 
-add_subdirectory(tools/spirv-extractor)
-add_subdirectory(tools/opencl-spirv-compiler)
-if (CHIP_SKIP_TESTS_WITH_DOUBLES)
-  set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirv-extractor" "--check-for-doubles")
-  else()
-  set(SKIP_DOUBLE_TESTS "")
-endif()
-
-# once hipcc.bin is built, execute hipcc ./samples/hipSample.cpp
-add_custom_command(
-  OUTPUT ${CMAKE_BINARY_DIR}/hipInfo
-  COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
-  DEPENDS ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp hipcc.bin CHIP devicelib_bc
-)
-
-add_custom_target(hipInfoBin ALL
-  DEPENDS ${CMAKE_BINARY_DIR}/hipInfo
-)
-
-execute_process(
-  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
-    --generate ${CMAKE_BINARY_DIR}/test_lists
-    --target-llvm-major-version ${LLVM_VERSION_MAJOR}
-  RESULT_VARIABLE result_var
-  ERROR_VARIABLE error_var
-)
-message("Result: ${result_var}")
-# if the script fails, print the error and abort
-if(NOT result_var EQUAL 0)
-  message(FATAL_ERROR "manage_known_failures.py: ${error_var}")
-endif()
-# chipStar BINARIES & TESTS
-# =============================================================================
-
-# =============================================================================
-# chipStar COMPILATION SETUP
-# For building on top of HIP-COMMON
-target_compile_definitions(
-  CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
-
+# Find SPIRV-Tools before adding spirv-extractor subdirectory
 find_package(SPIRV-Tools)
 if (NOT SPIRV-Tools_FOUND)
   message(STATUS "spirv-tools not found, building...")
@@ -509,6 +482,47 @@ if (NOT SPIRV-Tools_FOUND)
 else()
   message(STATUS "spirv-tools: ${SPIRV-Tools_FOUND}")
 endif()
+
+add_subdirectory(tools/spirv-extractor)
+add_subdirectory(tools/opencl-spirv-compiler)
+if (CHIP_SKIP_TESTS_WITH_DOUBLES)
+  set(SKIP_DOUBLE_TESTS "${CMAKE_BINARY_DIR}/bin/spirv-extractor" "--check-for-doubles")
+  else()
+  set(SKIP_DOUBLE_TESTS "")
+endif()
+
+# once hipcc.bin is built, execute hipcc ./samples/hipSample.cpp
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/hipInfo
+  COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
+  DEPENDS ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp hipcc.bin CHIP devicelib_bc
+)
+
+add_custom_target(hipInfoBin ALL
+  DEPENDS ${CMAKE_BINARY_DIR}/hipInfo
+)
+
+execute_process(
+  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
+    --generate ${CMAKE_BINARY_DIR}/test_lists
+    --target-llvm-major-version ${LLVM_VERSION_MAJOR}
+  RESULT_VARIABLE result_var
+  ERROR_VARIABLE error_var
+)
+message("Result: ${result_var}")
+# if the script fails, print the error and abort
+if(NOT result_var EQUAL 0)
+  message(FATAL_ERROR "manage_known_failures.py: ${error_var}")
+endif()
+# chipStar BINARIES & TESTS
+# =============================================================================
+
+# =============================================================================
+# chipStar COMPILATION SETUP
+# For building on top of HIP-COMMON
+target_compile_definitions(
+  CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
 target_link_libraries(CHIP PRIVATE SPIRV-Tools)
 
@@ -577,11 +591,26 @@ execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE HOST_ARCH)
 set(HOST_ARCH "--target=${HOST_ARCH}")
 
+# On macOS, we need to pass the sysroot to find system headers
+set(HIP_SYSROOT_OPTIONS "")
+if(APPLE AND CMAKE_OSX_SYSROOT)
+  set(HIP_SYSROOT_OPTIONS "--sysroot=${CMAKE_OSX_SYSROOT}")
+elseif(APPLE)
+  # Try to find SDK path automatically
+  execute_process(COMMAND xcrun --show-sdk-path
+    OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE MACOS_SDK_PATH
+    RESULT_VARIABLE XCRUN_RESULT)
+  if(XCRUN_RESULT EQUAL 0 AND MACOS_SDK_PATH)
+    set(HIP_SYSROOT_OPTIONS "--sysroot=${MACOS_SDK_PATH}")
+  endif()
+endif()
+
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HIP_ENABLE_SPIRV}
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   --hip-path=${CMAKE_INSTALL_PREFIX}
   ${HOST_ARCH}
+  ${HIP_SYSROOT_OPTIONS}
   ${HIP_FIXUPS_HEADER_INSTALL})
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
@@ -589,6 +618,7 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   --hip-path=${CMAKE_BINARY_DIR}
   ${HOST_ARCH}
+  ${HIP_SYSROOT_OPTIONS}
   ${HIP_FIXUPS_HEADER_BUILD}
   -I${CMAKE_SOURCE_DIR}/include
   -I${CMAKE_SOURCE_DIR}/HIP/include
@@ -600,8 +630,10 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 #             combined compile and link or when the --hip-link is
 #             present at the link step.
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
+  ${HIP_SYSROOT_OPTIONS}
   "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
+  ${HIP_SYSROOT_OPTIONS}
   "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
 
 if(OpenCL_LIBRARY)

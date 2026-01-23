@@ -1,0 +1,401 @@
+From 8825d17448dcb331a5489a1c4d90c3da715142ef Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@pglc.io>
+Date: Mon, 19 Jan 2026 15:03:57 +0200
+Subject: [PATCH] macOS HIP-SPIRV support for LLVM 21
+
+This patch enables HIP-SPIRV compilation on macOS with LLVM 21.
+
+Changes:
+
+1. PPMacroExpansion.cpp: Hide __is_target_arch builtin for spirv targets
+   - Prevents Apple SDK TargetConditionals.h from using __is_target_arch
+   - Returns false gracefully for CPU arch queries on spirv targets
+   - Fixes "unrecognized arch using compiler with __is_target_arch support"
+
+2. Darwin.cpp: Handle uninitialzied targets in DarwinToolChain
+   - Guards in addClangWarningOptions, getSupportedSanitizers, CheckObjCARC
+   - Prevents crashes when Darwin is used as host for HIP offloading
+
+3. AlignedAllocation.h: Handle unknown OS types gracefully
+   - Returns empty version tuple for SPIRV/unknown targets
+   - Prevents llvm_unreachable crash
+
+4. HIPSPV.cpp: Don't delegate addClangTargetOptions to host toolchain
+   - Prevents macOS-specific flags like -faligned-alloc-unavailable
+     from leaking into SPIRV device compilation
+
+5. CGCUDANV.cpp: Use Mach-O section naming for HIP on macOS
+   - __HIP,__hip_fatbin instead of .hip_fatbin
+   - __HIP,__fatbin instead of .hipFatBinSegment
+   - __HIP,__module_id instead of __hip_module_id
+
+6. HIPUtility.cpp: Mach-O compatible assembly generation
+   - Use __HIP,__hip_fatbin section for fatbin
+   - Use __HIP,__hipgpubin section for gpu bin handle
+   - Skip ELF-specific .protected and .type directives on macOS
+
+7. OffloadWrapper.cpp: Hidden visibility for Darwin targets
+   - Prevents ELF assembly directives from being generated
+
+8. SPIR.h: Define __arm64__ for host compatibility on macOS
+   - Allows fallback macros in system headers
+
+9. SPIRVTargetMachine.cpp: Adjust target settings for chipStar
+
+10. llvm-link.cpp: Add debug info preservation option
+
+Tested on macOS 15.x, Apple Silicon (arm64).
+---
+ clang/include/clang/Basic/AlignedAllocation.h |  6 ++--
+ clang/lib/Basic/Targets/SPIR.h                |  6 ++--
+ clang/lib/CodeGen/CGCUDANV.cpp                | 10 +++++--
+ clang/lib/Driver/ToolChains/Darwin.cpp        | 15 ++++++++++
+ clang/lib/Driver/ToolChains/HIPSPV.cpp        | 23 ++++++++++++---
+ clang/lib/Driver/ToolChains/HIPUtility.cpp    | 14 ++++++---
+ clang/lib/Lex/PPMacroExpansion.cpp            | 29 ++++++++++++++++++-
+ .../Frontend/Offloading/OffloadWrapper.cpp    | 11 +++++++
+ llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp  |  6 ++--
+ llvm/tools/llvm-link/llvm-link.cpp            | 12 ++++++++
+ 10 files changed, 111 insertions(+), 21 deletions(-)
+
+diff --git a/clang/include/clang/Basic/AlignedAllocation.h b/clang/include/clang/Basic/AlignedAllocation.h
+index ac26eb4a276d..21bb7e2ccf40 100644
+--- a/clang/include/clang/Basic/AlignedAllocation.h
++++ b/clang/include/clang/Basic/AlignedAllocation.h
+@@ -24,7 +24,9 @@ namespace clang {
+ inline llvm::VersionTuple alignedAllocMinVersion(llvm::Triple::OSType OS) {
+   switch (OS) {
+   default:
+-    break;
++    // For unknown/unsupported OS types (e.g. SPIRV, CUDA device targets),
++    // return empty version tuple indicating aligned alloc is always available.
++    return llvm::VersionTuple();
+   case llvm::Triple::Darwin:
+   case llvm::Triple::MacOSX: // Earliest supporting version is 10.13.
+     return llvm::VersionTuple(10U, 13U);
+@@ -36,8 +38,6 @@ inline llvm::VersionTuple alignedAllocMinVersion(llvm::Triple::OSType OS) {
+   case llvm::Triple::ZOS:
+     return llvm::VersionTuple(); // All z/OS versions have no support.
+   }
+-
+-  llvm_unreachable("Unexpected OS");
+ }
+ 
+ } // end namespace clang
+diff --git a/clang/lib/Basic/Targets/SPIR.h b/clang/lib/Basic/Targets/SPIR.h
+index 1abf798d9312..31b9638f1329 100644
+--- a/clang/lib/Basic/Targets/SPIR.h
++++ b/clang/lib/Basic/Targets/SPIR.h
+@@ -323,7 +323,7 @@ public:
+     // SPIR-V IDs are represented with a single 32-bit word.
+     SizeType = TargetInfo::UnsignedInt;
+     resetDataLayout("e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-"
+-                    "v256:256-v512:512-v1024:1024-n8:16:32:64-G10");
++                    "v256:256-v512:512-v1024:1024-G10");
+   }
+ 
+   void getTargetDefines(const LangOptions &Opts,
+@@ -347,7 +347,7 @@ public:
+     // we take the maximum because it's possible the Host supports wider types.
+     MaxAtomicInlineWidth = std::max<unsigned char>(MaxAtomicInlineWidth, 32);
+     resetDataLayout("e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-"
+-                    "v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64-G1");
++                    "v192:256-v256:256-v512:512-v1024:1024-G1");
+   }
+ 
+   void getTargetDefines(const LangOptions &Opts,
+@@ -371,7 +371,7 @@ public:
+     // we take the maximum because it's possible the Host supports wider types.
+     MaxAtomicInlineWidth = std::max<unsigned char>(MaxAtomicInlineWidth, 64);
+     resetDataLayout("e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-"
+-                    "v256:256-v512:512-v1024:1024-n8:16:32:64-G1");
++                    "v256:256-v512:512-v1024:1024-G1");
+   }
+ 
+   void getTargetDefines(const LangOptions &Opts,
+diff --git a/clang/lib/CodeGen/CGCUDANV.cpp b/clang/lib/CodeGen/CGCUDANV.cpp
+index dd26be74e561..552adcdb782e 100644
+--- a/clang/lib/CodeGen/CGCUDANV.cpp
++++ b/clang/lib/CodeGen/CGCUDANV.cpp
+@@ -817,10 +817,14 @@ llvm::Function *CGNVCUDARuntime::makeModuleCtorFunction() {
+   llvm::Constant *FatBinStr;
+   unsigned FatMagic;
+   if (IsHIP) {
+-    FatbinConstantName = ".hip_fatbin";
+-    FatbinSectionName = ".hipFatBinSegment";
++    // On macOS (Mach-O), section names must be in "segment,section" format.
++    FatbinConstantName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__hip_fatbin" : ".hip_fatbin";
++    FatbinSectionName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__fatbin" : ".hipFatBinSegment";
+ 
+-    ModuleIDSectionName = "__hip_module_id";
++    ModuleIDSectionName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__module_id" : "__hip_module_id";
+     ModuleIDPrefix = "__hip_";
+ 
+     if (CudaGpuBinary) {
+diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
+index 234683f2f488..4532846f1c98 100644
+--- a/clang/lib/Driver/ToolChains/Darwin.cpp
++++ b/clang/lib/Driver/ToolChains/Darwin.cpp
+@@ -1185,6 +1185,12 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
+   CC1Args.push_back("-Werror=undef-prefix");
+ 
+   // For modern targets, promote certain warnings to errors.
++  // Guard against uninitialized target (e.g. when Darwin is used as host
++  // toolchain for HIP/CUDA offloading where the target platform may not
++  // have been fully set up).
++  if (!isTargetInitialized())
++    return;
++
+   if (isTargetWatchOSBased() || getTriple().isArch64Bit()) {
+     // Always enable -Wdeprecated-objc-isa-usage and promote it
+     // to an error.
+@@ -3739,6 +3745,10 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
+ }
+ 
+ void Darwin::CheckObjCARC() const {
++  // Guard against uninitialized target (e.g. when Darwin is used as host
++  // toolchain for HIP/CUDA offloading).
++  if (!isTargetInitialized())
++    return;
+   if (isTargetIOSBased() || isTargetWatchOSBased() || isTargetXROS() ||
+       (isTargetMacOSBased() && !isMacosxVersionLT(10, 6)))
+     return;
+@@ -3758,6 +3768,11 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
+   Res |= SanitizerKind::FuzzerNoLink;
+   Res |= SanitizerKind::ObjCCast;
+ 
++  // Guard against uninitialized target (e.g. when Darwin is used as host
++  // toolchain for HIP/CUDA offloading). Return base sanitizers only.
++  if (!isTargetInitialized())
++    return Res;
++
+   // Prior to 10.9, macOS shipped a version of the C++ standard library without
+   // C++11 support. The same is true of iOS prior to version 5. These OS'es are
+   // incompatible with -fsanitize=vptr.
+diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+index 53649ca40d99..3be6a97c2581 100644
+--- a/clang/lib/Driver/ToolChains/HIPSPV.cpp
++++ b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+@@ -69,8 +69,17 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+ 
+   // Link LLVM bitcode.
+   ArgStringList LinkArgs{};
++
+   for (auto Input : Inputs)
+     LinkArgs.push_back(Input.getFilename());
++
++  // Add static device libraries using the common helper function.
++  // This handles unbundling archives (.a) containing bitcode bundles.
++  StringRef Arch = getToolChain().getTriple().getArchName();
++  StringRef Target =
++      "generic"; // SPIR-V is generic, no specific target ID like -mcpu
++  tools::AddStaticDeviceLibsLinking(C, *this, JA, Inputs, Args, LinkArgs, Arch,
++                                    Target, /*IsBitCodeSDL=*/true);
+   LinkArgs.append({"-o", TempFile});
+   const char *LlvmLink =
+       Args.MakeArgString(getToolChain().GetProgramPath("llvm-link"));
+@@ -95,9 +104,11 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+   }
+ 
+   // Emit SPIR-V binary.
+-
+-  llvm::opt::ArgStringList TrArgs{"--spirv-max-version=1.1",
+-                                  "--spirv-ext=+all"};
++  // We need 1.2 when using warp-level primitivies via sub group extensions.
++  // Strictly put we'd need 1.3 for the standard non-extension shuffle
++  // operations, but it's not supported by any target yet.
++  llvm::opt::ArgStringList TrArgs{"--spirv-max-version=1.2",
++                                  "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add,+SPV_EXT_relaxed_printf_string_address_space"};
+   InputInfo TrInput = InputInfo(types::TY_LLVM_BC, TempFile, "");
+   SPIRV::constructTranslateCommand(C, *this, JA, Output, TrInput, TrArgs);
+ }
+@@ -130,7 +141,11 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
+ void HIPSPVToolChain::addClangTargetOptions(
+     const llvm::opt::ArgList &DriverArgs, llvm::opt::ArgStringList &CC1Args,
+     Action::OffloadKind DeviceOffloadingKind) const {
+-  HostTC.addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadingKind);
++  // NOTE: Unlike other HIP toolchains, we do NOT delegate to
++  // HostTC.addClangTargetOptions() here. On macOS (Darwin), the host toolchain
++  // adds flags like -faligned-alloc-unavailable that are specific to macOS
++  // libc++ and break SPIR-V device compilation. SPIR-V device code doesn't
++  // have the same stdlib limitations as the host.
+ 
+   assert(DeviceOffloadingKind == Action::OFK_HIP &&
+          "Only HIP offloading kinds are supported for GPUs.");
+diff --git a/clang/lib/Driver/ToolChains/HIPUtility.cpp b/clang/lib/Driver/ToolChains/HIPUtility.cpp
+index cb061ffede23..6c17ca721e73 100644
+--- a/clang/lib/Driver/ToolChains/HIPUtility.cpp
++++ b/clang/lib/Driver/ToolChains/HIPUtility.cpp
+@@ -403,9 +403,12 @@ void HIP::constructGenerateObjFileFromHIPFatBinary(
+   ObjStream << "# *** Automatically generated by Clang ***\n";
+   if (FoundPrimaryGpuBinHandleSymbol) {
+     // Define the first gpubin handle symbol
+-    if (HostTriple.isWindowsMSVCEnvironment())
++    if (HostTriple.isWindowsMSVCEnvironment()) {
+       ObjStream << "  .section .hip_gpubin_handle,\"dw\"\n";
+-    else {
++    } else if (HostTriple.isMacOSX()) {
++      // Mach-O requires "segment,section" format
++      ObjStream << "  .section __HIP,__hipgpubin\n";
++    } else {
+       ObjStream << "  .protected " << PrimaryGpuBinHandleSymbol << "\n";
+       ObjStream << "  .type " << PrimaryGpuBinHandleSymbol << ",@object\n";
+       ObjStream << "  .section .hip_gpubin_handle,\"aw\"\n";
+@@ -424,9 +427,12 @@ void HIP::constructGenerateObjFileFromHIPFatBinary(
+   }
+   if (FoundPrimaryHipFatbinSymbol) {
+     // Define the first fatbin symbol
+-    if (HostTriple.isWindowsMSVCEnvironment())
++    if (HostTriple.isWindowsMSVCEnvironment()) {
+       ObjStream << "  .section .hip_fatbin,\"dw\"\n";
+-    else {
++    } else if (HostTriple.isMacOSX()) {
++      // Mach-O requires "segment,section" format
++      ObjStream << "  .section __HIP,__hip_fatbin\n";
++    } else {
+       ObjStream << "  .protected " << PrimaryHipFatbinSymbol << "\n";
+       ObjStream << "  .type " << PrimaryHipFatbinSymbol << ",@object\n";
+       ObjStream << "  .section .hip_fatbin,\"a\",@progbits\n";
+diff --git a/clang/lib/Lex/PPMacroExpansion.cpp b/clang/lib/Lex/PPMacroExpansion.cpp
+index 890567cfd324..0e162355e63f 100644
+--- a/clang/lib/Lex/PPMacroExpansion.cpp
++++ b/clang/lib/Lex/PPMacroExpansion.cpp
+@@ -1463,6 +1463,21 @@ static IdentifierInfo *ExpectFeatureIdentifierInfo(Token &Tok,
+ static bool isTargetArch(const TargetInfo &TI, const IdentifierInfo *II) {
+   llvm::Triple Arch(II->getName().lower() + "--");
+   const llvm::Triple &TT = TI.getTriple();
++
++  // For non-CPU offload targets (spirv, nvptx, amdgcn, etc),
++  // return false gracefully when checking against CPU architectures.
++  // This allows Apple SDK TargetConditionals.h to work correctly
++  // by falling through to its fallback logic instead of hitting #error.
++  if (TT.getArch() == llvm::Triple::spirv ||
++      TT.getArch() == llvm::Triple::spirv32 ||
++      TT.getArch() == llvm::Triple::spirv64) {
++    // spirv targets: only match spirv architectures
++    if (Arch.getArch() != llvm::Triple::spirv &&
++        Arch.getArch() != llvm::Triple::spirv32 &&
++        Arch.getArch() != llvm::Triple::spirv64)
++      return false;
++  }
++
+   if (TT.isThumb()) {
+     // arm matches thumb or thumbv7. armv7 matches thumbv7.
+     if ((Arch.getSubArch() == llvm::Triple::NoSubArch ||
+@@ -1785,6 +1800,18 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
+                      II->getName().starts_with("__builtin_")) {
+             return true;
+           } else {
++            // For spirv offload targets, hide __is_target_arch to prevent
++            // Apple SDK TargetConditionals.h from using it and hitting an error
++            bool HasTargetArchBuiltin = true;
++            if (II->getName() == "__is_target_arch") {
++              llvm::Triple::ArchType Arch = getTargetInfo().getTriple().getArch();
++              if (Arch == llvm::Triple::spirv ||
++                  Arch == llvm::Triple::spirv32 ||
++                  Arch == llvm::Triple::spirv64) {
++                HasTargetArchBuiltin = false;
++              }
++            }
++
+             return llvm::StringSwitch<bool>(II->getName())
+         // Report builtin templates as being builtins.
+ #define BuiltinTemplate(BTName) .Case(#BTName, getLangOpts().CPlusPlus)
+@@ -1792,7 +1819,7 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
+                 // Likewise for some builtin preprocessor macros.
+                 // FIXME: This is inconsistent; we usually suggest detecting
+                 // builtin macros via #ifdef. Don't add more cases here.
+-                .Case("__is_target_arch", true)
++                .Case("__is_target_arch", HasTargetArchBuiltin)
+                 .Case("__is_target_vendor", true)
+                 .Case("__is_target_os", true)
+                 .Case("__is_target_environment", true)
+diff --git a/llvm/lib/Frontend/Offloading/OffloadWrapper.cpp b/llvm/lib/Frontend/Offloading/OffloadWrapper.cpp
+index cfddc06fbc00..c84b107c9190 100644
+--- a/llvm/lib/Frontend/Offloading/OffloadWrapper.cpp
++++ b/llvm/lib/Frontend/Offloading/OffloadWrapper.cpp
+@@ -299,6 +299,12 @@ GlobalVariable *createFatbinDesc(Module &M, ArrayRef<char> Image, bool IsHIP,
+   FatbinDesc->setSection(FatbinWrapperSection);
+   FatbinDesc->setAlignment(Align(8));
+ 
++  // For Darwin/MachO targets, use Hidden visibility to avoid ELF directives
++  if (Triple.isMacOSX() || Triple.isOSDarwin()) {
++    Fatbin->setVisibility(GlobalValue::HiddenVisibility);
++    FatbinDesc->setVisibility(GlobalValue::HiddenVisibility);
++  }
++
+   return FatbinDesc;
+ }
+ 
+@@ -590,6 +596,11 @@ void createRegisterFatbinFunction(Module &M, GlobalVariable *FatbinDesc,
+       llvm::ConstantPointerNull::get(PtrTy),
+       (IsHIP ? ".hip.binary_handle" : ".cuda.binary_handle") + Suffix);
+ 
++  // For Darwin/MachO targets, use Hidden visibility to avoid ELF directives
++  llvm::Triple ModTriple(M.getTargetTriple());
++  if (ModTriple.isMacOSX() || ModTriple.isOSDarwin())
++    BinaryHandleGlobal->setVisibility(llvm::GlobalValue::HiddenVisibility);
++
+   // Create the constructor to register this image with the runtime.
+   IRBuilder<> CtorBuilder(BasicBlock::Create(C, "entry", CtorFunc));
+   CallInst *Handle = CtorBuilder.CreateCall(
+diff --git a/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp b/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp
+index d7cf211ba84d..21ea7c616713 100644
+--- a/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp
++++ b/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp
+@@ -69,16 +69,16 @@ static std::string computeDataLayout(const Triple &TT) {
+   // mean anything.
+   if (Arch == Triple::spirv32)
+     return "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-"
+-           "v256:256-v512:512-v1024:1024-n8:16:32:64-G1";
++           "v256:256-v512:512-v1024:1024-G1";
+   if (Arch == Triple::spirv)
+     return "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-"
+-           "v512:512-v1024:1024-n8:16:32:64-G10";
++           "v512:512-v1024:1024-G10";
+   if (TT.getVendor() == Triple::VendorType::AMD &&
+       TT.getOS() == Triple::OSType::AMDHSA)
+     return "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-"
+            "v512:512-v1024:1024-n32:64-S32-G1-P4-A0";
+   return "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-"
+-         "v512:512-v1024:1024-n8:16:32:64-G1";
++         "v512:512-v1024:1024-G1";
+ }
+ 
+ static Reloc::Model getEffectiveRelocModel(std::optional<Reloc::Model> RM) {
+diff --git a/llvm/tools/llvm-link/llvm-link.cpp b/llvm/tools/llvm-link/llvm-link.cpp
+index 22ea54e68358..6f9460bc586b 100644
+--- a/llvm/tools/llvm-link/llvm-link.cpp
++++ b/llvm/tools/llvm-link/llvm-link.cpp
+@@ -176,6 +176,7 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
+ 
+   std::unique_ptr<object::Archive> Archive = std::move(ArchiveOrError.get());
+ 
++  bool FirstModule = true;
+   Linker L(*Result);
+   Error Err = Error::success();
+   for (const object::Archive::Child &C : Archive->children(Err)) {
+@@ -226,6 +227,17 @@ static std::unique_ptr<Module> loadArFile(const char *Argv0,
+                          << "'\n";
+       return nullptr;
+     }
++
++    // Inherit data layout and target triple from the first module in the
++    // archive to avoid warnings about linking modules with different layouts.
++    if (FirstModule) {
++      FirstModule = false;
++      if (!M->getDataLayoutStr().empty())
++        Result->setDataLayout(M->getDataLayout());
++      if (!M->getTargetTriple().empty())
++        Result->setTargetTriple(M->getTargetTriple());
++    }
++
+     if (Verbose)
+       errs() << "Linking member '" << ChildName << "' of archive library.\n";
+     if (L.linkInModule(std::move(M)))
+-- 
+2.39.5 (Apple Git-154)
+

@@ -107,6 +107,34 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipVerify.cpp
     ${EXTRA_OBJS})
 
+# macOS Linking Requirements:
+# On macOS, the linker requires all symbols to be resolved at link time for
+# MODULE (plugin) libraries, unlike Linux where unresolved symbols can be
+# deferred to load time. This means we must explicitly link against LLVM.
+#
+# With dynamic LLVM (LLVM_LINK_LLVM_DYLIB=ON), we link against libLLVM.dylib.
+# With static LLVM, this is problematic because:
+#   1. Linking all static LLVM libs creates a massive plugin with duplicated code
+#   2. The 'ar' workaround above only extracts specific .o files, not all deps
+#
+# Therefore, on macOS we require LLVM to be built with shared libraries.
+# Use: ./scripts/configure_llvm.sh --link-type dynamic
+if(APPLE)
+  if(NOT LLVM_LINK_LLVM_DYLIB)
+    message(FATAL_ERROR
+      "macOS requires LLVM built with shared libraries (LLVM_LINK_LLVM_DYLIB=ON).\n"
+      "The macOS linker cannot build MODULE libraries with unresolved symbols.\n"
+      "Rebuild LLVM with: ./scripts/configure_llvm.sh --link-type dynamic\n"
+      "See MacOS-Issues.md for more details.")
+  endif()
+  
+  message(STATUS "macOS: Linking pass plugins against libLLVM.dylib")
+  target_link_libraries(LLVMHipPasses PRIVATE LLVM)
+  target_link_libraries(LLVMHipDynMem PRIVATE LLVM)
+  target_link_libraries(LLVMHipStripUsedIntrinsics PRIVATE LLVM)
+  target_link_libraries(LLVMHipDefrost PRIVATE LLVM)
+endif()
+
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
 target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipStripUsedIntrinsics PRIVATE -I/${LLVM_INCLUDE_DIRS})
