@@ -81,6 +81,8 @@ aurora_build_libraries:
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
+    - module use /soft/modulefiles
+    - module load cmake chipStar/.llvm19/20251107-19/release
     - cd ${WRK_DIR}
     - git clone git@github.com:CHIP-SPV/H4I-MKLShim.git
     - cd H4I-MKLShim
