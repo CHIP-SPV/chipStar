@@ -11,8 +11,8 @@ default:
       # Define the function in the default before_script
       function build_library() {
           local name="$1" 
-          local envs=$2
-          local cmake_commands=$3
+          local envs="$2"
+          local cmake_commands="$3"
           git clone git@github.com:CHIP-SPV/$name.git
           cd $name
           # removing hypens since not valid in identifiers
