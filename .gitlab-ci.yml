@@ -19,7 +19,6 @@ default:
           eval export gitcommit_"${name//-/}"=$(git rev-parse HEAD)
           mkdir build
           cd build
-#          MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF ..
           ${envs} cmake ${cmake_commands} ..
           make install -j24
           }
