@@ -11,15 +11,29 @@ default:
       # Define the function in the default before_script
       function build_library() {
           local name="$1" 
+          local envs=$2
+          local cmake_commands=$3
           git clone git@github.com:CHIP-SPV/$name.git
           cd $name
           # removing hypens since not valid in identifiers
           eval export gitcommit_"${name//-/}"=$(git rev-parse HEAD)
           mkdir build
           cd build
-          MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF ..
+#          MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF ..
+          ${envs} cmake ${cmake_commands} ..
           make install -j24
           }
+      function build_thrust_prim_library() {
+          local name="$1"
+          rm -rf ./$name
+          git clone git@github.com:CHIP-SPV/$name.git
+          cd $name
+          eval export gitcommit_"${name//-/}"=$(git rev-parse HEAD)
+          mkdir build
+          cd build
+          CMAKE_PREFIX_PATH=${WRK_DIR}/install_aurora CXX=${WRK_DIR}/install_aurora/bin/hipcc cmake -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DCMAKE_BUILD_TYPE=Release ../
+          make install -j24
+}
 
 variables:
   PROJ: "chipStar_test"
@@ -91,7 +105,11 @@ aurora_build_libraries:
     - MKL_DIR=$MKLROOT cmake -DCMAKE_CXX_COMPILER=icpx -DCMAKE_C_COMPILER=icx -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora ..
     - make install -j24
     - cd ${WRK_DIR}
-    - build_library "H4I-HipBLAS"
-    - build_library "H4I-HipSOLVER"
-    - build_library "H4I-HipFFT"
-
+    - build_library "H4I-HipBLAS" "MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora" "-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF"
+    - build_library "H4I-HipSOLVER" "MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora" "-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF"
+    - build_library "H4I-HipFFT" "MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora" "-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF"
+    - build_thrust_prim_library "rocPRIM"
+    - build_thrust_prim_library "rocThrust"    
+    - build_library "rocSparse" "MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora" "-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF"
+    - build_library "hipSparse" "MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora" "-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF"
+    - build_library "hipCUB" "MKL_DIR=$MKLROOT MKLShim_DIR=${WRK_DIR}/install_aurora" "-DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora -DBUILD_CLIENTS_SAMPLES=OFF"
