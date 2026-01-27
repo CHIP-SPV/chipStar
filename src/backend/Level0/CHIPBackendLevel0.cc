@@ -908,6 +908,11 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     zeStatus = zeCommandListAppendSignalEvent(OtherCommandList, MarkerEventLz->peek());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
 
+    // Force immediate command list to flush pending commands to the GPU.
+    // Without this, the signal command may not be processed by the time
+    // we call zeEventHostSynchronize, causing a hang.
+    zeCommandListHostSynchronize(OtherCommandList, 0);
+
     // Set the event state to indicate it's been enqueued
     MarkerEventLz->SignalEnqueued_ = true;
 
