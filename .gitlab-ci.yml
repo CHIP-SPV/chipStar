@@ -19,7 +19,7 @@ default:
           eval export gitcommit_"${name//-/}"=$(git rev-parse HEAD)
           mkdir build
           cd build
-          ${envs} cmake ${cmake_commands} ..
+          eval ${envs} cmake ${cmake_commands} ..
           make install -j24
           }
 
