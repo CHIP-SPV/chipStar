@@ -306,8 +306,10 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
+#ifdef CHIP_L0_KERNEL_TIMESTAMPS
   if (!Flags.isDisableTiming())
     PoolFlags = PoolFlags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
+#endif
 
   ze_event_pool_desc_t EventPoolDesc = {
       ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
@@ -1957,9 +1959,11 @@ LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
     : Ctx_(Ctx), Size_(Size), AllocatedCount_(0) {
 
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
+#ifdef CHIP_L0_KERNEL_TIMESTAMPS
   // Enable kernel timestamps by default since most events need timing.
   // Events with timing disabled will still work but won't use timestamps.
   PoolFlags = PoolFlags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
+#endif
 
   ze_event_pool_desc_t EventPoolDesc = {
       ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
