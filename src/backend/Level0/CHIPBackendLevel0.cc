@@ -629,11 +629,13 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 
   // Workaround for Level Zero driver bug on Aurora: when using immediate
   // command lists, barriers may not see events signaled on other queues
-  // unless we first wait for them from the host. This ensures the events
-  // are fully visible before the GPU barrier starts waiting.
+  // unless we first wait for them from the host. Use a short timeout to
+  // avoid blocking forever if events aren't ready yet - the GPU-side
+  // barrier will still enforce proper ordering.
+  // Setting this timeout to UINT64_MAX will cause a hang when running callback samples in parallel. 
   for (auto &SyncEvent : QueueSyncEvents) {
-    zeStatus = zeEventHostSynchronize(SyncEvent, UINT64_MAX);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostSynchronize);
+    zeEventHostSynchronize(SyncEvent, 1);
   }
 
   // Lock before using immediate command list
