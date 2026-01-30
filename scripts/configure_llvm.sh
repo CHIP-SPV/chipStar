@@ -51,7 +51,7 @@ done
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [-N]"
-  echo "--version: LLVM version 17, 18, 19, 20 or 21"
+  echo "--version: LLVM version 17, 18, 19, 20, 21 or 22"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
@@ -67,8 +67,8 @@ fi
 
 # validate version argument
 if [ "$VERSION" != "17" ] && [ "$VERSION" != "18" ] && [ "$VERSION" != "19" ] \
-       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ]; then
-  echo "Invalid version. Must be 17, 18, 19, 20 or 21."
+       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ]; then
+  echo "Invalid version. Must be 17, 18, 19, 20, 21 or 22."
   exit 1
 fi
 
@@ -147,8 +147,22 @@ if [ "$EMIT_ONLY" != "on" ]; then
           echo "  Skipping $patch_name (using LLVM 21-specific patch instead)"
           continue
         fi
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific patch instead)"
+          continue
+        fi
         if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 21)"
+          continue
+        fi
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22)"
+          continue
+        fi
+        
+        # Skip Unbundle-SDL patch for LLVM 22+ (already upstream)
+        if [[ "$patch_name" == "0003-Unbundle-SDL.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
           continue
         fi
         
