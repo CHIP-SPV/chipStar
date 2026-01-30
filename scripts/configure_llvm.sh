@@ -106,7 +106,7 @@ if [ "$EMIT_ONLY" != "on" ]; then
     echo "llvm-project directory already exists. Checking out upstream branches..."
     cd llvm-project
     git fetch origin
-    git reset --hard
+    git reset --hard origin/${LLVM_BRANCH}
     git clean -fd
     git checkout ${LLVM_BRANCH}
     
@@ -118,7 +118,7 @@ if [ "$EMIT_ONLY" != "on" ]; then
     else
       cd llvm/projects/SPIRV-LLVM-Translator
       git fetch origin
-      git reset --hard
+      git reset --hard origin/${TRANSLATOR_BRANCH}
       git clean -fd
     fi
     git checkout ${TRANSLATOR_BRANCH}
