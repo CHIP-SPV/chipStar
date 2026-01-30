@@ -166,6 +166,16 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # HIPSPV new offload driver patches only for LLVM 22+
+        if [[ "$patch_name" == "0007-add-chipstar-triple.patch" ]] && [ "$VERSION" -lt 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22+)"
+          continue
+        fi
+        if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -lt 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22+)"
+          continue
+        fi
+        
         echo "  Applying $patch_name..."
         git apply "$patch" || {
           echo "Error: Failed to apply $patch_name"
