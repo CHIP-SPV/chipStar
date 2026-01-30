@@ -166,6 +166,16 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # Use LLVM 22-specific macOS patch (HIPSPV.cpp changes already upstream)
+        if [[ "$patch_name" == "0006-fix-macos-hip-spirv.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific patch instead)"
+          continue
+        fi
+        if [[ "$patch_name" == "0006-fix-macos-hip-spirv-llvm22.patch" ]] && [ "$VERSION" -lt 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22+)"
+          continue
+        fi
+        
         # HIPSPV new offload driver patches only for LLVM 22+
         if [[ "$patch_name" == "0007-add-chipstar-triple.patch" ]] && [ "$VERSION" -lt 22 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 22+)"
