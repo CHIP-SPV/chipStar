@@ -166,13 +166,19 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
-        # Use LLVM 22-specific macOS patch (HIPSPV.cpp changes already upstream)
-        if [[ "$patch_name" == "0006-fix-macos-hip-spirv.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (using LLVM 22-specific patch instead)"
+        # Skip old combined macOS patch (replaced by split patches)
+        if [[ "$patch_name" == "0006-fix-macos-hip-spirv.patch" ]]; then
+          echo "  Skipping $patch_name (replaced by split patches)"
           continue
         fi
-        if [[ "$patch_name" == "0006-fix-macos-hip-spirv-llvm22.patch" ]] && [ "$VERSION" -lt 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22+)"
+        if [[ "$patch_name" == "0006-fix-macos-hip-spirv-llvm22.patch" ]]; then
+          echo "  Skipping $patch_name (replaced by split patches)"
+          continue
+        fi
+        
+        # HIPSPV old driver patch only for LLVM < 22 (changes already upstream in 22+)
+        if [[ "$patch_name" == "0006a-fix-hipspv-old-driver.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
           continue
         fi
         
