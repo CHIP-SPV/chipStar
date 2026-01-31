@@ -66,8 +66,50 @@ jobs:
           rm -rf build
           mkdir -p build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install
           ninja && ninja build_tests
+
+      - name: Install
+        shell: /bin/bash {0}
+        run: |
+          cd build
+          ninja install
+
+      - name: Test Install
+        shell: /bin/bash {0}
+        run: |
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
+          module load llvm/21.0
+          module load ocl-icd-loader
+          module load pocl
+
+          INSTALL_DIR=${{ github.workspace }}/install
+          export PATH="${INSTALL_DIR}/bin:$PATH"
+          export DYLD_LIBRARY_PATH="${INSTALL_DIR}/lib:$DYLD_LIBRARY_PATH"
+          export SDKROOT=$(xcrun --show-sdk-path)
+
+          # Verify hipcc exists and works
+          which hipcc
+          hipcc --version
+
+          # Compile and run a simple test using installed hipcc
+          TEST_DIR=${{ runner.temp }}/install_test
+          mkdir -p ${TEST_DIR}
+          cat > ${TEST_DIR}/test_install.cpp << 'EOF'
+          #include <hip/hip_runtime.h>
+          #include <iostream>
+          __global__ void emptyKernel() {}
+          int main() {
+              emptyKernel<<<1,1>>>();
+              hipError_t err = hipDeviceSynchronize();
+              std::cout << "Install test: " << (err == hipSuccess ? "PASSED" : "FAILED") << std::endl;
+              return err == hipSuccess ? 0 : 1;
+          }
+          EOF
+
+          hipcc ${TEST_DIR}/test_install.cpp -o ${TEST_DIR}/test_install
+          ${TEST_DIR}/test_install
 
       - name: Run
         shell: /bin/bash {0}
