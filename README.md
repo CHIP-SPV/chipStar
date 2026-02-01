@@ -82,11 +82,11 @@ Release notes for [1.1](docs/release_notes/chipStar_1.1.rst), [1.0](docs/release
 ## Prerequisites
 
 * Cmake >= 3.20.0
-* Clang and LLVM 18, 19, 20, 22
+* Clang and LLVM 18, 19, 20
   * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-19 llvm-19 clang-tools-19'.
   * For the best results, install Clang/LLVM from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-18) which has fixes that are not yet in the LLVM upstream project. See below for a scripted way to build and install the patched versions.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
-  (e.g. llvm\_release\_180 for LLVM 18, llvm\_release\_190 for LLVM 19, llvm\_release\_220 for LLVM 22)
+  (e.g. llvm\_release\_180 for LLVM 18, llvm\_release\_190 for LLVM 19)
 ,  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
 * SPIRV-Tools and SPIRV-Headers:
@@ -101,7 +101,7 @@ For this you can use a script included in the chipStar repository:
 ```bash
 ./scripts/configure_llvm.sh
 Usage: ./scripts/configure_llvm.sh --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>
---version: LLVM version 18, 19, 20, or 22
+--version: LLVM version 18, 19 or 20
 --install-dir: installation directory
 --link-type: static or dynamic (default: static)
 --only-necessary-spirv-exts: on or off (default: off)
@@ -119,7 +119,6 @@ Or you can do the steps manually:
 git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-19
 cd llvm-project/llvm/projects
 git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-19
-# For LLVM 22, use branch chipStar-llvm-22
 cd ../..
 
 # DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
