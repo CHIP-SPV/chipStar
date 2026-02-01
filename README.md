@@ -37,6 +37,8 @@ chipStar supports a growing set of HIP/ROCm libraries. Use `install_chipstar.py`
 ./install_chipstar.py --list
 ```
 
+**Note:** When run from within the chipStar repository, the installer will use the current repository instead of cloning a fresh copy. This is useful when testing local changes or working with a specific branch.
+
 ### Platform-Independent Libraries
 
 These libraries have been ported to work with chipStar on any supported platform:
