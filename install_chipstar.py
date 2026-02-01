@@ -1194,6 +1194,7 @@ class Builder:
     def build_rocsparse(self, component: Component):
         """Build rocSPARSE."""
         self.setup_chipstar_env()
+        self.add_to_prefix_path(self.config.install_base / "rocPRIM" / self.config.date_stamp)
         
         src_dir = self.config.staging_dir / "rocSPARSE"
         build_dir = src_dir / "build"
