@@ -63,7 +63,7 @@ jobs:
           module load ocl-icd-loader
           module load pocl
           
-          rm -rf build
+          rm -rf build install
           mkdir -p build
           cd build
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install
