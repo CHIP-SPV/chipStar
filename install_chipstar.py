@@ -1296,6 +1296,9 @@ class Builder:
         
         if self.config.module_format == "lua":
             module_file = self.config.module_base / name / f"{version}.lua"
+            # Remove parent if it exists as a file (legacy module file)
+            if module_file.parent.exists() and not module_file.parent.is_dir():
+                module_file.parent.unlink()
             module_file.parent.mkdir(parents=True, exist_ok=True)
             content = f'''-- -*- lua -*-
 local install_dir = "{install_dir}"
@@ -1308,6 +1311,9 @@ prepend_path("PATH", install_dir .. "/bin")
 '''
         else:  # TCL format (default)
             module_file = self.config.module_base / name / version
+            # Remove parent if it exists as a file (legacy module file)
+            if module_file.parent.exists() and not module_file.parent.is_dir():
+                module_file.parent.unlink()
             module_file.parent.mkdir(parents=True, exist_ok=True)
             content = f'''#%Module1.0
 ##
