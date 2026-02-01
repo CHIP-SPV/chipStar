@@ -1,0 +1,65 @@
+diff --git a/clang/include/clang/Options/Options.td b/clang/include/clang/Options/Options.td
+index d48ca1586406..469b6c7127f6 100644
+--- a/clang/include/clang/Options/Options.td
++++ b/clang/include/clang/Options/Options.td
+@@ -1004,6 +1004,10 @@ def Xthinlto_distributor_EQ : CommaJoined<["-"], "Xthinlto-distributor=">,
+            "multiple times or with comma-separated values.">,
+   MetaVarName<"<arg>">,
+   Group<Link_Group>;
++def Xoffload_compiler : JoinedAndSeparate<["-"], "Xoffload-compiler">,
++  Visibility<[ClangOption, FlangOption]>,
++  HelpText<"Pass <arg> to the offload compilers or the ones identified by -<triple>">,
++  MetaVarName<"<triple> <arg>">, Group<Link_Group>;
+ def Xoffload_linker : JoinedAndSeparate<["-"], "Xoffload-linker">,
+   Visibility<[ClangOption, FlangOption]>,
+   HelpText<"Pass <arg> to the offload linkers or the ones identified by -<triple>">,
+diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
+index 18933cb8ad7c..41ee88fd5501 100644
+--- a/clang/lib/Driver/ToolChains/Clang.cpp
++++ b/clang/lib/Driver/ToolChains/Clang.cpp
+@@ -9304,18 +9304,23 @@ void LinkerWrapper::ConstructJob(Compilation &C, const JobAction &JA,
+   Linker->ConstructJob(C, JA, Output, Inputs, Args, LinkingOutput);
+   const auto &LinkCommand = C.getJobs().getJobs().back();
+ 
+-  // Forward -Xoffload-linker<-triple> arguments to the device link job.
+-  for (Arg *A : Args.filtered(options::OPT_Xoffload_linker)) {
++  // Forward -Xoffload-{compiler,linker}<-triple> arguments to the linker
++  // wrapper.
++  for (Arg *A :
++       Args.filtered(options::OPT_Xoffload_compiler, OPT_Xoffload_linker)) {
+     StringRef Val = A->getValue(0);
++    bool IsLinkJob = A->getOption().getID() == OPT_Xoffload_linker;
++    auto WrapperOption =
++        IsLinkJob ? Twine("--device-linker=") : Twine("--device-compiler=");
+     if (Val.empty())
+-      CmdArgs.push_back(
+-          Args.MakeArgString(Twine("--device-linker=") + A->getValue(1)));
++      CmdArgs.push_back(Args.MakeArgString(WrapperOption + A->getValue(1)));
+     else
+       CmdArgs.push_back(Args.MakeArgString(
+-          "--device-linker=" +
++          WrapperOption +
+           ToolChain::getOpenMPTriple(Val.drop_front()).getTriple() + "=" +
+           A->getValue(1)));
+   }
++  Args.ClaimAllArgs(options::OPT_Xoffload_compiler);
+   Args.ClaimAllArgs(options::OPT_Xoffload_linker);
+ 
+   // Embed bitcode instead of an object in JIT mode.
+diff --git a/clang/test/Driver/openmp-offload-gpu.c b/clang/test/Driver/openmp-offload-gpu.c
+index edce14e94c8a..5fcc4cc9bbe2 100644
+--- a/clang/test/Driver/openmp-offload-gpu.c
++++ b/clang/test/Driver/openmp-offload-gpu.c
+@@ -343,6 +343,12 @@
+ 
+ // CHECK-XLINKER: -device-linker=a{{.*}}-device-linker=nvptx64-nvidia-cuda=b{{.*}}-device-linker=nvptx64-nvidia-cuda=c{{.*}}--
+ 
++// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp --offload-arch=sm_52 -nogpulib \
++// RUN:     -Xoffload-compiler a -Xoffload-compiler-nvptx64-nvidia-cuda b -Xoffload-compiler-nvptx64 c \
++// RUN:     %s 2>&1 | FileCheck --check-prefix=CHECK-XCOMPILER %s
++
++// CHECK-XCOMPILER: -device-compiler=a{{.*}}-device-compiler=nvptx64-nvidia-cuda=b{{.*}}-device-compiler=nvptx64-nvidia-cuda=c{{.*}}--
++
+ // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp --offload-arch=sm_52 -nogpulib \
+ // RUN:     -foffload-lto %s 2>&1 | FileCheck --check-prefix=CHECK-LTO-FEATURES %s
+ 

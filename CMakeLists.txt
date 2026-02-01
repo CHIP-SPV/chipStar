@@ -734,7 +734,8 @@ target_compile_options(deviceRDCInternal INTERFACE -fgpu-rdc)
 target_link_options(deviceRDCInternal INTERFACE
   -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}
   $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:-Xoffload-compiler-${OFFLOAD_TRIPLE}>
-  --hip-path=${CMAKE_BINARY_DIR})
+  $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:--hip-path=${CMAKE_BINARY_DIR}>
+  $<$<NOT:$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>>:--hip-path=${CMAKE_BINARY_DIR}>)
 target_link_libraries(deviceRDCInternal INTERFACE deviceInternal)
 
 add_library(deviceRDC INTERFACE)
@@ -742,7 +743,8 @@ target_compile_options(deviceRDC INTERFACE -fgpu-rdc)
 target_link_options(deviceRDC INTERFACE
   -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}
   $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:-Xoffload-compiler-${OFFLOAD_TRIPLE}>
-  --hip-path=${CMAKE_INSTALL_PREFIX})
+  $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:--hip-path=${CMAKE_INSTALL_PREFIX}>
+  $<$<NOT:$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>>:--hip-path=${CMAKE_INSTALL_PREFIX}>)
 target_link_libraries(deviceRDC INTERFACE device)
 
 

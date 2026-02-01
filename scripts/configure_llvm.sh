@@ -166,6 +166,18 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # Skip SPIR-V 1.2 patch for LLVM 22+ (already upstream)
+        if [[ "$patch_name" == "0001-Allow-up-to-v1.2-SPIR-V-features.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+          continue
+        fi
+        
+        # Skip extensions patch for LLVM 22+ (already upstream)
+        if [[ "$patch_name" == "0004-only-necessary-exts.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+          continue
+        fi
+        
         # Skip old combined macOS patch (replaced by split patches)
         if [[ "$patch_name" == "0006-fix-macos-hip-spirv.patch" ]]; then
           echo "  Skipping $patch_name (replaced by split patches)"
@@ -184,6 +196,10 @@ if [ "$EMIT_ONLY" != "on" ]; then
         
         # HIPSPV new offload driver patches only for LLVM 22+
         if [[ "$patch_name" == "0007-add-chipstar-triple.patch" ]] && [ "$VERSION" -lt 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22+)"
+          continue
+        fi
+        if [[ "$patch_name" == "0007a-add-xoffload-compiler-option.patch" ]] && [ "$VERSION" -lt 22 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 22+)"
           continue
         fi
@@ -227,6 +243,18 @@ if [ "$EMIT_ONLY" != "on" ]; then
         fi
         if [[ "$patch_name" == "0002-Pretend-the-SPIR-ver-needed-by-shuffles-is-1.2-llvm17-18.patch" ]] && [ "$VERSION" -ne 17 ] && [ "$VERSION" -ne 18 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 17/18)"
+          continue
+        fi
+        
+        # Skip LoopMerge fix for LLVM 22+ (already upstream)
+        if [[ "$patch_name" == "0003-Fix-LoopMerge-error.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+          continue
+        fi
+        
+        # Skip blockMerge fix for LLVM 22+ (already upstream)
+        if [[ "$patch_name" == "0004-fix-blockMerge.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
           continue
         fi
         
