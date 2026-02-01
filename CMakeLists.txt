@@ -357,11 +357,9 @@ endif()
 if(CHIP_BUILD_SHARED_LIBS)
   message(STATUS "Buiding chipStar as a shared library")
   add_library(CHIP SHARED ${CHIP_SRC})
-  set(CHIP_LIB_NAME "libCHIP.so")
 else()
   message(STATUS "Buiding chipStar as a static library")
   add_library(CHIP STATIC ${CHIP_SRC})
-  set(CHIP_LIB_NAME "libCHIP.a")
 endif()
 
 # Check if the compiler supports F16C
@@ -885,7 +883,6 @@ install(TARGETS CHIP
 )
 
 install(FILES ${CMAKE_BINARY_DIR}/include/chipStarConfig.hh DESTINATION ${INCLUDE_INSTALL_DIR})
-install(FILES ${PROJECT_BINARY_DIR}/${CHIP_LIB_NAME} DESTINATION lib)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION . USE_SOURCE_PERMISSIONS)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION . USE_SOURCE_PERMISSIONS
         PATTERN "spdlog" EXCLUDE)
