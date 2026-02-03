@@ -13,8 +13,10 @@ SHELL ["/bin/bash", "-ci"]
 RUN clinfo -l
 
 ENV CHIP_BE=opencl
-ENV CHIP_DEVICE_TYPE=cpu
+ENV CHIP_DEVICE_TYPE=gpu
 ENV CHIP_LOGLEVEL=info
+ENV NEOReadDebugKeys=1
+ENV OverrideGpuAddressSpace=48
 
 RUN module unload pocl && module load oneapi/2024.1.0 &&  module load pocl && clinfo -l
 

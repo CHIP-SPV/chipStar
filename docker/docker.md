@@ -38,8 +38,14 @@ To run the Docker image with GPU support, follow these steps:
 
 1. Run the Docker container with GPU support:
    ```
-   docker run -it --device /dev/dri pveleskopglc/chipstar:latest /bin/bash
+   docker run -it --device /dev/dri/card0 --device /dev/dri/card1 \
+              --device /dev/dri/renderD128 --device /dev/dri/renderD129 \
+              --group-add 110 --group-add 44 --privileged \
+              -e NEOReadDebugKeys=1 -e OverrideGpuAddressSpace=48 \
+              pveleskopglc/chipstar:latest /bin/bash
    ```
+   
+   **Note:** For kernel 6.8+, the `NEOReadDebugKeys=1` and `OverrideGpuAddressSpace=48` environment variables are required for Intel GPU detection.
 
 2. Unload PoCL module to expose Intel GPUs (if available):
    ```
