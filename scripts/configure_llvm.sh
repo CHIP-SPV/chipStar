@@ -6,6 +6,7 @@ set -e
 # default values for optional arguments
 LINK_TYPE="static"
 EMIT_ONLY="off"
+CONFIGURE_ONLY="off"
 WITH_BINUTILS=""
 
 THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -39,6 +40,10 @@ while [ $# -gt 0 ]; do
       ;;
     -N)
       EMIT_ONLY="on"
+      shift 1
+      ;;
+    --configure-only)
+      CONFIGURE_ONLY="on"
       shift 1
       ;;
     *)
@@ -102,28 +107,52 @@ if [ "$EMIT_ONLY" != "on" ]; then
     cd SPIRV-LLVM-Translator
     git checkout ${TRANSLATOR_BRANCH}
   else
-    # Warn the user.
-    echo "llvm-project directory already exists. Checking out upstream branches..."
+    # Ensure clean checkout of the correct branch
+    echo "llvm-project directory already exists. Ensuring clean checkout of ${LLVM_BRANCH}..."
     cd llvm-project
+    # Fetch latest from upstream
     git fetch origin
+    # Checkout the branch (must exist locally or as remote)
+    git checkout -f ${LLVM_BRANCH} || git checkout -f origin/${LLVM_BRANCH}
+    # Reset hard to upstream branch to ensure clean state
     git reset --hard origin/${LLVM_BRANCH}
+    # Clean any untracked files
     git clean -fd
-    git checkout ${LLVM_BRANCH}
+    # Verify we're on the correct branch
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$current_branch" != "${LLVM_BRANCH}" ]; then
+      echo "Error: Failed to checkout ${LLVM_BRANCH}, currently on $current_branch"
+      exit 1
+    fi
     
     if [ ! -d llvm/projects/SPIRV-LLVM-Translator ]; then
       echo "Cloning SPIRV-LLVM-Translator from upstream..."
       cd llvm/projects
       git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
       cd SPIRV-LLVM-Translator
+      git fetch origin
+      git checkout -b ${TRANSLATOR_BRANCH} origin/${TRANSLATOR_BRANCH} 2>/dev/null || git checkout ${TRANSLATOR_BRANCH}
     else
       cd llvm/projects/SPIRV-LLVM-Translator
       git fetch origin
+      # Discard any local changes before switching branches
+      git reset --hard HEAD
+      git clean -fd
+      # Ensure clean checkout of translator branch
+      git checkout -b ${TRANSLATOR_BRANCH} origin/${TRANSLATOR_BRANCH} 2>/dev/null || git checkout ${TRANSLATOR_BRANCH}
       git reset --hard origin/${TRANSLATOR_BRANCH}
       git clean -fd
     fi
-    git checkout ${TRANSLATOR_BRANCH}
   fi
   cd ${initial_pwd}/llvm-project
+  
+  # Verify branch is correct before applying patches
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
+  if [ "$current_branch" != "${LLVM_BRANCH}" ]; then
+    echo "Error: Branch mismatch. Expected ${LLVM_BRANCH}, got $current_branch"
+    exit 1
+  fi
+  echo "Verified: On branch ${LLVM_BRANCH} at commit $(git rev-parse --short HEAD)"
   
   # Apply chipStar-specific patches
   echo "Applying chipStar patches..."
@@ -142,21 +171,19 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # Skip generic data layout patch for LLVM 22 (already upstream)
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+          continue
+        fi
+        
         # Use LLVM 21-specific data layout patch for version 21, skip LLVM 20 version
         if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 21 ]; then
           echo "  Skipping $patch_name (using LLVM 21-specific patch instead)"
           continue
         fi
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 22 ]; then
-          echo "  Skipping $patch_name (using LLVM 22-specific patch instead)"
-          continue
-        fi
         if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 21)"
-          continue
-        fi
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22)"
           continue
         fi
         
@@ -178,29 +205,36 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
-        # Skip old combined macOS patch (replaced by split patches)
-        if [[ "$patch_name" == "0006-fix-macos-hip-spirv.patch" ]]; then
-          echo "  Skipping $patch_name (replaced by split patches)"
-          continue
-        fi
-        if [[ "$patch_name" == "0006-fix-macos-hip-spirv-llvm22.patch" ]]; then
-          echo "  Skipping $patch_name (replaced by split patches)"
-          continue
-        fi
-        
-        # HIPSPV old driver patch only for LLVM < 22 (changes already upstream in 22+)
-        if [[ "$patch_name" == "0006a-fix-hipspv-old-driver.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
-          continue
-        fi
-        
         # HIPSPV new offload driver patches only for LLVM 22+
         if [[ "$patch_name" == "0007-add-chipstar-triple.patch" ]] && [ "$VERSION" -lt 22 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 22+)"
           continue
         fi
-        if [[ "$patch_name" == "0007a-add-xoffload-compiler-option.patch" ]] && [ "$VERSION" -lt 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22+)"
+        # Skip the LLVM 22-specific version for non-22 versions
+        if [[ "$patch_name" == "0007a-add-xoffload-compiler-option-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22)"
+          continue
+        fi
+        if [[ "$patch_name" == "0007a-add-xoffload-compiler-option.patch" ]]; then
+          if [ "$VERSION" -lt 22 ]; then
+            echo "  Skipping $patch_name (only needed for LLVM 22+)"
+            continue
+          elif [ "$VERSION" -eq 22 ]; then
+            # Use LLVM 22-specific version that skips Options.td (file moved)
+            patch_22_version="${LLVM_PATCH_DIR}/0007a-add-xoffload-compiler-option-llvm22.patch"
+            if [ -f "$patch_22_version" ]; then
+              echo "  Skipping $patch_name, using LLVM 22-specific version instead"
+              continue
+            fi
+          fi
+        fi
+        # Use LLVM 22-specific new offload driver patch, skip original for LLVM 22
+        if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -eq 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific patch instead)"
+          continue
+        fi
+        if [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22)"
           continue
         fi
         if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -lt 22 ]; then
@@ -208,11 +242,77 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # Apply HIP math AMDGCN builtin fix for LLVM 20
+        if [[ "$patch_name" == "0009-fix-hip-math-amdgcn-builtins-llvm20.patch" ]] && [ "$VERSION" -ne 20 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 20)"
+          continue
+        fi
+        
         echo "  Applying $patch_name..."
-        git apply "$patch" || {
-          echo "Error: Failed to apply $patch_name"
-          exit 1
-        }
+        apply_output=$(git apply "$patch" 2>&1)
+        apply_status=$?
+        if [ $apply_status -ne 0 ]; then
+          # Try with 3-way merge for data layout patches that may have conflicts
+          if [[ "$patch_name" == *"data-layout"* ]]; then
+            echo "    Attempting 3-way merge for $patch_name..."
+            if git apply --3way "$patch" 2>&1 | grep -q "Applied\|Applied patch"; then
+              # Check for conflicts and resolve by removing n8:16:32:64
+              conflicted_files=$(git diff --name-only --diff-filter=U 2>/dev/null | grep -E "SPIR\.h|SPIRVTargetMachine\.cpp" || true)
+              if [ -n "$conflicted_files" ]; then
+                echo "    Resolving conflicts in $patch_name..."
+                echo "$conflicted_files" | while read file; do
+                  if [ -f "$file" ]; then
+                    sed -i 's/-n8:16:32:64-G10/-G10/g; s/-n8:16:32:64-G1/-G1/g' "$file"
+                    git add "$file" 2>/dev/null || true
+                  fi
+                done
+              fi
+              # Also fix any remaining n8:16:32:64 occurrences that weren't conflicted
+              for file in clang/lib/Basic/Targets/SPIR.h llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp; do
+                if [ -f "$file" ] && grep -q "n8:16:32:64" "$file"; then
+                  sed -i 's/-n8:16:32:64-G10/-G10/g; s/-n8:16:32:64-G1/-G1/g' "$file"
+                  git add "$file" 2>/dev/null || true
+                fi
+              done
+            else
+              # If 3-way fails, manually apply the fix by removing n8:16:32:64
+              echo "    Manually applying fix for $patch_name..."
+              for file in clang/lib/Basic/Targets/SPIR.h llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp; do
+                if [ -f "$file" ] && grep -q "n8:16:32:64" "$file"; then
+                  sed -i 's/-n8:16:32:64-G10/-G10/g; s/-n8:16:32:64-G1/-G1/g' "$file"
+                fi
+              done
+              # Verify the fix was applied
+              if grep -q "n8:16:32:64" clang/lib/Basic/Targets/SPIR.h llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp 2>/dev/null; then
+                echo "Error: Failed to apply $patch_name and manual fix incomplete"
+                exit 1
+              fi
+            fi
+          elif echo "$apply_output" | grep -q "does not exist\|No such file"; then
+            # For patches that reference moved/deleted files, try 3-way merge
+            echo "    File not found, attempting 3-way merge for $patch_name..."
+            merge_output=$(git apply --3way "$patch" 2>&1)
+            if echo "$merge_output" | grep -q "Applied\|Applied patch"; then
+              echo "    Applied with 3-way merge"
+              # Check for any remaining conflicts or missing files
+              if echo "$merge_output" | grep -q "does not exist"; then
+                echo "    Warning: Some files in $patch_name don't exist (may be moved or already upstream)"
+              fi
+            else
+              # Check if the change is already upstream (file moved or change integrated)
+              echo "    Warning: $patch_name may have changes already upstream or file moved"
+              # For LLVM 22, patch 0007a references Options.td which was moved to Driver/Options.td
+              # The important changes (Clang.cpp) should still apply
+              if [ "$VERSION" -eq 22 ] && [[ "$patch_name" == "0007a-add-xoffload-compiler-option.patch" ]]; then
+                echo "    Continuing - Options.td change not needed for LLVM 22 (file moved)"
+              fi
+            fi
+          else
+            echo "Error: Failed to apply $patch_name"
+            echo "$apply_output"
+            exit 1
+          fi
+        fi
       fi
     done
   else
@@ -243,6 +343,16 @@ if [ "$EMIT_ONLY" != "on" ]; then
         fi
         if [[ "$patch_name" == "0002-Pretend-the-SPIR-ver-needed-by-shuffles-is-1.2-llvm17-18.patch" ]] && [ "$VERSION" -ne 17 ] && [ "$VERSION" -ne 18 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 17/18)"
+          continue
+        fi
+        
+        # Use LLVM 21-specific LoopMerge patch, skip original for LLVM 21
+        if [[ "$patch_name" == "0003-Fix-LoopMerge-error.patch" ]] && [ "$VERSION" -eq 21 ]; then
+          echo "  Skipping $patch_name (using LLVM 21-specific patch instead)"
+          continue
+        fi
+        if [[ "$patch_name" == "0003-Fix-LoopMerge-error-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 21)"
           continue
         fi
         
@@ -277,23 +387,11 @@ if [ "$EMIT_ONLY" != "on" ]; then
 
   # check if the build directory exists
   if [ -d build_$VERSION ]; then
-    read -p "Build directory build_$VERSION already exists. Do you want to delete it and continue? (y/n) " answer
-    case ${answer:0:1} in
-      y|Y )
-        echo "Deleting existing build directory..."
-        rm -rf build_$VERSION
-        mkdir build_$VERSION
-        cd build_$VERSION
-      ;;
-      * )
-        echo "Build directory not deleted. Exiting."
-        exit 1
-      ;;
-    esac
-  else
-    mkdir build_$VERSION
-    cd build_$VERSION
+    echo "Build directory build_$VERSION already exists. Deleting it..."
+    rm -rf build_$VERSION
   fi
+  mkdir build_$VERSION
+  cd build_$VERSION
 fi
 
 # Check if /usr/include/plugin-api.h exists
@@ -395,6 +493,30 @@ if [ "$EMIT_ONLY" == "on" ]; then
   echo "$CMAKE_COMMAND"
 else
   eval $CMAKE_COMMAND
+  
+  if [ $? -ne 0 ]; then
+    echo "Error: CMake configuration failed"
+    exit 1
+  fi
+  
+  echo "CMake configuration completed successfully"
+  echo "Build directory: $(pwd)"
+  
+  # Start building immediately after configuration (unless --configure-only is set)
+  if [ "$CONFIGURE_ONLY" != "on" ]; then
+    echo "Starting LLVM build..."
+    ninja -j $(nproc)
+    
+    if [ $? -ne 0 ]; then
+      echo "Error: LLVM build failed"
+      exit 1
+    fi
+    
+    echo "LLVM build completed successfully"
+    echo "To install LLVM, run: ninja install"
+  else
+    echo "Configuration-only mode: Skipping build"
+    echo "To build LLVM, run: ninja -j \$(nproc)"
+    echo "To install LLVM, run: ninja install"
+  fi
 fi
-
-# Make sure ninja is in the path

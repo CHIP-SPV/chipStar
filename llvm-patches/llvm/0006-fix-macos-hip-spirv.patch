@@ -84,6 +84,23 @@ index 234683f2f488..4532846f1c98 100644
    // Prior to 10.9, macOS shipped a version of the C++ standard library without
    // C++11 support. The same is true of iOS prior to version 5. These OS'es are
    // incompatible with -fsanitize=vptr.
+diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+index 622497603292..60353fbb1e34 100644
+--- a/clang/lib/Driver/ToolChains/HIPSPV.cpp
++++ b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+@@ -142,7 +142,11 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
+ void HIPSPVToolChain::addClangTargetOptions(
+     const llvm::opt::ArgList &DriverArgs, llvm::opt::ArgStringList &CC1Args,
+     Action::OffloadKind DeviceOffloadingKind) const {
+-  HostTC.addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadingKind);
++  // NOTE: Unlike other HIP toolchains, we do NOT delegate to
++  // HostTC.addClangTargetOptions() here. On macOS (Darwin), the host toolchain
++  // adds flags like -faligned-alloc-unavailable that are specific to macOS
++  // libc++ and break SPIR-V device compilation. SPIR-V device code doesn't
++  // have the same stdlib limitations as the host.
+ 
+   assert(DeviceOffloadingKind == Action::OFK_HIP &&
+          "Only HIP offloading kinds are supported for GPUs.");
 diff --git a/clang/lib/Driver/ToolChains/HIPUtility.cpp b/clang/lib/Driver/ToolChains/HIPUtility.cpp
 index cb061ffede23..0bf240e9609b 100644
 --- a/clang/lib/Driver/ToolChains/HIPUtility.cpp
