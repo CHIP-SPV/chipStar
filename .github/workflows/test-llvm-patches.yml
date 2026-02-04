@@ -1,0 +1,282 @@
+name: Test LLVM Patches
+
+on:
+  push:
+    paths:
+      - 'llvm-patches/**'
+      - 'scripts/configure_llvm.sh'
+  pull_request:
+    paths:
+      - 'llvm-patches/**'
+      - 'scripts/configure_llvm.sh'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  step1-configure-all:
+    name: Step 1: Configure all LLVM versions
+    runs-on: [self-hosted, Linux, X64]
+    strategy:
+      matrix:
+        llvm-version: [19, 20, 21, 22]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure LLVM ${{ matrix.llvm-version }}
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version ${{ matrix.llvm-version }} --install-dir $HOME/install/llvm/${{ matrix.llvm-version }}.0 --configure-only
+
+  step2-build-test-llvm19:
+    needs: step1-configure-all
+    name: Step 2: Build LLVM 19 and test chipStar
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure and build LLVM 19
+        id: build_llvm19
+        continue-on-error: true
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 19 --install-dir $HOME/install/llvm/19.0 --configure-only
+          cd llvm-project/llvm/build_19
+          ninja -j $(nproc)
+        timeout-minutes: 120
+      - name: Test chipStar with LLVM 19 (OpenCL)
+        if: steps.build_llvm19.outcome == 'success'
+        continue-on-error: true
+        run: |
+          test -f llvm-project/llvm/build_19/bin/clang || exit 1
+          mkdir -p build-llvm19
+          cd build-llvm19
+          cmake .. -DLLVM_CONFIG_BIN=${{ github.workspace }}/llvm-project/llvm/build_19/bin/llvm-config -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+          ../scripts/check.py ./ dgpu opencl
+        timeout-minutes: 90
+      - name: Test chipStar with LLVM 19 (Level0)
+        if: steps.build_llvm19.outcome == 'success'
+        continue-on-error: true
+        run: |
+          cd build-llvm19
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm19
+          path: |
+            build-llvm19/checkpy_*.txt
+            build-llvm19/Testing/Temporary/LastTest.log
+
+  step3-build-test-llvm20:
+    needs: step2-build-test-llvm19
+    name: Step 3: Build LLVM 20 and test chipStar
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure and build LLVM 20
+        id: build_llvm20
+        continue-on-error: true
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 20 --install-dir $HOME/install/llvm/20.0 --configure-only
+          cd llvm-project/llvm/build_20
+          ninja -j $(nproc)
+        timeout-minutes: 120
+      - name: Test chipStar with LLVM 20 (OpenCL)
+        if: steps.build_llvm20.outcome == 'success'
+        continue-on-error: true
+        run: |
+          test -f llvm-project/llvm/build_20/bin/clang || exit 1
+          mkdir -p build-llvm20
+          cd build-llvm20
+          cmake .. -DLLVM_CONFIG_BIN=${{ github.workspace }}/llvm-project/llvm/build_20/bin/llvm-config -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+          ../scripts/check.py ./ dgpu opencl
+        timeout-minutes: 90
+      - name: Test chipStar with LLVM 20 (Level0)
+        if: steps.build_llvm20.outcome == 'success'
+        continue-on-error: true
+        run: |
+          cd build-llvm20
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm20
+          path: |
+            build-llvm20/checkpy_*.txt
+            build-llvm20/Testing/Temporary/LastTest.log
+
+  step4-build-test-llvm21:
+    needs: step3-build-test-llvm20
+    name: Step 4: Build LLVM 21 and test chipStar
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure and build LLVM 21
+        id: build_llvm21
+        continue-on-error: true
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 21 --install-dir $HOME/install/llvm/21.0 --configure-only
+          cd llvm-project/llvm/build_21
+          ninja -j $(nproc)
+        timeout-minutes: 120
+      - name: Test chipStar with LLVM 21 (OpenCL)
+        if: steps.build_llvm21.outcome == 'success'
+        continue-on-error: true
+        run: |
+          test -f llvm-project/llvm/build_21/bin/clang || exit 1
+          mkdir -p build-llvm21
+          cd build-llvm21
+          cmake .. -DLLVM_CONFIG_BIN=${{ github.workspace }}/llvm-project/llvm/build_21/bin/llvm-config -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+          ../scripts/check.py ./ dgpu opencl
+        timeout-minutes: 90
+      - name: Test chipStar with LLVM 21 (Level0)
+        if: steps.build_llvm21.outcome == 'success'
+        continue-on-error: true
+        run: |
+          cd build-llvm21
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm21
+          path: |
+            build-llvm21/checkpy_*.txt
+            build-llvm21/Testing/Temporary/LastTest.log
+
+  step5-build-test-llvm22:
+    needs: step4-build-test-llvm21
+    name: Step 5: Build LLVM 22 and test chipStar
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure and build LLVM 22
+        id: build_llvm22
+        continue-on-error: true
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 22 --install-dir $HOME/install/llvm/22.0 --configure-only
+          cd llvm-project/llvm/build_22
+          ninja -j $(nproc)
+        timeout-minutes: 120
+      - name: Test chipStar with LLVM 22 (OpenCL)
+        if: steps.build_llvm22.outcome == 'success'
+        continue-on-error: true
+        run: |
+          test -f llvm-project/llvm/build_22/bin/clang || exit 1
+          mkdir -p build-llvm22
+          cd build-llvm22
+          cmake .. -DLLVM_CONFIG_BIN=${{ github.workspace }}/llvm-project/llvm/build_22/bin/llvm-config -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+          ../scripts/check.py ./ dgpu opencl
+        timeout-minutes: 90
+      - name: Test chipStar with LLVM 22 (Level0)
+        if: steps.build_llvm22.outcome == 'success'
+        continue-on-error: true
+        run: |
+          cd build-llvm22
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm22
+          path: |
+            build-llvm22/checkpy_*.txt
+            build-llvm22/Testing/Temporary/LastTest.log
+
+  install-llvm-on-main:
+    needs: step5-build-test-llvm22
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    name: Install LLVM versions on main branch
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Install LLVM 19
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 19 --install-dir $HOME/install/llvm/19.0 --configure-only
+          cd llvm-project/llvm/build_19
+          ninja -j $(nproc)
+          ninja install
+        timeout-minutes: 150
+      - name: Verify LLVM 19 installation
+        run: |
+          test -f $HOME/install/llvm/19.0/bin/clang || exit 1
+          $HOME/install/llvm/19.0/bin/clang --version
+      - name: Install LLVM 20
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 20 --install-dir $HOME/install/llvm/20.0 --configure-only
+          cd llvm-project/llvm/build_20
+          ninja -j $(nproc)
+          ninja install
+        timeout-minutes: 150
+      - name: Verify LLVM 20 installation
+        run: |
+          test -f $HOME/install/llvm/20.0/bin/clang || exit 1
+          $HOME/install/llvm/20.0/bin/clang --version
+      - name: Install LLVM 21
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 21 --install-dir $HOME/install/llvm/21.0 --configure-only
+          cd llvm-project/llvm/build_21
+          ninja -j $(nproc)
+          ninja install
+        timeout-minutes: 150
+      - name: Verify LLVM 21 installation
+        run: |
+          test -f $HOME/install/llvm/21.0/bin/clang || exit 1
+          $HOME/install/llvm/21.0/bin/clang --version
+      - name: Install LLVM 22
+        run: |
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 22 --install-dir $HOME/install/llvm/22.0 --configure-only
+          cd llvm-project/llvm/build_22
+          ninja -j $(nproc)
+          ninja install
+        timeout-minutes: 150
+      - name: Verify LLVM 22 installation
+        run: |
+          test -f $HOME/install/llvm/22.0/bin/clang || exit 1
+          $HOME/install/llvm/22.0/bin/clang --version
