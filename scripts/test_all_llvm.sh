@@ -6,7 +6,7 @@
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CHIPSTAR_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
-INSTALL_BASE="$HOME/install/llvm"
+INSTALL_BASE="${TMPDIR:-/tmp}/llvm-test-install"
 
 # Colors for output
 RED='\033[0;31m'
@@ -148,8 +148,11 @@ main() {
     
     log_info "Starting comprehensive LLVM testing for chipStar"
     log_info "Testing versions: ${VERSIONS[*]}"
-    log_info "Install base: $INSTALL_BASE"
+    log_info "Install base: $INSTALL_BASE (temporary)"
     log_info "chipStar root: $CHIPSTAR_ROOT"
+    
+    # Create install base directory
+    mkdir -p "$INSTALL_BASE"
     
     # Test each version
     for VERSION in "${VERSIONS[@]}"; do
