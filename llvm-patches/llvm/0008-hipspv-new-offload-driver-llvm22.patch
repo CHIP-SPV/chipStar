@@ -1,96 +1,42 @@
-diff --git a/clang/lib/Basic/Targets.cpp b/clang/lib/Basic/Targets.cpp
-index 263253918d96..919fb0703b7a 100644
---- a/clang/lib/Basic/Targets.cpp
-+++ b/clang/lib/Basic/Targets.cpp
-@@ -680,13 +680,13 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
-     return std::make_unique<SPIRVTargetInfo>(Triple, Opts);
-   }
-   case llvm::Triple::spirv32: {
--    if (os != llvm::Triple::UnknownOS ||
-+    if ((os != llvm::Triple::UnknownOS && os != llvm::Triple::ChipStar) ||
-         Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
-       return nullptr;
-     return std::make_unique<SPIRV32TargetInfo>(Triple, Opts);
-   }
-   case llvm::Triple::spirv64: {
--    if (os != llvm::Triple::UnknownOS ||
-+    if ((os != llvm::Triple::UnknownOS && os != llvm::Triple::ChipStar) ||
-         Triple.getEnvironment() != llvm::Triple::UnknownEnvironment) {
-       if (os == llvm::Triple::OSType::AMDHSA)
-         return std::make_unique<SPIRV64AMDGCNTargetInfo>(Triple, Opts);
-diff --git a/clang/lib/Basic/Targets/SPIR.h b/clang/lib/Basic/Targets/SPIR.h
-index ea992b0e01db..1dbef4068879 100644
---- a/clang/lib/Basic/Targets/SPIR.h
-+++ b/clang/lib/Basic/Targets/SPIR.h
-@@ -362,8 +362,9 @@ public:
-       : BaseSPIRVTargetInfo(Triple, Opts) {
-     assert(Triple.getArch() == llvm::Triple::spirv32 &&
-            "Invalid architecture for 32-bit SPIR-V.");
--    assert(getTriple().getOS() == llvm::Triple::UnknownOS &&
--           "32-bit SPIR-V target must use unknown OS");
-+    assert((getTriple().getOS() == llvm::Triple::UnknownOS ||
-+            getTriple().getOS() == llvm::Triple::ChipStar) &&
-+           "32-bit SPIR-V target must use unknown OS or ChipStar");
-     assert(getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment &&
-            "32-bit SPIR-V target must use unknown environment type");
-     PointerWidth = PointerAlign = 32;
-@@ -372,7 +373,10 @@ public:
-     // SPIR-V has core support for atomic ops, and Int32 is always available;
-     // we take the maximum because it's possible the Host supports wider types.
-     MaxAtomicInlineWidth = std::max<unsigned char>(MaxAtomicInlineWidth, 32);
--    resetDataLayout();
-+    // SPIR-V doesn't have native integer widths, so n8:16:32:64 should not be
-+    // in the data layout.
-+    resetDataLayout("e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-"
-+                    "v192:256-v256:256-v512:512-v1024:1024-G1");
-   }
- 
-   void getTargetDefines(const LangOptions &Opts,
-@@ -385,8 +389,9 @@ public:
-       : BaseSPIRVTargetInfo(Triple, Opts) {
-     assert(Triple.getArch() == llvm::Triple::spirv64 &&
-            "Invalid architecture for 64-bit SPIR-V.");
--    assert(getTriple().getOS() == llvm::Triple::UnknownOS &&
--           "64-bit SPIR-V target must use unknown OS");
-+    assert((getTriple().getOS() == llvm::Triple::UnknownOS ||
-+            getTriple().getOS() == llvm::Triple::ChipStar) &&
-+           "64-bit SPIR-V target must use unknown OS or ChipStar");
-     assert(getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment &&
-            "64-bit SPIR-V target must use unknown environment type");
-     PointerWidth = PointerAlign = 64;
-@@ -395,7 +400,10 @@ public:
-     // SPIR-V has core support for atomic ops, and Int64 is always available;
-     // we take the maximum because it's possible the Host supports wider types.
-     MaxAtomicInlineWidth = std::max<unsigned char>(MaxAtomicInlineWidth, 64);
--    resetDataLayout();
-+    // SPIR-V doesn't have native integer widths, so n8:16:32:64 should not be
-+    // in the data layout.
-+    resetDataLayout("e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-"
-+                    "v256:256-v512:512-v1024:1024-G1");
-   }
- 
-   void getTargetDefines(const LangOptions &Opts,
-diff --git a/clang/lib/CodeGen/CodeGenModule.cpp b/clang/lib/CodeGen/CodeGenModule.cpp
-index 85ed38f14462..090e678ce492 100644
---- a/clang/lib/CodeGen/CodeGenModule.cpp
-+++ b/clang/lib/CodeGen/CodeGenModule.cpp
-@@ -1441,7 +1441,10 @@ void CodeGenModule::Release() {
-                               LangOpts.OpenMP);
- 
-   // Emit OpenCL specific module metadata: OpenCL/SPIR version.
--  if (LangOpts.OpenCL || (LangOpts.CUDAIsDevice && getTriple().isSPIRV())) {
-+  // Only emit for actual OpenCL code, not for HIP/CUDA compiled to SPIR-V,
-+  // as that would emit version 0.0 which conflicts with device libraries
-+  // that have a real OpenCL version.
-+  if (LangOpts.OpenCL) {
-     EmitOpenCLMetadata();
-     // Emit SPIR version.
-     if (getTriple().isSPIR()) {
 diff --git a/clang/lib/Driver/Driver.cpp b/clang/lib/Driver/Driver.cpp
-index eb3f9cbea284..866139cf0fa5 100644
+index eb3f9cbea284..10932dde13e0 100644
 --- a/clang/lib/Driver/Driver.cpp
 +++ b/clang/lib/Driver/Driver.cpp
-@@ -6961,6 +6961,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
+@@ -4938,21 +4938,26 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
+     // Compiling HIP in device-only non-RDC mode requires linking each action
+     // individually.
+     for (Action *&A : DeviceActions) {
+-      bool IsAMDGCNSPIRV = A->getOffloadingToolChain() &&
+-                           A->getOffloadingToolChain()->getTriple().getOS() ==
+-                               llvm::Triple::OSType::AMDHSA &&
+-                           A->getOffloadingToolChain()->getTriple().isSPIRV();
++      auto *OffloadTriple = A->getOffloadingToolChain()
++                                ? &A->getOffloadingToolChain()->getTriple()
++                                : nullptr;
++      bool IsHIPSPV =
++          OffloadTriple && OffloadTriple->isSPIRV() &&
++          (OffloadTriple->getOS() == llvm::Triple::OSType::AMDHSA ||
++           OffloadTriple->getOS() == llvm::Triple::OSType::ChipStar);
+       bool UseSPIRVBackend = Args.hasFlag(options::OPT_use_spirv_backend,
+                                           options::OPT_no_use_spirv_backend,
+                                           /*Default=*/false);
+ 
+-      // Special handling for the HIP SPIR-V toolchain in device-only.
++      // Special handling for the HIP SPIR-V toolchains in device-only.
+       // The translator path has a linking step, whereas the SPIR-V backend path
+       // does not to avoid any external dependency such as spirv-link. The
+       // linking step is skipped for the SPIR-V backend path.
+-      bool IsAMDGCNSPIRVWithBackend = IsAMDGCNSPIRV && UseSPIRVBackend;
++      bool IsAMDGCNSPIRVWithBackend =
++          IsHIPSPV && OffloadTriple->getOS() == llvm::Triple::OSType::AMDHSA &&
++          UseSPIRVBackend;
+ 
+-      if ((A->getType() != types::TY_Object && !IsAMDGCNSPIRV &&
++      if ((A->getType() != types::TY_Object && !IsHIPSPV &&
+            A->getType() != types::TY_LTO_BC) ||
+           HIPRelocatableObj || !HIPNoRDC || !offloadDeviceOnly() ||
+           (IsAMDGCNSPIRVWithBackend && offloadDeviceOnly()))
+@@ -6961,6 +6966,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
      case llvm::Triple::ShaderModel:
        TC = std::make_unique<toolchains::HLSLToolChain>(*this, Target, Args);
        break;
@@ -100,21 +46,82 @@ index eb3f9cbea284..866139cf0fa5 100644
      default:
        // Of these targets, Hexagon is the only one that might have
        // an OS of Linux, in which case it got handled above already.
+diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
+index 18933cb8ad7c..d686d61defd0 100644
+--- a/clang/lib/Driver/ToolChains/Clang.cpp
++++ b/clang/lib/Driver/ToolChains/Clang.cpp
+@@ -9175,6 +9175,7 @@ void LinkerWrapper::ConstructJob(Compilation &C, const JobAction &JA,
+       OPT_v,
+       OPT_cuda_path_EQ,
+       OPT_rocm_path_EQ,
++      OPT_hip_path_EQ,
+       OPT_O_Group,
+       OPT_g_Group,
+       OPT_g_flags_Group,
+@@ -9304,18 +9305,23 @@ void LinkerWrapper::ConstructJob(Compilation &C, const JobAction &JA,
+   Linker->ConstructJob(C, JA, Output, Inputs, Args, LinkingOutput);
+   const auto &LinkCommand = C.getJobs().getJobs().back();
+ 
+-  // Forward -Xoffload-linker<-triple> arguments to the device link job.
+-  for (Arg *A : Args.filtered(options::OPT_Xoffload_linker)) {
++  // Forward -Xoffload-{compiler,linker}<-triple> arguments to the linker
++  // wrapper.
++  for (Arg *A :
++       Args.filtered(options::OPT_Xoffload_compiler, OPT_Xoffload_linker)) {
+     StringRef Val = A->getValue(0);
++    bool IsLinkJob = A->getOption().getID() == OPT_Xoffload_linker;
++    auto WrapperOption =
++        IsLinkJob ? Twine("--device-linker=") : Twine("--device-compiler=");
+     if (Val.empty())
+-      CmdArgs.push_back(
+-          Args.MakeArgString(Twine("--device-linker=") + A->getValue(1)));
++      CmdArgs.push_back(Args.MakeArgString(WrapperOption + A->getValue(1)));
+     else
+       CmdArgs.push_back(Args.MakeArgString(
+-          "--device-linker=" +
++          WrapperOption +
+           ToolChain::getOpenMPTriple(Val.drop_front()).getTriple() + "=" +
+           A->getValue(1)));
+   }
++  Args.ClaimAllArgs(options::OPT_Xoffload_compiler);
+   Args.ClaimAllArgs(options::OPT_Xoffload_linker);
+ 
+   // Embed bitcode instead of an object in JIT mode.
 diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
-index f797573a5725..3844fd62417b 100644
+index f797573a5725..10b05affc0c6 100644
 --- a/clang/lib/Driver/ToolChains/HIPSPV.cpp
 +++ b/clang/lib/Driver/ToolChains/HIPSPV.cpp
-@@ -91,7 +91,8 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+@@ -90,9 +90,27 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+   }
  
    // Emit SPIR-V binary.
++  llvm::opt::ArgStringList TrArgs;
++  auto T = getToolChain().getTriple();
++  bool HasNoSubArch = T.getSubArch() == llvm::Triple::NoSubArch;
++  if (T.getOS() == llvm::Triple::ChipStar) {
++    // chipStar needs 1.2 for supporting warp-level primitivies via sub-group
++    // extensions.  Strictly put we'd need 1.3 for the standard non-extension
++    // shuffle operations, but it's not supported by any backend driver of the
++    // chipStar.
++    if (HasNoSubArch)
++      TrArgs.push_back("--spirv-max-version=1.2");
++    TrArgs.push_back("--spirv-ext=-all"
++                     // Needed for experimental indirect call support.
++                     ",+SPV_INTEL_function_pointers"
++                     // Needed for shuffles below SPIR-V 1.3
++                     ",+SPV_INTEL_subgroups");
++  } else {
++    if (HasNoSubArch)
++      TrArgs.push_back("--spirv-max-version=1.1");
++    TrArgs.push_back("--spirv-ext=+all");
++  }
  
 -  llvm::opt::ArgStringList TrArgs{"--spirv-max-version=1.1",
-+  // Use SPIR-V 1.2 to match the triple version used by chipStar
-+  llvm::opt::ArgStringList TrArgs{"--spirv-max-version=1.2",
-                                   "--spirv-ext=+all"};
+-                                  "--spirv-ext=+all"};
    InputInfo TrInput = InputInfo(types::TY_LLVM_BC, TempFile, "");
    SPIRV::constructTranslateCommand(C, *this, JA, Output, TrInput, TrArgs);
-@@ -116,7 +117,16 @@ void HIPSPV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
+ }
+@@ -116,7 +134,16 @@ void HIPSPV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
  
  HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
                                   const ToolChain &HostTC, const ArgList &Args)
@@ -125,34 +132,33 @@ index f797573a5725..3844fd62417b 100644
 +  getProgramPaths().push_back(getDriver().Dir);
 +}
 +
-+// Non-offloading toolchain constructor. Primarly used by clang-linker-wrapper.
++// Non-offloading toolchain. Primaly used by clang-offload-linker.
 +HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
 +                                 const ArgList &Args)
 +    : ToolChain(D, Triple, Args), HostTC(nullptr) {
    // Lookup binaries into the driver directory, this is used to
    // discover the clang-offload-bundler executable.
    getProgramPaths().push_back(getDriver().Dir);
-@@ -125,7 +135,18 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
+@@ -125,7 +152,17 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
  void HIPSPVToolChain::addClangTargetOptions(
      const llvm::opt::ArgList &DriverArgs, llvm::opt::ArgStringList &CC1Args,
      Action::OffloadKind DeviceOffloadingKind) const {
 -  HostTC.addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadingKind);
-+  // Handle non-offloading case (e.g. clang-linker-wrapper)
++  // NOTE: Unlike other HIP toolchains, we do NOT delegate to
++  // HostTC.addClangTargetOptions() here. On macOS (Darwin), the host toolchain
++  // adds flags like -faligned-alloc-unavailable that are specific to macOS
++  // libc++ and break SPIR-V device compilation. SPIR-V device code doesn't
++  // have the same stdlib limitations as the host.
++
 +  if (!HostTC) {
 +    assert(DeviceOffloadingKind == Action::OFK_None &&
 +           "Need host toolchain for offloading!");
 +    return;
 +  }
-+
-+  // NOTE: Unlike other HIP toolchains, we do NOT delegate to
-+  // HostTC->addClangTargetOptions() here. On macOS (Darwin), the host toolchain
-+  // adds flags like -faligned-alloc-unavailable that are specific to macOS
-+  // libc++ and break SPIR-V device compilation. SPIR-V device code doesn't
-+  // have the same stdlib limitations as the host.
  
    assert(DeviceOffloadingKind == Action::OFK_HIP &&
           "Only HIP offloading kinds are supported for GPUs.");
-@@ -156,27 +177,37 @@ Tool *HIPSPVToolChain::buildLinker() const {
+@@ -156,27 +193,37 @@ Tool *HIPSPVToolChain::buildLinker() const {
  }
  
  void HIPSPVToolChain::addClangWarningOptions(ArgStringList &CC1Args) const {
@@ -195,19 +201,13 @@ index f797573a5725..3844fd62417b 100644
  }
  
  void HIPSPVToolChain::AddHIPIncludeArgs(const ArgList &DriverArgs,
-@@ -270,12 +301,16 @@ SanitizerMask HIPSPVToolChain::getSupportedSanitizers() const {
-   // This behavior is necessary because the host and device toolchains
-   // invocations often share the command line, so the device toolchain must
-   // tolerate flags meant only for the host toolchain.
--  return HostTC.getSupportedSanitizers();
-+  if (HostTC)
-+    return HostTC->getSupportedSanitizers();
-+  return ToolChain::getSupportedSanitizers();
+@@ -274,8 +321,10 @@ SanitizerMask HIPSPVToolChain::getSupportedSanitizers() const {
  }
  
  VersionTuple HIPSPVToolChain::computeMSVCVersion(const Driver *D,
-                                                  const ArgList &Args) const {
+-                                                 const ArgList &Args) const {
 -  return HostTC.computeMSVCVersion(D, Args);
++                                                  const ArgList &Args) const {
 +  if (HostTC)
 +    return HostTC->computeMSVCVersion(D, Args);
 +  return ToolChain::computeMSVCVersion(D, Args);
@@ -215,14 +215,14 @@ index f797573a5725..3844fd62417b 100644
  
  void HIPSPVToolChain::adjustDebugInfoKind(
 diff --git a/clang/lib/Driver/ToolChains/HIPSPV.h b/clang/lib/Driver/ToolChains/HIPSPV.h
-index caf692415144..a00096ba105b 100644
+index caf692415144..ed16a0793974 100644
 --- a/clang/lib/Driver/ToolChains/HIPSPV.h
 +++ b/clang/lib/Driver/ToolChains/HIPSPV.h
 @@ -47,9 +47,12 @@ class LLVM_LIBRARY_VISIBILITY HIPSPVToolChain final : public ToolChain {
  public:
    HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
                    const ToolChain &HostTC, const llvm::opt::ArgList &Args);
-+  // Non-offloading constructor for use by clang-linker-wrapper
++  // Non-offloading toolchain. Primaly used by clang-offload-linker.
 +  HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
 +                  const llvm::opt::ArgList &Args);
  

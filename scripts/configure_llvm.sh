@@ -234,17 +234,18 @@ if [ "$EMIT_ONLY" != "on" ]; then
           fi
         fi
         # Apply HIPSPV new offload driver patch for LLVM 22+
+        if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -eq 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific patch instead)"
+          continue
+        fi
         if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -lt 22 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 22+)"
           continue
         fi
-        # For LLVM 22, use the specialized version of the patch
-        if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -eq 22 ]; then
-          echo "  Skipping $patch_name (using LLVM 22-specific version instead)"
-          continue
-        fi
-        # Apply LLVM 22-specific new offload driver patch
-        if [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
+        # Use LLVM 22-specific new offload driver patch
+        if [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]] && [ "$VERSION" -eq 22 ]; then
+          echo "  Applying LLVM 22-specific new offload driver patch"
+        elif [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 22)"
           continue
         fi
