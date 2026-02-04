@@ -55,12 +55,13 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [-N]"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [-N] [--configure-only]"
   echo "--version: LLVM version 17, 18, 19, 20, 21 or 22"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "-N: only emit the cmake configure command without executing it"
+  echo "--configure-only: only configure, skip build and install (default: build and install)"
   echo "The llvm-project will be cloned and built under the current working directory.  Patches are first applied from the chipStar project."
   exit 1
 fi
@@ -502,7 +503,7 @@ else
   echo "CMake configuration completed successfully"
   echo "Build directory: $(pwd)"
   
-  # Start building immediately after configuration (unless --configure-only is set)
+  # Start building and installing immediately after configuration (unless --configure-only is set)
   if [ "$CONFIGURE_ONLY" != "on" ]; then
     echo "Starting LLVM build..."
     ninja -j $(nproc)
@@ -513,9 +514,18 @@ else
     fi
     
     echo "LLVM build completed successfully"
-    echo "To install LLVM, run: ninja install"
+    
+    echo "Installing LLVM..."
+    ninja install
+    
+    if [ $? -ne 0 ]; then
+      echo "Error: LLVM installation failed"
+      exit 1
+    fi
+    
+    echo "LLVM installation completed successfully"
   else
-    echo "Configuration-only mode: Skipping build"
+    echo "Configuration-only mode: Skipping build and install"
     echo "To build LLVM, run: ninja -j \$(nproc)"
     echo "To install LLVM, run: ninja install"
   fi
