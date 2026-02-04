@@ -853,16 +853,28 @@ class Builder:
     
     def build_chipstar(self, component: Component):
         """Build chipStar."""
-        src_dir = self.config.staging_dir / "chipStar"
+        # Check if we're already in a chipStar repository
+        current_dir = Path.cwd()
+        chipstar_cmake = current_dir / "CMakeLists.txt"
+        chipstar_git = current_dir / ".git"
+        
+        if chipstar_cmake.exists() and chipstar_git.exists():
+            # We're in the chipStar repo, use it directly
+            print(f"{Colors.YELLOW}[INFO]{Colors.NC} Using current chipStar repository: {current_dir}")
+            src_dir = current_dir
+        else:
+            # Clone to staging directory
+            src_dir = self.config.staging_dir / "chipStar"
+            self.clone_or_update(component.repo, "chipStar", component.branch, 
+                                self.config.staging_dir)
+        
         build_dir = src_dir / "build"
         install_dir = self.config.install_base / "chipStar" / self.config.date_stamp
         
-        self.clone_or_update(component.repo, "chipStar", component.branch, 
-                            self.config.staging_dir)
-        
-        # Initialize submodules
-        self.run_cmd(["git", "submodule", "update", "--init", "--recursive"], 
-                    cwd=src_dir)
+        # Initialize submodules (only if we cloned)
+        if src_dir != current_dir:
+            self.run_cmd(["git", "submodule", "update", "--init", "--recursive"], 
+                        cwd=src_dir)
         
         # Clear build directory to ensure fresh cmake configuration
         if build_dir.exists():
@@ -1182,6 +1194,7 @@ class Builder:
     def build_rocsparse(self, component: Component):
         """Build rocSPARSE."""
         self.setup_chipstar_env()
+        self.add_to_prefix_path(self.config.install_base / "rocPRIM" / self.config.date_stamp)
         
         src_dir = self.config.staging_dir / "rocSPARSE"
         build_dir = src_dir / "build"
@@ -1284,6 +1297,9 @@ class Builder:
         
         if self.config.module_format == "lua":
             module_file = self.config.module_base / name / f"{version}.lua"
+            # Remove parent if it exists as a file (legacy module file)
+            if module_file.parent.exists() and not module_file.parent.is_dir():
+                module_file.parent.unlink()
             module_file.parent.mkdir(parents=True, exist_ok=True)
             content = f'''-- -*- lua -*-
 local install_dir = "{install_dir}"
@@ -1296,6 +1312,9 @@ prepend_path("PATH", install_dir .. "/bin")
 '''
         else:  # TCL format (default)
             module_file = self.config.module_base / name / version
+            # Remove parent if it exists as a file (legacy module file)
+            if module_file.parent.exists() and not module_file.parent.is_dir():
+                module_file.parent.unlink()
             module_file.parent.mkdir(parents=True, exist_ok=True)
             content = f'''#%Module1.0
 ##
@@ -1312,6 +1331,13 @@ prepend-path PATH $install_dir/bin
 '''
         
         if not self.config.dry_run:
+            # Remove existing module file/directory if it exists
+            if module_file.exists():
+                if module_file.is_dir():
+                    import shutil
+                    shutil.rmtree(module_file)
+                else:
+                    module_file.unlink()
             module_file.write_text(content)
         
         print(f"{Colors.GREEN}[INFO]{Colors.NC} Generated module: {module_file}")
