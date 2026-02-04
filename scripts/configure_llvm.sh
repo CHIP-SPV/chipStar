@@ -238,6 +238,16 @@ if [ "$EMIT_ONLY" != "on" ]; then
           echo "  Skipping $patch_name (only needed for LLVM 22+)"
           continue
         fi
+        # For LLVM 22, use the specialized version of the patch
+        if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -eq 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific version instead)"
+          continue
+        fi
+        # Apply LLVM 22-specific new offload driver patch
+        if [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22)"
+          continue
+        fi
         
         # Apply HIP math AMDGCN builtin fix for LLVM 20
         if [[ "$patch_name" == "0009-fix-hip-math-amdgcn-builtins-llvm20.patch" ]] && [ "$VERSION" -ne 20 ]; then

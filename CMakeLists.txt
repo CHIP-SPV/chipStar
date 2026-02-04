@@ -235,6 +235,19 @@ set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share CACHE PATH "share install di
 set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake config install dir")
 set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
+set(HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 22)
+  # LLVM-22: HIPSPV toolchain supports the new offload driver and can
+  # be enabled with --offload-new-driver.
+  #
+  # LLVM-23+: the new offload driver possibly becomes default (meaning
+  # --offload-new-driver becomes redundant) and the old offload driver
+  # may be removed.
+  set(HAVE_CLANG_NEW_OFFLOAD_DRIVER ON)
+endif()
+
+include(CMakeDependentOption)
+
 # HIP options
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 
@@ -277,20 +290,6 @@ option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib fun
 # this option will strip the such attributes.
 option(CHIP_MALI_GPU_WORKAROUNDS "Apply work-arounds for avoiding SPIR-V \
 consumption issues in ARM Mali GPU driver." OFF)
-
-# Check if LLVM version supports new offload driver (must be before cmake_dependent_option)
-set(HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
-if(LLVM_VERSION_MAJOR GREATER_EQUAL 22)
-  # LLVM-22: HIPSPV toolchain supports the new offload driver and can
-  # be enabled with --offload-new-driver.
-  #
-  # LLVM-23+: the new offload driver possibly becomes default (meaning
-  # --offload-new-driver becomes redundant) and the old offload driver
-  # may be removed.
-  set(HAVE_CLANG_NEW_OFFLOAD_DRIVER ON)
-endif()
-
-include(CMakeDependentOption)
 
 cmake_dependent_option(
   USE_NEW_OFFLOAD_DRIVER "Use Clang's new offload driver."
@@ -419,7 +418,6 @@ endif()
 
 message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
-# Set OFFLOAD_TRIPLE before bitcode subdirectory needs it
 if(USE_NEW_OFFLOAD_DRIVER)
   # For offloading SPIR-V device code under the new offload driver, "chipstar"
   # OS component is needed for setting up the right offloading toolchain. This
@@ -734,8 +732,7 @@ target_compile_options(deviceRDCInternal INTERFACE -fgpu-rdc)
 target_link_options(deviceRDCInternal INTERFACE
   -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}
   $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:-Xoffload-compiler-${OFFLOAD_TRIPLE}>
-  $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:--hip-path=${CMAKE_BINARY_DIR}>
-  $<$<NOT:$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>>:--hip-path=${CMAKE_BINARY_DIR}>)
+  --hip-path=${CMAKE_BINARY_DIR})
 target_link_libraries(deviceRDCInternal INTERFACE deviceInternal)
 
 add_library(deviceRDC INTERFACE)
@@ -743,8 +740,7 @@ target_compile_options(deviceRDC INTERFACE -fgpu-rdc)
 target_link_options(deviceRDC INTERFACE
   -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}
   $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:-Xoffload-compiler-${OFFLOAD_TRIPLE}>
-  $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:--hip-path=${CMAKE_INSTALL_PREFIX}>
-  $<$<NOT:$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>>:--hip-path=${CMAKE_INSTALL_PREFIX}>)
+  --hip-path=${CMAKE_INSTALL_PREFIX})
 target_link_libraries(deviceRDC INTERFACE device)
 
 

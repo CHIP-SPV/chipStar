@@ -183,6 +183,7 @@ foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_3)
   list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
 endforeach()
 
+
 add_custom_target("rtdevlib-bitcodes" DEPENDS ${RTDEVLIB_BITCODES})
 
 # Compile LLVM bitcode to SPIR-V binary which is then embedded into
