@@ -260,8 +260,8 @@ if [ "$EMIT_ONLY" != "on" ]; then
         apply_output=$(git apply "$patch" 2>&1)
         apply_status=$?
         if [ $apply_status -ne 0 ]; then
-          # Try with 3-way merge for data layout patches that may have conflicts
-          if [[ "$patch_name" == *"data-layout"* ]]; then
+          # Try with 3-way merge for data layout patches or 0008 patch that may have conflicts
+          if [[ "$patch_name" == *"data-layout"* ]] || [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]]; then
             echo "    Attempting 3-way merge for $patch_name..."
             if git apply --3way "$patch" 2>&1 | grep -q "Applied\|Applied patch"; then
               # Check for conflicts and resolve by removing n8:16:32:64
