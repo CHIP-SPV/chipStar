@@ -172,19 +172,23 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
-        # Skip generic data layout patch for LLVM 22 (already upstream)
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+        # Skip generic data layout patch for LLVM 21/22 (using version-specific patch instead)
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && ([ "$VERSION" -eq 21 ] || [ "$VERSION" -eq 22 ]); then
+          echo "  Skipping $patch_name (using LLVM ${VERSION}-specific patch instead)"
           continue
         fi
-        
-        # Use LLVM 21-specific data layout patch for version 21, skip LLVM 20 version
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 21 ]; then
-          echo "  Skipping $patch_name (using LLVM 21-specific patch instead)"
-          continue
-        fi
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
+        # Use LLVM 21-specific data layout patch for version 21 only
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm21.patch" ]] && [ "$VERSION" -eq 21 ]; then
+          echo "  Applying LLVM 21-specific patch"
+        elif [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 21)"
+          continue
+        fi
+        # Use LLVM 22-specific data layout patch for version 22
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm22.patch" ]] && [ "$VERSION" -eq 22 ]; then
+          echo "  Applying LLVM 22-specific patch"
+        elif [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
+          echo "  Skipping $patch_name (only needed for LLVM 22)"
           continue
         fi
         
@@ -229,15 +233,7 @@ if [ "$EMIT_ONLY" != "on" ]; then
             fi
           fi
         fi
-        # Use LLVM 22-specific new offload driver patch, skip original for LLVM 22
-        if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -eq 22 ]; then
-          echo "  Skipping $patch_name (using LLVM 22-specific patch instead)"
-          continue
-        fi
-        if [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22)"
-          continue
-        fi
+        # Apply HIPSPV new offload driver patch for LLVM 22+
         if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -lt 22 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 22+)"
           continue
