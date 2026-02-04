@@ -2,8 +2,7 @@
 
 # Test script for all LLVM versions with chipStar
 # Tests LLVM 19, 20, 21, 22: configure, build, install, build chipStar, run tests
-
-set -e
+# Continues testing all versions even if one fails
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CHIPSTAR_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
@@ -43,7 +42,7 @@ test_llvm_version() {
     
     # Step 1: Configure LLVM (test patches)
     log_info "Step 1: Configuring LLVM ${VERSION} (testing patches)..."
-    if ! cd "$CHIPSTAR_ROOT" && "$SCRIPT_DIR/configure_llvm.sh" --version "$VERSION" --install-dir "$INSTALL_DIR" --configure-only; then
+    if ! (cd "$CHIPSTAR_ROOT" && "$SCRIPT_DIR/configure_llvm.sh" --version "$VERSION" --install-dir "$INSTALL_DIR" --configure-only 2>&1); then
         log_error "LLVM ${VERSION} configuration failed!"
         BUILD_RESULTS[$VERSION]="CONFIG_FAILED"
         return 1
@@ -52,7 +51,7 @@ test_llvm_version() {
     
     # Step 2: Build and install LLVM
     log_info "Step 2: Building and installing LLVM ${VERSION}..."
-    if ! cd "$CHIPSTAR_ROOT" && "$SCRIPT_DIR/configure_llvm.sh" --version "$VERSION" --install-dir "$INSTALL_DIR"; then
+    if ! (cd "$CHIPSTAR_ROOT" && "$SCRIPT_DIR/configure_llvm.sh" --version "$VERSION" --install-dir "$INSTALL_DIR" 2>&1); then
         log_error "LLVM ${VERSION} build/install failed!"
         BUILD_RESULTS[$VERSION]="BUILD_FAILED"
         return 1
