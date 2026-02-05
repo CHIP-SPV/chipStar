@@ -257,13 +257,20 @@ if [ "$EMIT_ONLY" != "on" ]; then
         fi
         
         echo "  Applying $patch_name..."
+        set +e
         apply_output=$(git apply "$patch" 2>&1)
         apply_status=$?
+        set -e
         if [ $apply_status -ne 0 ]; then
           # Try with 3-way merge for data layout patches or 0008 patch that may have conflicts
           if [[ "$patch_name" == *"data-layout"* ]] || [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]]; then
             echo "    Attempting 3-way merge for $patch_name..."
-            if git apply --3way "$patch" 2>&1 | grep -q "Applied\|Applied patch"; then
+            # Stage any modified files that the patch might affect
+            git add -u 2>/dev/null || true
+            merge_output=$(git apply --3way "$patch" 2>&1)
+            merge_status=$?
+            if [ $merge_status -eq 0 ] || echo "$merge_output" | grep -q "Applied\|Applied patch\|cleanly"; then
+              echo "    Applied with 3-way merge"
               # Check for conflicts and resolve by removing n8:16:32:64
               conflicted_files=$(git diff --name-only --diff-filter=U 2>/dev/null | grep -E "SPIR\.h|SPIRVTargetMachine\.cpp" || true)
               if [ -n "$conflicted_files" ]; then
