@@ -14,6 +14,14 @@
 // (c) 2024 Henry Linjamäki / Intel
 //===----------------------------------------------------------------------===//
 
+// Provide the ABI breaking checks symbol that LLVM expects.
+// This satisfies the linker when building as a plugin since we include
+// object files from LLVM's static library that reference this symbol.
+// The symbol will be resolved at runtime from the host executable.
+namespace llvm {
+  __attribute__((visibility("default"))) int EnableABIBreakingChecks = 0;
+}
+
 #include "HipAbort.h"
 #include "HipDefrost.h"
 #include "HipDynMem.h"

@@ -29,6 +29,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 ######################################
 
+# Disable ABI breaking checks enforcement to avoid symbol version mismatch issues
+# This must be defined BEFORE including LLVM headers
+add_compile_definitions(LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1)
 add_definitions(${LLVM_DEFINITIONS})
 
 # abort if LLVM_INCLUDE_DIRS is empty or not set
