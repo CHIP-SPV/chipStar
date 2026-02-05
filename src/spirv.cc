@@ -747,6 +747,16 @@ private:
         LinkNames_[TargetID] = LinkName;
       }
 
+      // Also extract names from OpName instructions (used by HipIGBADetectorPass)
+      if (Inst->isName()) {
+        auto TargetID = Inst->getWord(1);
+        auto Name = Inst->getName();
+        // Only add if not already present (linkage attributes take precedence)
+        if (LinkNames_.find(TargetID) == LinkNames_.end()) {
+          LinkNames_[TargetID] = Name;
+        }
+      }
+
       if (Inst->isDecoration(spv::DecorationFuncParamAttr)) {
         auto Attr = parseFunctionParameterAttribute(*Inst);
         if (Attr == spv::FunctionParameterAttributeByVal) {
