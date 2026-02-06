@@ -768,10 +768,10 @@ private:
       if (Inst->isGlobalVariable()) {
         auto Name = getLinkNameOr(Inst, "");
         auto SpillArgAnnotation = std::string_view(ChipSpilledArgsVarPrefix);
-        if (startsWith(Name, SpillArgAnnotation)) {
+        if (startsWith(Name, SpillArgAnnotation) && Inst->size() >= 5) {
           auto KernelName = Name.substr(SpillArgAnnotation.size());
           auto &SpillAnnotation = SpilledArgAnnotations_[KernelName];
-          // Get initializer operand.
+          // Get initializer operand (word 4, requires at least 5 words).
           auto *Init = getInstruction(Inst->getWord(4));
           assert(Init && "Annotation variable is missing an initializer.");
           // Init is known to be OpConstantComposite of char array.
@@ -791,11 +791,16 @@ private:
         }
 
         // A magic variable created by HipIGBADetector.cpp.
-        if (Name == "__chip_module_has_no_IGBAs") {
-          // Get initializer operand.
+        if (Name == "__chip_module_has_no_IGBAs" && Inst->size() >= 5) {
+          // Get initializer operand (word 4, requires at least 5 words).
           auto *Init = getInstruction(Inst->getWord(4));
-          // Init is known to be 8-bit unsigned constant.
-          HasNoIGBAs_ = Init->getWord(3);
+          // Init is known to be 8-bit unsigned constant. The in-tree SPIR-V
+          // backend may emit OpConstantNull (3 words, value=0) instead of
+          // OpConstant (4+ words) for zero-valued constants.
+          if (Init && Init->size() >= 4)
+            HasNoIGBAs_ = Init->getWord(3);
+          else
+            HasNoIGBAs_ = 0; // OpConstantNull or missing init means false
         }
       }
 
