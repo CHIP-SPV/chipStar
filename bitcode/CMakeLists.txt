@@ -166,10 +166,21 @@ set(RTDEVLIB_SOURCES_v1_2
 set(RTDEVLIB_SOURCES_v1_3
   ballot_native)
 
+# Set rtdevlib compile triples based on LLVM version.
+# For LLVM >= 22, use chipstar triples (requires chipstar OS patch).
+# For LLVM < 22, use BC_TRIPLE (spirv64 for old offload driver).
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 22)
+  set(RTDEVLIB_TRIPLE_v1_2 spirv64v1.2-unknown-chipstar)
+  set(RTDEVLIB_TRIPLE_v1_3 spirv64v1.3-unknown-chipstar)
+else()
+  set(RTDEVLIB_TRIPLE_v1_2 ${BC_TRIPLE})
+  set(RTDEVLIB_TRIPLE_v1_3 ${BC_TRIPLE})
+endif()
+
 # Alias for add_opencl_bitcode.
 foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2)
   add_opencl_bitcode(
-    spirv64v1.2-unknown-chipstar
+    ${RTDEVLIB_TRIPLE_v1_2}
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
   list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
@@ -177,7 +188,7 @@ endforeach()
 
 foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_3)
   add_opencl_bitcode(
-    spirv64v1.3-unknown-chipstar
+    ${RTDEVLIB_TRIPLE_v1_3}
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
     "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
   list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
@@ -195,23 +206,42 @@ function(embed_spirv_in_cpp
   # Name of the intermediate SPIR-V binary. The name of the C array will be
   # based on this filepath (with punctuation replaced with "_").
   set(SPIR_BINARY ${SOURCE_BASENAME}.spv)
-  # Use the in-tree LLVM SPIR-V backend via clang instead of llvm-spirv
-  # to ensure structural compatibility between rtdevlib modules and
-  # user device programs compiled with the same backend.
-  add_custom_command(
-    OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
-    DEPENDS "${BC_SOURCE}"
-    BYPRODUCTS "${SPIR_BINARY}"
-    COMMAND "${CMAKE_CXX_COMPILER}"
-    --target=spirv64v${MAX_SPIRV_VERSION}-unknown-chipstar
-    -mllvm -spirv-ext=${SPIRV_EXTENSIONS}
-    -x ir
-    "${BC_SOURCE}" -o "${SPIR_BINARY}"
-    COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
-    ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
-    COMMENT "Generating embedded SPIR-V binary (in-tree backend): ${OUTPUT_SOURCE}"
-    VERBATIM
-  )
+  # Use the in-tree LLVM SPIR-V backend via clang for LLVM >= 22,
+  # or the external llvm-spirv translator for older LLVM versions.
+  # The in-tree backend ensures structural compatibility between rtdevlib
+  # modules and user device programs compiled with the same backend.
+  if(LLVM_VERSION_MAJOR GREATER_EQUAL 22)
+    # In-tree SPIR-V backend via clang
+    add_custom_command(
+      OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
+      DEPENDS "${BC_SOURCE}"
+      BYPRODUCTS "${SPIR_BINARY}"
+      COMMAND "${CMAKE_CXX_COMPILER}"
+      --target=spirv64v${MAX_SPIRV_VERSION}-unknown-chipstar
+      -mllvm -spirv-ext=${SPIRV_EXTENSIONS}
+      -x ir
+      "${BC_SOURCE}" -o "${SPIR_BINARY}"
+      COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
+      ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
+      COMMENT "Generating embedded SPIR-V binary (in-tree backend): ${OUTPUT_SOURCE}"
+      VERBATIM
+    )
+  else()
+    # External llvm-spirv translator
+    add_custom_command(
+      OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
+      DEPENDS "${BC_SOURCE}"
+      BYPRODUCTS "${SPIR_BINARY}"
+      COMMAND "${LLVM_SPIRV}"
+      --spirv-ext=${SPIRV_EXTENSIONS}
+      --spirv-max-version=${MAX_SPIRV_VERSION}
+      "${BC_SOURCE}" -o "${SPIR_BINARY}"
+      COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
+      ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
+      COMMENT "Generating embedded SPIR-V binary (llvm-spirv): ${OUTPUT_SOURCE}"
+      VERBATIM
+    )
+  endif()
 endfunction()
 
 foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2)
