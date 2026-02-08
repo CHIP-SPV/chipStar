@@ -426,7 +426,7 @@ if(USE_NEW_OFFLOAD_DRIVER)
   # This is also a stepping stone for using LLVM's SPIR-V backend
   # which does not define --spirv-max-version and instead uses the
   # subarch string (v#.#) to control SPIR-V version.
-  set(OFFLOAD_TRIPLE spirv64v1.2-unknown-chipstar)
+  set(OFFLOAD_TRIPLE spirv64-unknown-chipstar)
 else()
   set(OFFLOAD_TRIPLE spirv64)
 endif()

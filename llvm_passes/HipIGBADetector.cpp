@@ -124,9 +124,10 @@ static bool detectIGBAs(Module &M) {
       // chipStar runtime reads it.
       GlobalValue::ExternalLinkage, Init, MagicVarName, nullptr,
       GlobalValue::NotThreadLocal /* Default value */,
-      // Global-scope variables may not have Function storage class.
-      // TODO: use private storage class?
-      SPIRV_CROSSWORKGROUP_AS);
+      // Use UniformConstant (addrspace 2) since this is a true constant.
+      // CrossWorkgroup constants with initialisers may be silently dropped
+      // by the in-tree SPIR-V backend, producing invalid forward references.
+      SPIRV_UNIFORMCONSTANT_AS);
 
   return true;
 }

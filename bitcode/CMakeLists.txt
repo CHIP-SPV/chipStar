@@ -195,17 +195,21 @@ function(embed_spirv_in_cpp
   # Name of the intermediate SPIR-V binary. The name of the C array will be
   # based on this filepath (with punctuation replaced with "_").
   set(SPIR_BINARY ${SOURCE_BASENAME}.spv)
+  # Use the in-tree LLVM SPIR-V backend via clang instead of llvm-spirv
+  # to ensure structural compatibility between rtdevlib modules and
+  # user device programs compiled with the same backend.
   add_custom_command(
     OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
     DEPENDS "${BC_SOURCE}"
     BYPRODUCTS "${SPIR_BINARY}"
-    COMMAND "${LLVM_SPIRV}"
-    --spirv-ext=${SPIRV_EXTENSIONS}
-    --spirv-max-version=${MAX_SPIRV_VERSION}
+    COMMAND "${CMAKE_CXX_COMPILER}"
+    --target=spirv64v${MAX_SPIRV_VERSION}-unknown-chipstar
+    -mllvm -spirv-ext=${SPIRV_EXTENSIONS}
+    -x ir
     "${BC_SOURCE}" -o "${SPIR_BINARY}"
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
     ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
-    COMMENT "Generating embedded SPIR-V binary: ${OUTPUT_SOURCE}"
+    COMMENT "Generating embedded SPIR-V binary (in-tree backend): ${OUTPUT_SOURCE}"
     VERBATIM
   )
 endfunction()

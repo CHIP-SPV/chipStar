@@ -1028,6 +1028,12 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
     }
   }
 
+  // NOTE: The in-tree SPIR-V backend emits pointer-to-pointer types
+  // (e.g. Generic ptr -> Generic ptr) in OpBitcast instructions. These
+  // previously caused issues with clLinkProgram but are now handled by
+  // either building directly (no rtdevlib) or by using structurally
+  // consistent rtdevlib modules built with the same backend.
+
   // Second pass.
   for (size_t I = PastHeader; I < Input.size(); I += InsnSize) {
     SPIRVinst Insn(&Input.at(I));
@@ -1046,10 +1052,70 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
       continue;
     }
 
+    // Strip SPV_EXT_relaxed_printf_string_address_space extension
+    // declaration. The in-tree SPIR-V backend may spuriously declare it
+    // even when all printf format strings are already in UniformConstant.
+    // The Intel OpenCL driver does not support the extension and will
+    // reject the module during clLinkProgram.
+    if (Insn.isExtension() &&
+        Insn.getExtension() ==
+            "SPV_EXT_relaxed_printf_string_address_space") {
+      logTrace("filter out unsupported OpExtension "
+               "SPV_EXT_relaxed_printf_string_address_space");
+      continue;
+    }
+
+    // Strip OpExecutionMode ContractionOff. The in-tree SPIR-V backend
+    // emits this for all entry points but it can cause issues with
+    // the Intel OpenCL driver's clLinkProgram.
+    if (Insn.getOpcode() == spv::OpExecutionMode &&
+        Insn.size() >= 3 && Insn.getWord(2) == 31 /* ContractionOff */) {
+      logTrace("filter out OpExecutionMode ContractionOff");
+      continue;
+    }
+
+    // Strip interface variables from helper entry points (__chip_*).
+    // The in-tree SPIR-V backend lists builtin variables in ALL entry
+    // point interfaces, but helper functions like __chip_var_info_*,
+    // __chip_var_bind_*, __chip_var_init_*, and __chip_reset_non_symbols
+    // don't actually reference them. The Intel OpenCL driver expects
+    // these entries to have empty interfaces (matching llvm-spirv output).
+    if (Insn.isEntryPoint() &&
+        Insn.entryPointName().substr(0, 6) == "__chip") {
+      // OpEntryPoint layout: [wordcount|opcode, exec_model, id, name..., interface_ids...]
+      // Calculate where the name ends (name starts at word 3)
+      size_t NameBytes = Insn.entryPointName().size() + 1; // +1 for null
+      size_t NameWords = (NameBytes + 3) / 4; // round up to word boundary
+      size_t TruncatedSize = 3 + NameWords; // header + name only
+      if (TruncatedSize < InsnSize) {
+        logTrace("strip {} interface vars from entry point '{}'",
+                 InsnSize - TruncatedSize, std::string(Insn.entryPointName()));
+        // Write truncated instruction with updated word count
+        InstWord FirstWord = (TruncatedSize << 16) | (InstWord)spv::OpEntryPoint;
+        Result.push_back(FirstWord);
+        Result.insert(Result.end(), &Input.at(I) + 1,
+                       &Input.at(I) + TruncatedSize);
+        continue;
+      }
+    }
+
     Result.insert(Result.end(), &Input.at(I), &Input.at(I) + InsnSize);
   }
 
   Input = std::move(Result);
+
+  // Debug: dump processed SPIR-V for inspection
+  if (const char *DumpPath = std::getenv("CHIP_DUMP_PROCESSED_SPIRV")) {
+    std::string Path = DumpPath;
+    static int Counter = 0;
+    Path += "/processed_" + std::to_string(Counter++) + ".spv";
+    std::ofstream F(Path, std::ios::binary);
+    if (F.is_open()) {
+      F.write(reinterpret_cast<const char *>(Input.data()),
+              Input.size() * sizeof(uint32_t));
+      logTrace("Dumped processed SPIR-V to {}", Path);
+    }
+  }
 
   return true;
 }
