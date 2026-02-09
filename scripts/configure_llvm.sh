@@ -56,7 +56,7 @@ done
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [-N] [--configure-only]"
-  echo "--version: LLVM version 17, 18, 19, 20, 21 or 22"
+  echo "--version: LLVM version 17, 18, 19, 20 or 21"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
@@ -73,8 +73,8 @@ fi
 
 # validate version argument
 if [ "$VERSION" != "17" ] && [ "$VERSION" != "18" ] && [ "$VERSION" != "19" ] \
-       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ]; then
-  echo "Invalid version. Must be 17, 18, 19, 20, 21 or 22."
+       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ]; then
+  echo "Invalid version. Must be 17, 18, 19, 20 or 21."
   exit 1
 fi
 
@@ -172,8 +172,8 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
-        # Skip generic data layout patch for LLVM 21/22 (using version-specific patch instead)
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && ([ "$VERSION" -eq 21 ] || [ "$VERSION" -eq 22 ]); then
+        # Skip generic data layout patch for LLVM 21 (using version-specific patch instead)
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 21 ]; then
           echo "  Skipping $patch_name (using LLVM ${VERSION}-specific patch instead)"
           continue
         fi
@@ -184,71 +184,7 @@ if [ "$EMIT_ONLY" != "on" ]; then
           echo "  Skipping $patch_name (only needed for LLVM 21)"
           continue
         fi
-        # Use LLVM 22-specific data layout patch for version 22
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm22.patch" ]] && [ "$VERSION" -eq 22 ]; then
-          echo "  Applying LLVM 22-specific patch"
-        elif [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22)"
-          continue
-        fi
         
-        # Skip Unbundle-SDL patch for LLVM 22+ (already upstream)
-        if [[ "$patch_name" == "0003-Unbundle-SDL.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
-          continue
-        fi
-        
-        # Skip SPIR-V 1.2 patch for LLVM 22+ (already upstream)
-        if [[ "$patch_name" == "0001-Allow-up-to-v1.2-SPIR-V-features.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
-          continue
-        fi
-        
-        # Skip extensions patch for LLVM 22+ (already upstream)
-        if [[ "$patch_name" == "0004-only-necessary-exts.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
-          continue
-        fi
-        
-        # HIPSPV new offload driver patches only for LLVM 22+
-        if [[ "$patch_name" == "0007-add-chipstar-triple.patch" ]] && [ "$VERSION" -lt 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22+)"
-          continue
-        fi
-        # Skip the LLVM 22-specific version for non-22 versions
-        if [[ "$patch_name" == "0007a-add-xoffload-compiler-option-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22)"
-          continue
-        fi
-        if [[ "$patch_name" == "0007a-add-xoffload-compiler-option.patch" ]]; then
-          if [ "$VERSION" -lt 22 ]; then
-            echo "  Skipping $patch_name (only needed for LLVM 22+)"
-            continue
-          elif [ "$VERSION" -eq 22 ]; then
-            # Use LLVM 22-specific version that skips Options.td (file moved)
-            patch_22_version="${LLVM_PATCH_DIR}/0007a-add-xoffload-compiler-option-llvm22.patch"
-            if [ -f "$patch_22_version" ]; then
-              echo "  Skipping $patch_name, using LLVM 22-specific version instead"
-              continue
-            fi
-          fi
-        fi
-        # Apply HIPSPV new offload driver patch for LLVM 22+
-        if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -eq 22 ]; then
-          echo "  Skipping $patch_name (using LLVM 22-specific patch instead)"
-          continue
-        fi
-        if [[ "$patch_name" == "0008-hipspv-new-offload-driver.patch" ]] && [ "$VERSION" -lt 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22+)"
-          continue
-        fi
-        # Use LLVM 22-specific new offload driver patch
-        if [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]] && [ "$VERSION" -eq 22 ]; then
-          echo "  Applying LLVM 22-specific new offload driver patch"
-        elif [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]] && [ "$VERSION" -ne 22 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 22)"
-          continue
-        fi
         
         # Apply HIP math AMDGCN builtin fix for LLVM 20
         if [[ "$patch_name" == "0009-fix-hip-math-amdgcn-builtins-llvm20.patch" ]] && [ "$VERSION" -ne 20 ]; then
@@ -262,8 +198,8 @@ if [ "$EMIT_ONLY" != "on" ]; then
         apply_status=$?
         set -e
         if [ $apply_status -ne 0 ]; then
-          # Try with 3-way merge for data layout patches or 0008 patch that may have conflicts
-          if [[ "$patch_name" == *"data-layout"* ]] || [[ "$patch_name" == "0008-hipspv-new-offload-driver-llvm22.patch" ]]; then
+          # Try with 3-way merge for data layout patches that may have conflicts
+          if [[ "$patch_name" == *"data-layout"* ]]; then
             echo "    Attempting 3-way merge for $patch_name..."
             # Stage any modified files that the patch might affect
             git add -u 2>/dev/null || true
@@ -316,11 +252,6 @@ if [ "$EMIT_ONLY" != "on" ]; then
             else
               # Check if the change is already upstream (file moved or change integrated)
               echo "    Warning: $patch_name may have changes already upstream or file moved"
-              # For LLVM 22, patch 0007a references Options.td which was moved to Driver/Options.td
-              # The important changes (Clang.cpp) should still apply
-              if [ "$VERSION" -eq 22 ] && [[ "$patch_name" == "0007a-add-xoffload-compiler-option.patch" ]]; then
-                echo "    Continuing - Options.td change not needed for LLVM 22 (file moved)"
-              fi
             fi
           else
             echo "Error: Failed to apply $patch_name"
@@ -368,18 +299,6 @@ if [ "$EMIT_ONLY" != "on" ]; then
         fi
         if [[ "$patch_name" == "0003-Fix-LoopMerge-error-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 21)"
-          continue
-        fi
-        
-        # Skip LoopMerge fix for LLVM 22+ (already upstream)
-        if [[ "$patch_name" == "0003-Fix-LoopMerge-error.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
-          continue
-        fi
-        
-        # Skip blockMerge fix for LLVM 22+ (already upstream)
-        if [[ "$patch_name" == "0004-fix-blockMerge.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
           continue
         fi
         
