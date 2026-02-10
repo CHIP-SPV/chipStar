@@ -7,17 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  cancel-nightly:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Cancel Nightly Tests
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          workflow_id: nightly-tests.yml
-          all_but_latest: false
-
   build:
-    needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""

@@ -1,0 +1,132 @@
+name: Test LLVM Patches
+
+on:
+  push:
+    paths:
+      - 'llvm-patches/**'
+      - 'scripts/configure_llvm.sh'
+  pull_request:
+    paths:
+      - 'llvm-patches/**'
+      - 'scripts/configure_llvm.sh'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  step1-configure-all:
+    name: 'Step 1: Configure all LLVM versions and verify patches'
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    strategy:
+      matrix:
+        llvm-version: [19, 20, 21]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure LLVM ${{ matrix.llvm-version }}
+        run: |
+          mkdir -p $HOME/llvm-builds/${{ matrix.llvm-version }}
+          cd $HOME/llvm-builds/${{ matrix.llvm-version }}
+          cp -r ${{ github.workspace }}/scripts .
+          cp -r ${{ github.workspace }}/llvm-patches .
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version ${{ matrix.llvm-version }} --install-dir $HOME/install/llvm/${{ matrix.llvm-version }}.0 --configure-only
+
+  step2-build-test:
+    needs: step1-configure-all
+    name: Build LLVM ${{ matrix.llvm-version }} and test chipStar
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    env:
+      IGC_EnableDPEmulation: 1
+      OverrideDefaultFP64Settings: 1
+    strategy:
+      matrix:
+        llvm-version: [19, 20, 21]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Build LLVM ${{ matrix.llvm-version }}
+        id: build_llvm
+        continue-on-error: true
+        run: |
+          BUILD_DIR="$HOME/llvm-builds/${{ matrix.llvm-version }}/llvm-project/llvm/build_${{ matrix.llvm-version }}"
+          if [ ! -d "$BUILD_DIR" ]; then
+            echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
+            exit 1
+          fi
+          cd "$BUILD_DIR"
+          make -j$(nproc)
+        timeout-minutes: 300
+      - name: Stage install for later
+        if: steps.build_llvm.outcome == 'success'
+        run: |
+          rm -rf $HOME/llvm-stage/${{ matrix.llvm-version }}
+          DESTDIR=$HOME/llvm-stage/${{ matrix.llvm-version }} cmake --install $HOME/llvm-builds/${{ matrix.llvm-version }}/llvm-project/llvm/build_${{ matrix.llvm-version }}
+      - name: Test chipStar with LLVM ${{ matrix.llvm-version }} (OpenCL)
+        if: steps.build_llvm.outcome == 'success'
+        run: |
+          test -f $HOME/llvm-builds/${{ matrix.llvm-version }}/llvm-project/llvm/build_${{ matrix.llvm-version }}/bin/clang || exit 1
+          cd ${{ github.workspace }}
+          mkdir -p build-llvm${{ matrix.llvm-version }}
+          cd build-llvm${{ matrix.llvm-version }}
+          cmake .. -DLLVM_CONFIG_BIN=$HOME/llvm-builds/${{ matrix.llvm-version }}/llvm-project/llvm/build_${{ matrix.llvm-version }}/bin/llvm-config -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+          ../scripts/check.py ./ dgpu opencl
+        timeout-minutes: 60
+      - name: Test chipStar with LLVM ${{ matrix.llvm-version }} (Level0)
+        if: steps.build_llvm.outcome == 'success'
+        run: |
+          cd ${{ github.workspace }}/build-llvm${{ matrix.llvm-version }}
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm${{ matrix.llvm-version }}
+          path: |
+            ${{ github.workspace }}/build-llvm${{ matrix.llvm-version }}/checkpy_*.txt
+            ${{ github.workspace }}/build-llvm${{ matrix.llvm-version }}/Testing/Temporary/LastTest.log
+
+  install-llvm-on-main:
+    needs: step2-build-test
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    name: Install LLVM ${{ matrix.llvm-version }} on main branch
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    strategy:
+      matrix:
+        llvm-version: [19, 20, 21]
+      fail-fast: false
+    steps:
+      - name: Install LLVM ${{ matrix.llvm-version }}
+        run: |
+          rm -rf $HOME/install/llvm/${{ matrix.llvm-version }}.0
+          mv $HOME/llvm-stage/${{ matrix.llvm-version }}/$HOME/install/llvm/${{ matrix.llvm-version }}.0 $HOME/install/llvm/${{ matrix.llvm-version }}.0
+        timeout-minutes: 5
+      - name: Verify LLVM ${{ matrix.llvm-version }} installation
+        run: |
+          test -f $HOME/install/llvm/${{ matrix.llvm-version }}.0/bin/clang || exit 1
+          $HOME/install/llvm/${{ matrix.llvm-version }}.0/bin/clang --version
+      - name: Cleanup staged install
+        if: always()
+        run: rm -rf $HOME/llvm-stage/${{ matrix.llvm-version }}

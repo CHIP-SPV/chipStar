@@ -11,17 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  cancel-nightly:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Cancel Nightly Tests
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          workflow_id: nightly-tests.yml
-          all_but_latest: false
-
   unit-tests-llvm-19-debug:
-    needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -35,7 +25,6 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-19
         shell: bash
   unit-tests-llvm-19-release:
-    needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -49,7 +38,6 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-19
         shell: bash
   unit-tests-llvm-20-debug:
-    needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -63,7 +51,6 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-20
         shell: bash
   unit-tests-llvm-20-release:
-    needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -77,7 +64,6 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-20
         shell: bash
   unit-tests-llvm-21-debug:
-    needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -91,7 +77,6 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-21
         shell: bash
   unit-tests-llvm-21-release:
-    needs: cancel-nightly
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
