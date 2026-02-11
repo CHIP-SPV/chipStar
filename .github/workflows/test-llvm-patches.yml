@@ -36,6 +36,7 @@ jobs:
         run: |
           mkdir -p $HOME/llvm-builds/${{ matrix.llvm-version }}
           cd $HOME/llvm-builds/${{ matrix.llvm-version }}
+          rm -rf scripts llvm-patches
           cp -r ${{ github.workspace }}/scripts .
           cp -r ${{ github.workspace }}/llvm-patches .
           chmod +x scripts/configure_llvm.sh
