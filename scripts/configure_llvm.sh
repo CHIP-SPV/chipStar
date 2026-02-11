@@ -6,6 +6,7 @@ set -e
 # default values for optional arguments
 LINK_TYPE="static"
 EMIT_ONLY="off"
+CONFIGURE_ONLY="off"
 WITH_BINUTILS=""
 
 THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -41,6 +42,10 @@ while [ $# -gt 0 ]; do
       EMIT_ONLY="on"
       shift 1
       ;;
+    --configure-only)
+      CONFIGURE_ONLY="on"
+      shift 1
+      ;;
     *)
       echo "Unknown option $1"
       exit 1
@@ -50,13 +55,14 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [-N]"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [--configure-only] [-N]"
   echo "--version: LLVM version 17, 18, 19, 20 or 21"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: static)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
+  echo "--configure-only: only clone, patch, and run cmake configure (skip build and install)"
   echo "-N: only emit the cmake configure command without executing it"
-  echo "The llvm-project will be cloned and built under the current working directory.  Patches are first applied from the chipStar project."
+  echo "By default, the script will clone, patch, configure, build, and install LLVM."
   exit 1
 fi
 # Check if install-dir argument is provided
@@ -327,6 +333,14 @@ if [ "$EMIT_ONLY" == "on" ]; then
   echo "$CMAKE_COMMAND"
 else
   eval $CMAKE_COMMAND
-fi
 
-# Make sure ninja is in the path
+  if [ "$CONFIGURE_ONLY" == "on" ]; then
+    echo "Configure complete. Skipping build and install (--configure-only)."
+  else
+    echo "Building LLVM (this may take a while)..."
+    cmake --build . -j$(nproc)
+    echo "Installing LLVM to ${INSTALL_DIR}..."
+    cmake --build . --target install
+    echo "LLVM ${VERSION} installed to ${INSTALL_DIR}"
+  fi
+fi
