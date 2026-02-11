@@ -4,7 +4,7 @@
 set -e
 
 # default values for optional arguments
-LINK_TYPE="static"
+LINK_TYPE="dynamic"
 EMIT_ONLY="off"
 CONFIGURE_ONLY="off"
 WITH_BINUTILS=""
@@ -55,10 +55,10 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static(default)/dynamic [--with-binutils [path]] [--configure-only] [-N]"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--with-binutils [path]] [--configure-only] [-N]"
   echo "--version: LLVM version 17, 18, 19, 20 or 21"
   echo "--install-dir: installation directory"
-  echo "--link-type: static or dynamic (default: static)"
+  echo "--link-type: static or dynamic (default: dynamic)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "--configure-only: only clone, patch, and run cmake configure (skip build and install)"
   echo "-N: only emit the cmake configure command without executing it"
