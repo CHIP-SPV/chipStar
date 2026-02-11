@@ -34,6 +34,7 @@ jobs:
           submodules: 'recursive'
       - name: Configure LLVM ${{ matrix.llvm-version }}
         run: |
+          rm -rf $HOME/llvm-builds/${{ matrix.llvm-version }}
           mkdir -p $HOME/llvm-builds/${{ matrix.llvm-version }}
           cd $HOME/llvm-builds/${{ matrix.llvm-version }}
           rm -rf scripts llvm-patches
