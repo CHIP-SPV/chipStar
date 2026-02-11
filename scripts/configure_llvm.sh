@@ -213,25 +213,9 @@ if [ "$EMIT_ONLY" != "on" ]; then
   
   cd ${LLVM_DIR}
 
-  # check if the build directory exists
-  if [ -d build_$VERSION ]; then
-    read -p "Build directory build_$VERSION already exists. Do you want to delete it and continue? (y/n) " answer
-    case ${answer:0:1} in
-      y|Y )
-        echo "Deleting existing build directory..."
-        rm -rf build_$VERSION
-        mkdir build_$VERSION
-        cd build_$VERSION
-      ;;
-      * )
-        echo "Build directory not deleted. Exiting."
-        exit 1
-      ;;
-    esac
-  else
-    mkdir build_$VERSION
-    cd build_$VERSION
-  fi
+  rm -rf build_$VERSION
+  mkdir build_$VERSION
+  cd build_$VERSION
 fi
 
 # Check if /usr/include/plugin-api.h exists
