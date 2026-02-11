@@ -126,19 +126,15 @@ echo "build_only  = ${build_only}"
 echo "timeout     = ${timeout}"
 
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
-# On salami, match interactive SSH environment: non-login shells used by CI
-# do not source /etc/profile, so the module command would come from a different
-# init. Source /etc/profile on salami to get the same Lmod setup as SSH.
-if [ "$host" = "salami" ]; then
-  set +e
-  . /etc/profile 2>/dev/null
-  set -e
+# Source Environment Modules init. Prefer user-local install (5.4.0, supports
+# pushenv) over system apt package (5.0.1, does not).
+if [ -f "$HOME/.local/init/bash" ]; then
+  export MODULESHOME=$HOME/.local
+  source "$MODULESHOME/init/bash"
+elif [ -f /etc/profile.d/lmod.sh ]; then
+  source /etc/profile.d/lmod.sh &> /dev/null
 else
-  if [ -f /etc/profile.d/lmod.sh ]; then
-    source /etc/profile.d/lmod.sh &> /dev/null
-  else
-    source /etc/profile.d/modules.sh &> /dev/null
-  fi
+  source /etc/profile.d/modules.sh &> /dev/null
 fi
 export IGC_EnableDPEmulation=1
 export OverrideDefaultFP64Settings=1
