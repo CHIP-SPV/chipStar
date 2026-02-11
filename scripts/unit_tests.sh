@@ -26,7 +26,7 @@ rm -rf ~/.cache/chipStar
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-16|llvm-17|llvm-18|llvm-19> [--skip-build] [--build-only] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
+  echo "Usage: $0 <debug|release> <llvm-16|llvm-17|llvm-18|llvm-19|llvm-20|llvm-21> [--skip-build] [--build-only] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
   exit 1
 fi
 
@@ -41,17 +41,11 @@ build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
 # Check if the second argument starts with "llvm-" and is followed by a valid version number
 if [[ ! "$2" =~ ^llvm-(1[6-9]|[2-9][0-9])$ ]]; then
-  echo "Error: Invalid LLVM version. Must be llvm-16, llvm-17, llvm-18, llvm-19, or higher."
+  echo "Error: Invalid LLVM version. Must be llvm-16, llvm-17, llvm-18, llvm-19, llvm-20, llvm-21, or higher."
   exit 1
 fi
 
-if [ "$host" = "salami" ]; then
-  LLVM="llvm-${2#llvm-}"
-  CLANG="llvm/${2#llvm-}.0-exts-only"
-else
-  LLVM="llvm-${2#llvm-}"
-  CLANG="llvm/${2#llvm-}"
-fi
+CLANG="llvm/${2#llvm-}"
 
 shift
 shift
@@ -124,7 +118,6 @@ detect_build_tool() {
 
 # Print out the arguments
 echo "build_type  = ${build_type}"
-echo "LLVM        = ${LLVM}"
 echo "CLANG       = ${CLANG}"
 echo "num_tries   = ${num_tries}"
 echo "num_threads = ${num_threads}"
@@ -144,7 +137,7 @@ export CHIP_L0_EVENT_TIMEOUT=$(($timeout - 10))
 
 # Use OpenCL for building/test discovery to prevent Level Zero from being used in multi-thread/multi-process environment
 if [ "$host" = "salami" ]; then
-  module use  /home/kristian/apps/modulefiles
+  module use  ~/modulefiles
   module load $CLANG
 else
   module use ~/modulefiles
