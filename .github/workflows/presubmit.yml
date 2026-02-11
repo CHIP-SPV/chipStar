@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        llvm-version: [18, 19]
+        llvm-version: [19]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -126,8 +126,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - pocl-version: "6.0"
-            llvm-version: 18
           - pocl-version: "7.1"
             llvm-version: 19
       fail-fast: false
@@ -202,10 +200,6 @@ jobs:
       matrix:
         include:
           # PoCL backend with specific version combinations
-          - backend: pocl
-            pocl-version: "6.0"
-            llvm-version: 18
-            extra_exclude: "|TestBufferDevAddr"
           - backend: pocl
             pocl-version: "7.1"
             llvm-version: 19
