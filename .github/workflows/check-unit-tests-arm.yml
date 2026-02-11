@@ -21,5 +21,5 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
-        run:  ./scripts/unit_tests.sh release llvm-18
+        run:  ./scripts/unit_tests.sh release llvm-21
         shell: bash
