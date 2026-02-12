@@ -278,7 +278,7 @@ void HipAbortPass::processFunctions(Module &M) {
   std::map<Function *, BasicBlock *> AbortReturnBlocks;
 
   for (auto Call : CallsToHandle) {
-    Instruction *InstrAfterCall = Call->getNextNonDebugInstruction();
+    Instruction *InstrAfterCall = Call->getNextNode();
     Function *Func = Call->getParent()->getParent();
     llvm::BasicBlock *OrigBB = InstrAfterCall->getParent();
     llvm::BasicBlock *FallThrough = OrigBB->splitBasicBlock(InstrAfterCall);
@@ -293,7 +293,7 @@ void HipAbortPass::processFunctions(Module &M) {
                          ReturnBlock);
     }
 
-    InstrAfterCall = Call->getNextNonDebugInstruction();
+    InstrAfterCall = Call->getNextNode();
     IRBuilder<> B(InstrAfterCall);
     LoadInst *FlagLoad =
         B.CreateLoad(AbortFlag->getValueType(), AbortFlag, true, "abort_flag");
