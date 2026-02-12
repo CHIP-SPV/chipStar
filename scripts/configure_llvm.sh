@@ -279,9 +279,6 @@ fi
 # NOTE: chipStar uses the external SPIRV-LLVM-Translator tool exclusively for SPIRV generation,
 # so we don't need LLVM's experimental/native SPIRV target at all
 LLVM_TARGETS="host"
-if [ "$VERSION" -ge 20 ]; then
-  LLVM_TARGETS="${LLVM_TARGETS};SPIRV"
-fi
 
 COMMON_CMAKE_OPTIONS=(
   "-DCMAKE_CXX_COMPILER=g++"
