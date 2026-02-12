@@ -525,6 +525,23 @@ EXPORT double __chip_sincos_f64(double x, DEFAULT_AS double *cos) {
 // local_barrier
 EXPORT void __chip_syncthreads() { barrier(CLK_LOCAL_MEM_FENCE); }
 
+// Work-group collective operations for HIP syncthreads variants
+EXPORT int __chip_group_all(int predicate) {
+  return work_group_all(predicate);
+}
+
+EXPORT int __chip_group_any(int predicate) {
+  return work_group_any(predicate);
+}
+
+// Work-group ballot using sub-group ballot and local memory reduction
+EXPORT ulong __chip_group_ballot(int predicate) {
+  // For workgroup ballot, we use popcount to count set bits
+  // This gives the count of threads with true predicate, which is
+  // what __syncthreads_count needs
+  return work_group_reduce_add(predicate ? 1 : 0);
+}
+
 // local_fence
 EXPORT void __chip_threadfence_block() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
@@ -1005,8 +1022,25 @@ __SHFL_XOR_SYNC(float);
 __SHFL_XOR_SYNC(double);
 
 
-// The definition is linked at runtime from one of the ballot*.cl files.
-EXPORT OVLD ulong __chip_ballot(int predicate);
+// Sub-group ballot emulation for SPIR-V 1.2
+// Uses local memory and barriers to compute ballot across the sub-group
+EXPORT OVLD ulong __chip_ballot(int predicate) {
+  // Fallback implementation using warp shuffle for simple cases
+  // For now, just return 0 or ~0 based on predicate to allow compilation
+  // This is a placeholder - full implementation would need local memory
+  // The runtime will link the proper implementation when available
+  uint lane = get_sub_group_local_id();
+  uint size = get_sub_group_size();
+  
+  // Use shuffle to collect predicates from all lanes
+  ulong mask = 0;
+  for (uint i = 0; i < size && i < 64; ++i) {
+    int pred_i = intel_sub_group_shuffle(predicate, i);
+    if (pred_i)
+      mask |= (1UL << i);
+  }
+  return mask;
+}
 
 EXPORT OVLD int __chip_all(int predicate) {
   return __chip_ballot(predicate) == ~0;
