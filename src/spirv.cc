@@ -747,6 +747,16 @@ private:
         LinkNames_[TargetID] = LinkName;
       }
 
+      // Also extract names from OpName instructions (used by HipIGBADetectorPass)
+      if (Inst->isName()) {
+        auto TargetID = Inst->getWord(1);
+        auto Name = Inst->getName();
+        // Only add if not already present (linkage attributes take precedence)
+        if (LinkNames_.find(TargetID) == LinkNames_.end()) {
+          LinkNames_[TargetID] = Name;
+        }
+      }
+
       if (Inst->isDecoration(spv::DecorationFuncParamAttr)) {
         auto Attr = parseFunctionParameterAttribute(*Inst);
         if (Attr == spv::FunctionParameterAttributeByVal) {
@@ -758,10 +768,10 @@ private:
       if (Inst->isGlobalVariable()) {
         auto Name = getLinkNameOr(Inst, "");
         auto SpillArgAnnotation = std::string_view(ChipSpilledArgsVarPrefix);
-        if (startsWith(Name, SpillArgAnnotation)) {
+        if (startsWith(Name, SpillArgAnnotation) && Inst->size() >= 5) {
           auto KernelName = Name.substr(SpillArgAnnotation.size());
           auto &SpillAnnotation = SpilledArgAnnotations_[KernelName];
-          // Get initializer operand.
+          // Get initializer operand (word 4, requires at least 5 words).
           auto *Init = getInstruction(Inst->getWord(4));
           assert(Init && "Annotation variable is missing an initializer.");
           // Init is known to be OpConstantComposite of char array.
@@ -781,11 +791,16 @@ private:
         }
 
         // A magic variable created by HipIGBADetector.cpp.
-        if (Name == "__chip_module_has_no_IGBAs") {
-          // Get initializer operand.
+        if (Name == "__chip_module_has_no_IGBAs" && Inst->size() >= 5) {
+          // Get initializer operand (word 4, requires at least 5 words).
           auto *Init = getInstruction(Inst->getWord(4));
-          // Init is known to be 8-bit unsigned constant.
-          HasNoIGBAs_ = Init->getWord(3);
+          // Init is known to be 8-bit unsigned constant. The in-tree SPIR-V
+          // backend may emit OpConstantNull (3 words, value=0) instead of
+          // OpConstant (4+ words) for zero-valued constants.
+          if (Init && Init->size() >= 4)
+            HasNoIGBAs_ = Init->getWord(3);
+          else
+            HasNoIGBAs_ = 0; // OpConstantNull or missing init means false
         }
       }
 
@@ -1013,6 +1028,12 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
     }
   }
 
+  // NOTE: The in-tree SPIR-V backend emits pointer-to-pointer types
+  // (e.g. Generic ptr -> Generic ptr) in OpBitcast instructions. These
+  // previously caused issues with clLinkProgram but are now handled by
+  // either building directly (no rtdevlib) or by using structurally
+  // consistent rtdevlib modules built with the same backend.
+
   // Second pass.
   for (size_t I = PastHeader; I < Input.size(); I += InsnSize) {
     SPIRVinst Insn(&Input.at(I));
@@ -1031,10 +1052,70 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
       continue;
     }
 
+    // Strip SPV_EXT_relaxed_printf_string_address_space extension
+    // declaration. The in-tree SPIR-V backend may spuriously declare it
+    // even when all printf format strings are already in UniformConstant.
+    // The Intel OpenCL driver does not support the extension and will
+    // reject the module during clLinkProgram.
+    if (Insn.isExtension() &&
+        Insn.getExtension() ==
+            "SPV_EXT_relaxed_printf_string_address_space") {
+      logTrace("filter out unsupported OpExtension "
+               "SPV_EXT_relaxed_printf_string_address_space");
+      continue;
+    }
+
+    // Strip OpExecutionMode ContractionOff. The in-tree SPIR-V backend
+    // emits this for all entry points but it can cause issues with
+    // the Intel OpenCL driver's clLinkProgram.
+    if (Insn.getOpcode() == spv::OpExecutionMode &&
+        Insn.size() >= 3 && Insn.getWord(2) == 31 /* ContractionOff */) {
+      logTrace("filter out OpExecutionMode ContractionOff");
+      continue;
+    }
+
+    // Strip interface variables from helper entry points (__chip_*).
+    // The in-tree SPIR-V backend lists builtin variables in ALL entry
+    // point interfaces, but helper functions like __chip_var_info_*,
+    // __chip_var_bind_*, __chip_var_init_*, and __chip_reset_non_symbols
+    // don't actually reference them. The Intel OpenCL driver expects
+    // these entries to have empty interfaces (matching llvm-spirv output).
+    if (Insn.isEntryPoint() &&
+        Insn.entryPointName().substr(0, 6) == "__chip") {
+      // OpEntryPoint layout: [wordcount|opcode, exec_model, id, name..., interface_ids...]
+      // Calculate where the name ends (name starts at word 3)
+      size_t NameBytes = Insn.entryPointName().size() + 1; // +1 for null
+      size_t NameWords = (NameBytes + 3) / 4; // round up to word boundary
+      size_t TruncatedSize = 3 + NameWords; // header + name only
+      if (TruncatedSize < InsnSize) {
+        logTrace("strip {} interface vars from entry point '{}'",
+                 InsnSize - TruncatedSize, std::string(Insn.entryPointName()));
+        // Write truncated instruction with updated word count
+        InstWord FirstWord = (TruncatedSize << 16) | (InstWord)spv::OpEntryPoint;
+        Result.push_back(FirstWord);
+        Result.insert(Result.end(), &Input.at(I) + 1,
+                       &Input.at(I) + TruncatedSize);
+        continue;
+      }
+    }
+
     Result.insert(Result.end(), &Input.at(I), &Input.at(I) + InsnSize);
   }
 
   Input = std::move(Result);
+
+  // Debug: dump processed SPIR-V for inspection
+  if (const char *DumpPath = std::getenv("CHIP_DUMP_PROCESSED_SPIRV")) {
+    std::string Path = DumpPath;
+    static int Counter = 0;
+    Path += "/processed_" + std::to_string(Counter++) + ".spv";
+    std::ofstream F(Path, std::ios::binary);
+    if (F.is_open()) {
+      F.write(reinterpret_cast<const char *>(Input.data()),
+              Input.size() * sizeof(uint32_t));
+      logTrace("Dumped processed SPIR-V to {}", Path);
+    }
+  }
 
   return true;
 }
