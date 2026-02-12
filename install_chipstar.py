@@ -1194,6 +1194,7 @@ class Builder:
     def build_rocsparse(self, component: Component):
         """Build rocSPARSE."""
         self.setup_chipstar_env()
+        self.add_to_prefix_path(self.config.install_base / "rocPRIM" / self.config.date_stamp)
         
         src_dir = self.config.staging_dir / "rocSPARSE"
         build_dir = src_dir / "build"
@@ -1296,6 +1297,9 @@ class Builder:
         
         if self.config.module_format == "lua":
             module_file = self.config.module_base / name / f"{version}.lua"
+            # Remove parent if it exists as a file (legacy module file)
+            if module_file.parent.exists() and not module_file.parent.is_dir():
+                module_file.parent.unlink()
             module_file.parent.mkdir(parents=True, exist_ok=True)
             content = f'''-- -*- lua -*-
 local install_dir = "{install_dir}"
@@ -1308,6 +1312,9 @@ prepend_path("PATH", install_dir .. "/bin")
 '''
         else:  # TCL format (default)
             module_file = self.config.module_base / name / version
+            # Remove parent if it exists as a file (legacy module file)
+            if module_file.parent.exists() and not module_file.parent.is_dir():
+                module_file.parent.unlink()
             module_file.parent.mkdir(parents=True, exist_ok=True)
             content = f'''#%Module1.0
 ##
@@ -1324,6 +1331,13 @@ prepend-path PATH $install_dir/bin
 '''
         
         if not self.config.dry_run:
+            # Remove existing module file/directory if it exists
+            if module_file.exists():
+                if module_file.is_dir():
+                    import shutil
+                    shutil.rmtree(module_file)
+                else:
+                    module_file.unlink()
             module_file.write_text(content)
         
         print(f"{Colors.GREEN}[INFO]{Colors.NC} Generated module: {module_file}")
