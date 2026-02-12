@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   step1-configure-all:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     name: 'Step 1: Configure all LLVM versions and verify patches'
     runs-on:
       - self-hosted
@@ -45,6 +46,7 @@ jobs:
 
   step2-build-test:
     needs: step1-configure-all
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     name: Build LLVM ${{ matrix.llvm-version }} and test chipStar
     runs-on:
       - self-hosted
@@ -108,8 +110,7 @@ jobs:
             ${{ github.workspace }}/build-llvm${{ matrix.llvm-version }}/Testing/Temporary/LastTest.log
 
   install-llvm-on-main:
-    needs: step2-build-test
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Install LLVM ${{ matrix.llvm-version }} on main branch
     runs-on:
       - self-hosted
