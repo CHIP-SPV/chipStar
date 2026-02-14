@@ -32,7 +32,11 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Passes/PassBuilder.h>
+#if LLVM_VERSION_MAJOR >= 22
+#include <llvm/Plugins/PassPlugin.h>
+#else
 #include <llvm/Passes/PassPlugin.h>
+#endif
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
 
 using namespace llvm;

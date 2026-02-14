@@ -529,7 +529,11 @@ static RegisterPass<HipDynMemExternReplacePass>
 // Pass hook for the new pass manager.
 #if LLVM_VERSION_MAJOR > 11
 #include "llvm/Passes/PassBuilder.h"
+#if LLVM_VERSION_MAJOR >= 22
+#include "llvm/Plugins/PassPlugin.h"
+#else
 #include "llvm/Passes/PassPlugin.h"
+#endif
 
 PreservedAnalyses HipDynMemExternReplaceNewPass::run(Module &M, ModuleAnalysisManager &AM) {
   // force the entire IR to be parsed before your pass runs
