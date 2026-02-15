@@ -460,6 +460,12 @@ public:
       return new SPIRVtypeSampler(getWord(1));
     }
 
+    if (Opcode_ == spv::Op::OpTypeSampledImage) {
+      // OpTypeSampledImage is a combined image+sampler type.
+      // Treat it like an image for chipStar's purposes.
+      return new SPIRVtypeImage(getWord(1));
+    }
+
     if (Opcode_ == spv::Op::OpTypePointer)
       return new SPIRVtypePointer(getWord(1), getWord(2), PointerSize,
                                   getWord(3));
