@@ -972,7 +972,7 @@ endif()
 
 if(CHIP_BUILD_SAMPLES)
   add_subdirectory(./samples samples)
-  add_dependencies(samples CHIP devicelib_bc)
+  add_dependencies(samples CHIP devicelib_bc LLVMHipPasses)
 endif()
 
 if(CHIP_BUILD_DOCS)
