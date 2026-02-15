@@ -166,10 +166,9 @@ set(RTDEVLIB_SOURCES_v1_2
 set(RTDEVLIB_SOURCES_v1_3
   ballot_native)
 
-# Set rtdevlib compile triples based on LLVM version.
-# For LLVM >= 22, use chipstar triples (requires chipstar OS patch).
-# For LLVM < 22, use BC_TRIPLE (spirv64 for old offload driver).
-if(LLVM_VERSION_MAJOR GREATER_EQUAL 22)
+# Set rtdevlib compile triples. With integrated SPIR-V (LLVM 22+), use chipstar
+# triples. With external translator, use BC_TRIPLE (spirv64).
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND CHIP_LLVM_USE_INTERGRATED_SPIRV)
   set(RTDEVLIB_TRIPLE_v1_2 spirv64v1.2-unknown-chipstar)
   set(RTDEVLIB_TRIPLE_v1_3 spirv64v1.3-unknown-chipstar)
 else()
@@ -206,11 +205,9 @@ function(embed_spirv_in_cpp
   # Name of the intermediate SPIR-V binary. The name of the C array will be
   # based on this filepath (with punctuation replaced with "_").
   set(SPIR_BINARY ${SOURCE_BASENAME}.spv)
-  # Use the in-tree LLVM SPIR-V backend via clang for LLVM >= 22,
-  # or the external llvm-spirv translator for older LLVM versions.
-  # The in-tree backend ensures structural compatibility between rtdevlib
-  # modules and user device programs compiled with the same backend.
-  if(LLVM_VERSION_MAJOR GREATER_EQUAL 22)
+  # Use the in-tree LLVM SPIR-V backend via clang when integrated SPIR-V is
+  # enabled (LLVM 22+), or the external llvm-spirv translator otherwise.
+  if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND CHIP_LLVM_USE_INTERGRATED_SPIRV)
     # In-tree SPIR-V backend via clang
     add_custom_command(
       OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
@@ -219,7 +216,7 @@ function(embed_spirv_in_cpp
       COMMAND "${CMAKE_CXX_COMPILER}"
       --target=spirv64v${MAX_SPIRV_VERSION}-unknown-chipstar
       -mllvm -spirv-ext=${SPIRV_EXTENSIONS}
-      -x ir
+      -c -x ir
       "${BC_SOURCE}" -o "${SPIR_BINARY}"
       COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
       ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
