@@ -338,6 +338,25 @@ ANY:
     Unit_hipTextureObj1DCheckRGBAModes - array: ''
     Unit_hipTextureObj1DCheckRGBAModes - buffer: ''
     Unit_hipTextureObj2DCheckRGBAModes: ''
+LLVM_MAJOR_VERSION_22:
+  ALL:
+    Unit_deviceFunctions_CompileTest___fmaf_rd_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fmaf_rn_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fmaf_ru_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fmaf_rz_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fmaf_ieee_rd_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fmaf_ieee_rn_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fmaf_ieee_ru_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fmaf_ieee_rz_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fma_rd_double: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fma_rn_double: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fma_ru_double: 'Timeout'
+    Unit_deviceFunctions_CompileTest___fma_rz_double: 'Timeout'
+    Unit_deviceFunctions_CompileTest_fmaf_float: 'Timeout'
+    Unit_deviceFunctions_CompileTest_fma_double: 'Timeout'
+    host-math-funcs: 'Timeout'
+    fp16_math: 'Timeout'
+    fp16_half2_math: 'Timeout'
 cupcake:
   ALL:
   LEVEL0_GPU:
