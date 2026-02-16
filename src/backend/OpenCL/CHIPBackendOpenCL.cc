@@ -1598,10 +1598,18 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       CL_COMPLETE, pfn_notify, Cb);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
 
-  // Flush the queue to ensure the callback fires on drivers like ARM Mali
-  // that require explicit flush for event callbacks to be triggered
-  clStatus = clFlush(this->get()->get());
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+  // Flush both queues to ensure the callback fires on drivers like ARM Mali
+  // that require explicit flush for event callbacks. When in profiling mode,
+  // the holdback barrier is on ClProfilingQueue_ but depends on ClRegularQueue_
+  // (via switchModeTo); both must be flushed.
+  if (ClRegularQueue_.get()) {
+    clStatus = clFlush(ClRegularQueue_.get());
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+  }
+  if (ClProfilingQueue_.get()) {
+    clStatus = clFlush(ClProfilingQueue_.get());
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+  }
 
   // Wait for the callback thread to enqueue its marker
   // This is blocking but necessary to get the marker event handle
@@ -1840,12 +1848,17 @@ CHIPQueueOpenCL::addDependenciesQueueSync(
                                            &MarkerEvent);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
 
-    // Flush the other queue to ensure the marker event is submitted.
-    // This is required for cross-queue synchronization on some OpenCL drivers
-    // (e.g., Arm Mali) that may wait for the source queue to be flushed before
-    // allowing the marker event to be used as a dependency in another queue.
-    clStatus = clFlush(OtherQueue->get()->get());
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+    // Flush both queues: CHIPQueueOpenCL has ClRegularQueue_ and ClProfilingQueue_.
+    // get() returns only the active one; Mali needs both flushed for cross-queue
+    // deps when a stream has switched to profiling mode (e.g. after hipEventRecord).
+    if (OtherQueue->ClRegularQueue_.get()) {
+      clStatus = clFlush(OtherQueue->ClRegularQueue_.get());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+    }
+    if (OtherQueue->ClProfilingQueue_.get()) {
+      clStatus = clFlush(OtherQueue->ClProfilingQueue_.get());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+    }
 
     // Create chipstar event wrapper for tracking
     markerEv = BackendOcl->createEventShared(Ctx, chipstar::EventFlags(),
