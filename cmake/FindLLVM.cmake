@@ -110,6 +110,24 @@ message(STATUS "Using llvm-link: ${LLVM_LINK}")
 
 message(STATUS "XXX LLVM-version-major: ${LLVM_VERSION_MAJOR}") # DEBUG
 
+# Auto-detect SPIRV target support: if LLVM >= 22 and the SPIRV backend is available,
+# default CHIP_LLVM_USE_INTERGRATED_SPIRV to ON (user can still override with -D).
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND NOT DEFINED CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--targets-built"
+    RESULT_VARIABLE _TARGETS_RES
+    OUTPUT_VARIABLE _TARGETS_BUILT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(_TARGETS_RES EQUAL 0 AND _TARGETS_BUILT MATCHES "SPIRV")
+    message(STATUS "SPIRV target detected in LLVM; enabling integrated SPIR-V backend")
+    set(CHIP_LLVM_USE_INTERGRATED_SPIRV ON CACHE BOOL
+      "Use LLVM's integrated SPIR-V backend (auto-detected)" FORCE)
+  else()
+    message(STATUS "SPIRV target not found in LLVM; using llvm-spirv translator")
+    set(CHIP_LLVM_USE_INTERGRATED_SPIRV OFF CACHE BOOL
+      "Use LLVM's integrated SPIR-V backend (auto-detected)" FORCE)
+  endif()
+endif()
+
 # LLVM 22+ with CHIP_LLVM_USE_INTERGRATED_SPIRV=ON does not use external llvm-spirv;
 # rtdevlib and user code use clang's integrated backend. Skip the requirement in that case.
 if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND CHIP_LLVM_USE_INTERGRATED_SPIRV)
