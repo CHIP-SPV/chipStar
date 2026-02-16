@@ -1,0 +1,137 @@
+name: Unit Tests LLVM 22
+
+on:
+  push:
+    paths-ignore: "docs/**"
+  pull_request:
+    paths-ignore: "docs/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-llvm:
+    name: Build LLVM 22 (${{ matrix.variant }})
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - name: Check LLVM cache
+        id: cache-check
+        run: |
+          CACHE_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          REMOTE_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/CHIP-SPV/llvm-project/branches/chipStar-llvm-22" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['sha'])")
+          echo "remote_sha=$REMOTE_SHA" >> "$GITHUB_OUTPUT"
+          if [ -f "$CACHE_DIR/.build-sha" ] && [ "$(cat "$CACHE_DIR/.build-sha")" = "$REMOTE_SHA" ]; then
+            echo "cache_hit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Clone llvm-project
+        if: steps.cache-check.outputs.cache_hit == 'false'
+        run: |
+          CACHE_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          rm -rf "$CACHE_DIR"
+          mkdir -p "$CACHE_DIR"
+          cd "$CACHE_DIR"
+          git clone --depth 1 --branch chipStar-llvm-22 https://github.com/CHIP-SPV/llvm-project.git
+
+      - name: Clone SPIRV-LLVM-Translator (translator variant)
+        if: steps.cache-check.outputs.cache_hit == 'false' && matrix.variant == 'translator'
+        run: |
+          CACHE_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          cd "$CACHE_DIR/llvm-project/llvm/projects"
+          git clone --depth 1 --branch chipStar-llvm-22 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git
+
+      - name: Configure and build LLVM
+        if: steps.cache-check.outputs.cache_hit == 'false'
+        run: |
+          CACHE_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          BUILD_DIR="$CACHE_DIR/llvm-project/llvm/build_22"
+          mkdir -p "$BUILD_DIR"
+          cd "$BUILD_DIR"
+
+          if [ "${{ matrix.variant }}" = "translator" ]; then
+            cmake .. \
+              -DLLVM_TARGETS_TO_BUILD="host" \
+              -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
+              -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DLLVM_ENABLE_ASSERTIONS=On
+          else
+            cmake .. \
+              -DLLVM_TARGETS_TO_BUILD="host;SPIRV" \
+              -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DLLVM_ENABLE_ASSERTIONS=On
+          fi
+
+          make -j$(nproc)
+          echo "${{ steps.cache-check.outputs.remote_sha }}" > "$CACHE_DIR/.build-sha"
+        timeout-minutes: 300
+
+      - name: Verify build
+        run: |
+          test -f "$HOME/llvm-builds/22-${{ matrix.variant }}/llvm-project/llvm/build_22/bin/clang"
+
+  unit-tests:
+    name: Test chipStar LLVM 22 (${{ matrix.variant }})
+    needs: build-llvm
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    env:
+      IGC_EnableDPEmulation: 1
+      OverrideDefaultFP64Settings: 1
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Build chipStar
+        run: |
+          mkdir -p build-22-${{ matrix.variant }}
+          cd build-22-${{ matrix.variant }}
+          cmake .. \
+            -DLLVM_CONFIG_BIN=$HOME/llvm-builds/22-${{ matrix.variant }}/llvm-project/llvm/build_22/bin/llvm-config \
+            -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+
+      - name: Test chipStar (OpenCL)
+        run: |
+          cd build-22-${{ matrix.variant }}
+          ../scripts/check.py ./ dgpu opencl
+        timeout-minutes: 60
+
+      - name: Test chipStar (Level0)
+        run: |
+          cd build-22-${{ matrix.variant }}
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm22-${{ matrix.variant }}
+          path: |
+            build-22-${{ matrix.variant }}/checkpy_*.txt
+            build-22-${{ matrix.variant }}/Testing/Temporary/LastTest.log
