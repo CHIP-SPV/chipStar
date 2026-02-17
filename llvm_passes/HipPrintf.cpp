@@ -466,19 +466,6 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
           while (FormatSpecCount--) {
             assert(OrigCallArgI != OrigCallArgs.end());
             Value *OrigArg = *OrigCallArgI++;
-
-            if (FPExtInst *fpext = dyn_cast<FPExtInst>(OrigArg)) {
-              // Get the original float value
-              Value *floatVal = fpext->getOperand(0);
-
-              // Verify the types - make sure we're going from float to double
-              Type *srcTy = floatVal->getType();
-              Type *destTy = fpext->getType();
-
-              if ((srcTy->isFloatTy() || srcTy->is16bitFPTy()) && destTy->isDoubleTy()) {
-                OrigArg = floatVal;
-              }
-            }
             Args.push_back(OrigArg);
           }
         }
