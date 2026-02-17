@@ -11,7 +11,7 @@ BASE_NAME=$(basename "${INPUT_FILE}" .ll)
 OUTPUT_BC="${BASE_NAME}.bc"
 OUTPUT_LL="${BASE_NAME}.out.ll"
 OUTPUT_SPV="${BASE_NAME}.spv"
-SPIRV_OPTS="--spirv-max-version=1.2 --spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups"
+SPIRV_OPTS="--spirv-max-version=1.2 --spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_relaxed_printf_string_address_space"
 
 # Run the promote int pass
 ${LLVM_OPT} -load-pass-plugin "${HIP_SPV_PASSES_LIB}" \
@@ -35,7 +35,7 @@ if [ -n "${LLVM_SPIRV}" ] && [ "${LLVM_SPIRV}" != "NOT_NEEDED" ] && [ -x "${LLVM
 else
     # Integrated SPIR-V backend (native build): pass extensions for intel_sub_group_shuffle etc.
     ${CLANG_BIN} --target=spirv64-unknown-chipstar -x ir "${OUTPUT_BC}" \
-        -mllvm -spirv-ext=+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups \
+        -mllvm -spirv-ext=+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_relaxed_printf_string_address_space \
         -o "${OUTPUT_SPV}" || exit 1
 fi
 
