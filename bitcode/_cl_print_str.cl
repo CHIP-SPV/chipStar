@@ -22,8 +22,7 @@
 
 static void __attribute__((used)) _cl_print_str(__generic const char *S) {
   if (S == 0) {
-    printf("(null)");
-    return;
+    return;  /* Match AMD/nvidia: null %s prints nothing, format provides newline */
   }
   unsigned Pos = 0;
   char C;
