@@ -62,9 +62,9 @@ jobs:
           cd "$BUILD_DIR"
 
           if [ "${{ matrix.variant }}" = "translator" ]; then
+            # Translator: SPIRV-LLVM-Translator (llvm-spirv) only; no native SPIR-V backend.
             cmake .. \
               -DLLVM_TARGETS_TO_BUILD="host" \
-              -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="SPIRV" \
               -DLLVM_ENABLE_PROJECTS="clang;openmp;clang-tools-extra" \
               -DCMAKE_BUILD_TYPE=Release \
               -DLLVM_ENABLE_ASSERTIONS=On

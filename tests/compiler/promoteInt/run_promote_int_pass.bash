@@ -33,7 +33,10 @@ fi
 if [ -n "${LLVM_SPIRV}" ] && [ "${LLVM_SPIRV}" != "NOT_NEEDED" ] && [ -x "${LLVM_SPIRV}" ]; then
     ${LLVM_SPIRV} "${OUTPUT_BC}" ${SPIRV_OPTS} -o "${OUTPUT_SPV}" || exit 1
 else
-    ${CLANG_BIN} --target=spirv64-unknown-chipstar -x ir "${OUTPUT_BC}" -o "${OUTPUT_SPV}" || exit 1
+    # Integrated SPIR-V backend (native build): pass extensions for intel_sub_group_shuffle etc.
+    ${CLANG_BIN} --target=spirv64-unknown-chipstar -x ir "${OUTPUT_BC}" \
+        -mllvm -spirv-ext=+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups \
+        -o "${OUTPUT_SPV}" || exit 1
 fi
 
 exit 0 
