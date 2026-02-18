@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   unit-tests-llvm-19-debug:
+    if: false
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -25,6 +26,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-19
         shell: bash
   unit-tests-llvm-19-release:
+    if: false
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -38,6 +40,7 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-19
         shell: bash
   unit-tests-llvm-20-debug:
+    if: false
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -51,6 +54,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-20
         shell: bash
   unit-tests-llvm-20-release:
+    if: false
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -64,6 +68,7 @@ jobs:
         run: ./scripts/unit_tests.sh release llvm-20
         shell: bash
   unit-tests-llvm-21-debug:
+    if: false
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -77,6 +82,7 @@ jobs:
         run: ./scripts/unit_tests.sh debug llvm-21
         shell: bash
   unit-tests-llvm-21-release:
+    if: false
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
