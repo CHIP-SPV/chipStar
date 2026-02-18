@@ -3141,8 +3141,15 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   logInfo("JIT flags: {}", Flags);
   std::vector<const char *> BuildFlags(1, Flags.c_str());
 
-  appendDeviceLibrarySources(ILSizes, ILInputs, BuildFlags,
-                             LzDev->getFpAtomicProps());
+  // Only append rtdevlib when the module actually imports symbols from it.
+  // Modules that don't use atomics or ballot can skip multi-input
+  // compilation, avoiding driver issues with certain SPIR-V structures.
+  if (spirvNeedsRtdevlib(SPIRVBin)) {
+    appendDeviceLibrarySources(ILSizes, ILInputs, BuildFlags,
+                               LzDev->getFpAtomicProps());
+  } else {
+    logInfo("No rtdevlib imports, skipping device library sources");
+  }
 
   ze_module_program_exp_desc_t ProgramDesc = {
       ZE_STRUCTURE_TYPE_MODULE_PROGRAM_EXP_DESC,

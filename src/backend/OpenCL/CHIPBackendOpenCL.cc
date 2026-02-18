@@ -1204,79 +1204,53 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       load(*ChipCtxOcl->get(), {*ChipDevOcl->get()}, cacheName, Program_);
 
   if (!cached) {
-    cl::Program ClMainObj =
-        compileIL(*ChipCtxOcl->get(), *ChipDevOcl, SrcBin.data(), SrcBin.size(),
-                  buildOptions.c_str());
+    if (spirvNeedsRtdevlib(Src_->getBinary())) {
+      // Compile + link: compile main module, append rtdevlib, link together.
+      cl::Program ClMainObj =
+          compileIL(*ChipCtxOcl->get(), *ChipDevOcl, SrcBin.data(),
+                    SrcBin.size(), buildOptions.c_str());
+      std::vector<cl::Program> ClObjects;
+      ClObjects.push_back(ClMainObj);
+      appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
 
-    std::vector<cl::Program> ClObjects;
-    ClObjects.push_back(ClMainObj);
-    appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
-
-    auto linkStart = std::chrono::high_resolution_clock::now();
-
-    // If only main program (no device libraries added), skip linking and build directly
-    if (ClObjects.size() == 1) {
-      logInfo("Only one program object, building directly instead of linking");
-      Program_ = ClMainObj;
-      cl_device_id dev_id = ChipDevOcl->get()->get();
-      Err = clBuildProgram(Program_.get(), 1, &dev_id,
-                           buildOptions.c_str(), nullptr, nullptr);
-      if (Err != CL_SUCCESS) {
-        dumpProgramLog(*ChipDevOcl, Program_);
-        CHIPERR_LOG_AND_THROW("Program build failed.", hipErrorInitializationError);
-      }
-    } else {
       std::string Flags = "";
-      // Check if running on Intel GPU OpenCL driver
       std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
       bool isIntelGPU =
           (vendor.find("Intel") != std::string::npos) &&
           (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
-
-      if (isIntelGPU) {
-        // Only Intel GPU driver seems to need compile flags at the link step
+      if (isIntelGPU)
         Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
                                              : ChipEnvVars.getJitFlags() + " " +
                                                    Backend->getDefaultJitFlags();
-      }
-
-      logInfo("JIT Link flags: {}", Flags);
       logInfo("Linking {} program objects", ClObjects.size());
-
-      // Diagnostic logging for each program object
-      for (size_t i = 0; i < ClObjects.size(); i++) {
-        cl_int queryErr;
-        cl_program_binary_type binaryType;
-        queryErr = clGetProgramBuildInfo(ClObjects[i].get(), ChipDevOcl->get()->get(),
-                                         CL_PROGRAM_BINARY_TYPE,
-                                         sizeof(binaryType), &binaryType, nullptr);
-        if (queryErr == CL_SUCCESS) {
-          const char* typeStr = "UNKNOWN";
-          switch(binaryType) {
-            case CL_PROGRAM_BINARY_TYPE_NONE: typeStr = "NONE"; break;
-            case CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT: typeStr = "COMPILED_OBJECT"; break;
-            case CL_PROGRAM_BINARY_TYPE_LIBRARY: typeStr = "LIBRARY"; break;
-            case CL_PROGRAM_BINARY_TYPE_EXECUTABLE: typeStr = "EXECUTABLE"; break;
-          }
-          logInfo("  Program[{}]: binary_type = {} ({})", i, typeStr, (int)binaryType);
-        } else {
-          logWarn("  Program[{}]: Failed to query binary type, error = {}", i, queryErr);
-        }
-      }
-
       Program_ =
           cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
-      auto linkEnd = std::chrono::high_resolution_clock::now();
-      auto linkDuration = std::chrono::duration_cast<std::chrono::microseconds>(
-          linkEnd - linkStart);
-      logTrace("cl::linkProgram took {} microseconds", linkDuration.count());
-
       if (Err != CL_SUCCESS) {
-        logError("clLinkProgram failed with error code: {} (0x{:x})", Err, (unsigned)Err);
+        logError("clLinkProgram failed: {} (0x{:x})", Err, (unsigned)Err);
         dumpProgramLog(*ChipDevOcl, Program_);
         CHIPERR_LOG_AND_THROW("Device library link step failed.",
                               hipErrorInitializationError);
       }
+    } else {
+      // No rtdevlib needed. Build directly with clBuildProgram, bypassing
+      // compile+link. This avoids clLinkProgram which can trigger Intel
+      // driver issues with certain in-tree SPIR-V backend structures.
+      logInfo("No rtdevlib imports, building directly");
+      cl_int CreateErr;
+      Program_ = cl::Program(clCreateProgramWithIL(
+          ChipCtxOcl->get()->get(), SrcBin.data(), SrcBin.size(), &CreateErr));
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateProgramWithIL);
+      cl_device_id DevId = ChipDevOcl->get()->get();
+      auto Flags = ChipEnvVars.hasJitOverride()
+                       ? ChipEnvVars.getJitFlagsOverride()
+                       : ChipEnvVars.getJitFlags() + " " +
+                             Backend->getDefaultJitFlags();
+      Err = clBuildProgram(Program_.get(), 1, &DevId, Flags.c_str(),
+                           nullptr, nullptr);
+      dumpProgramLog(*ChipDevOcl, Program_);
+      if (Err != CL_SUCCESS)
+        CHIPERR_LOG_AND_THROW("Program build failed.",
+                              hipErrorInitializationError);
     }
 
     save(Program_, cacheName);
