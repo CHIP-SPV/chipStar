@@ -59,14 +59,14 @@ jobs:
         run: |
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load llvm/21.0
+          LLVM_CONFIG_BIN=$(module show llvm/21.0 2>&1 | grep -E 'prepend-path\s+PATH' | awk '{print $NF}' | head -1)/llvm-config
           module load ocl-icd-loader
           module load pocl
           
           rm -rf build install
           mkdir -p build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install
+          cmake .. -G Ninja -DLLVM_CONFIG_BIN=$LLVM_CONFIG_BIN -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install
           ninja && ninja build_tests
 
       - name: Install
