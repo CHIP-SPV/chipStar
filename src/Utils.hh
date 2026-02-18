@@ -101,6 +101,13 @@ std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,
 std::string_view trim(std::string_view Str);
 bool startsWith(std::string_view Str, std::string_view WithStr);
 
+/// Return true if the SPIR-V binary imports rtdevlib symbols (atomics, ballot).
+/// Used to decide whether to append device library sources/link step.
+inline bool spirvNeedsRtdevlib(std::string_view Binary) {
+  return Binary.find("__chip_atomic_add") != std::string_view::npos ||
+         Binary.find("__chip_ballot") != std::string_view::npos;
+}
+
 /// A class for forming a iterator range which can be used in
 /// 'for (auto E : C) ...' expressions.
 template <typename IteratorT> class IteratorRange {
