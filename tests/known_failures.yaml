@@ -286,6 +286,7 @@ ANY:
     Unit_hipEvent: 'zeEventQueryStatus took 100us, exceeded 100us threshold'
     hipKernelLaunchIsNonBlocking: 'zeEventQueryStatus took 100us, exceeded 100us threshold'
   OPENCL_CPU:
+    Unit_printf_specifier: 'Intel CPU OpenCL printf %s%p bug (outputs %s(nil) instead of %s0x...)'
     hipDeviceMalloc: 'Either segfault or hang inside the malloc kernel'
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'
     h4i-hipblas_basic_context_test: 'Backend mismatch'
