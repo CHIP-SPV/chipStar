@@ -195,7 +195,8 @@ else
   cd build
 
   echo "building with $CLANG"
-  cmake ../ -DCMAKE_BUILD_TYPE="$build_type"  ${CHIP_OPTIONS}
+  LLVM_CONFIG_BIN=$(module show $CLANG 2>&1 | grep -E 'prepend-path\s+PATH' | awk '{print $NF}' | head -1)/llvm-config
+  cmake ../ -DLLVM_CONFIG_BIN=$LLVM_CONFIG_BIN -DCMAKE_BUILD_TYPE="$build_type"  ${CHIP_OPTIONS}
   detect_build_tool
   $BUILD_TOOL all install -j $(nproc) #&> /dev/null
   $BUILD_TOOL build_tests install -j $(nproc) #&> /dev/null

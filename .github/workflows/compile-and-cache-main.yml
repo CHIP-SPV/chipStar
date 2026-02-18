@@ -23,10 +23,10 @@ jobs:
         run: |
           source /home/pvelesko/install/modules/init/bash
           module use /home/pvelesko/modulefiles
-          module load llvm/19.0
+          LLVM_CONFIG_BIN=$(module show llvm/19.0 2>&1 | grep -E 'prepend-path\s+PATH' | awk '{print $NF}' | head -1)/llvm-config
           mkdir build
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=~/install/chipStar/main
+          cmake .. -DLLVM_CONFIG_BIN=$LLVM_CONFIG_BIN -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=~/install/chipStar/main
           make -j$(nproc)
           rm -rf ~/install/chipStar/main
           make install
