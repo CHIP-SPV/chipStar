@@ -79,6 +79,7 @@ endforeach()
 
 # required by ROCm-Device-Libs
 set(ROCM_DEVICELIB_STANDALONE_BUILD ON)
+set(AMDGPU_TARGET_TRIPLE "spirv64" CACHE STRING "Target triple for ROCm device libs")
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
 set(CMAKE_WARN_DEPRECATED OFF)
