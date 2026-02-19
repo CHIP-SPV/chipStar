@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -461,6 +462,12 @@ public:
       return new SPIRVtypeSampler(getWord(1));
     }
 
+    if (Opcode_ == spv::Op::OpTypeSampledImage) {
+      // OpTypeSampledImage is a combined image+sampler type.
+      // Treat it like an image for chipStar's purposes.
+      return new SPIRVtypeImage(getWord(1));
+    }
+
     if (Opcode_ == spv::Op::OpTypePointer)
       return new SPIRVtypePointer(getWord(1), getWord(2), PointerSize,
                                   getWord(3));
@@ -759,10 +766,10 @@ private:
       if (Inst->isGlobalVariable()) {
         auto Name = getLinkNameOr(Inst, "");
         auto SpillArgAnnotation = std::string_view(ChipSpilledArgsVarPrefix);
-        if (startsWith(Name, SpillArgAnnotation)) {
+        if (startsWith(Name, SpillArgAnnotation) && Inst->size() >= 5) {
           auto KernelName = Name.substr(SpillArgAnnotation.size());
           auto &SpillAnnotation = SpilledArgAnnotations_[KernelName];
-          // Get initializer operand.
+          // Get initializer operand (word 4, requires at least 5 words).
           auto *Init = getInstruction(Inst->getWord(4));
           assert(Init && "Annotation variable is missing an initializer.");
           // Init is known to be OpConstantComposite of char array.
@@ -781,12 +788,10 @@ private:
           }
         }
 
-        // A magic variable created by HipIGBADetector.cpp.
-        if (Name == "__chip_module_has_no_IGBAs") {
-          // Get initializer operand.
+        if (Name == "__chip_module_has_no_IGBAs" && Inst->size() >= 5) {
           auto *Init = getInstruction(Inst->getWord(4));
-          // Init is known to be 8-bit unsigned constant.
-          HasNoIGBAs_ = Init->getWord(3);
+          assert(Init && "__chip_module_has_no_IGBAs has invalid initializer ID");
+          HasNoIGBAs_ = (Init->size() >= 4) ? Init->getWord(3) : 0;
         }
       }
 
