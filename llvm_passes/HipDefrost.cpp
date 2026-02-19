@@ -61,7 +61,6 @@ static RegisterPass<HipDefrostLegacyPass> X("hip-defrost",
                                             "Remove freeze instructions.");
 
 // Pass hook for the new pass manager.
-#if LLVM_VERSION_MAJOR > 11
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 
@@ -85,5 +84,3 @@ llvmGetPassPluginInfo() {
                 });
           }};
 }
-
-#endif // LLVM_VERSION_MAJOR > 11
