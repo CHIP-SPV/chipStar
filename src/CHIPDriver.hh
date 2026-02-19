@@ -244,6 +244,7 @@ private:
   bool OCLDisableQueueProfiling_ = false;
   std::optional<std::string> OclUseAllocStrategy_;
   std::optional<std::string> ModuleCacheDir_;
+  std::optional<std::string> DumpProcessedSpirvDir_;
 
   // Track which environment variables were explicitly set
   bool PlatformIdxSet_ = false;
@@ -281,6 +282,9 @@ public:
   }
   const std::optional<std::string> &getModuleCacheDir() const {
     return ModuleCacheDir_;
+  }
+  const std::optional<std::string> &getDumpProcessedSpirvDir() const {
+    return DumpProcessedSpirvDir_;
   }
 
   bool isManualDeviceSelection() const {
@@ -332,6 +336,11 @@ private:
         readEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY", value, true)
             ? value
             : OclUseAllocStrategy_;
+    if (readEnvVar("CHIP_DUMP_PROCESSED_SPIRV", value, false)) {
+      if (value.size())
+        DumpProcessedSpirvDir_ = value;
+    }
+
     if (readEnvVar("CHIP_MODULE_CACHE_DIR", value, true)) {
       if (value.size())
         ModuleCacheDir_ = value;
@@ -408,6 +417,9 @@ private:
                                                   : "off");
     logInfo("CHIP_MODULE_CACHE_DIR={}",
             ModuleCacheDir_.has_value() ? ModuleCacheDir_.value() : "off");
+    logInfo("CHIP_DUMP_PROCESSED_SPIRV={}",
+            DumpProcessedSpirvDir_.has_value() ? DumpProcessedSpirvDir_.value()
+                                               : "off");
   }
 };
 
