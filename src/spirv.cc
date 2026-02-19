@@ -35,6 +35,7 @@
 #include "spirv.hh"
 #include "logging.hh"
 #include "Utils.hh"
+#include "CHIPDriver.hh"
 
 const std::string OpenCLStd{"OpenCL.std"};
 
@@ -1035,6 +1036,19 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
   }
 
   Input = std::move(Result);
+
+  // Debug: dump processed SPIR-V for inspection
+  if (auto DumpDir = ChipEnvVars.getDumpProcessedSpirvDir()) {
+    static int DumpCounter = 0;
+    std::string Path = *DumpDir + "/processed_" + std::to_string(DumpCounter++) +
+                       ".spv";
+    std::ofstream F(Path, std::ios::binary);
+    if (F.is_open()) {
+      F.write(reinterpret_cast<const char *>(Input.data()),
+              Input.size() * sizeof(uint32_t));
+      logTrace("Dumped processed SPIR-V to {}", Path);
+    }
+  }
 
   return true;
 }
