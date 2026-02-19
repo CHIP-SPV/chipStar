@@ -120,9 +120,10 @@ static bool detectIGBAs(Module &M) {
       // chipStar runtime reads it.
       GlobalValue::ExternalLinkage, Init, MagicVarName, nullptr,
       GlobalValue::NotThreadLocal /* Default value */,
-      // Global-scope variables may not have Function storage class.
-      // TODO: use private storage class?
-      SPIRV_CROSSWORKGROUP_AS);
+      // UniformConstant is correct: we initialize it in this pass, and at
+      // runtime it is immutable (the runtime only reads it). CrossWorkgroup
+      // is for mutable device memory.
+      SPIRV_UNIFORMCONSTANT_AS);
 
   return true;
 }
