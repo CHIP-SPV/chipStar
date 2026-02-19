@@ -37,3 +37,13 @@ set_tests_properties(shfl_sync PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL")
 set_tests_properties(shfl_sync PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
+
+# Verify OCML (irif.h) does not emit i128 - buggy irif uses wrong types for OpenCL
+# Run after build (ocml built as part of devicelib)
+add_test(NAME irif_no_i128
+  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../irif_no_i128.bash
+    ${CMAKE_BINARY_DIR}
+    ${CLANG_ROOT_PATH_BIN}/llvm-dis)
+set_tests_properties(irif_no_i128 PROPERTIES
+  FAIL_REGULAR_EXPRESSION "FAIL"
+  PASS_REGULAR_EXPRESSION "PASS")
