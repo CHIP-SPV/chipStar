@@ -21,11 +21,9 @@
 
 using namespace llvm;
 
-#if LLVM_VERSION_MAJOR > 11
 class HipGlobalVariablesPass : public PassInfoMixin<HipGlobalVariablesPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
-#endif
 
 #endif

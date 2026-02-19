@@ -18,12 +18,10 @@
 
 using namespace llvm;
 
-#if LLVM_VERSION_MAJOR > 11
 class HipTextureLoweringPass : public PassInfoMixin<HipTextureLoweringPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }
 };
-#endif
 
 #endif
