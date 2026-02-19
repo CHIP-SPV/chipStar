@@ -170,3 +170,18 @@ jobs:
           submodules: 'recursive'
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh release llvm-21
+        shell: bash
+      - name: CI failure diagnostic
+        if: failure()
+        run: |
+          for f in build/*_make_check_result.txt; do
+            [ -f "$f" ] && grep -q "The following tests FAILED" "$f" && echo "--- $(basename $f) ---" && grep -A 60 "The following tests FAILED" "$f" | head -65
+          done
+          grep -o 'Unit_printf_specifier' build/test_lists/OPENCL_CPU.txt 2>/dev/null && echo "excluded" || echo "MISSING!"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ci-failures-llvm-21-release
+          path: |
+            build/*_make_check_result.txt
+            build/test_lists/*.txt
