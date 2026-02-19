@@ -35,7 +35,7 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "PassPluginCompat.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"

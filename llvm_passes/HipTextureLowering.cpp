@@ -24,7 +24,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "PassPluginCompat.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 

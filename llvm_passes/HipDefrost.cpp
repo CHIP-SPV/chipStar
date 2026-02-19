@@ -62,7 +62,7 @@ static RegisterPass<HipDefrostLegacyPass> X("hip-defrost",
 
 // Pass hook for the new pass manager.
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "PassPluginCompat.h"
 
 PreservedAnalyses HipDefrostPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
