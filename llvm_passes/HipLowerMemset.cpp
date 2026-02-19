@@ -32,7 +32,7 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Passes/PassBuilder.h>
-#include <llvm/Passes/PassPlugin.h>
+#include "PassPluginCompat.h"
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
 
 using namespace llvm;
