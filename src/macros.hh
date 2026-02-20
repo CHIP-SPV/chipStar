@@ -46,7 +46,8 @@
 #define RETURN(x)                                                              \
   do {                                                                         \
     hipError_t err = (x);                                                      \
-    CHIPTlsLastError = err;                                                    \
+    if (err != hipSuccess && err != hipErrorNotReady)                           \
+      CHIPTlsLastError = err;                                                  \
     return err;                                                                \
   } while (0)
 
