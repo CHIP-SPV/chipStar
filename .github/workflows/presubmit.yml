@@ -286,4 +286,6 @@ jobs:
         if: failure()
         with: 
           name: build-and-check-${{ matrix.backend }}-pocl-${{ matrix.pocl-version }}-llvm-${{ matrix.llvm-version }}
-          path: build/Testing/Temporary/LastTest.log
+          path: |
+            build/Testing/
+            build/test_lists/

@@ -24,6 +24,26 @@ jobs:
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh debug llvm-19
         shell: bash
+      - name: CI failure diagnostic
+        if: failure()
+        run: |
+          echo "=== Failed configs and tests ==="
+          for f in build/*_make_check_result.txt; do
+            [ -f "$f" ] || continue
+            if grep -q "The following tests FAILED" "$f"; then
+              echo "--- $(basename $f) ---"
+              grep -A 60 "The following tests FAILED" "$f" | head -65
+            fi
+          done
+          echo "=== OPENCL_CPU exclusions (Unit_printf_specifier should appear) ==="
+          grep -o 'Unit_printf_specifier' build/test_lists/OPENCL_CPU.txt 2>/dev/null && echo "Present - excluded" || echo "MISSING - test runs and fails on Intel CPU!"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ci-failures-llvm-19-debug
+          path: |
+            build/*_make_check_result.txt
+            build/test_lists/*.txt
   unit-tests-llvm-19-release:
     runs-on: [self-hosted, Linux, X64]
     env:
@@ -37,6 +57,26 @@ jobs:
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh release llvm-19
         shell: bash
+      - name: CI failure diagnostic
+        if: failure()
+        run: |
+          echo "=== Failed configs and tests ==="
+          for f in build/*_make_check_result.txt; do
+            [ -f "$f" ] || continue
+            if grep -q "The following tests FAILED" "$f"; then
+              echo "--- $(basename $f) ---"
+              grep -A 60 "The following tests FAILED" "$f" | head -65
+            fi
+          done
+          echo "=== OPENCL_CPU exclusions ==="
+          grep -o 'Unit_printf_specifier' build/test_lists/OPENCL_CPU.txt 2>/dev/null && echo "Present" || echo "MISSING!"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ci-failures-llvm-19-release
+          path: |
+            build/*_make_check_result.txt
+            build/test_lists/*.txt
   unit-tests-llvm-20-debug:
     runs-on: [self-hosted, Linux, X64]
     env:
@@ -50,6 +90,20 @@ jobs:
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh debug llvm-20
         shell: bash
+      - name: CI failure diagnostic
+        if: failure()
+        run: |
+          for f in build/*_make_check_result.txt; do
+            [ -f "$f" ] && grep -q "The following tests FAILED" "$f" && echo "--- $(basename $f) ---" && grep -A 60 "The following tests FAILED" "$f" | head -65
+          done
+          grep -o 'Unit_printf_specifier' build/test_lists/OPENCL_CPU.txt 2>/dev/null && echo "OPENCL_CPU: Unit_printf_specifier excluded" || echo "OPENCL_CPU: Unit_printf_specifier MISSING!"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ci-failures-llvm-20-debug
+          path: |
+            build/*_make_check_result.txt
+            build/test_lists/*.txt
   unit-tests-llvm-20-release:
     runs-on: [self-hosted, Linux, X64]
     env:
@@ -63,6 +117,20 @@ jobs:
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh release llvm-20
         shell: bash
+      - name: CI failure diagnostic
+        if: failure()
+        run: |
+          for f in build/*_make_check_result.txt; do
+            [ -f "$f" ] && grep -q "The following tests FAILED" "$f" && echo "--- $(basename $f) ---" && grep -A 60 "The following tests FAILED" "$f" | head -65
+          done
+          grep -o 'Unit_printf_specifier' build/test_lists/OPENCL_CPU.txt 2>/dev/null && echo "excluded" || echo "MISSING!"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ci-failures-llvm-20-release
+          path: |
+            build/*_make_check_result.txt
+            build/test_lists/*.txt
   unit-tests-llvm-21-debug:
     runs-on: [self-hosted, Linux, X64]
     env:
@@ -76,6 +144,20 @@ jobs:
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh debug llvm-21
         shell: bash
+      - name: CI failure diagnostic
+        if: failure()
+        run: |
+          for f in build/*_make_check_result.txt; do
+            [ -f "$f" ] && grep -q "The following tests FAILED" "$f" && echo "--- $(basename $f) ---" && grep -A 60 "The following tests FAILED" "$f" | head -65
+          done
+          grep -o 'Unit_printf_specifier' build/test_lists/OPENCL_CPU.txt 2>/dev/null && echo "excluded" || echo "MISSING!"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ci-failures-llvm-21-debug
+          path: |
+            build/*_make_check_result.txt
+            build/test_lists/*.txt
   unit-tests-llvm-21-release:
     runs-on: [self-hosted, Linux, X64]
     env:
@@ -89,3 +171,17 @@ jobs:
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh release llvm-21
         shell: bash
+      - name: CI failure diagnostic
+        if: failure()
+        run: |
+          for f in build/*_make_check_result.txt; do
+            [ -f "$f" ] && grep -q "The following tests FAILED" "$f" && echo "--- $(basename $f) ---" && grep -A 60 "The following tests FAILED" "$f" | head -65
+          done
+          grep -o 'Unit_printf_specifier' build/test_lists/OPENCL_CPU.txt 2>/dev/null && echo "excluded" || echo "MISSING!"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ci-failures-llvm-21-release
+          path: |
+            build/*_make_check_result.txt
+            build/test_lists/*.txt
