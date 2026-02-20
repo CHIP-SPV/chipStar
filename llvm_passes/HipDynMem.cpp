@@ -319,11 +319,7 @@ private:
 
     SmallVector<ReturnInst *, 1> RI;
 
-#if LLVM_VERSION_MAJOR > 11
-    CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
-#else
-    CloneFunctionInto(NewF, F, VV, true, RI);
-#endif
+CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
     IRBuilder<> B(M.getContext());
 
     // float* (without AS, for MDNode)
@@ -527,9 +523,8 @@ static RegisterPass<HipDynMemExternReplacePass>
 
 
 // Pass hook for the new pass manager.
-#if LLVM_VERSION_MAJOR > 11
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "PassPluginCompat.h"
 
 PreservedAnalyses HipDynMemExternReplaceNewPass::run(Module &M, ModuleAnalysisManager &AM) {
   // force the entire IR to be parsed before your pass runs
@@ -555,5 +550,3 @@ llvmGetPassPluginInfo() {
                 });
           }};
 }
-
-#endif // LLVM_VERSION_MAJOR > 11

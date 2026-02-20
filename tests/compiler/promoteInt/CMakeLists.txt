@@ -56,12 +56,19 @@ foreach(IR_FILE ${TEST_IR_FILES})
     set(TEST_DISABLED TRUE)
   endif()
 
+  if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
+    set(_LLVM_SPIRV "NOT_NEEDED")
+  else()
+    set(_LLVM_SPIRV "${LLVM_TOOLS_BINARY_DIR}/llvm-spirv")
+  endif()
+
   add_test(
     NAME hipPromoteInt-${BASENAME}
-    COMMAND env 
+    COMMAND env
       LLVM_OPT=${LLVM_TOOLS_BINARY_DIR}/opt
-      LLVM_SPIRV=${LLVM_TOOLS_BINARY_DIR}/llvm-spirv
+      LLVM_SPIRV=${_LLVM_SPIRV}
       LLVM_DIS=${LLVM_TOOLS_BINARY_DIR}/llvm-dis
+      CLANG_BIN=${CMAKE_CXX_COMPILER}
       HIP_SPV_PASSES_LIB=${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
       ${CMAKE_CURRENT_BINARY_DIR}/run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME}
   )

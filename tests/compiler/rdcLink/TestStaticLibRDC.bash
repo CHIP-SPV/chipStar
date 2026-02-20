@@ -27,7 +27,8 @@ ar rcs "${OUT_DIR}/libk.a" "${OUT_DIR}/k.o" "${OUT_DIR}/k1.o"
 ${HIPCC} -fgpu-rdc -I"${SRC_DIR}" -c "${SRC_DIR}/t.cpp" -o "${OUT_DIR}/t.o"
 
 # Link the main file and the static library
-${HIPCC} --save-temps -v -fgpu-rdc --hip-link "${OUT_DIR}/t.o" "${OUT_DIR}/libk.a" -o "${OUT_DIR}/TestStaticLibRDC" 
+${HIPCC} --save-temps -v -fgpu-rdc "${OUT_DIR}/t.o" "${OUT_DIR}/libk.a" \
+         -o "${OUT_DIR}/TestStaticLibRDC"
 echo "TestStaticLibRDC.log: ${OUT_DIR}/TestStaticLibRDC.log"
 ${OUT_DIR}/TestStaticLibRDC
 

@@ -15,10 +15,7 @@ mkdir -p ${OUT_DIR}/CMakeFiles/test_hipcub_basic.dir
 export HIPCC_VERBOSE=7
 
 ${HIPCC} \
--DGTEST_LINKED_AS_SHARED_LIBRARY=1  \
--O3 -DNDEBUG  \
--x hip -D__HIP_PLATFORM_SPIRV__= --offload=spirv64 -nohipwrapperinc --hip-path=${BIN_DIR} --target=x86_64-unknown-linux-gnu  \
--include ${SRC_DIR}/include/hip/spirv_fixups.h -std=c++14  \
+-O3 -DNDEBUG -std=c++14  \
 -c ${OUT_DIR}/test_hipcub_basic.cpp \
 -MD -MT ${OUT_DIR}/CMakeFiles/test_hipcub_basic.dir/test_hipcub_basic.cpp.o  \
 -MF ${OUT_DIR}/CMakeFiles/test_hipcub_basic.dir/test_hipcub_basic.cpp.o.d \

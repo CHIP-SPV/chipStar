@@ -125,18 +125,42 @@ message(STATUS "Using llvm-link: ${LLVM_LINK}")
 
 message(STATUS "XXX LLVM-version-major: ${LLVM_VERSION_MAJOR}") # DEBUG
 
-if(NOT DEFINED LLVM_SPIRV)
+# Auto-detect SPIRV target support: if LLVM >= 22 and the SPIRV backend is available,
+# default CHIP_LLVM_USE_INTERGRATED_SPIRV to ON (user can still override with -D).
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND NOT DEFINED CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--targets-built"
+    RESULT_VARIABLE _TARGETS_RES
+    OUTPUT_VARIABLE _TARGETS_BUILT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(_TARGETS_RES EQUAL 0 AND _TARGETS_BUILT MATCHES "SPIRV")
+    message(STATUS "SPIRV target detected in LLVM; enabling integrated SPIR-V backend")
+    set(CHIP_LLVM_USE_INTERGRATED_SPIRV ON CACHE BOOL
+      "Use LLVM's integrated SPIR-V backend (auto-detected)" FORCE)
+  else()
+    message(STATUS "SPIRV target not found in LLVM; using llvm-spirv translator")
+    set(CHIP_LLVM_USE_INTERGRATED_SPIRV OFF CACHE BOOL
+      "Use LLVM's integrated SPIR-V backend (auto-detected)" FORCE)
+  endif()
+endif()
+
+# LLVM 22+ with CHIP_LLVM_USE_INTERGRATED_SPIRV=ON does not use external llvm-spirv;
+# rtdevlib and user code use clang's integrated backend. Skip the requirement in that case.
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  set(LLVM_SPIRV "NOT_NEEDED" CACHE STRING "Not used when LLVM 22+ integrated SPIR-V" FORCE)
+  message(STATUS "Using in-tree SPIR-V backend (LLVM ${LLVM_VERSION_MAJOR}), llvm-spirv not required")
+elseif(NOT DEFINED LLVM_SPIRV)
   find_program(LLVM_SPIRV NAMES llvm-spirv-${LLVM_VERSION_MAJOR} llvm-spirv FIND_TARGET NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
   if(NOT LLVM_SPIRV)
     message(FATAL_ERROR "Can't find llvm-spirv. Please provide CMake argument -DLLVM_SPIRV=/path/to/llvm-spirv<-version>")
   endif()
+  message(STATUS "Using llvm-spirv: ${LLVM_SPIRV}")
 else()
   # Check if the provided LLVM_SPIRV file exists
   if(NOT EXISTS ${LLVM_SPIRV})
     message(FATAL_ERROR "Provided LLVM_SPIRV (${LLVM_SPIRV}) does not exist")
   endif()
+  message(STATUS "Using llvm-spirv: ${LLVM_SPIRV}")
 endif()
-message(STATUS "Using llvm-spirv: ${LLVM_SPIRV}")
 
 if(NOT DEFINED CLANG_OFFLOAD_BUNDLER)
   find_program(CLANG_OFFLOAD_BUNDLER NAMES clang-offload-bundler NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
@@ -146,31 +170,33 @@ if(NOT DEFINED CLANG_OFFLOAD_BUNDLER)
 endif()
 message(STATUS "Using clang-offload-bundler: ${CLANG_OFFLOAD_BUNDLER}")
 
-# Execute llvm-spirv and check for errors
-# On macOS, ensure DYLD_LIBRARY_PATH includes the LLVM lib directory
-# so llvm-spirv can find the correct libLLVM.dylib
-if(APPLE)
-  set(OLD_DYLD_LIBRARY_PATH "$ENV{DYLD_LIBRARY_PATH}")
-  if(OLD_DYLD_LIBRARY_PATH)
-    set(ENV{DYLD_LIBRARY_PATH} "${CLANG_ROOT_PATH}/lib:${OLD_DYLD_LIBRARY_PATH}")
-  else()
-    set(ENV{DYLD_LIBRARY_PATH} "${CLANG_ROOT_PATH}/lib")
+# Execute llvm-spirv and check for errors (skip when using in-tree backend)
+if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
+  # On macOS, ensure DYLD_LIBRARY_PATH includes the LLVM lib directory
+  # so llvm-spirv can find the correct libLLVM.dylib
+  if(APPLE)
+    set(OLD_DYLD_LIBRARY_PATH "$ENV{DYLD_LIBRARY_PATH}")
+    if(OLD_DYLD_LIBRARY_PATH)
+      set(ENV{DYLD_LIBRARY_PATH} "${CLANG_ROOT_PATH}/lib:${OLD_DYLD_LIBRARY_PATH}")
+    else()
+      set(ENV{DYLD_LIBRARY_PATH} "${CLANG_ROOT_PATH}/lib")
+    endif()
   endif()
-endif()
 
-execute_process(
-    COMMAND ${LLVM_SPIRV} --version
-    RESULT_VARIABLE LLVM_SPIRV_ERROR
-    OUTPUT_VARIABLE LLVM_SPIRV_OUTPUT
-)
+  execute_process(
+      COMMAND ${LLVM_SPIRV} --version
+      RESULT_VARIABLE LLVM_SPIRV_ERROR
+      OUTPUT_VARIABLE LLVM_SPIRV_OUTPUT
+  )
 
-if(LLVM_SPIRV_ERROR)
-    message(FATAL_ERROR "Error executing llvm-config: ${LLVM_CONFIG_ERROR}."
-    "If 'error while loading shared libraries' error is thrown, you might have to add LLVM libs to LD_LIBRARY_PATH"
-    "If file is not found, you might have a versioned version (llvm-spirv-16 instead of llvm-spirv). Pass the path to the full binary via -DLLVM_SPIRV="
-)
-else()
-    message(STATUS "llvm-spirv version: ${LLVM_SPIRV_OUTPUT}")
+  if(LLVM_SPIRV_ERROR)
+      message(FATAL_ERROR "Error executing llvm-spirv."
+      "If 'error while loading shared libraries' error is thrown, you might have to add LLVM libs to LD_LIBRARY_PATH"
+      "If file is not found, you might have a versioned version (llvm-spirv-16 instead of llvm-spirv). Pass the path to the full binary via -DLLVM_SPIRV="
+  )
+  else()
+      message(STATUS "llvm-spirv version: ${LLVM_SPIRV_OUTPUT}")
+  endif()
 endif()
 
 enable_language(C CXX)
