@@ -92,7 +92,7 @@ extern  "C" __device__ const char *_chip_name_expr_output_file =
 /// Filter and translate user given options. Return true if an error
 /// was encountered.
 static bool processOptions(chipstar::Program &Program, int NumOptions,
-                           const char **Options, CompileOptions &OptionsOut) {
+                           const char* const* Options, CompileOptions &OptionsOut) {
 
   // Already checked in hiprtcCompileProgram().
   assert(NumOptions >= 0);
@@ -260,7 +260,7 @@ static void getLoweredNameExpressions(chipstar::Program &Program,
 // Compiles sources stored in 'chipstar::Program'. Uses 'WorkingDirectory' for
 // temporary compilation I/O.
 static hiprtcResult compile(chipstar::Program &Program, int NumRawOptions,
-                            const char **RawOptions,
+                            const char* const* RawOptions,
                             fs::path WorkingDirectory) {
   // Create source and header files.
   auto SourceFile = WorkingDirectory / "program.hip";
@@ -380,7 +380,7 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
 }
 
 hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
-                                  const char **Options) {
+                                  const char* const* Options) {
   logTrace("{}", __func__);
 
   if (NumOptions < 0) {
@@ -427,8 +427,8 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
 
 hiprtcResult hiprtcCreateProgram(hiprtcProgram *Prog, const char *Src,
                                  const char *Name, int NumHeaders,
-                                 const char **Headers,
-                                 const char **IncludeNames) {
+                                 const char* const* Headers,
+                                 const char* const* IncludeNames) {
   if (!Prog)
     return HIPRTC_ERROR_INVALID_INPUT;
   if (!Src)
