@@ -381,6 +381,12 @@ protected:
 public:
   void recordEvent(chipstar::Event *ChipEvent) override;
   std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
+  std::atomic<bool> IsEmptyQueue_{true};
+  bool isEmptyQueue() override {
+    LOCK(CommandListMtx);  
+    ze_result_t status = zeCommandListHostSynchronize(ZeCmdListImm_, 0);
+    return (status == ZE_RESULT_SUCCESS);
+  }
 
   std::vector<ze_event_handle_t> getEventListHandles(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
