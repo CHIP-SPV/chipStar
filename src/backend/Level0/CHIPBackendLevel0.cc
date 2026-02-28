@@ -906,6 +906,7 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     auto OtherQueue = static_cast<CHIPQueueLevel0 *>(q);
     LOCK(OtherQueue->CommandListMtx);
     auto OtherCommandList = OtherQueue->getCmdListImm();
+    //    OtherCommandList->IsEmptyQueue_.store(false);  
 
     zeStatus = zeCommandListAppendSignalEvent(OtherCommandList, MarkerEventLz->peek());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
@@ -923,10 +924,10 @@ CHIPQueueLevel0::addDependenciesQueueSync(
 
   // Call template helper with Level Zero marker creation
   auto result = addDependenciesQueueSyncImpl<ze_event_handle_t>(BackendLz, TargetEvent, CreateLzMarker);
-
-  // Set SignalEnqueued for the target event since it will be signaled by the upcoming operation
-  auto TargetEventLz = std::static_pointer_cast<CHIPEventLevel0>(TargetEvent);
-  TargetEventLz->SignalEnqueued_ = true;
+  
+  // // // Set SignalEnqueued for the target event since it will be signaled by the upcoming operation
+  // auto TargetEventLz = std::static_pointer_cast<CHIPEventLevel0>(TargetEvent);
+  // TargetEventLz->SignalEnqueued_ = true;
 
   return result;
 }
@@ -1291,12 +1292,16 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
+  //  IsEmptyQueue_.store(false);  
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPKernelLevel0 *ChipKernel = (CHIPKernelLevel0 *)ExecItem->getKernel();
-  std::shared_ptr<chipstar::Event> LaunchEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
-          ChipCtxZe, chipstar::EventFlags(), "launch " + ChipKernel->getName());
+
+  // std::shared_ptr<chipstar::Event> LaunchEvent =
+  //     static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+  //         ChipCtxZe, chipstar::EventFlags(), "launch " + ChipKernel->getName());
+  std::shared_ptr<chipstar::Event> LaunchEvent = {};
   ze_kernel_handle_t KernelZe = ChipKernel->get();
+
   logTrace("Launching Kernel {}", ChipKernel->getName());
 
   {
@@ -1315,7 +1320,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
   ze_group_count_t LaunchArgs = {X, Y, Z};
-  
+
   // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
   // (addDependenciesQueueSync may lock other queue's CommandListMtx)
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
@@ -1344,19 +1349,23 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   // command list handle.
   // Done via LOCK(CommandListMtx)
   zeStatus = zeCommandListAppendLaunchKernel(
-      CommandList, KernelZe, &LaunchArgs,
-      std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(),
+      CommandList, KernelZe, &LaunchArgs,nullptr,
       EventHandles.size(), EventHandles.data());
+  // zeStatus = zeCommandListAppendLaunchKernel(
+  //     CommandList, KernelZe, &LaunchArgs,
+  //     std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)->peek(),
+  //     EventHandles.size(), EventHandles.data());
+  
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendLaunchKernel);
-  executeCommandList(CommandList, LaunchEvent);
+  //  executeCommandList(CommandList, LaunchEvent);
 
-  if (std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
-          ExecItem->getArgSpillBuffer())
-    // Use an event action to prolong the lifetime of the spill buffer
-    // in case the exec item gets destroyed before the kernel
-    // completes (may happen when called from Queue::launchKernel()).
-    std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)
-        ->addAction([=]() -> void { auto Tmp = SpillBuf; });
+  // if (std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
+  //         ExecItem->getArgSpillBuffer())
+  //   // Use an event action to prolong the lifetime of the spill buffer
+  //   // in case the exec item gets destroyed before the kernel
+  //   // completes (may happen when called from Queue::launchKernel()).
+  //   std::static_pointer_cast<CHIPEventLevel0>(LaunchEvent)
+  //       ->addAction([=]() -> void { auto Tmp = SpillBuf; });
 
   return LaunchEvent;
 }
@@ -1364,6 +1373,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
+  //  IsEmptyQueue_.store(false);  
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemFillEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
@@ -1414,6 +1424,7 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
                                     const void *Src, size_t Spitch,
                                     size_t Sspitch, size_t Width, size_t Height,
                                     size_t Depth, hipMemcpyKind Kind) {
+  //  IsEmptyQueue_.store(false);  
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyRegionEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
@@ -1457,6 +1468,7 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
 
 void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
                                      hipExtent Extent) {
+  //  IsEmptyQueue_.store(false);  
   logTrace("CHIPQueueLevel0::memFillAsync3D - using "
            "zeCommandListAppendMemoryCopyRegion implementation");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
@@ -1605,6 +1617,7 @@ std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
                                 const chipstar::RegionDesc &SrcRegion) {
   logTrace("CHIPQueueLevel0::memCopyToImage");
+  //  IsEmptyQueue_.store(false);  
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> ImageCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
@@ -1688,6 +1701,8 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
+  // Mark queue as having work submitted
+  //  IsEmptyQueue_.store(false);
 
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
@@ -1712,6 +1727,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
 
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
+  //  IsEmptyQueue_.store(false);  
   std::shared_ptr<chipstar::Event> BarrierEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "barrier");
@@ -1762,6 +1778,7 @@ std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                                   hipMemcpyKind Kind) {
   logTrace("CHIPQueueLevel0::memCopyAsync");
+  //  IsEmptyQueue_.store(false);  
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
@@ -1789,7 +1806,7 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   logTrace("CHIPQueueLevel0::memPrefetchImpl");
-  
+  //  IsEmptyQueue_.store(false);    
   // Level0 doesn't support explicit CPU prefetch - zeCommandListAppendMemoryPrefetch
   // only prefetches to device. For CPU prefetch, create a no-op event.
   if (DstDevId == hipCpuDeviceId) {
@@ -1838,12 +1855,10 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
   
   executeCommandList(CommandList, PrefetchEvent);
-  
   return PrefetchEvent;
 }
 
 void CHIPQueueLevel0::finish() {
-
   if (zeCmdQOwnership_) {
     zeStatus = zeCommandQueueSynchronize(ZeCmdQ_,
                                          ChipEnvVars.getL0EventTimeout() * 1e9);
@@ -1883,7 +1898,7 @@ void CHIPQueueLevel0::finish() {
   // host wait for command lists to complete
   zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
-
+  //  IsEmptyQueue_.store(true);  
   return;
 }
 
@@ -1920,7 +1935,7 @@ void CHIPQueueLevel0::finishWithoutEventsMtx() {
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
                                       "zeCommandQueueSynchronize timeout out");
   }
-
+  //  IsEmptyQueue_.store(true);  
   return;
 }
 
