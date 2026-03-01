@@ -1125,6 +1125,7 @@ ANY:
     host-math-funcs: ''
     irif_no_i128: ''
   OPENCL_POCL:
+    Unit_hipGraphAddMemsetNode_hipMallocManaged_GraphsTest2: ''
     'TestRecordEventBlocking': 'pass, then pure virtual method called'
     hipDeviceMalloc: 'Either segfault or hang inside the malloc kernel'
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'
