@@ -21,10 +21,10 @@ index e04da90b3cbf..f08040d1d3d1 100644
  
      if (CudaGpuBinary) {
 diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
-index fb7573936032..b6cbc6dc14f8 100644
+index fb7573936032..2eda9bd063ad 100644
 --- a/clang/lib/Driver/ToolChains/Darwin.cpp
 +++ b/clang/lib/Driver/ToolChains/Darwin.cpp
-@@ -1114,6 +1114,50 @@ VersionTuple MachO::getLinkerVersion(const llvm::opt::ArgList &Args) const {
+@@ -1114,6 +1114,59 @@ VersionTuple MachO::getLinkerVersion(const llvm::opt::ArgList &Args) const {
  
  Darwin::~Darwin() {}
  
@@ -66,7 +66,16 @@ index fb7573936032..b6cbc6dc14f8 100644
 +  else if (getTriple().isMacCatalystEnvironment())
 +    Environment = MacCatalyst;
 +
-+  VersionTuple OsVer = getTriple().getOSVersion();
++  VersionTuple OsVer;
++  if (Platform == MacOS) {
++    // Use getMacOSXVersion() to properly convert Darwin kernel versions (e.g.
++    // darwin24.3.0) to macOS versions (e.g. 15.3.0). Raw getOSVersion() would
++    // return the kernel version, causing a mismatch with AddDeploymentTarget.
++    if (!getTriple().getMacOSXVersion(OsVer))
++      return;
++  } else {
++    OsVer = getTriple().getOSVersion();
++  }
 +  setTarget(Platform, Environment, OsVer.getMajor(),
 +            OsVer.getMinor().value_or(0), OsVer.getSubminor().value_or(0),
 +            VersionTuple());
@@ -75,7 +84,7 @@ index fb7573936032..b6cbc6dc14f8 100644
  AppleMachO::~AppleMachO() {}
  
  MachO::~MachO() {}
-@@ -1122,8 +1166,9 @@ std::string Darwin::ComputeEffectiveClangTriple(const ArgList &Args,
+@@ -1122,8 +1175,9 @@ std::string Darwin::ComputeEffectiveClangTriple(const ArgList &Args,
                                                  types::ID InputType) const {
    llvm::Triple Triple(ComputeLLVMTriple(Args, InputType));
  
@@ -87,7 +96,7 @@ index fb7573936032..b6cbc6dc14f8 100644
    if (!isTargetInitialized())
      return Triple.getTriple();
  
-@@ -1185,6 +1230,11 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
+@@ -1185,6 +1239,11 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
    CC1Args.push_back("-Werror=undef-prefix");
  
    // For modern targets, promote certain warnings to errors.
@@ -99,7 +108,7 @@ index fb7573936032..b6cbc6dc14f8 100644
    if (isTargetWatchOSBased() || getTriple().isArch64Bit()) {
      // Always enable -Wdeprecated-objc-isa-usage and promote it
      // to an error.
-@@ -3273,6 +3323,12 @@ void Darwin::addClangTargetOptions(
+@@ -3273,6 +3332,12 @@ void Darwin::addClangTargetOptions(
  
    MachO::addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadKind);
  
@@ -112,7 +121,7 @@ index fb7573936032..b6cbc6dc14f8 100644
    // Pass "-faligned-alloc-unavailable" only when the user hasn't manually
    // enabled or disabled aligned allocations.
    if (!DriverArgs.hasArgNoClaim(options::OPT_faligned_allocation,
-@@ -3776,6 +3832,9 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
+@@ -3776,6 +3841,9 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
  }
  
  void Darwin::CheckObjCARC() const {
@@ -122,7 +131,7 @@ index fb7573936032..b6cbc6dc14f8 100644
    if (isTargetIOSBased() || isTargetWatchOSBased() || isTargetXROS() ||
        (isTargetMacOSBased() && !isMacosxVersionLT(10, 6)))
      return;
-@@ -3795,6 +3854,9 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
+@@ -3795,6 +3863,9 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
    Res |= SanitizerKind::FuzzerNoLink;
    Res |= SanitizerKind::ObjCCast;
  
