@@ -243,7 +243,7 @@ option(CHIP_ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemen
 option(CHIP_VERBOSE "Verbose compilation" OFF)
 option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
-option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires Clang with patch at https://github.com/CHIP-SPV/llvm-project/commit/8e7d42c1562f9961e5c8cdeef6490e0670b27409" OFF)
+option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Auto-detected from LLVM targets when LLVM >= 22." OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
@@ -401,6 +401,7 @@ endif()
 
 message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
+set(OFFLOAD_TRIPLE spirv64)
 # =============================================================================
 # chipStar BINARIES & TESTS
 add_subdirectory(llvm_passes)
@@ -556,7 +557,7 @@ file(CREATE_LINK "${CMAKE_SOURCE_DIR}/include/cuspv"
 # =============================================================================
 # HIP OFFLOAD FLAGS
 set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
-  --offload=spirv64 ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT}
+  --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT}
   # By default RocmInstallationDetector::AddHIPIncludeArgs in the
   # HIP-Clang inserts include wrapper headers which cause compile
   # errors when compiling HIP sources for SPIR-V target.  This flag
