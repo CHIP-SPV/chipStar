@@ -925,10 +925,6 @@ CHIPQueueLevel0::addDependenciesQueueSync(
 
   // Call template helper with Level Zero marker creation
   auto result = addDependenciesQueueSyncImpl<ze_event_handle_t>(BackendLz, TargetEvent, CreateLzMarker);
-  
-  // // // Set SignalEnqueued for the target event since it will be signaled by the upcoming operation
-  // auto TargetEventLz = std::static_pointer_cast<CHIPEventLevel0>(TargetEvent);
-  // TargetEventLz->SignalEnqueued_ = true;
 
   return result;
 }
@@ -1296,7 +1292,6 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   IsEmptyQueue_.store(false);  
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPKernelLevel0 *ChipKernel = (CHIPKernelLevel0 *)ExecItem->getKernel();
-  std::shared_ptr<chipstar::Event> LaunchEvent = {};
   ze_kernel_handle_t KernelZe = ChipKernel->get();
 
   logTrace("Launching Kernel {}", ChipKernel->getName());
