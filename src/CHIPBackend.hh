@@ -2176,10 +2176,11 @@ protected:
           // Track the marker event so it gets properly managed by the event monitor
           BackendPtr->trackEvent(ChipMarkerEvent);
 
-          // // Add dependency to the target event
-          // TargetEvent->addDependency(ChipMarkerEvent);
 	}
       }
+      // streams are by default blocking, implicit sync with NULL stream
+      // A blocking stream (non-null) waits for all preceding commands in the default (NULL) 
+      // stream to complete before starting its own work. so must wait on NULL stream
     } else if (this->getQueueFlags().isBlocking()) {
       // This is a blocking queue, sync with default streams
       // Create marker for legacy default stream
@@ -2191,7 +2192,7 @@ protected:
         
         EventHandles.push_back(handle);
         BackendPtr->trackEvent(ChipMarkerEvent);
-	//        TargetEvent->addDependency(ChipMarkerEvent);
+	
       }
 
       // Create marker for per-thread default stream if used
@@ -2203,7 +2204,6 @@ protected:
           
           EventHandles.push_back(handle);
           BackendPtr->trackEvent(ChipMarkerEvent);
-	  //          TargetEvent->addDependency(ChipMarkerEvent);
         }
       }
     }

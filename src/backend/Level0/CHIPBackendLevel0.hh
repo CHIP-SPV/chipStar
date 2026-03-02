@@ -382,12 +382,14 @@ public:
   void recordEvent(chipstar::Event *ChipEvent) override;
   std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
   std::atomic<bool> IsEmptyQueue_{true};
+  // we would like to use just return IsEmptyQueue_.load() here
+  // but there is a bug (https://github.com/argonne-lcf/AuroraBugTracking/issues/124)
   bool isEmptyQueue() override {
-    LOCK(CommandListMtx);  
+    LOCK(CommandListMtx);
     ze_result_t status = zeCommandListHostSynchronize(ZeCmdListImm_, 0);
     return (status == ZE_RESULT_SUCCESS);
   }
-
+  
   std::vector<ze_event_handle_t> getEventListHandles(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
 
