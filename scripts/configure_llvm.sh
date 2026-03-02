@@ -8,6 +8,7 @@ LINK_TYPE="dynamic"
 EMIT_ONLY="off"
 CONFIGURE_ONLY="off"
 WITH_BINUTILS=""
+VARIANT="translator"
 
 THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 initial_pwd=$(pwd)
@@ -46,6 +47,10 @@ while [ $# -gt 0 ]; do
       CONFIGURE_ONLY="on"
       shift 1
       ;;
+    --variant)
+      VARIANT="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option $1"
       exit 1
@@ -55,10 +60,11 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--with-binutils [path]] [--configure-only] [-N]"
-  echo "--version: LLVM version 17, 18, 19, 20 or 21"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--variant translator|native] [--with-binutils [path]] [--configure-only] [-N]"
+  echo "--version: LLVM version 17, 18, 19, 20, 21 or 22"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: dynamic)"
+  echo "--variant: translator (host only) or native (host;SPIRV) (default: translator)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "--configure-only: only clone, patch, and run cmake configure (skip build and install)"
   echo "-N: only emit the cmake configure command without executing it"
@@ -73,14 +79,20 @@ fi
 
 # validate version argument
 if [ "$VERSION" != "17" ] && [ "$VERSION" != "18" ] && [ "$VERSION" != "19" ] \
-       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ]; then
-  echo "Invalid version. Must be 17, 18, 19, 20 or 21."
+       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ]; then
+  echo "Invalid version. Must be 17, 18, 19, 20, 21 or 22."
   exit 1
 fi
 
 # validate LINK_TYPE argument
 if [ "$LINK_TYPE" != "static" ] && [ "$LINK_TYPE" != "dynamic" ]; then
   echo "Invalid LINK_TYPE. Must be 'static' or 'dynamic'."
+  exit 1
+fi
+
+# validate VARIANT argument
+if [ "$VARIANT" != "translator" ] && [ "$VARIANT" != "native" ]; then
+  echo "Invalid VARIANT. Must be 'translator' or 'native'."
   exit 1
 fi
 
@@ -142,19 +154,49 @@ if [ "$EMIT_ONLY" != "on" ]; then
       if [ -f "$patch" ]; then
         patch_name=$(basename $patch)
         
-        # Skip data layout patch for LLVM 17-19 (only needed for 20+)
-        if [[ "$patch_name" == *"data-layout"* ]] && [ "$VERSION" -lt 20 ]; then
+        # Skip SPIR-V data layout patches for LLVM 17-19 (not needed) and 22+ (fixed at chipStar level)
+        # Note: only match 0002-fix-SPIR-V-data-layout, NOT 0005-fix-archive-data-layout
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout"* ]] && ([ "$VERSION" -lt 20 ] || [ "$VERSION" -ge 22 ]); then
           echo "  Skipping $patch_name (not needed for LLVM ${VERSION})"
           continue
         fi
-        
+
         # Use LLVM 21-specific data layout patch for version 21, skip LLVM 20 version
         if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 21 ]; then
           echo "  Skipping $patch_name (using LLVM 21-specific patch instead)"
           continue
         fi
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
+        if [[ "$patch_name" == *"data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 21)"
+          continue
+        fi
+
+        # Skip Unbundle SDL patch for LLVM 22+ (already upstream)
+        if [[ "$patch_name" == *"Unbundle-SDL"* ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+          continue
+        fi
+
+        # For LLVM 22+: skip individual 0001/0004 patches (line shifts due to upstream 0003),
+        # use combined llvm22 patch instead
+        if [[ "$patch_name" == "0001-Allow-up-to-v1.2-SPIR-V-features.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific combined patch instead)"
+          continue
+        fi
+        if [[ "$patch_name" == "0004-only-necessary-exts.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific combined patch instead)"
+          continue
+        fi
+
+        # Skip old macOS patch for LLVM 22+ (replaced by llvm22-specific patch)
+        if [[ "$patch_name" == "0006-fix-macos-hip-spirv.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific macOS patch instead)"
+          continue
+        fi
+
+        # Skip LLVM 22-specific patches when building older versions
+        if [[ "$patch_name" == *"-llvm22.patch" ]] && [ "$VERSION" -lt 22 ]; then
+          echo "  Skipping $patch_name (only for LLVM 22+)"
           continue
         fi
         
@@ -196,6 +238,12 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # Skip LoopMerge and blockMerge patches for LLVM 22+ (already upstream in translator)
+        if [[ "$patch_name" == *"LoopMerge"* || "$patch_name" == *"blockMerge"* ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+          continue
+        fi
+
         echo "  Applying $patch_name..."
         git apply "$patch" || {
           echo "Error: Failed to apply $patch_name"
@@ -276,9 +324,12 @@ fi
 
 # Add build type condition
 # Forcing the use of gcc and g++ to avoid issues with intel compilers
-# NOTE: chipStar uses the external SPIRV-LLVM-Translator tool exclusively for SPIRV generation,
-# so we don't need LLVM's experimental/native SPIRV target at all
-LLVM_TARGETS="host"
+# translator: SPIRV-LLVM-Translator only (host targets). native: also enable LLVM's experimental SPIR-V backend.
+if [ "$VARIANT" = "native" ]; then
+  LLVM_TARGETS="host;SPIRV"
+else
+  LLVM_TARGETS="host"
+fi
 
 COMMON_CMAKE_OPTIONS=(
   "-DCMAKE_CXX_COMPILER=g++"

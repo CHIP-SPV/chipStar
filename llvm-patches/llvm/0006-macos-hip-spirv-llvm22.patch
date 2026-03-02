@@ -1,0 +1,187 @@
+diff --git a/clang/lib/CodeGen/CGCUDANV.cpp b/clang/lib/CodeGen/CGCUDANV.cpp
+index e04da90b3cbf..f08040d1d3d1 100644
+--- a/clang/lib/CodeGen/CGCUDANV.cpp
++++ b/clang/lib/CodeGen/CGCUDANV.cpp
+@@ -817,10 +817,14 @@ llvm::Function *CGNVCUDARuntime::makeModuleCtorFunction() {
+   llvm::Constant *FatBinStr;
+   unsigned FatMagic;
+   if (IsHIP) {
+-    FatbinConstantName = ".hip_fatbin";
+-    FatbinSectionName = ".hipFatBinSegment";
++    // On macOS (Mach-O), section names must be in "segment,section" format.
++    FatbinConstantName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__hip_fatbin" : ".hip_fatbin";
++    FatbinSectionName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__fatbin" : ".hipFatBinSegment";
+ 
+-    ModuleIDSectionName = "__hip_module_id";
++    ModuleIDSectionName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__module_id" : "__hip_module_id";
+     ModuleIDPrefix = "__hip_";
+ 
+     if (CudaGpuBinary) {
+diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
+index fb7573936032..b6cbc6dc14f8 100644
+--- a/clang/lib/Driver/ToolChains/Darwin.cpp
++++ b/clang/lib/Driver/ToolChains/Darwin.cpp
+@@ -1114,6 +1114,50 @@ VersionTuple MachO::getLinkerVersion(const llvm::opt::ArgList &Args) const {
+ 
+ Darwin::~Darwin() {}
+ 
++void Darwin::ensureTargetInitialized() const {
++  if (TargetInitialized)
++    return;
++
++  llvm::Triple::OSType OS = getTriple().getOS();
++
++  DarwinPlatformKind Platform;
++  switch (OS) {
++  case llvm::Triple::Darwin:
++  case llvm::Triple::MacOSX:
++    Platform = MacOS;
++    break;
++  case llvm::Triple::IOS:
++    Platform = IPhoneOS;
++    break;
++  case llvm::Triple::TvOS:
++    Platform = TvOS;
++    break;
++  case llvm::Triple::WatchOS:
++    Platform = WatchOS;
++    break;
++  case llvm::Triple::XROS:
++    Platform = XROS;
++    break;
++  case llvm::Triple::DriverKit:
++    Platform = DriverKit;
++    break;
++  default:
++    // Unknown platform; leave uninitialized.
++    return;
++  }
++
++  DarwinEnvironmentKind Environment = NativeEnvironment;
++  if (getTriple().isSimulatorEnvironment())
++    Environment = Simulator;
++  else if (getTriple().isMacCatalystEnvironment())
++    Environment = MacCatalyst;
++
++  VersionTuple OsVer = getTriple().getOSVersion();
++  setTarget(Platform, Environment, OsVer.getMajor(),
++            OsVer.getMinor().value_or(0), OsVer.getSubminor().value_or(0),
++            VersionTuple());
++}
++
+ AppleMachO::~AppleMachO() {}
+ 
+ MachO::~MachO() {}
+@@ -1122,8 +1166,9 @@ std::string Darwin::ComputeEffectiveClangTriple(const ArgList &Args,
+                                                 types::ID InputType) const {
+   llvm::Triple Triple(ComputeLLVMTriple(Args, InputType));
+ 
+-  // If the target isn't initialized (e.g., an unknown Darwin platform, return
+-  // the default triple).
++  // Lazily initialize the target if needed (e.g. when Darwin is used as
++  // a host toolchain for device offloading).
++  ensureTargetInitialized();
+   if (!isTargetInitialized())
+     return Triple.getTriple();
+ 
+@@ -1185,6 +1230,11 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
+   CC1Args.push_back("-Werror=undef-prefix");
+ 
+   // For modern targets, promote certain warnings to errors.
++  // Lazily initialize the target if needed (e.g. when Darwin is used as
++  // a host toolchain for device offloading).
++  ensureTargetInitialized();
++  if (!isTargetInitialized())
++    return;
+   if (isTargetWatchOSBased() || getTriple().isArch64Bit()) {
+     // Always enable -Wdeprecated-objc-isa-usage and promote it
+     // to an error.
+@@ -3273,6 +3323,12 @@ void Darwin::addClangTargetOptions(
+ 
+   MachO::addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadKind);
+ 
++  // When compiling device code (e.g. SPIR-V for HIP), skip host-specific
++  // flags like -faligned-alloc-unavailable and -fno-sized-deallocation
++  // that depend on the host OS version and are irrelevant to device code.
++  if (DeviceOffloadKind != Action::OFK_None)
++    return;
++
+   // Pass "-faligned-alloc-unavailable" only when the user hasn't manually
+   // enabled or disabled aligned allocations.
+   if (!DriverArgs.hasArgNoClaim(options::OPT_faligned_allocation,
+@@ -3776,6 +3832,9 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
+ }
+ 
+ void Darwin::CheckObjCARC() const {
++  ensureTargetInitialized();
++  if (!isTargetInitialized())
++    return;
+   if (isTargetIOSBased() || isTargetWatchOSBased() || isTargetXROS() ||
+       (isTargetMacOSBased() && !isMacosxVersionLT(10, 6)))
+     return;
+@@ -3795,6 +3854,9 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
+   Res |= SanitizerKind::FuzzerNoLink;
+   Res |= SanitizerKind::ObjCCast;
+ 
++  ensureTargetInitialized();
++  if (!isTargetInitialized())
++    return Res;
+   // Prior to 10.9, macOS shipped a version of the C++ standard library without
+   // C++11 support. The same is true of iOS prior to version 5. These OS'es are
+   // incompatible with -fsanitize=vptr.
+diff --git a/clang/lib/Driver/ToolChains/Darwin.h b/clang/lib/Driver/ToolChains/Darwin.h
+index 4a3b75be3c25..179a430e9853 100644
+--- a/clang/lib/Driver/ToolChains/Darwin.h
++++ b/clang/lib/Driver/ToolChains/Darwin.h
+@@ -387,6 +387,15 @@ public:
+ private:
+   void AddDeploymentTarget(llvm::opt::DerivedArgList &Args) const;
+ 
++  void VerifyTripleForSDK(const llvm::opt::ArgList &Args,
++                          const llvm::Triple Triple) const;
++
++protected:
++  /// Lazily initialize the target platform from the triple when
++  /// AddDeploymentTarget has not run yet (e.g. when Darwin is used as
++  /// a host toolchain for device offloading).
++  void ensureTargetInitialized() const;
++
+ public:
+   Darwin(const Driver &D, const llvm::Triple &Triple,
+          const llvm::opt::ArgList &Args);
+diff --git a/clang/lib/Driver/ToolChains/HIPUtility.cpp b/clang/lib/Driver/ToolChains/HIPUtility.cpp
+index 1fcb36cc3a39..3bf0f23409f9 100644
+--- a/clang/lib/Driver/ToolChains/HIPUtility.cpp
++++ b/clang/lib/Driver/ToolChains/HIPUtility.cpp
+@@ -409,9 +409,11 @@ void HIP::constructGenerateObjFileFromHIPFatBinary(
+   ObjStream << "# *** Automatically generated by Clang ***\n";
+   if (FoundPrimaryGpuBinHandleSymbol) {
+     // Define the first gpubin handle symbol
+-    if (HostTriple.isWindowsMSVCEnvironment())
++    if (HostTriple.isWindowsMSVCEnvironment()) {
+       ObjStream << "  .section .hip_gpubin_handle,\"dw\"\n";
+-    else {
++    } else if (HostTriple.isMacOSX()) {
++      ObjStream << "  .section __HIP,__gpubin_handle\n";
++    } else {
+       ObjStream << "  .protected " << PrimaryGpuBinHandleSymbol << "\n";
+       ObjStream << "  .type " << PrimaryGpuBinHandleSymbol << ",@object\n";
+       ObjStream << "  .section .hip_gpubin_handle,\"aw\"\n";
+@@ -430,9 +432,12 @@ void HIP::constructGenerateObjFileFromHIPFatBinary(
+   }
+   if (FoundPrimaryHipFatbinSymbol) {
+     // Define the first fatbin symbol
+-    if (HostTriple.isWindowsMSVCEnvironment())
++    if (HostTriple.isWindowsMSVCEnvironment()) {
+       ObjStream << "  .section .hip_fatbin,\"dw\"\n";
+-    else {
++    } else if (HostTriple.isMacOSX()) {
++      // Mach-O requires "segment,section" format
++      ObjStream << "  .section __HIP,__hip_fatbin\n";
++    } else {
+       ObjStream << "  .protected " << PrimaryHipFatbinSymbol << "\n";
+       ObjStream << "  .type " << PrimaryHipFatbinSymbol << ",@object\n";
+       ObjStream << "  .section .hip_fatbin,\"a\",@progbits\n";
