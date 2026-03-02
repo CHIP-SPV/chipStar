@@ -65,7 +65,7 @@ chipStar_script_test:
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm19/20251107-19/release
     - rm -rf build
-    - ./install_chipstar.py --all --install-dir ~/install/
+    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/
     
 # testing with install script
 chipStar_aurora_script_test:
