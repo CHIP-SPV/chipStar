@@ -96,8 +96,19 @@ if [ "$VARIANT" != "translator" ] && [ "$VARIANT" != "native" ]; then
   exit 1
 fi
 
-# get the gcc base path to use in cmake flags
-gcc_base_path=$( which gcc | sed s+'bin/gcc'++ )
+# Platform-specific compiler selection
+if [[ "$(uname)" == "Darwin" ]]; then
+  CC=clang
+  CXX=clang++
+  gcc_base_path=""
+else
+  CC=gcc
+  CXX=g++
+  # get the gcc base path to use in cmake flags
+  gcc_base_path=$( which gcc | sed s+'bin/gcc'++ )
+fi
+
+NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 
 # Map version to upstream LLVM branch and SPIRV-Translator branch
 LLVM_BRANCH="release/${VERSION}.x"
@@ -305,7 +316,7 @@ if [ -n "${WITH_BINUTILS}" ]; then
         
         # Configure, compile, and install binutils
         ./configure --prefix=${BINUTILS_INSTALL_DIR}
-        make -j$(nproc)
+        make -j${NPROC}
         make install
         
         # Clean up
@@ -332,20 +343,26 @@ else
 fi
 
 COMMON_CMAKE_OPTIONS=(
-  "-DCMAKE_CXX_COMPILER=g++"
-  "-DCMAKE_C_COMPILER=gcc"
+  "-DCMAKE_CXX_COMPILER=${CXX}"
+  "-DCMAKE_C_COMPILER=${CC}"
   "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}"
   "-DCMAKE_BUILD_TYPE=Release"
   "-DLLVM_ENABLE_PROJECTS=\"clang;openmp;clang-tools-extra\""
   "-DLLVM_TARGETS_TO_BUILD=\"${LLVM_TARGETS}\""
   "-DLLVM_ENABLE_ASSERTIONS=On"
-  "-DCMAKE_CXX_LINK_FLAGS=\"-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64\""
-  "-DCLANG_DEFAULT_PIE_ON_LINUX=off"
   "-DLLVM_INCLUDE_TESTS=OFF"
   "-DLLVM_INCLUDE_EXAMPLES=OFF"
   "-DLLVM_INCLUDE_BENCHMARKS=OFF"
   "-DLLVM_INCLUDE_DOCS=OFF"
 )
+
+# Linux-specific flags
+if [[ "$(uname)" != "Darwin" ]]; then
+  COMMON_CMAKE_OPTIONS+=(
+    "-DCMAKE_CXX_LINK_FLAGS=\"-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64\""
+    "-DCLANG_DEFAULT_PIE_ON_LINUX=off"
+  )
+fi
 
 if [ -n "${BINUTILS_HEADER_DIR}" ]; then
   COMMON_CMAKE_OPTIONS+=("-DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}")
@@ -370,7 +387,7 @@ else
     echo "Configure complete. Skipping build and install (--configure-only)."
   else
     echo "Building LLVM (this may take a while)..."
-    cmake --build . -j$(nproc)
+    cmake --build . -j${NPROC}
     echo "Installing LLVM to ${INSTALL_DIR}..."
     cmake --build . --target install
     echo "LLVM ${VERSION} installed to ${INSTALL_DIR}"
