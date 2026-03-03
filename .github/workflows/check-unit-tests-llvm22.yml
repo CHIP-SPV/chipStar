@@ -1,0 +1,236 @@
+name: Unit Tests LLVM 22
+
+on:
+  pull_request:
+    paths-ignore: "docs/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-llvm:
+    name: Build LLVM 22 (${{ matrix.variant }})
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Check LLVM cache
+        id: cache-check
+        run: |
+          CACHE_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          # Cache invalidates when upstream LLVM 22.x or chipStar (patches/script) changes
+          LLVM_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/llvm/llvm-project/branches/release/22.x" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['sha'])")
+          CACHE_KEY="${LLVM_SHA}-${GITHUB_SHA}"
+          echo "cache_key=$CACHE_KEY" >> "$GITHUB_OUTPUT"
+          if [ -f "$CACHE_DIR/.build-sha" ] && [ "$(cat "$CACHE_DIR/.build-sha")" = "$CACHE_KEY" ]; then
+            echo "cache_hit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build LLVM with configure_llvm.sh
+        if: steps.cache-check.outputs.cache_hit == 'false'
+        run: |
+          CACHE_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          rm -rf "$CACHE_DIR"
+          mkdir -p "$CACHE_DIR"
+          cd "$CACHE_DIR"
+          "$GITHUB_WORKSPACE/scripts/configure_llvm.sh" \
+            --version 22 \
+            --install-dir "$CACHE_DIR/install" \
+            --variant ${{ matrix.variant }}
+          echo "${{ steps.cache-check.outputs.cache_key }}" > "$CACHE_DIR/.build-sha"
+        timeout-minutes: 300
+
+      - name: Verify build
+        run: |
+          test -f "$HOME/llvm-builds/22-${{ matrix.variant }}/install/bin/clang"
+
+  unit-tests:
+    name: Test chipStar LLVM 22 (${{ matrix.variant }})
+    needs: build-llvm
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    env:
+      IGC_EnableDPEmulation: 1
+      OverrideDefaultFP64Settings: 1
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Build chipStar
+        run: |
+          mkdir -p build-22-${{ matrix.variant }}
+          cd build-22-${{ matrix.variant }}
+          cmake .. \
+            -DLLVM_CONFIG_BIN=$HOME/llvm-builds/22-${{ matrix.variant }}/install/bin/llvm-config \
+            -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+
+      - name: Test chipStar (OpenCL)
+        run: |
+          cd build-22-${{ matrix.variant }}
+          ../scripts/check.py ./ dgpu opencl
+        timeout-minutes: 60
+
+      - name: Test chipStar (Level0)
+        run: |
+          cd build-22-${{ matrix.variant }}
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm22-${{ matrix.variant }}
+          path: |
+            build-22-${{ matrix.variant }}/checkpy_*.txt
+            build-22-${{ matrix.variant }}/Testing/Temporary/LastTest.log
+
+  build-llvm-macos:
+    name: Build LLVM 22 macOS (${{ matrix.variant }})
+    runs-on: [self-hosted, ARM64, MacOS]
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Check LLVM cache
+        id: cache-check
+        shell: /bin/bash {0}
+        run: |
+          CACHE_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          LLVM_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/llvm/llvm-project/branches/release/22.x" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['sha'])")
+          CACHE_KEY="${LLVM_SHA}-${GITHUB_SHA}"
+          echo "cache_key=$CACHE_KEY" >> "$GITHUB_OUTPUT"
+          if [ -f "$CACHE_DIR/.build-sha" ] && [ "$(cat "$CACHE_DIR/.build-sha")" = "$CACHE_KEY" ]; then
+            echo "cache_hit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cache_hit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build LLVM with configure_llvm.sh
+        if: steps.cache-check.outputs.cache_hit == 'false'
+        shell: /bin/bash {0}
+        run: |
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          CACHE_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          rm -rf "$CACHE_DIR"
+          mkdir -p "$CACHE_DIR"
+          cd "$CACHE_DIR"
+          "$GITHUB_WORKSPACE/scripts/configure_llvm.sh" \
+            --version 22 \
+            --install-dir "$CACHE_DIR/install" \
+            --variant ${{ matrix.variant }}
+          echo "${{ steps.cache-check.outputs.cache_key }}" > "$CACHE_DIR/.build-sha"
+        timeout-minutes: 300
+
+      - name: Verify build
+        run: |
+          test -f "$HOME/llvm-builds/22-${{ matrix.variant }}/install/bin/clang"
+
+  unit-tests-macos:
+    name: Test chipStar LLVM 22 macOS (${{ matrix.variant }})
+    needs: build-llvm-macos
+    runs-on: [self-hosted, ARM64, MacOS]
+    env:
+      CHIP_DEVICE_TYPE: pocl
+      CHIP_MODULE_CACHE_DIR: ""
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Setup environment
+        shell: /bin/bash {0}
+        run: |
+          export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
+          module load pocl
+
+          SPIRV_TOOLS_PREFIX=$(brew --prefix spirv-tools)
+
+          echo "PATH=${PATH}" >> $GITHUB_ENV
+          echo "CHIP_DEVICE_TYPE=pocl" >> $GITHUB_ENV
+          echo "OCL_ICD_VENDORS=/Users/paulius/install/pocl/etc/OpenCL/vendors/" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=${SPIRV_TOOLS_PREFIX}:${CMAKE_PREFIX_PATH}" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=${LIBRARY_PATH}" >> $GITHUB_ENV
+
+      - name: Build chipStar
+        shell: /bin/bash {0}
+        run: |
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
+          module load pocl
+
+          LLVM_CONFIG=$HOME/llvm-builds/22-${{ matrix.variant }}/install/bin/llvm-config
+
+          rm -rf build-22-${{ matrix.variant }}
+          mkdir -p build-22-${{ matrix.variant }}
+          cd build-22-${{ matrix.variant }}
+          /opt/homebrew/bin/cmake .. \
+            -DLLVM_CONFIG_BIN=$LLVM_CONFIG \
+            -DOpenCL_LIBRARY=/Users/paulius/install/pocl/lib/libpocl.dylib \
+            -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja
+          ninja build_tests
+
+      - name: Test chipStar (PoCL OpenCL)
+        shell: /bin/bash {0}
+        run: |
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
+          module load pocl
+
+          cd build-22-${{ matrix.variant }}
+          ../scripts/check.py ./ pocl opencl
+        timeout-minutes: 60
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm22-macos-${{ matrix.variant }}
+          path: |
+            build-22-${{ matrix.variant }}/checkpy_*.txt
+            build-22-${{ matrix.variant }}/Testing/Temporary/LastTest.log
