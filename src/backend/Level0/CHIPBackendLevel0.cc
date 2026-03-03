@@ -1315,7 +1315,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
 
   // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
   // (addDependenciesQueueSync may lock other queue's CommandListMtx)
-  auto [EventHandles, EventLocks] = addDependenciesQueueSync(LaunchEvent);
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync({});
   
   // if using immediate command lists, lock the mutex
   LOCK(CommandListMtx); // TODO this is probably not needed when using RCL
