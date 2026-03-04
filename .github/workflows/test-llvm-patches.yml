@@ -145,7 +145,7 @@ jobs:
           ninja build_tests install -j$(nproc)
         timeout-minutes: 60
       - name: Test chipStar with LLVM ${{ matrix.build-id }} (iGPU OpenCL)
-        if: steps.build_chipstar.outcome == 'success'
+        if: always() && steps.build_chipstar.outcome == 'success'
         run: |
           if [ -f "$HOME/.local/init/bash" ]; then
             export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
@@ -157,7 +157,7 @@ jobs:
           ../scripts/check.py ./ igpu opencl
         timeout-minutes: 60
       - name: Test chipStar with LLVM ${{ matrix.build-id }} (iGPU Level0)
-        if: steps.build_chipstar.outcome == 'success'
+        if: always() && steps.build_chipstar.outcome == 'success'
         run: |
           if [ -f "$HOME/.local/init/bash" ]; then
             export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
@@ -169,7 +169,7 @@ jobs:
           ../scripts/check.py ./ igpu level0
         timeout-minutes: 60
       - name: Test chipStar with LLVM ${{ matrix.build-id }} (dGPU Level0)
-        if: steps.build_chipstar.outcome == 'success'
+        if: always() && steps.build_chipstar.outcome == 'success'
         run: |
           if [ -f "$HOME/.local/init/bash" ]; then
             export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
@@ -181,7 +181,7 @@ jobs:
           ../scripts/check.py ./ dgpu level0
         timeout-minutes: 60
       - name: Test chipStar with LLVM ${{ matrix.build-id }} (dGPU OpenCL)
-        if: steps.build_chipstar.outcome == 'success'
+        if: always() && steps.build_chipstar.outcome == 'success'
         run: |
           if [ -f "$HOME/.local/init/bash" ]; then
             export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
@@ -193,7 +193,7 @@ jobs:
           ../scripts/check.py ./ dgpu opencl
         timeout-minutes: 60
       - name: Test chipStar with LLVM ${{ matrix.build-id }} (CPU OpenCL)
-        if: steps.build_chipstar.outcome == 'success'
+        if: always() && steps.build_chipstar.outcome == 'success'
         run: |
           if [ -f "$HOME/.local/init/bash" ]; then
             export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
