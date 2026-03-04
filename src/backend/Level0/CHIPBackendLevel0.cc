@@ -1817,14 +1817,15 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
     return {};
   }
   
-  CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-  std::shared_ptr<chipstar::Event> PrefetchEvent =
-      static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
-          ChipCtxZe, chipstar::EventFlags(), "memPrefetch");
+  // CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
+  // std::shared_ptr<chipstar::Event> PrefetchEvent =
+  //     static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+  //         ChipCtxZe, chipstar::EventFlags(), "memPrefetch");
   
   LOCK(CommandListMtx);
   auto CommandList = this->getCmdListImmCopy();
-  auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
+  //  auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync({});
   
   // Append memory prefetch command to the command list
   zeStatus = zeCommandListAppendMemoryPrefetch(
@@ -1834,12 +1835,16 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   // Append a barrier to signal completion of prefetch
   zeStatus = zeCommandListAppendBarrier(
       CommandList,
-      std::static_pointer_cast<CHIPEventLevel0>(PrefetchEvent)->peek(),
+      nullptr,
       EventHandles.size(), EventHandles.data());
+  // zeStatus = zeCommandListAppendBarrier(
+  //     CommandList,
+  //     std::static_pointer_cast<CHIPEventLevel0>(PrefetchEvent)->peek(),
+  //     EventHandles.size(), EventHandles.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
   
-  executeCommandList(CommandList, PrefetchEvent);
-  return PrefetchEvent;
+  //  executeCommandList(CommandList, PrefetchEvent);
+  return {};
 }
 
 void CHIPQueueLevel0::finish() {
