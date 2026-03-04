@@ -1790,24 +1790,29 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   // only prefetches to device. For CPU prefetch, create a no-op event.
   if (DstDevId == hipCpuDeviceId) {
     CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
-    std::shared_ptr<chipstar::Event> PrefetchEvent =
-        static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
-            ChipCtxZe, chipstar::EventFlags(), "memPrefetch");
+    // std::shared_ptr<chipstar::Event> PrefetchEvent =
+    //     static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
+    //         ChipCtxZe, chipstar::EventFlags(), "memPrefetch");
     
     // For CPU prefetch, just create an event that's already complete
     // The memory will be accessible on CPU by default for managed memory
     LOCK(CommandListMtx);
     auto CommandList = this->getCmdListImmCopy();
-    auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
+    auto [EventHandles, EventLocks] = addDependenciesQueueSync({});
+    //    auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
     
     // Append a barrier to signal completion (no actual prefetch command)
     zeStatus = zeCommandListAppendBarrier(
         CommandList,
-        std::static_pointer_cast<CHIPEventLevel0>(PrefetchEvent)->peek(),
+        nullptr,
         EventHandles.size(), EventHandles.data());
+    // zeStatus = zeCommandListAppendBarrier(
+    //     CommandList,
+    //     std::static_pointer_cast<CHIPEventLevel0>(PrefetchEvent)->peek(),
+    //     EventHandles.size(), EventHandles.data());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
     
-    executeCommandList(CommandList, PrefetchEvent);
+    //    executeCommandList(CommandList, PrefetchEvent);
     
     return PrefetchEvent;
   }
