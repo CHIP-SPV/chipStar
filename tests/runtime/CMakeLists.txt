@@ -107,7 +107,11 @@ add_hip_runtime_test(TestNegativeHasNoIGBAs1.hip)
 add_hip_runtime_test(TestNegativeHasNoIGBAs2.hip)
 add_hip_runtime_test(TestPositiveHasNoIGBAs.hip)
 
-add_hip_runtime_test(CatchMemLeak1.hip)
+# CatchMemLeak1 monitors RSS growth which is unreliable on macOS
+# (different ru_maxrss units, PoCL JIT memory behavior varies)
+if(NOT APPLE)
+  add_hip_runtime_test(CatchMemLeak1.hip)
+endif()
 if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
 endif()

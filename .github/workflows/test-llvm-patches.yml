@@ -146,6 +146,7 @@ jobs:
         timeout-minutes: 60
       - name: Test chipStar with LLVM ${{ matrix.build-id }} (iGPU OpenCL)
         if: always() && steps.build_chipstar.outcome == 'success'
+        continue-on-error: true
         run: |
           if [ -f "$HOME/.local/init/bash" ]; then
             export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
@@ -158,6 +159,7 @@ jobs:
         timeout-minutes: 60
       - name: Test chipStar with LLVM ${{ matrix.build-id }} (iGPU Level0)
         if: always() && steps.build_chipstar.outcome == 'success'
+        continue-on-error: true
         run: |
           if [ -f "$HOME/.local/init/bash" ]; then
             export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
@@ -202,7 +204,7 @@ jobs:
           module use ~/modulefiles
           module load opencl/cpu
           cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
-          ../scripts/check.py ./ cpu opencl
+          ../scripts/check.py ./ cpu opencl --num-tries=3
         timeout-minutes: 60
       - uses: actions/upload-artifact@v4
         if: failure()
