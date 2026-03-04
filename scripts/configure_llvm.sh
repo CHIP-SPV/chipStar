@@ -3,6 +3,23 @@
 # if an error is enountered, exit
 set -e
 
+# Retry wrapper for network operations (handles transient DNS failures)
+retry() {
+  local max_attempts=5
+  local delay=10
+  local attempt=1
+  while [ $attempt -le $max_attempts ]; do
+    if "$@"; then
+      return 0
+    fi
+    echo "Attempt $attempt/$max_attempts failed. Retrying in ${delay}s..."
+    sleep $delay
+    attempt=$((attempt + 1))
+    delay=$((delay * 2))
+  done
+  echo "All $max_attempts attempts failed."
+  return 1
+}
 # default values for optional arguments
 LINK_TYPE="dynamic"
 EMIT_ONLY="off"
@@ -121,13 +138,13 @@ if [ "$EMIT_ONLY" != "on" ]; then
   # check if llvm-project exists, if not clone it
   if [ ! -d llvm-project ]; then
     echo "Cloning LLVM from upstream..."
-    git clone https://github.com/llvm/llvm-project.git
+    retry git clone https://github.com/llvm/llvm-project.git
     cd llvm-project
     git checkout ${LLVM_BRANCH}
     
     echo "Cloning SPIRV-LLVM-Translator from upstream..."
     cd llvm/projects
-    git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
+    retry git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
     cd SPIRV-LLVM-Translator
     git checkout ${TRANSLATOR_BRANCH}
   else
@@ -142,7 +159,7 @@ if [ "$EMIT_ONLY" != "on" ]; then
     if [ ! -d llvm/projects/SPIRV-LLVM-Translator ]; then
       echo "Cloning SPIRV-LLVM-Translator from upstream..."
       cd llvm/projects
-      git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
+      retry git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
       cd SPIRV-LLVM-Translator
     else
       cd llvm/projects/SPIRV-LLVM-Translator
