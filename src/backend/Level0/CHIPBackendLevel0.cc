@@ -1814,7 +1814,7 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
     
     //    executeCommandList(CommandList, PrefetchEvent);
     
-    return PrefetchEvent;
+    return {};
   }
   
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
