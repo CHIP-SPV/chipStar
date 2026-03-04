@@ -2052,7 +2052,7 @@ void chipstar::Queue::memPrefetch(const void *Ptr, size_t Count, int DstDevId) {
 
   std::shared_ptr<chipstar::Event> ChipEvent =
       memPrefetchImpl(Ptr, Count, DstDevId);
-  ChipEvent->Msg = "memPrefetch";
+  //  ChipEvent->Msg = "memPrefetch";
 }
 
 void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
