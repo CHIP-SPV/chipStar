@@ -21,6 +21,7 @@
  */
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <cstdlib>
 #include <fstream>
@@ -1044,7 +1045,7 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
 
   // Debug: dump processed SPIR-V for inspection
   if (auto DumpDir = ChipEnvVars.getDumpProcessedSpirvDir()) {
-    static int DumpCounter = 0;
+    static std::atomic<int> DumpCounter{0};
     std::string Path = *DumpDir + "/processed_" + std::to_string(DumpCounter++) +
                        ".spv";
     std::ofstream F(Path, std::ios::binary);
