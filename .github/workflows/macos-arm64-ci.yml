@@ -11,6 +11,10 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: [self-hosted, ARM64, MacOS]
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
     env:
       CHIP_MODULE_CACHE_DIR: ""
     steps:
@@ -19,32 +23,32 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
-      
+
       - name: Setup environment
         shell: /bin/bash {0}
         run: |
           export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load llvm/21.0
           module load ocl-icd-loader
           module load pocl
-          
-          export LLVM_LIBDIR=$(llvm-config --libdir)
+
+          LLVM_CONFIG=$HOME/install/llvm/22.0-${{ matrix.variant }}/bin/llvm-config
+          export LLVM_LIBDIR=$(${LLVM_CONFIG} --libdir)
           export CHIP_DEVICE_TYPE=pocl
           export OCL_ICD_VENDORS=/Users/paulius/install/pocl/etc/OpenCL/vendors/
-          
+
           # Add SPIRV-Tools from homebrew to CMAKE_PREFIX_PATH
           export SPIRV_TOOLS_PREFIX=$(brew --prefix spirv-tools)
           export CMAKE_PREFIX_PATH="${SPIRV_TOOLS_PREFIX}:${CMAKE_PREFIX_PATH}"
-          
+
           # Patch PoCL rpaths if not already done
           for lib in /Users/paulius/install/pocl/lib/libpocl.2.15.0.dylib /Users/paulius/install/pocl/lib/libpocl.2.dylib; do
             if [ -f "$lib" ]; then
               otool -l "$lib" | grep -q "path ${LLVM_LIBDIR}" || install_name_tool -add_rpath "${LLVM_LIBDIR}" "$lib" || true
             fi
           done
-          
+
           # Export to GITHUB_ENV
           echo "PATH=${PATH}" >> $GITHUB_ENV
           echo "LLVM_LIBDIR=${LLVM_LIBDIR}" >> $GITHUB_ENV
@@ -53,26 +57,27 @@ jobs:
           echo "CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
           echo "LIBRARY_PATH=${LIBRARY_PATH}" >> $GITHUB_ENV
-      
+
       - name: Build
         shell: /bin/bash {0}
         run: |
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          LLVM_CONFIG_BIN=$(module show llvm/21.0 2>&1 | grep -E 'prepend-path\s+PATH' | awk '{print $NF}' | head -1)/llvm-config
           module load ocl-icd-loader
           module load pocl
-          
-          rm -rf build install
-          mkdir -p build
-          cd build
-          cmake .. -G Ninja -DLLVM_CONFIG_BIN=$LLVM_CONFIG_BIN -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install
+
+          LLVM_CONFIG_BIN=$HOME/install/llvm/22.0-${{ matrix.variant }}/bin/llvm-config
+
+          rm -rf build-${{ matrix.variant }} install
+          mkdir -p build-${{ matrix.variant }}
+          cd build-${{ matrix.variant }}
+          cmake .. -G Ninja -DLLVM_CONFIG_BIN=$LLVM_CONFIG_BIN -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install-${{ matrix.variant }}
           ninja && ninja build_tests
 
       - name: Install
         shell: /bin/bash {0}
         run: |
-          cd build
+          cd build-${{ matrix.variant }}
           ninja install
 
       - name: Test Install
@@ -80,11 +85,10 @@ jobs:
         run: |
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load llvm/21.0
           module load ocl-icd-loader
           module load pocl
 
-          INSTALL_DIR=${{ github.workspace }}/install
+          INSTALL_DIR=${{ github.workspace }}/install-${{ matrix.variant }}
           export PATH="${INSTALL_DIR}/bin:$PATH"
           export DYLD_LIBRARY_PATH="${INSTALL_DIR}/lib:$DYLD_LIBRARY_PATH"
           export SDKROOT=$(xcrun --show-sdk-path)
@@ -111,15 +115,22 @@ jobs:
           hipcc ${TEST_DIR}/test_install.cpp -o ${TEST_DIR}/test_install
           ${TEST_DIR}/test_install
 
-      - name: Run
+      - name: Run (PoCL OpenCL)
         shell: /bin/bash {0}
         run: |
           source /opt/homebrew/Cellar/modules/5.6.0/init/bash
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load llvm/21.0
           module load ocl-icd-loader
           module load pocl
-          
-          cd build
-          ../scripts/check.py ./ pocl opencl
 
+          cd build-${{ matrix.variant }}
+          ../scripts/check.py ./ pocl opencl
+        timeout-minutes: 60
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-macos-llvm22-${{ matrix.variant }}
+          path: |
+            build-${{ matrix.variant }}/checkpy_*.txt
+            build-${{ matrix.variant }}/Testing/Temporary/LastTest.log
