@@ -2160,6 +2160,12 @@ protected:
     EventLocks.push_back(
         std::make_unique<std::unique_lock<std::mutex>>(ChipDevice_->QueueAddRemoveMtx));
 
+    // Collect marker events to keep alive on this queue. These are
+    // cross-queue sync markers whose underlying ze_events are referenced
+    // as GPU-level wait dependencies. They must not be recycled by
+    // checkEvents() until this queue finishes.
+    std::vector<std::shared_ptr<chipstar::Event>> MarkerEvents;
+
     // If this is a default stream (legacy or per-thread), create markers for all blocking queues
     if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
       // Create markers for all blocking queues
@@ -2175,6 +2181,7 @@ protected:
 
           // Track the marker event so it gets properly managed by the event monitor
           BackendPtr->trackEvent(ChipMarkerEvent);
+          MarkerEvents.push_back(ChipMarkerEvent);
 
 	}
       }
@@ -2192,7 +2199,7 @@ protected:
         
         EventHandles.push_back(handle);
         BackendPtr->trackEvent(ChipMarkerEvent);
-	
+        MarkerEvents.push_back(ChipMarkerEvent);
       }
 
       // Create marker for per-thread default stream if used
@@ -2204,8 +2211,18 @@ protected:
           
           EventHandles.push_back(handle);
           BackendPtr->trackEvent(ChipMarkerEvent);
+          MarkerEvents.push_back(ChipMarkerEvent);
         }
       }
+    }
+
+    // Store marker events on this queue to prevent premature recycling.
+    // checkEvents() may see that marker ze_events have been signaled and
+    // recycle them, but GPU operations on THIS queue still reference those
+    // ze_events as wait dependencies. Holding shared_ptrs here prevents
+    // the event pool from resetting the ze_events until this queue finishes.
+    if (!MarkerEvents.empty()) {
+      storeCrossQueueDeps(std::move(MarkerEvents));
     }
 
     return {EventHandles, std::move(EventLocks)};
@@ -2395,6 +2412,11 @@ public:
    */
 
   virtual void finish() = 0;
+
+  /// Store cross-queue dependency marker events to prevent premature recycling.
+  /// Default implementation is a no-op; Level0 backend overrides this.
+  virtual void storeCrossQueueDeps(
+      std::vector<std::shared_ptr<chipstar::Event>> Markers) {}
 
   /**
    * @brief Wait for this queue to finish, assuming EventsMtx is already held

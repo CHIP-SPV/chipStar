@@ -382,6 +382,10 @@ public:
   void recordEvent(chipstar::Event *ChipEvent) override;
   std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
   std::atomic<bool> IsEmptyQueue_{true};
+  /// Cross-queue sync marker events that must be kept alive until this queue
+  /// is finished. Without this, checkEvents() may recycle their underlying
+  /// ze_events while GPU operations on this queue still reference them.
+  std::vector<std::shared_ptr<chipstar::Event>> PendingCrossQueueDeps_;
   // we would like to use just return IsEmptyQueue_.load() here
   // but there is a bug (https://github.com/argonne-lcf/AuroraBugTracking/issues/124)
   bool isEmptyQueue() override {
@@ -430,6 +434,12 @@ public:
   void finishNoLock(); // Helper that assumes EventsMtx is already held
 
   virtual void finishWithoutEventsMtx() override;
+
+  void storeCrossQueueDeps(
+      std::vector<std::shared_ptr<chipstar::Event>> Markers) override {
+    for (auto& M : Markers)
+      PendingCrossQueueDeps_.push_back(std::move(M));
+  }
 
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
