@@ -2173,8 +2173,11 @@ protected:
           // Add the marker to the list of events to wait on
           EventHandles.push_back(handle);
 
-          // Track the marker event so it gets properly managed by the event monitor
-          BackendPtr->trackEvent(ChipMarkerEvent);
+	  // Track the marker event so it gets properly managed by the event monitor
+	  BackendPtr->trackEvent(ChipMarkerEvent);
+
+	  // Add dependency to the target event
+          if( TargetEvent ) TargetEvent->addDependency(ChipMarkerEvent);
 
 	}
       }
@@ -2192,6 +2195,7 @@ protected:
         
         EventHandles.push_back(handle);
         BackendPtr->trackEvent(ChipMarkerEvent);
+	if( TargetEvent ) TargetEvent->addDependency(ChipMarkerEvent);
 	
       }
 
@@ -2204,6 +2208,7 @@ protected:
           
           EventHandles.push_back(handle);
           BackendPtr->trackEvent(ChipMarkerEvent);
+	  if( TargetEvent ) TargetEvent->addDependency(ChipMarkerEvent);
         }
       }
     }
