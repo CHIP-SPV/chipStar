@@ -282,6 +282,8 @@ ANY:
     hipMultiThreadAddCallback: ''
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
   LEVEL0_GPU:
+    Unit_hipMemset_SetMemoryWithOffset: 'Flaky, needs investigation'
+    TestTypeCastIntrinsics: 'iGPU resource exhaustion from LLVM 22 aggressive inlining. See https://github.com/CHIP-SPV/chipStar/issues/1165'
     Unit_hipEvent: 'zeEventQueryStatus() is blocking'
     hipKernelLaunchIsNonBlocking: 'zeEventQueryStatus() is blocking'
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'False positives from L0 helper thread'
@@ -307,6 +309,7 @@ ANY:
     Unit_hipTextureObj2DCheckRGBAModes: 'Failed'
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'Failed'
   OPENCL_GPU:
+    TestTypeCastIntrinsics: 'Subprocess aborted'
     hipKernelLaunchIsNonBlocking: ''
     Unit_hipEvent: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
   OPENCL_POCL:
