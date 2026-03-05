@@ -926,6 +926,12 @@ CHIPQueueLevel0::addDependenciesQueueSync(
   // Call template helper with Level Zero marker creation
   auto result = addDependenciesQueueSyncImpl<ze_event_handle_t>(BackendLz, TargetEvent, CreateLzMarker);
 
+  // Set SignalEnqueued for the target event since it will be signaled by the upcoming operation
+  if( TargetEvent ) {
+    auto TargetEventLz = std::static_pointer_cast<CHIPEventLevel0>(TargetEvent);
+    TargetEventLz->SignalEnqueued_ = true;
+  }
+  
   return result;
 }
 
