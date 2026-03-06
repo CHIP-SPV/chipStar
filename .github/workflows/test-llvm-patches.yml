@@ -5,10 +5,12 @@ on:
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
+      - '.github/workflows/test-llvm-patches.yml'
   pull_request:
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
+      - '.github/workflows/test-llvm-patches.yml'
   workflow_dispatch:
 
 concurrency:
@@ -244,8 +246,10 @@ jobs:
     steps:
       - name: Install LLVM ${{ matrix.build-id }}
         run: |
-          rm -rf $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}
-          mv $HOME/llvm-stage/${{ matrix.build-id }}/$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }} $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}
+          STAGED="$HOME/llvm-stage/${{ matrix.build-id }}"
+          INSTALL_DIR="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
+          rm -rf "$INSTALL_DIR"
+          mv "${STAGED}${INSTALL_DIR}" "$INSTALL_DIR"
         timeout-minutes: 5
       - name: Verify LLVM ${{ matrix.build-id }} installation
         run: |
@@ -399,8 +403,10 @@ jobs:
     steps:
       - name: Install LLVM 22 (${{ matrix.variant }})
         run: |
-          rm -rf $HOME/install/llvm/22.0-${{ matrix.variant }}
-          mv $HOME/llvm-stage/22-${{ matrix.variant }}/$HOME/install/llvm/22.0-${{ matrix.variant }} $HOME/install/llvm/22.0-${{ matrix.variant }}
+          STAGED="$HOME/llvm-stage/22-${{ matrix.variant }}"
+          INSTALL_DIR="$HOME/install/llvm/22.0-${{ matrix.variant }}"
+          rm -rf "$INSTALL_DIR"
+          mv "${STAGED}${INSTALL_DIR}" "$INSTALL_DIR"
         timeout-minutes: 5
       - name: Verify LLVM 22 (${{ matrix.variant }}) installation
         run: |
