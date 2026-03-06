@@ -1883,7 +1883,10 @@ void CHIPQueueLevel0::finish() {
   // host wait for command lists to complete
   zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
-  IsEmptyQueue_.store(true);  
+  // All GPU work on this queue has completed. Release cross-queue dependency
+  // marker events so their ze_events can be recycled by the event pool.
+  PendingCrossQueueDeps_.clear();
+  IsEmptyQueue_.store(true);
   return;
 }
 
