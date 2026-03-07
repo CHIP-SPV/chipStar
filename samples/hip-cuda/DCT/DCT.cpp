@@ -362,6 +362,11 @@ DCT::setupHIP(void)
     cout << " System major " << devProp.major << endl;
     cout << " agent prop name " << devProp.name << endl;
 
+    if (!devProp.canMapHostMemory) {
+        cout << "HIP_SKIP_THIS_TEST" << endl;
+        exit(EXIT_SUCCESS);
+    }
+
     // Set input data to matrix A and matrix B
     hipHostMalloc((void**)&inputBuffer, sizeof(float) * width * height, hipHostMallocDefault);
     hipHostMalloc((void**)&outputBuffer, sizeof(float) * width * height, hipHostMallocDefault);
