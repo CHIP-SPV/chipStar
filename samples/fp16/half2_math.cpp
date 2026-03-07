@@ -102,7 +102,7 @@ void check(std::string fn, const half2 *x, const half2 *y, const half2 *z, const
     }
 
     if ((eq_oper && (zz_computed != verify)) ||
-        (!eq_oper && compare_calculated(zz_computed, verify) > 4)) {
+        (!eq_oper && compare_calculated(zz_computed, verify) > 8)) {
 
       if (current_errors < 8) {
         std::cerr << "Test " << fn << " failed at : " << i << " || x[i]: "

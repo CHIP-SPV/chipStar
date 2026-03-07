@@ -65,6 +65,13 @@ __global__ void host_defined_strings(int *io, const char *str) {
 }
 
 int main(int argc, char *argv[]) {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+    printf("HIP_SKIP_THIS_TEST\n");
+    return 0;
+  }
+
   uint num_threads = 1;
   uint failures = 0;
 
