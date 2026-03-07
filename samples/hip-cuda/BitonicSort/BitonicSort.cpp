@@ -258,6 +258,11 @@ BitonicSort::setupHIP(void)
     cout << " System major " << devProp.major << endl;
     cout << " agent prop name " << devProp.name << endl;
 
+    if (!devProp.canMapHostMemory) {
+        cout << "HIP_SKIP_THIS_TEST" << endl;
+        exit(EXIT_SUCCESS);
+    }
+
     return SDK_SUCCESS;
 }
 

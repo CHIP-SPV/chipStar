@@ -83,6 +83,13 @@ __global__ void test_lane_id(unsigned *Out) { Out[threadIdx.x] = __lane_id(); }
 
 int main(int argc, char *argv[]) {
 
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+    printf("HIP_SKIP_THIS_TEST\n");
+    return 0;
+  }
+
   constexpr uint Threads = CHIP_DEFAULT_WARP_SIZE * 2;
   constexpr unsigned MaxEltSize = sizeof(double);
 

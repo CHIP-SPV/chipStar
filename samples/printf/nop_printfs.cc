@@ -46,6 +46,13 @@ __global__ void nop_str_arg(int *out) {
 }
 
 int main(int argc, char *argv[]) {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+    printf("HIP_SKIP_THIS_TEST\n");
+    return 0;
+  }
+
   uint num_threads = 1;
   uint failures = 0;
 
