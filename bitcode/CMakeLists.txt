@@ -151,7 +151,8 @@ install(FILES "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
 # Sources requiring SPIR-V 1.2 at most.
 set(RTDEVLIB_SOURCES_v1_2
   atomicAddFloat_native atomicAddFloat_emulation
-  atomicAddDouble_native atomicAddDouble_emulation)
+  atomicAddDouble_native atomicAddDouble_emulation
+  atomicMinMaxFloat_emulation)
 
 # Sources requiring SPIR-V 1.3 at most.
 set(RTDEVLIB_SOURCES_v1_3
