@@ -77,12 +77,8 @@ int main(int ArgC, char *ArgV[]) {
   int SrcH = 123, *SrcD;
   CHECK(hipMalloc(&SrcD, sizeof(int)) == hipSuccess);
 
-  // Device and host allocations may alias, thus copy direction can't
-  // be determined robustly.
+  // BufferDevAddr can infer direction via translateDevPtrToBuffer().
   CHECK(hipMemcpy(SrcD, &SrcH, sizeof(int), hipMemcpyDefault) ==
-        hipErrorInvalidMemcpyDirection);
-
-  CHECK(hipMemcpy(SrcD, &SrcH, sizeof(int), hipMemcpyHostToDevice) ==
         hipSuccess);
 
   int *DstD;

@@ -23,6 +23,7 @@
 #include "CHIPBackendOpenCL.hh"
 #include "Utils.hh"
 
+#include <cstring>
 #include <sstream>
 
 #include "Utils.hh"
@@ -580,7 +581,10 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.pciBusID = 0x10;
   HipDeviceProps_.pciDeviceID = 0x40 + getDeviceId();
   HipDeviceProps_.isMultiGpuBoard = 0;
-  HipDeviceProps_.canMapHostMemory = 1;
+  HipDeviceProps_.canMapHostMemory =
+      (getContext()->getAllocStrategy() != AllocationStrategy::BufferDevAddr)
+          ? 1
+          : 0;
   HipDeviceProps_.integrated = 0;
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
       HipDeviceProps_.sharedMemPerBlock * 16;
@@ -1906,16 +1910,41 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 
     case AllocationStrategy::BufferDevAddr: {
       cl_int clStatus = CL_SUCCESS;
+
+      // For HtoH, just do a host-side memcpy.
+      if (Kind == hipMemcpyHostToHost) {
+        std::memcpy(Dst, Src, Size);
+        clStatus = clEnqueueMarker(
+            get()->get(),
+            std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
+        break;
+      }
+
+      // For Default, try to determine direction from buffer lookups.
+      if (Kind == hipMemcpyDefault) {
+        auto [DstBuf, DstOff] = Ctx->translateDevPtrToBuffer(Dst);
+        auto [SrcBuf, SrcOff] = Ctx->translateDevPtrToBuffer(Src);
+        if (DstBuf && SrcBuf)
+          Kind = hipMemcpyDeviceToDevice;
+        else if (DstBuf)
+          Kind = hipMemcpyHostToDevice;
+        else if (SrcBuf)
+          Kind = hipMemcpyDeviceToHost;
+        else {
+          // Both host pointers — do host memcpy.
+          std::memcpy(Dst, Src, Size);
+          clStatus = clEnqueueMarker(
+              get()->get(),
+              std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+          CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
+          break;
+        }
+      }
+
       switch (Kind) {
       default:
-      case hipMemcpyHostToHost: // Covered up-front.
         assert(!"Unexpected hipMemcpyKind");
-
-      case hipMemcpyDefault: // Invalid flag under BufferDevAddr (can't
-                             // distinguish host and device allocations apart as
-                             // they may alias).
-        CHIPERR_LOG_AND_THROW("Invalid flag (HipMemcpyDefault)",
-                              hipErrorRuntimeMemory);
 
       case hipMemcpyHostToDevice: {
         auto [DstBuf, DstOffset] = Ctx->translateDevPtrToBuffer(Dst);
@@ -2021,14 +2050,24 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   if (Ctx->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
     logTrace("clEnqueueFillBuffer {} / {} B\n", Dst, Size);
     auto [DstBuf, DstOffset] = Ctx->translateDevPtrToBuffer(Dst);
-    if (!DstBuf)
-      CHIPERR_LOG_AND_THROW("Invalid destination pointer.",
-                            hipErrorRuntimeMemory);
-    int Retval = ::clEnqueueFillBuffer(
-        get()->get(), DstBuf, Pattern, PatternSize, DstOffset, Size,
-        SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
-        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueFillBuffer);
+    if (!DstBuf) {
+      // Host pointer — fall back to host-side memset pattern fill.
+      unsigned char *DstBytes = static_cast<unsigned char *>(Dst);
+      const unsigned char *PatBytes =
+          static_cast<const unsigned char *>(Pattern);
+      for (size_t i = 0; i < Size; i++)
+        DstBytes[i] = PatBytes[i % PatternSize];
+      int Retval = clEnqueueMarker(
+          get()->get(),
+          std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
+    } else {
+      int Retval = ::clEnqueueFillBuffer(
+          get()->get(), DstBuf, Pattern, PatternSize, DstOffset, Size,
+          SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+          std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueFillBuffer);
+    }
   } else {
     logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
     int Retval = ::clEnqueueSVMMemFill(

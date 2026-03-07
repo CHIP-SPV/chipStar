@@ -336,6 +336,11 @@ public:
   cl::Device *get() { return ClDevice; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
+  bool canInferMemcpyDirection() const override {
+    return hasUnifiedVirtualAddressing() ||
+           static_cast<CHIPContextOpenCL *>(Ctx_)->getAllocStrategy() ==
+               AllocationStrategy::BufferDevAddr;
+  }
   virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags,
                                        int Priority) override;
   virtual chipstar::Queue *createQueue(const uintptr_t *NativeHandles,
