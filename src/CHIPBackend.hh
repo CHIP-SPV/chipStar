@@ -1666,6 +1666,12 @@ public:
     return AttrUA;
   }
 
+  /// Whether the backend can infer hipMemcpyDefault direction without UVA.
+  /// Backends with address-map-based lookup (e.g. BufferDevAddr) override this.
+  virtual bool canInferMemcpyDirection() const {
+    return hasUnifiedVirtualAddressing();
+  }
+
 protected:
   /**
    * @brief The backend hook for reset().
