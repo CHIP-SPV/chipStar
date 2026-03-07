@@ -2752,9 +2752,10 @@ void CHIPBackendOpenCL::initializeImpl() {
   logDebug("CHIP_DEVICE={} Selected OpenCL device {}",
            ChipEnvVars.getDeviceIdx(), Device.getInfo<CL_DEVICE_NAME>());
 
-  // Create context which has devices
-  // Create queues that have devices each of which has an associated context
-  cl::Context Ctx(SupportedDevices);
+  // Create context with the selected device. Using a single device is required
+  // for OpenCL implementations like clvk that only support single-device
+  // contexts, and chipStar only uses one device anyway (see TODO below).
+  cl::Context Ctx(Device);
   CHIPContextOpenCL *ChipContext =
       new CHIPContextOpenCL(Ctx, Device, SelectedPlatform);
   ::Backend->addContext(ChipContext);
