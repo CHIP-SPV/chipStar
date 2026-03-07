@@ -29,6 +29,7 @@
 #define DEFAULT_AS __generic
 
 #define NOOPT __attribute__((optnone))
+#define NOINLINE __attribute__((noinline))
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
@@ -1328,7 +1329,7 @@ EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 
 
 // Returns the high 32 bits of a double as an integer
-EXPORT int __chip_double2hiint(double x) {
+EXPORT NOINLINE int __chip_double2hiint(double x) {
   union {
     double d;
     ulong i;
@@ -1339,7 +1340,7 @@ EXPORT int __chip_double2hiint(double x) {
 
 // Type casting functions with proper rounding modes
 // double -> float conversions (manual rounding implementation)
-EXPORT float __chip_double2float_rd(double a) {
+EXPORT NOINLINE float __chip_double2float_rd(double a) {
     ulong u = as_ulong(a);
     ulong um = u & 0xfffffffffffffUL;
     int e = (int)((u >> 52) & 0x7ff) - 1023 + 127;
@@ -1358,11 +1359,11 @@ EXPORT float __chip_double2float_rd(double a) {
     return as_float(s | v);
 }
 
-EXPORT float __chip_double2float_rn(double x) {
+EXPORT NOINLINE float __chip_double2float_rn(double x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_double2float_ru(double a) {
+EXPORT NOINLINE float __chip_double2float_ru(double a) {
     ulong u = as_ulong(a);
     ulong um = u & 0xfffffffffffffUL;
     int e = (int)((u >> 52) & 0x7ff) - 1023 + 127;
@@ -1381,7 +1382,7 @@ EXPORT float __chip_double2float_ru(double a) {
     return as_float(s | v);
 }
 
-EXPORT float __chip_double2float_rz(double a) {
+EXPORT NOINLINE float __chip_double2float_rz(double a) {
     ulong u = as_ulong(a);
     ulong um = u & 0xfffffffffffffUL;
     int e = (int)((u >> 52) & 0x7ff) - 1023 + 127;
@@ -1397,72 +1398,72 @@ EXPORT float __chip_double2float_rz(double a) {
     return as_float(s | v);
 }
 
-EXPORT int __chip_double2int_rd(double x) {
+EXPORT NOINLINE int __chip_double2int_rd(double x) {
     return (int)floor(x);  // Round down
 }
 
-EXPORT int __chip_double2int_rn(double x) {
+EXPORT NOINLINE int __chip_double2int_rn(double x) {
     return (int)rint(x);  // Round to nearest even
 }
 
-EXPORT int __chip_double2int_ru(double x) {
+EXPORT NOINLINE int __chip_double2int_ru(double x) {
     return (int)ceil(x);  // Round up
 }
 
-EXPORT int __chip_double2int_rz(double x) {
+EXPORT NOINLINE int __chip_double2int_rz(double x) {
     return (int)trunc(x);  // Round toward zero
 }
 
-EXPORT long __chip_double2ll_rd(double x) {
+EXPORT NOINLINE long __chip_double2ll_rd(double x) {
     return (long)floor(x);
 }
 
-EXPORT long __chip_double2ll_rn(double x) {
+EXPORT NOINLINE long __chip_double2ll_rn(double x) {
     return (long)rint(x);
 }
 
-EXPORT long __chip_double2ll_ru(double x) {
+EXPORT NOINLINE long __chip_double2ll_ru(double x) {
     return (long)ceil(x);
 }
 
-EXPORT long __chip_double2ll_rz(double x) {
+EXPORT NOINLINE long __chip_double2ll_rz(double x) {
     return (long)trunc(x);
 }
 
-EXPORT unsigned int __chip_double2uint_rd(double x) {
+EXPORT NOINLINE unsigned int __chip_double2uint_rd(double x) {
     return (unsigned int)max(0.0, floor(x));  // Round down, clamp to 0
 }
 
-EXPORT unsigned int __chip_double2uint_rn(double x) {
+EXPORT NOINLINE unsigned int __chip_double2uint_rn(double x) {
     return (unsigned int)max(0.0, rint(x));  // Round to nearest even, clamp to 0
 }
 
-EXPORT unsigned int __chip_double2uint_ru(double x) {
+EXPORT NOINLINE unsigned int __chip_double2uint_ru(double x) {
     return (unsigned int)max(0.0, ceil(x));  // Round up, clamp to 0
 }
 
-EXPORT unsigned int __chip_double2uint_rz(double x) {
+EXPORT NOINLINE unsigned int __chip_double2uint_rz(double x) {
     return (unsigned int)max(0.0, trunc(x));  // Round toward zero, clamp to 0
 }
 
-EXPORT ulong __chip_double2ull_rd(double x) {
+EXPORT NOINLINE ulong __chip_double2ull_rd(double x) {
     return (ulong)max(0.0, floor(x));
 }
 
-EXPORT ulong __chip_double2ull_rn(double x) {
+EXPORT NOINLINE ulong __chip_double2ull_rn(double x) {
     return (ulong)max(0.0, rint(x));
 }
 
-EXPORT ulong __chip_double2ull_ru(double x) {
+EXPORT NOINLINE ulong __chip_double2ull_ru(double x) {
     return (ulong)max(0.0, ceil(x));
 }
 
-EXPORT ulong __chip_double2ull_rz(double x) {
+EXPORT NOINLINE ulong __chip_double2ull_rz(double x) {
     return (ulong)max(0.0, trunc(x));
 }
 
 // int -> float conversions (manual rounding implementation)
-EXPORT float __chip_int2float_rd(int i) {
+EXPORT NOINLINE float __chip_int2float_rd(int i) {
     int s = i >> 31;
     uint u = as_uint((i + s) ^ s);
     uint lz = clz(u);
@@ -1474,11 +1475,11 @@ EXPORT float __chip_int2float_rd(int i) {
     return as_float((u + ((s & t) > 0)) | (s & 0x80000000));
 }
 
-EXPORT float __chip_int2float_rn(int x) {
+EXPORT NOINLINE float __chip_int2float_rn(int x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_int2float_ru(int i) {
+EXPORT NOINLINE float __chip_int2float_ru(int i) {
     int s = i >> 31;
     uint u = as_uint((i + s) ^ s);
     uint lz = clz(u);
@@ -1490,7 +1491,7 @@ EXPORT float __chip_int2float_ru(int i) {
     return as_float((u + ((~s & t) > 0)) | (s & 0x80000000));
 }
 
-EXPORT float __chip_int2float_rz(int i) {
+EXPORT NOINLINE float __chip_int2float_rz(int i) {
     int s = i >> 31;
     uint u = as_uint((i + s) ^ s);
     uint lz = clz(u);
@@ -1503,7 +1504,7 @@ EXPORT float __chip_int2float_rz(int i) {
 
 // uint -> float conversions (manual rounding implementation)
 // For uint, rtn and rtz are the same (truncate)
-EXPORT float __chip_uint2float_rd(uint u) {
+EXPORT NOINLINE float __chip_uint2float_rd(uint u) {
     uint lz = clz(u);
     uint e = 127U + 31U - lz;
     e = u ? e : 0;
@@ -1511,11 +1512,11 @@ EXPORT float __chip_uint2float_rd(uint u) {
     return as_float((e << 23) | (u >> 8));
 }
 
-EXPORT float __chip_uint2float_rn(unsigned int x) {
+EXPORT NOINLINE float __chip_uint2float_rn(unsigned int x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_uint2float_ru(uint u) {
+EXPORT NOINLINE float __chip_uint2float_ru(uint u) {
     uint lz = clz(u);
     uint e = 127U + 31U - lz;
     e = u ? e : 0;
@@ -1526,7 +1527,7 @@ EXPORT float __chip_uint2float_ru(uint u) {
     return as_float(u + (t > 0));
 }
 
-EXPORT float __chip_uint2float_rz(uint u) {
+EXPORT NOINLINE float __chip_uint2float_rz(uint u) {
     uint lz = clz(u);
     uint e = 127U + 31U - lz;
     e = u ? e : 0;
@@ -1535,7 +1536,7 @@ EXPORT float __chip_uint2float_rz(uint u) {
 }
 
 // long -> float conversions (manual rounding implementation)
-EXPORT float __chip_ll2float_rd(long l) {
+EXPORT NOINLINE float __chip_ll2float_rd(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1547,11 +1548,11 @@ EXPORT float __chip_ll2float_rd(long l) {
     return as_float((v + ((s & t) > 0)) | ((uint)s & 0x80000000));
 }
 
-EXPORT float __chip_ll2float_rn(long x) {
+EXPORT NOINLINE float __chip_ll2float_rn(long x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_ll2float_ru(long l) {
+EXPORT NOINLINE float __chip_ll2float_ru(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1563,7 +1564,7 @@ EXPORT float __chip_ll2float_ru(long l) {
     return as_float((v + ((~s & t) > 0)) | ((uint)s & 0x80000000));
 }
 
-EXPORT float __chip_ll2float_rz(long l) {
+EXPORT NOINLINE float __chip_ll2float_rz(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1576,7 +1577,7 @@ EXPORT float __chip_ll2float_rz(long l) {
 
 // ulong -> float conversions (manual rounding implementation)
 // For ulong, rtn and rtz are the same (truncate)
-EXPORT float __chip_ull2float_rd(ulong u) {
+EXPORT NOINLINE float __chip_ull2float_rd(ulong u) {
     uint lz = clz(u);
     uint e = 127U + 63U - lz;
     e = u ? e : 0;
@@ -1584,11 +1585,11 @@ EXPORT float __chip_ull2float_rd(ulong u) {
     return as_float((e << 23) | (uint)(u >> 40));
 }
 
-EXPORT float __chip_ull2float_rn(ulong x) {
+EXPORT NOINLINE float __chip_ull2float_rn(ulong x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_ull2float_ru(ulong u) {
+EXPORT NOINLINE float __chip_ull2float_ru(ulong u) {
     uint lz = clz(u);
     uint e = 127U + 63U - lz;
     e = u ? e : 0;
@@ -1599,7 +1600,7 @@ EXPORT float __chip_ull2float_ru(ulong u) {
     return as_float(v + (t > 0));
 }
 
-EXPORT float __chip_ull2float_rz(ulong u) {
+EXPORT NOINLINE float __chip_ull2float_rz(ulong u) {
     uint lz = clz(u);
     uint e = 127U + 63U - lz;
     e = u ? e : 0;
@@ -1607,7 +1608,7 @@ EXPORT float __chip_ull2float_rz(ulong u) {
     return as_float((e << 23) | (uint)(u >> 40));
 }
 
-EXPORT int __chip_double2loint(double x) {
+EXPORT NOINLINE int __chip_double2loint(double x) {
     union {
         double d;
         struct {
@@ -1619,7 +1620,7 @@ EXPORT int __chip_double2loint(double x) {
     return u.i.lo;
 }
 
-EXPORT double __chip_hiloint2double(int hi, int lo) {
+EXPORT NOINLINE double __chip_hiloint2double(int hi, int lo) {
     union {
         double d;
         struct {
@@ -1632,12 +1633,12 @@ EXPORT double __chip_hiloint2double(int hi, int lo) {
     return u.d;
 }
 
-EXPORT double __chip_int2double_rn(int x) {
+EXPORT NOINLINE double __chip_int2double_rn(int x) {
     return (double)x;
 }
 
 // long -> double conversions (manual rounding implementation)
-EXPORT double __chip_ll2double_rd(long l) {
+EXPORT NOINLINE double __chip_ll2double_rd(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1649,11 +1650,11 @@ EXPORT double __chip_ll2double_rd(long l) {
     return as_double((u + ((s & t) > 0)) | ((ulong)s & 0x8000000000000000UL));
 }
 
-EXPORT double __chip_ll2double_rn(long x) {
+EXPORT NOINLINE double __chip_ll2double_rn(long x) {
     return convert_double(x);
 }
 
-EXPORT double __chip_ll2double_ru(long l) {
+EXPORT NOINLINE double __chip_ll2double_ru(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1665,7 +1666,7 @@ EXPORT double __chip_ll2double_ru(long l) {
     return as_double((u + ((~s & t) > 0)) | ((ulong)s & 0x8000000000000000UL));
 }
 
-EXPORT double __chip_ll2double_rz(long l) {
+EXPORT NOINLINE double __chip_ll2double_rz(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1676,13 +1677,13 @@ EXPORT double __chip_ll2double_rz(long l) {
     return as_double(u | ((ulong)s & 0x8000000000000000UL));
 }
 
-EXPORT double __chip_uint2double_rn(unsigned int x) {
+EXPORT NOINLINE double __chip_uint2double_rn(unsigned int x) {
     return (double)x;
 }
 
 // ulong -> double conversions (manual rounding implementation)
 // For ulong, rtn and rtz are the same (truncate)
-EXPORT double __chip_ull2double_rd(ulong u) {
+EXPORT NOINLINE double __chip_ull2double_rd(ulong u) {
     uint lz = clz(u);
     uint e = 1023U + 63U - lz;
     e = u ? e : 0;
@@ -1690,11 +1691,11 @@ EXPORT double __chip_ull2double_rd(ulong u) {
     return as_double(((ulong)e << 52) | (u >> 11));
 }
 
-EXPORT double __chip_ull2double_rn(ulong x) {
+EXPORT NOINLINE double __chip_ull2double_rn(ulong x) {
     return convert_double(x);
 }
 
-EXPORT double __chip_ull2double_ru(ulong u) {
+EXPORT NOINLINE double __chip_ull2double_ru(ulong u) {
     uint lz = clz(u);
     uint e = 1023U + 63U - lz;
     e = u ? e : 0;
@@ -1705,7 +1706,7 @@ EXPORT double __chip_ull2double_ru(ulong u) {
     return as_double(u + (t > 0UL));
 }
 
-EXPORT double __chip_ull2double_rz(ulong u) {
+EXPORT NOINLINE double __chip_ull2double_rz(ulong u) {
     uint lz = clz(u);
     uint e = 1023U + 63U - lz;
     e = u ? e : 0;
@@ -1713,67 +1714,67 @@ EXPORT double __chip_ull2double_rz(ulong u) {
     return as_double(((ulong)e << 52) | (u >> 11));
 }
 
-EXPORT int __chip_float2int_rd(float x) {
+EXPORT NOINLINE int __chip_float2int_rd(float x) {
     return (int)floor(x);  // Round down
 }
 
-EXPORT int __chip_float2int_rn(float x) {
+EXPORT NOINLINE int __chip_float2int_rn(float x) {
     return (int)rint(x);  // Round to nearest even
 }
 
-EXPORT int __chip_float2int_ru(float x) {
+EXPORT NOINLINE int __chip_float2int_ru(float x) {
     return (int)ceil(x);  // Round up
 }
 
-EXPORT int __chip_float2int_rz(float x) {
+EXPORT NOINLINE int __chip_float2int_rz(float x) {
     return (int)trunc(x);  // Round toward zero
 }
 
-EXPORT long __chip_float2ll_rd(float x) {
+EXPORT NOINLINE long __chip_float2ll_rd(float x) {
     return (long)floor(x);
 }
 
-EXPORT long __chip_float2ll_rn(float x) {
+EXPORT NOINLINE long __chip_float2ll_rn(float x) {
     return (long)rint(x);
 }
 
-EXPORT long __chip_float2ll_ru(float x) {
+EXPORT NOINLINE long __chip_float2ll_ru(float x) {
     return (long)ceil(x);
 }
 
-EXPORT long __chip_float2ll_rz(float x) {
+EXPORT NOINLINE long __chip_float2ll_rz(float x) {
     return (long)trunc(x);
 }
 
-EXPORT unsigned int __chip_float2uint_rd(float x) {
+EXPORT NOINLINE unsigned int __chip_float2uint_rd(float x) {
     return (unsigned int)max(0.0f, floor(x));  // Round down, clamp to 0
 }
 
-EXPORT unsigned int __chip_float2uint_rn(float x) {
+EXPORT NOINLINE unsigned int __chip_float2uint_rn(float x) {
     return (unsigned int)max(0.0f, rint(x));  // Round to nearest even, clamp to 0
 }
 
-EXPORT unsigned int __chip_float2uint_ru(float x) {
+EXPORT NOINLINE unsigned int __chip_float2uint_ru(float x) {
     return (unsigned int)max(0.0f, ceil(x));  // Round up, clamp to 0
 }
 
-EXPORT unsigned int __chip_float2uint_rz(float x) {
+EXPORT NOINLINE unsigned int __chip_float2uint_rz(float x) {
     return (unsigned int)max(0.0f, trunc(x));  // Round toward zero, clamp to 0
 }
 
-EXPORT ulong __chip_float2ull_rd(float x) {
+EXPORT NOINLINE ulong __chip_float2ull_rd(float x) {
     return (ulong)max(0.0f, floor(x));
 }
 
-EXPORT ulong __chip_float2ull_rn(float x) {
+EXPORT NOINLINE ulong __chip_float2ull_rn(float x) {
     return (ulong)max(0.0f, rint(x));
 }
 
-EXPORT ulong __chip_float2ull_ru(float x) {
+EXPORT NOINLINE ulong __chip_float2ull_ru(float x) {
     return (ulong)max(0.0f, ceil(x));
 }
 
-EXPORT ulong __chip_float2ull_rz(float x) {
+EXPORT NOINLINE ulong __chip_float2ull_rz(float x) {
     return (ulong)max(0.0f, trunc(x));
 }
 
