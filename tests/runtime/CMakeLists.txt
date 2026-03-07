@@ -117,6 +117,49 @@ if(OpenCL_LIBRARY) # Depends on OpenCL
 endif()
 add_hip_runtime_test(Test887.hip)
 add_hip_runtime_test(TestTemplatedConstantMemcpy.hip)
+# Multi-TU test: same template instantiation in two separate TUs (#808)
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -c
+    ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddOne.hip
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddOne.hip
+    hipcc.bin CHIP devicelib_bc
+)
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -c
+    ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddTwo.hip
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddTwo.hip
+    hipcc.bin CHIP devicelib_bc
+)
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -c
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplateKernelModules.hip
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplateKernelModules.hip
+    hipcc.bin CHIP devicelib_bc
+)
+add_custom_target(TestTemplateKernelModules ALL
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
+    ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules
+  DEPENDS
+    ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+  COMMENT "Linking TestTemplateKernelModules (multi-TU)"
+)
+add_test(NAME TestTemplateKernelModules
+  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules)
+set_tests_properties(TestTemplateKernelModules PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS"
+  FAIL_REGULAR_EXPRESSION "device function is already registered"
+  TIMEOUT 60)
 
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES
