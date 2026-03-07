@@ -47,3 +47,7 @@ add_test(NAME irif_no_i128
 set_tests_properties(irif_no_i128 PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL"
   PASS_REGULAR_EXPRESSION "PASS")
+
+add_hip_test(TestAtomicMinMaxFloat.cpp)
+set_tests_properties(TestAtomicMinMaxFloat PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS")
