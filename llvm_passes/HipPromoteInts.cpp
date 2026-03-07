@@ -1,6 +1,7 @@
 #include "HipPromoteInts.h"
 #include "llvm/ADT/SmallVector.h" // Include for SmallVector
 #include "llvm/ADT/SmallPtrSet.h" // Include for SmallPtrSet
+#include "llvm/IR/CallingConv.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
@@ -1226,34 +1227,120 @@ Value*processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
   return Result;
 }
 
+/// Check if a kernel argument type needs promotion to i32 for SPIR-V
+/// conformance. OpenCL requires kernel arguments to be at least 32 bits wide.
+static bool needsKernelArgPromotion(Type *T) {
+  if (auto *IntTy = dyn_cast<IntegerType>(T)) {
+    unsigned BW = IntTy->getBitWidth();
+    return BW < 32; // i1 (bool), i8 (char), i16 (short)
+  }
+  return false;
+}
+
+/// Promote narrow (< i32) integer kernel arguments to i32 for SPIR-V/OpenCL
+/// conformance. Creates a wrapper kernel with i32 args that truncates them
+/// back to the original type before calling the original function body.
+static bool promoteKernelArgs(Module &M) {
+  bool Changed = false;
+
+  SmallVector<Function *, 8> WorkList;
+  for (auto &F : M)
+    if (F.getCallingConv() == CallingConv::SPIR_KERNEL && !F.isDeclaration()) {
+      // Check if any argument needs promotion
+      for (const auto &Arg : F.args()) {
+        if (needsKernelArgPromotion(Arg.getType())) {
+          WorkList.push_back(&F);
+          break;
+        }
+      }
+    }
+
+  for (auto *F : WorkList) {
+    LLVM_DEBUG(dbgs() << "HipPromoteInts: Promoting narrow kernel args for "
+                      << F->getName() << "\n");
+
+    // Build new argument type list, promoting narrow ints to i32
+    SmallVector<Type *, 8> NewArgTys;
+    SmallVector<unsigned, 4> PromotedArgIndices;
+    for (auto &Arg : F->args()) {
+      if (needsKernelArgPromotion(Arg.getType())) {
+        NewArgTys.push_back(Type::getInt32Ty(M.getContext()));
+        PromotedArgIndices.push_back(Arg.getArgNo());
+      } else {
+        NewArgTys.push_back(Arg.getType());
+      }
+    }
+
+    // Create new kernel function with promoted signature
+    auto *NewFnTy =
+        FunctionType::get(F->getReturnType(), NewArgTys, F->isVarArg());
+    auto *NewF = Function::Create(NewFnTy, F->getLinkage(),
+                                  F->getAddressSpace(), "", F->getParent());
+    NewF->copyAttributesFrom(F);
+    NewF->takeName(F);
+
+    // Demote the original kernel to a regular internal function
+    F->setName(NewF->getName() + ".unpromoted");
+    F->setCallingConv(CallingConv::SPIR_FUNC);
+    F->setLinkage(GlobalValue::InternalLinkage);
+
+    // Build the wrapper body: truncate promoted args back, then call original
+    IRBuilder<> B(BasicBlock::Create(F->getContext(), "entry", NewF));
+    auto *RI = B.CreateRetVoid();
+    B.SetInsertPoint(RI);
+
+    SmallVector<Value *, 8> CallArgs;
+    for (auto &OrigArg : F->args()) {
+      auto *NewArg = NewF->getArg(OrigArg.getArgNo());
+      if (needsKernelArgPromotion(OrigArg.getType())) {
+        // Truncate i32 back to the original narrow type
+        auto *Trunc = B.CreateTrunc(NewArg, OrigArg.getType());
+        CallArgs.push_back(Trunc);
+        LLVM_DEBUG(dbgs() << "  Arg " << OrigArg.getArgNo() << ": "
+                          << *OrigArg.getType() << " -> i32 (with trunc)\n");
+      } else {
+        CallArgs.push_back(NewArg);
+      }
+    }
+
+    B.CreateCall(F, CallArgs);
+    Changed = true;
+  }
+
+  return Changed;
+}
+
 PreservedAnalyses HipPromoteIntsPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
+
+  // Promote narrow (i1, i8, i16) kernel arguments to i32 for SPIR-V/OpenCL
+  // conformance before doing anything else.
+  bool Changed = promoteKernelArgs(M);
+
   // First, check all function signatures for non-standard integer types
   for (Function &F : M) {
     // Check return type
     if (auto *IntTy = dyn_cast<IntegerType>(F.getReturnType())) {
       if (!isStandardBitWidth(IntTy->getBitWidth())) {
-        LLVM_DEBUG(dbgs() << "Function " << F.getName() 
-                  << " has non-standard integer return type i" 
+        LLVM_DEBUG(dbgs() << "Function " << F.getName()
+                  << " has non-standard integer return type i"
                   << IntTy->getBitWidth() << ". Aborting.\n");
-        return PreservedAnalyses::all();
+        return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
       }
     }
-    
+
     // Check parameter types
     for (const Argument &Arg : F.args()) {
       if (auto *IntTy = dyn_cast<IntegerType>(Arg.getType())) {
         if (!isStandardBitWidth(IntTy->getBitWidth())) {
-          LLVM_DEBUG(dbgs() << "Function " << F.getName() 
-                    << " has parameter with non-standard integer type i" 
+          LLVM_DEBUG(dbgs() << "Function " << F.getName()
+                    << " has parameter with non-standard integer type i"
                     << IntTy->getBitWidth() << ". Aborting.\n");
-          return PreservedAnalyses::all();
+          return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
         }
       }
     }
   }
-
-  bool Changed = false;
 
 
   for (Function &F : M) {
