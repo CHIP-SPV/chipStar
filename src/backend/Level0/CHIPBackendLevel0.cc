@@ -3113,6 +3113,8 @@ static void appendDeviceLibrarySources(
   else
     AppendSource(chipstar::atomicAddDouble_emulation);
 
+  AppendSource(chipstar::atomicMinMaxFloat_emulation);
+
   // OpGroupNonUniformBallot instructions seems to compile and work
   // despite not having ZE_extension_subgroups.
   AppendSource(chipstar::ballot_native);
