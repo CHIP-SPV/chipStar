@@ -35,6 +35,7 @@
 //===----------------------------------------------------------------------===//
 #include "HipIGBADetector.h"
 
+#include "../src/common.hh"
 #include "LLVMSPIRV.h"
 
 #include <llvm/IR/Function.h>
@@ -71,6 +72,15 @@ static bool hasPotentialIGBAs(Module &M) {
           // covered by the above check typically, but this is an additional guard).
           if (!Op->getType()->isIntegerTy())
             continue;
+          // Skip inttoptr of loads from __chip_var_* globals — these are the
+          // i64→ptr conversions emitted by HipGlobalVariablesPass for device
+          // variable access, not real indirect global buffer accesses.
+          if (auto *LI = dyn_cast<LoadInst>(Op)) {
+            Value *Src = LI->getPointerOperand();
+            if (Src && Src->hasName() &&
+                Src->getName().starts_with(ChipVarPrefix))
+              continue;
+          }
           LLVM_DEBUG(dbgs() << "Found genuine IntToPtrInst in function "
                             << F.getName() << ": " << *ITP << "\n");
           return true;
