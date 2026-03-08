@@ -142,7 +142,9 @@ void CHIPInitializeCallOnce() {
       if (Backend) delete Backend, Backend = nullptr;
     }
 #endif
-    return;
+    CHIPERR_LOG_AND_THROW(
+        "No backend could be initialized. Tried all compiled backends.",
+        hipErrorInitializationError);
   }
 
   try {
