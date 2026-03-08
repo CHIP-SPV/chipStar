@@ -15,8 +15,6 @@
 // ret zeroinitializer). Stubbing is transitive: non-kernel callers of stubbed
 // functions are also stubbed.
 //
-// Unresolved __chip_* function declarations are also stubbed.
-//
 // (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
 
@@ -58,13 +56,6 @@ static bool shouldRemoveGlobal(const GlobalVariable &GV) {
     return true;
 
   return false;
-}
-
-static bool shouldStubDeclaration(const Function &F) {
-  if (!F.isDeclaration())
-    return false;
-  StringRef Name = F.getName();
-  return Name.starts_with("__chip_");
 }
 
 // Replace the function body with `ret zeroinitializer` (or `ret void`).
@@ -145,20 +136,14 @@ PreservedAnalyses HipCleanupPass::run(Module &M, ModuleAnalysisManager &AM) {
       ToRemove.insert(&GV);
   }
 
-  // Step 2: Stub unresolved __chip_* function declarations.
+  // Step 2: Find functions that reference removed globals.
   SmallPtrSet<Function *, 16> ToStub;
-  for (auto &F : M) {
-    if (shouldStubDeclaration(F))
-      ToStub.insert(&F);
-  }
-
-  // Step 3: Find functions that reference removed globals.
   findDirectUsers(ToRemove, ToStub);
 
-  // Step 4: Transitively stub non-kernel callers.
+  // Step 3: Transitively stub non-kernel callers.
   transitivelyStubCallers(M, ToStub);
 
-  // Step 5: Stub the functions.
+  // Step 4: Stub the functions.
   for (auto *F : ToStub) {
     LLVM_DEBUG(dbgs() << "HipCleanup: stubbing function " << F->getName()
                       << "\n");
@@ -166,7 +151,7 @@ PreservedAnalyses HipCleanupPass::run(Module &M, ModuleAnalysisManager &AM) {
     ModuleChanged = true;
   }
 
-  // Step 6: Remove the globals.
+  // Step 5: Remove the globals.
   for (auto *GV : ToRemove) {
     LLVM_DEBUG(dbgs() << "HipCleanup: removing global " << GV->getName()
                       << "\n");
