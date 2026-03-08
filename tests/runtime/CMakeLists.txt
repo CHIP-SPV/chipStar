@@ -186,3 +186,10 @@ add_hip_runtime_test(TestHipLaunchHostFunc.cpp)
 add_hip_runtime_test(TestHipLaunchHostFuncMultiStream.cpp)
 set_tests_properties(TestHipLaunchHostFuncMultiStream PROPERTIES
   TIMEOUT 30)
+
+add_hip_runtime_test(TestDefaultBackend.cpp)
+add_test(NAME TestDefaultBackend_NoBE
+  COMMAND env -u CHIP_BE -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE
+    ${CMAKE_CURRENT_BINARY_DIR}/TestDefaultBackend)
+set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS")
