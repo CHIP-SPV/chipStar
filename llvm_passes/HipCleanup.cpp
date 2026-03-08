@@ -78,17 +78,24 @@ static void stubFunction(Function &F) {
   }
 }
 
-// Collect all functions that directly use any of the removed globals.
+// Collect all non-kernel functions that directly use any of the removed
+// globals.  Kernels are skipped — their individual uses are cleaned up in
+// Step 5 so that other stores (e.g. device-variable resets) are preserved.
 static void findDirectUsers(const SmallPtrSetImpl<GlobalVariable *> &Removed,
                             SmallPtrSetImpl<Function *> &ToStub) {
   for (auto *GV : Removed) {
     for (auto *U : GV->users()) {
       if (auto *I = dyn_cast<Instruction>(U)) {
-        ToStub.insert(I->getFunction());
+        Function *F = I->getFunction();
+        if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
+          ToStub.insert(F);
       } else if (auto *CE = dyn_cast<ConstantExpr>(U)) {
         for (auto *CEU : CE->users()) {
-          if (auto *I2 = dyn_cast<Instruction>(CEU))
-            ToStub.insert(I2->getFunction());
+          if (auto *I2 = dyn_cast<Instruction>(CEU)) {
+            Function *F = I2->getFunction();
+            if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
+              ToStub.insert(F);
+          }
         }
       }
     }
@@ -152,11 +159,30 @@ PreservedAnalyses HipCleanupPass::run(Module &M, ModuleAnalysisManager &AM) {
   }
 
   // Step 5: Remove the globals.
+  // First, delete all instructions that use the globals to avoid leaving
+  // poison values in kernels like __chip_reset_non_symbols.
   for (auto *GV : ToRemove) {
     LLVM_DEBUG(dbgs() << "HipCleanup: removing global " << GV->getName()
                       << "\n");
-    GV->replaceAllUsesWith(PoisonValue::get(GV->getType()));
-    GV->eraseFromParent();
+    SmallVector<Instruction *, 8> UsersToDelete;
+    for (auto *U : GV->users()) {
+      if (auto *I = dyn_cast<Instruction>(U))
+        UsersToDelete.push_back(I);
+      else if (auto *CE = dyn_cast<ConstantExpr>(U)) {
+        for (auto *CEU : CE->users())
+          if (auto *I2 = dyn_cast<Instruction>(CEU))
+            UsersToDelete.push_back(I2);
+      }
+    }
+    for (auto *I : UsersToDelete)
+      I->eraseFromParent();
+    GV->removeDeadConstantUsers();
+    if (GV->use_empty())
+      GV->eraseFromParent();
+    else {
+      GV->replaceAllUsesWith(PoisonValue::get(GV->getType()));
+      GV->eraseFromParent();
+    }
     ModuleChanged = true;
   }
 
