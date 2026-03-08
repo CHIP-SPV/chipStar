@@ -9,7 +9,7 @@
 // Removes chipStar/HIP internal globals that are not needed in the final
 // SPIR-V output:
 //   - __hip_cuid* and __hip_fatbin* (HIP compilation artifacts)
-//   - __chip_* globals that are NOT __chip_var_* (internal runtime markers)
+//   - __chipspv_device_heap (void* that clspv cannot handle)
 //
 // Functions that reference removed globals are stubbed (body replaced with
 // ret zeroinitializer). Stubbing is transitive: non-kernel callers of stubbed
@@ -52,15 +52,6 @@ static bool shouldRemoveGlobal(const GlobalVariable &GV) {
   // Keep __chip_module_has_no_IGBAs — consumed by runtime for IGBA detection
   if (Name == "__chip_module_has_no_IGBAs")
     return false;
-
-  // Keep __chip_spilled_args_* — used by HipKernelArgSpillerPass for kernels
-  // with too many arguments to fit in push constants
-  if (Name.starts_with(ChipSpilledArgsVarPrefix))
-    return false;
-
-  // Remove other __chip_* globals
-  if (Name.contains("__chip_"))
-    return true;
 
   // Remove HIP compilation artifacts
   if (Name.starts_with("__hip_cuid") || Name.starts_with("__hip_fatbin"))
