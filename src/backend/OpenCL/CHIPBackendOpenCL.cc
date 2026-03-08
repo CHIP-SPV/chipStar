@@ -960,6 +960,8 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
       AppendSource(chipstar::atomicAddDouble_emulation, "atomicAddDouble_emulation");
   }
 
+  AppendSource(chipstar::atomicMinMaxFloat_emulation, "atomicMinMaxFloat_emulation");
+
   if (ChipDev.hasBallot())
     AppendSource(chipstar::ballot_native, "ballot_native");
 

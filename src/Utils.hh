@@ -105,6 +105,8 @@ bool startsWith(std::string_view Str, std::string_view WithStr);
 /// Used to decide whether to append device library sources/link step.
 inline bool spirvNeedsRtdevlib(std::string_view Binary) {
   return Binary.find("__chip_atomic_add") != std::string_view::npos ||
+         Binary.find("__chip_atomic_max") != std::string_view::npos ||
+         Binary.find("__chip_atomic_min") != std::string_view::npos ||
          Binary.find("__chip_ballot") != std::string_view::npos;
 }
 
