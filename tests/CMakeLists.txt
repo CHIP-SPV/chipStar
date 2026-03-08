@@ -9,6 +9,8 @@ function(add_hip_test MAIN_SOURCE)
     PUBLIC ${CMAKE_SOURCE_DIR}/HIP/include ${CMAKE_SOURCE_DIR}/include)
 
   add_test(NAME ${EXEC_NAME} COMMAND ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
+  set_tests_properties("${EXEC_NAME}" PROPERTIES
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
   add_dependencies(build_tests "${EXEC_NAME}")
 endfunction()
 
