@@ -53,7 +53,12 @@ static bool shouldRemoveGlobal(const GlobalVariable &GV) {
   if (Name == "__chip_module_has_no_IGBAs")
     return false;
 
-  // Remove other __chip_* globals (e.g. __chip_clk_counter)
+  // Keep __chip_spilled_args_* — used by HipKernelArgSpillerPass for kernels
+  // with too many arguments to fit in push constants
+  if (Name.starts_with(ChipSpilledArgsVarPrefix))
+    return false;
+
+  // Remove other __chip_* globals
   if (Name.contains("__chip_"))
     return true;
 
