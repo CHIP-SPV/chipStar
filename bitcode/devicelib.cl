@@ -206,16 +206,19 @@ struct uchar2Holder {
 
 EXPORT unsigned int __chip_byte_perm(unsigned int x, unsigned int y,
                                      unsigned int s) {
+  // CUDA __byte_perm: forms an 8-byte array from {x, y} (x = bytes 0-3,
+  // y = bytes 4-7).  Each nibble of the selector 's' picks a byte from
+  // this array (only the low 3 bits of each nibble are significant).
+  // The previous implementation incorrectly used whole bytes of 's' as
+  // indices, causing out-of-bounds accesses for selectors > 0x07070707.
   struct uchar2Holder cHoldVal;
-  struct ucharHolder cHoldKey;
   struct ucharHolder cHoldOut;
-  cHoldKey.ui = s;
   cHoldVal.ui[0] = x;
   cHoldVal.ui[1] = y;
-  cHoldOut.c[0] = cHoldVal.c[cHoldKey.c[0]];
-  cHoldOut.c[1] = cHoldVal.c[cHoldKey.c[1]];
-  cHoldOut.c[2] = cHoldVal.c[cHoldKey.c[2]];
-  cHoldOut.c[3] = cHoldVal.c[cHoldKey.c[3]];
+  cHoldOut.c[0] = cHoldVal.c[(s >>  0) & 0x7];
+  cHoldOut.c[1] = cHoldVal.c[(s >>  4) & 0x7];
+  cHoldOut.c[2] = cHoldVal.c[(s >>  8) & 0x7];
+  cHoldOut.c[3] = cHoldVal.c[(s >> 12) & 0x7];
   return cHoldOut.ui;
 }
 

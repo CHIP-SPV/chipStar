@@ -198,3 +198,5 @@ add_test(NAME TestDefaultBackend_NoBE
     ${CMAKE_CURRENT_BINARY_DIR}/TestDefaultBackend)
 set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
+
+add_hip_runtime_test(TestHeCBenchF16Max.hip)
