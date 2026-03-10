@@ -456,7 +456,7 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
             // Handle string format specifier (%s, %-8s, %8.5s, %*s, etc.)
             // Three strategies:
             // 1. Bare %s with literal: inline content into format string
-            //    (avoids IGC bug with UniformConstant %s args)
+            //    (avoids address space mismatch — no pointer arg needed)
             // 2. %s with modifiers and literal: clone string to constant AS
             //    and keep the format specifier (lets OpenCL printf do formatting)
             // 3. Dynamic strings: use _cl_print_str to print char-by-char
