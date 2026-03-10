@@ -138,11 +138,6 @@ if (NOT "${DETECTED_ARCHITECTURE}" STREQUAL "riscv64")
   list(APPEND SAMPLES hipDeviceLink)
 endif()
 
-# Mali GPU does not support OpenCL printf.
-if (CHIP_MALI_GPU_WORKAROUNDS)
-  list(REMOVE_ITEM SAMPLES printf)
-endif()
-
 include(mkl_and_icpx)
 # Add samples that depend on Intel's oneAPI compiler - if available.
 if (SYCL_AVAILABLE)

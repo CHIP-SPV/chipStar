@@ -147,10 +147,7 @@ endif()
 add_subdirectory(rdcLink)
 add_test(NAME "TestHipccMultiSource" COMMAND 
   ${CMAKE_BINARY_DIR}/bin/hipcc ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
-# Mali GPU does not support OpenCL printf.
-if (NOT CHIP_MALI_GPU_WORKAROUNDS)
-  add_shell_test(TestPrintfStaticString.bash)
-endif()
+add_shell_test(TestPrintfStaticString.bash)
 
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
