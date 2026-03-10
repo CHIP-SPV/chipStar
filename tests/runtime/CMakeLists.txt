@@ -200,3 +200,4 @@ set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
 
 add_hip_runtime_test(TestHeCBenchF16Max.hip)
+add_hip_runtime_test(TestHeCBenchLebesgue.hip)
