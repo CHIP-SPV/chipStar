@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "HipAbort.h"
+#include "HipCleanup.h"
 #include "HipDefrost.h"
 #include "HipDynMem.h"
 #include "HipStripUsedIntrinsics.h"
@@ -189,6 +190,10 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // Fix InvalidBitWidth errors due to non-standard integer types
   addPassWithVerification(MPM, HipPromoteIntsPass(), "HipPromoteIntsPass");
+
+  // Must be last: removes __chip_*/__hip_* globals and stubs their users.
+  // Runs after HipIGBADetectorPass which creates __chip_module_has_no_IGBAs.
+  addPassWithVerification(MPM, HipCleanupPass(), "HipCleanupPass");
 
   // Final verification pass with summary printing
   MPM.addPass(HipVerifyPass("Post-HIP passes", true)); // true = print final summary
