@@ -29,6 +29,7 @@
 #define DEFAULT_AS __generic
 
 #define NOOPT __attribute__((optnone))
+#define NOINLINE __attribute__((noinline))
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
@@ -205,16 +206,19 @@ struct uchar2Holder {
 
 EXPORT unsigned int __chip_byte_perm(unsigned int x, unsigned int y,
                                      unsigned int s) {
+  // CUDA __byte_perm: forms an 8-byte array from {x, y} (x = bytes 0-3,
+  // y = bytes 4-7).  Each nibble of the selector 's' picks a byte from
+  // this array (only the low 3 bits of each nibble are significant).
+  // The previous implementation incorrectly used whole bytes of 's' as
+  // indices, causing out-of-bounds accesses for selectors > 0x07070707.
   struct uchar2Holder cHoldVal;
-  struct ucharHolder cHoldKey;
   struct ucharHolder cHoldOut;
-  cHoldKey.ui = s;
   cHoldVal.ui[0] = x;
   cHoldVal.ui[1] = y;
-  cHoldOut.c[0] = cHoldVal.c[cHoldKey.c[0]];
-  cHoldOut.c[1] = cHoldVal.c[cHoldKey.c[1]];
-  cHoldOut.c[2] = cHoldVal.c[cHoldKey.c[2]];
-  cHoldOut.c[3] = cHoldVal.c[cHoldKey.c[3]];
+  cHoldOut.c[0] = cHoldVal.c[(s >>  0) & 0x7];
+  cHoldOut.c[1] = cHoldVal.c[(s >>  4) & 0x7];
+  cHoldOut.c[2] = cHoldVal.c[(s >>  8) & 0x7];
+  cHoldOut.c[3] = cHoldVal.c[(s >> 12) & 0x7];
   return cHoldOut.ui;
 }
 
@@ -1070,254 +1074,6 @@ EXPORT OVLD void __chip_syncwarp() {
 #undef BINARY_FN
 
 
-typedef unsigned long __chip_obfuscated_ptr_t;
-
-union double_uint2 {
-    double d;
-    uint2 u2;
-};
-
-EXPORT double __chip_atomic_max_f64(__chip_obfuscated_ptr_t address, double val) {
-  volatile global double *gi = to_global((DEFAULT_AS double *)address);
-  if (gi) {
-    double old = *gi;
-    double assumed;
-    do {
-      assumed = old;
-      if (val > assumed) {
-        union double_uint2 old_u, assumed_u, val_u;
-        old_u.d = old;
-        assumed_u.d = assumed;
-        val_u.d = val;
-        
-        uint2 temp;
-        temp.x = atomic_cmpxchg((volatile global uint *)gi,
-                               assumed_u.u2.x,
-                               val_u.u2.x);
-        temp.y = atomic_cmpxchg((volatile global uint *)((global uint *)gi + 1),
-                               assumed_u.u2.y,
-                               val_u.u2.y);
-        
-        union double_uint2 result;
-        result.u2 = temp;
-        old = result.d;
-      } else {
-        break;
-      }
-    } while (assumed != old);
-    return old;
-  }
-  volatile local double *li = to_local((DEFAULT_AS double *)address);
-  if (li) {
-    double old = *li;
-    double assumed;
-    do {
-      assumed = old;
-      if (val > assumed) {
-        union double_uint2 old_u, assumed_u, val_u;
-        old_u.d = old;
-        assumed_u.d = assumed;
-        val_u.d = val;
-        
-        uint2 temp;
-        temp.x = atomic_cmpxchg((volatile local uint *)li,
-                               assumed_u.u2.x,
-                               val_u.u2.x);
-        temp.y = atomic_cmpxchg((volatile local uint *)((local uint *)li + 1),
-                               assumed_u.u2.y,
-                               val_u.u2.y);
-        
-        union double_uint2 result;
-        result.u2 = temp;
-        old = result.d;
-      } else {
-        break;
-      }
-    } while (assumed != old);
-    return old;
-  }
-  return 0;
-}
-
-EXPORT double __chip_atomic_min_f64(__chip_obfuscated_ptr_t address, double val) {
-  volatile global double *gi = to_global((DEFAULT_AS double *)address);
-  if (gi) {
-    double old = *gi;
-    double assumed;
-    do {
-      assumed = old;
-      if (val < assumed) {
-        union double_uint2 old_u, assumed_u, val_u;
-        old_u.d = old;
-        assumed_u.d = assumed;
-        val_u.d = val;
-        
-        uint2 temp;
-        temp.x = atomic_cmpxchg((volatile global uint *)gi,
-                               assumed_u.u2.x,
-                               val_u.u2.x);
-        temp.y = atomic_cmpxchg((volatile global uint *)((global uint *)gi + 1),
-                               assumed_u.u2.y,
-                               val_u.u2.y);
-        
-        union double_uint2 result;
-        result.u2 = temp;
-        old = result.d;
-      } else {
-        break;
-      }
-    } while (assumed != old);
-    return old;
-  }
-  volatile local double *li = to_local((DEFAULT_AS double *)address);
-  if (li) {
-    double old = *li;
-    double assumed;
-    do {
-      assumed = old;
-      if (val < assumed) {
-        union double_uint2 old_u, assumed_u, val_u;
-        old_u.d = old;
-        assumed_u.d = assumed;
-        val_u.d = val;
-        
-        uint2 temp;
-        temp.x = atomic_cmpxchg((volatile local uint *)li,
-                               assumed_u.u2.x,
-                               val_u.u2.x);
-        temp.y = atomic_cmpxchg((volatile local uint *)((local uint *)li + 1),
-                               assumed_u.u2.y,
-                               val_u.u2.y);
-        
-        union double_uint2 result;
-        result.u2 = temp;
-        old = result.d;
-      } else {
-        break;
-      }
-    } while (assumed != old);
-    return old;
-  }
-  return 0;
-}
-
-// Helper union for float-uint conversion
-union float_uint {
-    float f;
-    uint u;
-};
-
-// Atomic max for float
-EXPORT float __chip_atomic_max_f32(__chip_obfuscated_ptr_t address, float val) {
-  volatile global float *gi = to_global((DEFAULT_AS float *)address);
-  if (gi) {
-    float old = *gi;
-    float assumed;
-    do {
-      assumed = old;
-      if (val > assumed) {
-        union float_uint old_u, assumed_u, val_u;
-        old_u.f = old;
-        assumed_u.f = assumed;
-        val_u.f = val;
-        
-        uint temp = atomic_cmpxchg((volatile global uint *)gi,
-                                 assumed_u.u,
-                                 val_u.u);
-        
-        union float_uint result;
-        result.u = temp;
-        old = result.f;
-      } else {
-        break;
-      }
-    } while (assumed != old);
-    return old;
-  }
-  volatile local float *li = to_local((DEFAULT_AS float *)address);
-  if (li) {
-    float old = *li;
-    float assumed;
-    do {
-      assumed = old;
-      if (val > assumed) {
-        union float_uint old_u, assumed_u, val_u;
-        old_u.f = old;
-        assumed_u.f = assumed;
-        val_u.f = val;
-        
-        uint temp = atomic_cmpxchg((volatile local uint *)li,
-                                 assumed_u.u,
-                                 val_u.u);
-        
-        union float_uint result;
-        result.u = temp;
-        old = result.f;
-      } else {
-        break;
-      }
-    } while (assumed != old);
-    return old;
-  }
-  return 0;
-}
-
-// Atomic min for float
-EXPORT float __chip_atomic_min_f32(__chip_obfuscated_ptr_t address, float val) {
-  volatile global float *gi = to_global((DEFAULT_AS float *)address);
-  if (gi) {
-    float old = *gi;
-    float assumed;
-    do {
-      assumed = old;
-      if (val < assumed) {
-        union float_uint old_u, assumed_u, val_u;
-        old_u.f = old;
-        assumed_u.f = assumed;
-        val_u.f = val;
-        
-        uint temp = atomic_cmpxchg((volatile global uint *)gi,
-                                 assumed_u.u,
-                                 val_u.u);
-        
-        union float_uint result;
-        result.u = temp;
-        old = result.f;
-      } else {
-        break;
-      }
-    } while (assumed != old);
-    return old;
-  }
-  volatile local float *li = to_local((DEFAULT_AS float *)address);
-  if (li) {
-    float old = *li;
-    float assumed;
-    do {
-      assumed = old;
-      if (val < assumed) {
-        union float_uint old_u, assumed_u, val_u;
-        old_u.f = old;
-        assumed_u.f = assumed;
-        val_u.f = val;
-        
-        uint temp = atomic_cmpxchg((volatile local uint *)li,
-                                 assumed_u.u,
-                                 val_u.u);
-        
-        union float_uint result;
-        result.u = temp;
-        old = result.f;
-      } else {
-        break;
-      }
-    } while (assumed != old);
-    return old;
-  }
-  return 0;
-}
-
-
 EXPORT float __chip_int_as_float(int x) { return as_float(x); }
 EXPORT int __chip_float_as_int(float x) { return as_int(x); }
 EXPORT float __chip_uint_as_float(uint x) { return as_float(x); }
@@ -1328,7 +1084,7 @@ EXPORT double __chip_longlong_as_double(long int x) { return as_double(x); }
 
 
 // Returns the high 32 bits of a double as an integer
-EXPORT int __chip_double2hiint(double x) {
+EXPORT NOINLINE int __chip_double2hiint(double x) {
   union {
     double d;
     ulong i;
@@ -1339,7 +1095,7 @@ EXPORT int __chip_double2hiint(double x) {
 
 // Type casting functions with proper rounding modes
 // double -> float conversions (manual rounding implementation)
-EXPORT float __chip_double2float_rd(double a) {
+EXPORT NOINLINE float __chip_double2float_rd(double a) {
     ulong u = as_ulong(a);
     ulong um = u & 0xfffffffffffffUL;
     int e = (int)((u >> 52) & 0x7ff) - 1023 + 127;
@@ -1358,11 +1114,11 @@ EXPORT float __chip_double2float_rd(double a) {
     return as_float(s | v);
 }
 
-EXPORT float __chip_double2float_rn(double x) {
+EXPORT NOINLINE float __chip_double2float_rn(double x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_double2float_ru(double a) {
+EXPORT NOINLINE float __chip_double2float_ru(double a) {
     ulong u = as_ulong(a);
     ulong um = u & 0xfffffffffffffUL;
     int e = (int)((u >> 52) & 0x7ff) - 1023 + 127;
@@ -1381,7 +1137,7 @@ EXPORT float __chip_double2float_ru(double a) {
     return as_float(s | v);
 }
 
-EXPORT float __chip_double2float_rz(double a) {
+EXPORT NOINLINE float __chip_double2float_rz(double a) {
     ulong u = as_ulong(a);
     ulong um = u & 0xfffffffffffffUL;
     int e = (int)((u >> 52) & 0x7ff) - 1023 + 127;
@@ -1397,72 +1153,72 @@ EXPORT float __chip_double2float_rz(double a) {
     return as_float(s | v);
 }
 
-EXPORT int __chip_double2int_rd(double x) {
+EXPORT NOINLINE int __chip_double2int_rd(double x) {
     return (int)floor(x);  // Round down
 }
 
-EXPORT int __chip_double2int_rn(double x) {
+EXPORT NOINLINE int __chip_double2int_rn(double x) {
     return (int)rint(x);  // Round to nearest even
 }
 
-EXPORT int __chip_double2int_ru(double x) {
+EXPORT NOINLINE int __chip_double2int_ru(double x) {
     return (int)ceil(x);  // Round up
 }
 
-EXPORT int __chip_double2int_rz(double x) {
+EXPORT NOINLINE int __chip_double2int_rz(double x) {
     return (int)trunc(x);  // Round toward zero
 }
 
-EXPORT long __chip_double2ll_rd(double x) {
+EXPORT NOINLINE long __chip_double2ll_rd(double x) {
     return (long)floor(x);
 }
 
-EXPORT long __chip_double2ll_rn(double x) {
+EXPORT NOINLINE long __chip_double2ll_rn(double x) {
     return (long)rint(x);
 }
 
-EXPORT long __chip_double2ll_ru(double x) {
+EXPORT NOINLINE long __chip_double2ll_ru(double x) {
     return (long)ceil(x);
 }
 
-EXPORT long __chip_double2ll_rz(double x) {
+EXPORT NOINLINE long __chip_double2ll_rz(double x) {
     return (long)trunc(x);
 }
 
-EXPORT unsigned int __chip_double2uint_rd(double x) {
+EXPORT NOINLINE unsigned int __chip_double2uint_rd(double x) {
     return (unsigned int)max(0.0, floor(x));  // Round down, clamp to 0
 }
 
-EXPORT unsigned int __chip_double2uint_rn(double x) {
+EXPORT NOINLINE unsigned int __chip_double2uint_rn(double x) {
     return (unsigned int)max(0.0, rint(x));  // Round to nearest even, clamp to 0
 }
 
-EXPORT unsigned int __chip_double2uint_ru(double x) {
+EXPORT NOINLINE unsigned int __chip_double2uint_ru(double x) {
     return (unsigned int)max(0.0, ceil(x));  // Round up, clamp to 0
 }
 
-EXPORT unsigned int __chip_double2uint_rz(double x) {
+EXPORT NOINLINE unsigned int __chip_double2uint_rz(double x) {
     return (unsigned int)max(0.0, trunc(x));  // Round toward zero, clamp to 0
 }
 
-EXPORT ulong __chip_double2ull_rd(double x) {
+EXPORT NOINLINE ulong __chip_double2ull_rd(double x) {
     return (ulong)max(0.0, floor(x));
 }
 
-EXPORT ulong __chip_double2ull_rn(double x) {
+EXPORT NOINLINE ulong __chip_double2ull_rn(double x) {
     return (ulong)max(0.0, rint(x));
 }
 
-EXPORT ulong __chip_double2ull_ru(double x) {
+EXPORT NOINLINE ulong __chip_double2ull_ru(double x) {
     return (ulong)max(0.0, ceil(x));
 }
 
-EXPORT ulong __chip_double2ull_rz(double x) {
+EXPORT NOINLINE ulong __chip_double2ull_rz(double x) {
     return (ulong)max(0.0, trunc(x));
 }
 
 // int -> float conversions (manual rounding implementation)
-EXPORT float __chip_int2float_rd(int i) {
+EXPORT NOINLINE float __chip_int2float_rd(int i) {
     int s = i >> 31;
     uint u = as_uint((i + s) ^ s);
     uint lz = clz(u);
@@ -1474,11 +1230,11 @@ EXPORT float __chip_int2float_rd(int i) {
     return as_float((u + ((s & t) > 0)) | (s & 0x80000000));
 }
 
-EXPORT float __chip_int2float_rn(int x) {
+EXPORT NOINLINE float __chip_int2float_rn(int x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_int2float_ru(int i) {
+EXPORT NOINLINE float __chip_int2float_ru(int i) {
     int s = i >> 31;
     uint u = as_uint((i + s) ^ s);
     uint lz = clz(u);
@@ -1490,7 +1246,7 @@ EXPORT float __chip_int2float_ru(int i) {
     return as_float((u + ((~s & t) > 0)) | (s & 0x80000000));
 }
 
-EXPORT float __chip_int2float_rz(int i) {
+EXPORT NOINLINE float __chip_int2float_rz(int i) {
     int s = i >> 31;
     uint u = as_uint((i + s) ^ s);
     uint lz = clz(u);
@@ -1503,7 +1259,7 @@ EXPORT float __chip_int2float_rz(int i) {
 
 // uint -> float conversions (manual rounding implementation)
 // For uint, rtn and rtz are the same (truncate)
-EXPORT float __chip_uint2float_rd(uint u) {
+EXPORT NOINLINE float __chip_uint2float_rd(uint u) {
     uint lz = clz(u);
     uint e = 127U + 31U - lz;
     e = u ? e : 0;
@@ -1511,11 +1267,11 @@ EXPORT float __chip_uint2float_rd(uint u) {
     return as_float((e << 23) | (u >> 8));
 }
 
-EXPORT float __chip_uint2float_rn(unsigned int x) {
+EXPORT NOINLINE float __chip_uint2float_rn(unsigned int x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_uint2float_ru(uint u) {
+EXPORT NOINLINE float __chip_uint2float_ru(uint u) {
     uint lz = clz(u);
     uint e = 127U + 31U - lz;
     e = u ? e : 0;
@@ -1526,7 +1282,7 @@ EXPORT float __chip_uint2float_ru(uint u) {
     return as_float(u + (t > 0));
 }
 
-EXPORT float __chip_uint2float_rz(uint u) {
+EXPORT NOINLINE float __chip_uint2float_rz(uint u) {
     uint lz = clz(u);
     uint e = 127U + 31U - lz;
     e = u ? e : 0;
@@ -1535,7 +1291,7 @@ EXPORT float __chip_uint2float_rz(uint u) {
 }
 
 // long -> float conversions (manual rounding implementation)
-EXPORT float __chip_ll2float_rd(long l) {
+EXPORT NOINLINE float __chip_ll2float_rd(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1547,11 +1303,11 @@ EXPORT float __chip_ll2float_rd(long l) {
     return as_float((v + ((s & t) > 0)) | ((uint)s & 0x80000000));
 }
 
-EXPORT float __chip_ll2float_rn(long x) {
+EXPORT NOINLINE float __chip_ll2float_rn(long x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_ll2float_ru(long l) {
+EXPORT NOINLINE float __chip_ll2float_ru(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1563,7 +1319,7 @@ EXPORT float __chip_ll2float_ru(long l) {
     return as_float((v + ((~s & t) > 0)) | ((uint)s & 0x80000000));
 }
 
-EXPORT float __chip_ll2float_rz(long l) {
+EXPORT NOINLINE float __chip_ll2float_rz(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1576,7 +1332,7 @@ EXPORT float __chip_ll2float_rz(long l) {
 
 // ulong -> float conversions (manual rounding implementation)
 // For ulong, rtn and rtz are the same (truncate)
-EXPORT float __chip_ull2float_rd(ulong u) {
+EXPORT NOINLINE float __chip_ull2float_rd(ulong u) {
     uint lz = clz(u);
     uint e = 127U + 63U - lz;
     e = u ? e : 0;
@@ -1584,11 +1340,11 @@ EXPORT float __chip_ull2float_rd(ulong u) {
     return as_float((e << 23) | (uint)(u >> 40));
 }
 
-EXPORT float __chip_ull2float_rn(ulong x) {
+EXPORT NOINLINE float __chip_ull2float_rn(ulong x) {
     return convert_float(x);
 }
 
-EXPORT float __chip_ull2float_ru(ulong u) {
+EXPORT NOINLINE float __chip_ull2float_ru(ulong u) {
     uint lz = clz(u);
     uint e = 127U + 63U - lz;
     e = u ? e : 0;
@@ -1599,7 +1355,7 @@ EXPORT float __chip_ull2float_ru(ulong u) {
     return as_float(v + (t > 0));
 }
 
-EXPORT float __chip_ull2float_rz(ulong u) {
+EXPORT NOINLINE float __chip_ull2float_rz(ulong u) {
     uint lz = clz(u);
     uint e = 127U + 63U - lz;
     e = u ? e : 0;
@@ -1607,7 +1363,7 @@ EXPORT float __chip_ull2float_rz(ulong u) {
     return as_float((e << 23) | (uint)(u >> 40));
 }
 
-EXPORT int __chip_double2loint(double x) {
+EXPORT NOINLINE int __chip_double2loint(double x) {
     union {
         double d;
         struct {
@@ -1619,7 +1375,7 @@ EXPORT int __chip_double2loint(double x) {
     return u.i.lo;
 }
 
-EXPORT double __chip_hiloint2double(int hi, int lo) {
+EXPORT NOINLINE double __chip_hiloint2double(int hi, int lo) {
     union {
         double d;
         struct {
@@ -1632,12 +1388,12 @@ EXPORT double __chip_hiloint2double(int hi, int lo) {
     return u.d;
 }
 
-EXPORT double __chip_int2double_rn(int x) {
+EXPORT NOINLINE double __chip_int2double_rn(int x) {
     return (double)x;
 }
 
 // long -> double conversions (manual rounding implementation)
-EXPORT double __chip_ll2double_rd(long l) {
+EXPORT NOINLINE double __chip_ll2double_rd(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1649,11 +1405,11 @@ EXPORT double __chip_ll2double_rd(long l) {
     return as_double((u + ((s & t) > 0)) | ((ulong)s & 0x8000000000000000UL));
 }
 
-EXPORT double __chip_ll2double_rn(long x) {
+EXPORT NOINLINE double __chip_ll2double_rn(long x) {
     return convert_double(x);
 }
 
-EXPORT double __chip_ll2double_ru(long l) {
+EXPORT NOINLINE double __chip_ll2double_ru(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1665,7 +1421,7 @@ EXPORT double __chip_ll2double_ru(long l) {
     return as_double((u + ((~s & t) > 0)) | ((ulong)s & 0x8000000000000000UL));
 }
 
-EXPORT double __chip_ll2double_rz(long l) {
+EXPORT NOINLINE double __chip_ll2double_rz(long l) {
     long s = l >> 63;
     ulong u = as_ulong((l + s) ^ s);
     uint lz = clz(u);
@@ -1676,13 +1432,13 @@ EXPORT double __chip_ll2double_rz(long l) {
     return as_double(u | ((ulong)s & 0x8000000000000000UL));
 }
 
-EXPORT double __chip_uint2double_rn(unsigned int x) {
+EXPORT NOINLINE double __chip_uint2double_rn(unsigned int x) {
     return (double)x;
 }
 
 // ulong -> double conversions (manual rounding implementation)
 // For ulong, rtn and rtz are the same (truncate)
-EXPORT double __chip_ull2double_rd(ulong u) {
+EXPORT NOINLINE double __chip_ull2double_rd(ulong u) {
     uint lz = clz(u);
     uint e = 1023U + 63U - lz;
     e = u ? e : 0;
@@ -1690,11 +1446,11 @@ EXPORT double __chip_ull2double_rd(ulong u) {
     return as_double(((ulong)e << 52) | (u >> 11));
 }
 
-EXPORT double __chip_ull2double_rn(ulong x) {
+EXPORT NOINLINE double __chip_ull2double_rn(ulong x) {
     return convert_double(x);
 }
 
-EXPORT double __chip_ull2double_ru(ulong u) {
+EXPORT NOINLINE double __chip_ull2double_ru(ulong u) {
     uint lz = clz(u);
     uint e = 1023U + 63U - lz;
     e = u ? e : 0;
@@ -1705,7 +1461,7 @@ EXPORT double __chip_ull2double_ru(ulong u) {
     return as_double(u + (t > 0UL));
 }
 
-EXPORT double __chip_ull2double_rz(ulong u) {
+EXPORT NOINLINE double __chip_ull2double_rz(ulong u) {
     uint lz = clz(u);
     uint e = 1023U + 63U - lz;
     e = u ? e : 0;
@@ -1713,67 +1469,67 @@ EXPORT double __chip_ull2double_rz(ulong u) {
     return as_double(((ulong)e << 52) | (u >> 11));
 }
 
-EXPORT int __chip_float2int_rd(float x) {
+EXPORT NOINLINE int __chip_float2int_rd(float x) {
     return (int)floor(x);  // Round down
 }
 
-EXPORT int __chip_float2int_rn(float x) {
+EXPORT NOINLINE int __chip_float2int_rn(float x) {
     return (int)rint(x);  // Round to nearest even
 }
 
-EXPORT int __chip_float2int_ru(float x) {
+EXPORT NOINLINE int __chip_float2int_ru(float x) {
     return (int)ceil(x);  // Round up
 }
 
-EXPORT int __chip_float2int_rz(float x) {
+EXPORT NOINLINE int __chip_float2int_rz(float x) {
     return (int)trunc(x);  // Round toward zero
 }
 
-EXPORT long __chip_float2ll_rd(float x) {
+EXPORT NOINLINE long __chip_float2ll_rd(float x) {
     return (long)floor(x);
 }
 
-EXPORT long __chip_float2ll_rn(float x) {
+EXPORT NOINLINE long __chip_float2ll_rn(float x) {
     return (long)rint(x);
 }
 
-EXPORT long __chip_float2ll_ru(float x) {
+EXPORT NOINLINE long __chip_float2ll_ru(float x) {
     return (long)ceil(x);
 }
 
-EXPORT long __chip_float2ll_rz(float x) {
+EXPORT NOINLINE long __chip_float2ll_rz(float x) {
     return (long)trunc(x);
 }
 
-EXPORT unsigned int __chip_float2uint_rd(float x) {
+EXPORT NOINLINE unsigned int __chip_float2uint_rd(float x) {
     return (unsigned int)max(0.0f, floor(x));  // Round down, clamp to 0
 }
 
-EXPORT unsigned int __chip_float2uint_rn(float x) {
+EXPORT NOINLINE unsigned int __chip_float2uint_rn(float x) {
     return (unsigned int)max(0.0f, rint(x));  // Round to nearest even, clamp to 0
 }
 
-EXPORT unsigned int __chip_float2uint_ru(float x) {
+EXPORT NOINLINE unsigned int __chip_float2uint_ru(float x) {
     return (unsigned int)max(0.0f, ceil(x));  // Round up, clamp to 0
 }
 
-EXPORT unsigned int __chip_float2uint_rz(float x) {
+EXPORT NOINLINE unsigned int __chip_float2uint_rz(float x) {
     return (unsigned int)max(0.0f, trunc(x));  // Round toward zero, clamp to 0
 }
 
-EXPORT ulong __chip_float2ull_rd(float x) {
+EXPORT NOINLINE ulong __chip_float2ull_rd(float x) {
     return (ulong)max(0.0f, floor(x));
 }
 
-EXPORT ulong __chip_float2ull_rn(float x) {
+EXPORT NOINLINE ulong __chip_float2ull_rn(float x) {
     return (ulong)max(0.0f, rint(x));
 }
 
-EXPORT ulong __chip_float2ull_ru(float x) {
+EXPORT NOINLINE ulong __chip_float2ull_ru(float x) {
     return (ulong)max(0.0f, ceil(x));
 }
 
-EXPORT ulong __chip_float2ull_rz(float x) {
+EXPORT NOINLINE ulong __chip_float2ull_rz(float x) {
     return (ulong)max(0.0f, trunc(x));
 }
 

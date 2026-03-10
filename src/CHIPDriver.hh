@@ -232,7 +232,7 @@ private:
   int PlatformIdx_ = 0;
   DeviceType Device_{DeviceType::GPU};
   int DeviceIdx_ = 0;
-  BackendType Backend_{BackendType::OpenCL};
+  BackendType Backend_;
   bool DumpSpirv_ = false;
   bool SaveTemps_ = false;
   bool SkipUninit_ = false;

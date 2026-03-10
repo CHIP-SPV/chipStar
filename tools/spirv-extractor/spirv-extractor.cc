@@ -95,6 +95,13 @@ int main(int argc, char *argv[]) {
   std::string_view spirvBinary = extractSPIRVModule(buffer.data(), errorMsg);
 
   if (spirvBinary.empty()) {
+    if (checkForDoubles) {
+      // Can't extract SPIR-V (e.g. hipRTC test) — run the binary anyway.
+      std::string command = fatbinaryPath;
+      for (const auto &arg : additionalArgs)
+        command += " " + arg;
+      return system(command.c_str());
+    }
     std::cerr << "Failed to extract SPIR-V binary from the fatbinary: "
               << errorMsg << std::endl;
     return 1;
