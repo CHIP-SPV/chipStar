@@ -336,10 +336,16 @@ static bool shouldLower(const GlobalVariable &GVar) {
 #endif
     return false;  // Already lowered.
 
+  // __chipspv_device_heap is a pointer-typed global from the device malloc
+  // bitcode. It may not be externally_initialized (the bitcode defines it as a
+  // regular global), but we still need to lower it to i64 so clspv can handle
+  // it. Accept it by name regardless of externally_initialized.
+  bool IsDeviceHeap = (GVar.getName() == ChipDeviceHeapName);
+
   // All host accessible global device variables are marked to be externally
   // initialized. For templated variables, we allow COMDAT linkage.
-  if (!GVar.isExternallyInitialized()) {
-    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName() 
+  if (!IsDeviceHeap && !GVar.isExternallyInitialized()) {
+    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName()
                       << " - not externally initialized\n");
     return false;
   }
@@ -532,8 +538,15 @@ static bool lowerGlobalVariables(Module &M) {
     for (auto Kv : GVarMap) {
       emitGlobalVarInfoShadowKernel(M, Kv.first);
       emitGlobalVarBindShadowKernel(M, Kv.second, Kv.first);
-      if (Kv.first->hasInitializer())
-        emitGlobalVarInitShadowKernel(M, Kv.second, Kv.first, GVarMap);
+      if (Kv.first->hasInitializer()) {
+        // Skip init kernel only for __chipspv_device_heap which has a
+        // pointer-typed null initializer that clspv cannot handle.
+        bool IsDeviceHeapNull =
+            Kv.first->getName() == ChipDeviceHeapName &&
+            Kv.first->getInitializer()->isNullValue();
+        if (!IsDeviceHeapNull)
+          emitGlobalVarInitShadowKernel(M, Kv.second, Kv.first, GVarMap);
+      }
     }
     replaceGlobalVariableUses(GVarMap);
     eraseMappedGlobalVariables(GVarMap);
