@@ -168,18 +168,21 @@ PreservedAnalyses HipCleanupPass::run(Module &M, ModuleAnalysisManager &AM) {
   for (auto *GV : ToRemove) {
     LLVM_DEBUG(dbgs() << "HipCleanup: removing global " << GV->getName()
                       << "\n");
-    SmallVector<Instruction *, 8> UsersToDelete;
+    SmallPtrSet<Instruction *, 8> UsersToDelete;
     for (auto *U : GV->users()) {
       if (auto *I = dyn_cast<Instruction>(U))
-        UsersToDelete.push_back(I);
+        UsersToDelete.insert(I);
       else if (auto *CE = dyn_cast<ConstantExpr>(U)) {
         for (auto *CEU : CE->users())
           if (auto *I2 = dyn_cast<Instruction>(CEU))
-            UsersToDelete.push_back(I2);
+            UsersToDelete.insert(I2);
       }
     }
-    for (auto *I : UsersToDelete)
+    for (auto *I : UsersToDelete) {
+      if (!I->use_empty())
+        I->replaceAllUsesWith(PoisonValue::get(I->getType()));
       I->eraseFromParent();
+    }
     GV->removeDeadConstantUsers();
     if (GV->use_empty())
       GV->eraseFromParent();
