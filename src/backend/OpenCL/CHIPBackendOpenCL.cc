@@ -37,6 +37,15 @@
 // Global mutex to protect against Intel OpenCL driver threading issues
 static std::mutex g_intel_opencl_driver_mutex;
 
+// Callback for cl_arm_printf extension: forwards device printf output to stdout.
+static void CL_CALLBACK armPrintfCallback(const char *Buffer, size_t Len,
+                                          size_t Complete, void *UserData) {
+  (void)Complete;
+  (void)UserData;
+  fwrite(Buffer, 1, Len, stdout);
+  fflush(stdout);
+}
+
 std::vector<cl_event>
 getOpenCLHandles(const chipstar::SharedEventVector &ChipEvents) {
   std::vector<cl_event> Result;
@@ -2796,7 +2805,26 @@ void CHIPBackendOpenCL::initializeImpl() {
   // Create context with the selected device. Using a single device is required
   // for OpenCL implementations like clvk that only support single-device
   // contexts, and chipStar only uses one device anyway (see TODO below).
-  cl::Context Ctx(Device);
+
+  // If the device supports cl_arm_printf, register a printf callback via
+  // context properties so that kernel printf output is forwarded to stdout.
+  // This is required for Mali GPUs which only support printf through this
+  // vendor extension.
+  std::string DevExtsForCtx = Device.getInfo<CL_DEVICE_EXTENSIONS>();
+  cl_context_properties ArmPrintfProps[] = {
+      CL_PRINTF_CALLBACK_ARM,
+      (cl_context_properties)armPrintfCallback,
+      CL_PRINTF_BUFFERSIZE_ARM,
+      (cl_context_properties)0x100000,
+      CL_CONTEXT_PLATFORM,
+      (cl_context_properties)SelectedPlatform(),
+      0};
+  bool HasArmPrintf =
+      DevExtsForCtx.find("cl_arm_printf") != std::string::npos;
+  cl_context_properties *CtxProps = HasArmPrintf ? ArmPrintfProps : nullptr;
+  if (HasArmPrintf)
+    logInfo("Device supports cl_arm_printf; enabling printf callback.");
+  cl::Context Ctx(Device, CtxProps);
   CHIPContextOpenCL *ChipContext =
       new CHIPContextOpenCL(Ctx, Device, SelectedPlatform);
   ::Backend->addContext(ChipContext);
