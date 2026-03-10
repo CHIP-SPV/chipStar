@@ -55,6 +55,10 @@ static bool shouldRemoveGlobal(const GlobalVariable &GV) {
   if (Name.starts_with("__hip_cuid") || Name.starts_with("__hip_fatbin"))
     return true;
 
+  // Remove __chipspv_device_heap — clspv cannot handle pointer-typed globals
+  if (Name == "__chipspv_device_heap")
+    return true;
+
   return false;
 }
 
