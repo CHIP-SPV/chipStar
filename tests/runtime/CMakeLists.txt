@@ -199,4 +199,8 @@ add_test(NAME TestDefaultBackend_NoBE
 set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
 
+add_hip_runtime_test(TestGpuHangcheckRecovery.hip)
+set_tests_properties(TestGpuHangcheckRecovery PROPERTIES
+  TIMEOUT 60)
+
 add_hip_runtime_test(TestHeCBenchF16Max.hip)
