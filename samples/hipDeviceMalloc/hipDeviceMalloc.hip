@@ -107,6 +107,13 @@ void test2(int size, int stress_iterations);
 
 int main()
 {
+    hipDeviceProp_t devProp;
+    hipGetDeviceProperties(&devProp, 0);
+    if (!devProp.canMapHostMemory) {
+        printf("HIP_SKIP_THIS_TEST\n");
+        return 0;
+    }
+
     const int size = 100;  // Reduced problem size
     const int stress_iterations = 10000;
     

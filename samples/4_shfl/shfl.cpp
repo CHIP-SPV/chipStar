@@ -72,6 +72,10 @@ int main() {
 
     hipDeviceProp_t devProp;
     HIPCHECK(hipGetDeviceProperties(&devProp, 0));
+    if (!devProp.canMapHostMemory) {
+        printf("HIP_SKIP_THIS_TEST\n");
+        return 0;
+    }
 
     std::cout << "Device name " << devProp.name << std::endl;
 

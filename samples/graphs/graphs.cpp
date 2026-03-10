@@ -139,6 +139,13 @@ void case2() {
 }
 
 int main(int argc, char **argv) {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
+
   case1();
   // case2();
 }

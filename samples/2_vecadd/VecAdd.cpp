@@ -261,6 +261,10 @@ int main() {
 
   hipDeviceProp_t devProp;
   hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
 
   std::cerr << std::hexfloat;
 

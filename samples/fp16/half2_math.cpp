@@ -181,6 +181,12 @@ __global__ void half_ne(const half2 *x, const half2 *y, half2 *z) {
 
 
 int main(void) {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
 
   const int n = 65536;
   const int blockSize = 128;

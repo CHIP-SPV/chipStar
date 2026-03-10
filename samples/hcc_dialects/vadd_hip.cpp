@@ -34,6 +34,13 @@ __global__ void vadd_hip(const float* a, const float* b, float* c, int N) {
 
 
 int main(int argc, char* argv[]) {
+    hipDeviceProp_t devProp;
+    hipGetDeviceProperties(&devProp, 0);
+    if (!devProp.canMapHostMemory) {
+        printf("HIP_SKIP_THIS_TEST\n");
+        return 0;
+    }
+
     int sizeElements = 1000000;
     size_t sizeBytes = sizeElements * sizeof(float);
     bool pass = true;

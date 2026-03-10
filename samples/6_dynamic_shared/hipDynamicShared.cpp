@@ -183,6 +183,13 @@ template <typename T> size_t testExternShared(size_t N, size_t groupElements) {
 }
 
 int main(int argc, char *argv[]) {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
+
   size_t errors = 0;
 
   errors += testExternShared<float>(1024, 4);

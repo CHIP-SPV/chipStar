@@ -1,4 +1,5 @@
 #include <hip/hip_runtime.h>
+#include <cstdio>
 #include <iostream>
 static constexpr auto LEN{1};
 static constexpr auto SIZE{LEN * sizeof(int)};
@@ -48,6 +49,13 @@ void testHipDeviceMalloc() {
 }
 
 int main() {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+    printf("HIP_SKIP_THIS_TEST\n");
+    return 0;
+  }
+
   testHipHostMalloc();
   testHipDeviceMalloc();
   return 0;

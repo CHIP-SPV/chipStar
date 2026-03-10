@@ -59,6 +59,10 @@ int main(int argc, char* argv[]) {
     CHECK(hipSetDevice(device));
     hipDeviceProp_t props;
     CHECK(hipGetDeviceProperties(&props, device /*deviceID*/));
+    if (!props.canMapHostMemory) {
+        printf("HIP_SKIP_THIS_TEST\n");
+        return 0;
+    }
     printf("info: running on device %s\n", props.name);
 
     printf("info: allocate host mem (%6.2f MB)\n", 2 * Nbytes / 1024.0 / 1024.0);

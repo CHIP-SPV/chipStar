@@ -55,6 +55,10 @@ int main(int argc, char* argv[]) {
     printf ("deviceId: %i\n", deviceId);
     hipDeviceProp_t props;
     CHECK(hipGetDeviceProperties(&props, deviceId));
+    if (!props.canMapHostMemory) {
+        printf("HIP_SKIP_THIS_TEST\n");
+        return 0;
+    }
     printf("info: running on device #%d %s\n", deviceId, props.name);
 
 

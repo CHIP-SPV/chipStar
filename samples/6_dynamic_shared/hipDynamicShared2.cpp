@@ -46,6 +46,13 @@ __global__ void vectorAdd(float *Ad, float *Bd) {
 }
 
 int main() {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
+
   size_t errors = 0;
   hipError_t hiperr = hipSuccess;
   float *A, *B, *Ad, *Bd;

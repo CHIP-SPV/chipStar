@@ -51,6 +51,12 @@ __global__ void bcast(int arg, int *out) {
 }
 
 int main() {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
 
   int *out = (int *)malloc(sizeof(int) * BUF_SIZE);
   int *d_out;

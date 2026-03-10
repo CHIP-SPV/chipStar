@@ -111,6 +111,13 @@ void Thread2_func() {
  multiple Threads.
  */
 int main() {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
+
   std::cout << "START\n";
   float *A_d, *C_d;
   size_t Nbytes = (N) * sizeof(float);

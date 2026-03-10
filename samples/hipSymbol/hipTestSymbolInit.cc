@@ -33,6 +33,13 @@ __device__ void *Bar = &Foo;
 __global__ void Test(int *Out) { *Out = Foo == &Bar && Bar == &Foo; }
 
 int main() {
+  hipDeviceProp_t devProp;
+  HIPCHECK(hipGetDeviceProperties(&devProp, 0));
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
+
   int *IntBufD;
   HIPCHECK(hipMalloc(&IntBufD, sizeof(int)));
   hipLaunchKernelGGL(Test, dim3(1), dim3(1), 0, 0, IntBufD);

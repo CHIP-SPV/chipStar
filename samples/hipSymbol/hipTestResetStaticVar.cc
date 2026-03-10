@@ -33,6 +33,13 @@ __global__ void countDown(int *Out) {
 }
 
 int main() {
+  hipDeviceProp_t devProp;
+  HIPCHECK(hipGetDeviceProperties(&devProp, 0));
+  if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+  }
+
   int *OutD, OutH;
   HIPCHECK(hipMalloc(&OutD, 1 * sizeof(int)));
 

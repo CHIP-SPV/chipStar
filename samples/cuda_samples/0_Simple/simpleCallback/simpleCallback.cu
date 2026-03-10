@@ -130,6 +130,13 @@ void CUDART_CB myStreamCallback(cudaStream_t stream, cudaError_t status, void *d
 
 int main(int argc, char **argv)
 {
+    cudaDeviceProp devProp;
+    cudaGetDeviceProperties(&devProp, 0);
+    if (!devProp.canMapHostMemory) {
+        printf("HIP_SKIP_THIS_TEST\n");
+        return 0;
+    }
+
     int N_gpus, max_gpus = 0;
     int gpuInfo[32]; // assume a maximum of 32 GPUs in a system configuration
 

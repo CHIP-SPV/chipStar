@@ -99,6 +99,10 @@ int main() {
     CHECK(hipSetDevice(device));
     hipDeviceProp_t props;
     CHECK(hipGetDeviceProperties(&props, device /*deviceID*/));
+    if (!props.canMapHostMemory) {
+        printf("HIP_SKIP_THIS_TEST\n");
+        return 0;
+    }
     printf("info: running on device %s\n", props.name);
 
     Inh = (float*)malloc(SIZE);
