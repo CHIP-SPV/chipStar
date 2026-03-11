@@ -96,7 +96,7 @@ void check(std::string fn, const half *x, const half *y, const half *z, const in
         (!eq_oper && compare_calculated(zz_computed, verify) > 8)) {
       if (current_errors < 8) {
         std::cerr << std::hexfloat <<"Test " << fn << " failed at : " << i << " x[i]: "
-		  << xx_computed << " y[i]: " << xx_computed
+		  << xx_computed << " y[i]: " << yy_computed
 		  << " GPU: " << zz_computed
 		  << " CPU: " << verify << "\n";
       }
