@@ -351,9 +351,10 @@ static bool shouldLower(const GlobalVariable &GVar) {
   }
 
   // String literals get an unnamed_addr attribute, we know by it to
-  // skip them.
-  if (GVar.hasAtLeastLocalUnnamedAddr()) {
-    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName() 
+  // skip them. The device heap may also get local_unnamed_addr from -O3
+  // when it has no users in the module, but we still need to lower it.
+  if (!IsDeviceHeap && GVar.hasAtLeastLocalUnnamedAddr()) {
+    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName()
                       << " - has unnamed_addr\n");
     return false;
   }
