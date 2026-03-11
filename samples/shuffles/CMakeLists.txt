@@ -16,3 +16,5 @@ configure_file(
 add_test(
   NAME shuffles
   COMMAND ${HIP_PROFILE_TESTS_COMMAND} "${CMAKE_COMMAND}" -P ${CMAKE_CURRENT_BINARY_DIR}/run-shuffles.cmake)
+set_tests_properties(shuffles PROPERTIES
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
