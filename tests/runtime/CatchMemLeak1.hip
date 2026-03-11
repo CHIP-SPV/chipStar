@@ -39,6 +39,9 @@ int main() {
     else
       RSSIncLag++;
     PrevMaxRSS = CurrMaxRSS;
+    // Early exit: once no-leak condition is proven, stop iterating.
+    if (RSSIncLag >= NoLeakThreshold)
+      break;
   }
 
   printf("RSSIncLag=%zu\n", RSSIncLag);
