@@ -236,13 +236,10 @@ set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake co
 set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
 set(HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
-if(LLVM_VERSION_MAJOR GREATER_EQUAL 22)
-  # LLVM-22: HIPSPV toolchain supports the new offload driver and can
-  # be enabled with --offload-new-driver.
-  #
-  # LLVM-23+: the new offload driver possibly becomes default (meaning
-  # --offload-new-driver becomes redundant) and the old offload driver
-  # may be removed.
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
+  # LLVM-23+: HIPSPV toolchain uses the new offload driver with the
+  # spirv64v1.2-unknown-chipstar triple. The chipstar OS component
+  # in the triple is required and was added in LLVM 23.
   set(HAVE_CLANG_NEW_OFFLOAD_DRIVER ON)
 endif()
 
