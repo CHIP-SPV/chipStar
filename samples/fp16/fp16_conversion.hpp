@@ -1,4 +1,5 @@
 // Copyright (c) 1993-2016, NVIDIA CORPORATION. All rights reserved.
+#include <cstring>
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -94,7 +95,7 @@ static const half approx_float_to_half(float fl) {
 static float half_to_float(half hf) {
   __half temp = static_cast<__half>(hf);
   FP16 h;
-  h.u = temp;
+  memcpy(&h.u, &temp, sizeof(h.u));
 
   static const FP32 magic = {113 << 23};
   static const uint shifted_exp = 0x7c00 << 13; // exponent mask after shift
@@ -124,9 +125,9 @@ static float half_to_float(half hf) {
 static int compare_calculated(half h1, half h2) {
   FP16 h_1, h_2;
   __half temp = static_cast<__half>(h1);
-  h_1.u = temp;
+  memcpy(&h_1.u, &temp, sizeof(h_1.u));
   temp = static_cast<__half>(h2);
-  h_2.u = temp;
+  memcpy(&h_2.u, &temp, sizeof(h_2.u));
 
   // also deliberately compares equal infs and equal-value nans
   if (h_1.u == h_2.u)
