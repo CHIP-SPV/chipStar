@@ -4,6 +4,12 @@ execute_process(
   OUTPUT_VARIABLE stdout
   ERROR_VARIABLE stderr)
 
+string(FIND "${stdout}" "HIP_SKIP_THIS_TEST" skip_pos)
+if(NOT skip_pos EQUAL -1)
+  message(STATUS "HIP_SKIP_THIS_TEST")
+  return()
+endif()
+
 if(errorcode)
   message(FATAL_ERROR
     "FAIL: HIP program returned an error code '${errorcode}'.")
