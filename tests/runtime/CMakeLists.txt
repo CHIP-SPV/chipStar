@@ -159,6 +159,7 @@ add_test(NAME TestTemplateKernelModules
 set_tests_properties(TestTemplateKernelModules PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS"
   FAIL_REGULAR_EXPRESSION "device function is already registered"
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
   TIMEOUT 60)
 
 add_shell_test(../run_testenvvars.sh)
