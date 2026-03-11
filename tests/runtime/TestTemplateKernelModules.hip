@@ -10,6 +10,13 @@ void launchKernelAddOne(int* data);
 void launchKernelAddTwo(int* data);
 
 int main() {
+  hipDeviceProp_t devProp;
+  hipGetDeviceProperties(&devProp, 0);
+  if (!devProp.canMapHostMemory) {
+    printf("HIP_SKIP_THIS_TEST\n");
+    return 0;
+  }
+
   int* data;
   hipHostMalloc((void**)&data, sizeof(int));
   data[0] = 0;
