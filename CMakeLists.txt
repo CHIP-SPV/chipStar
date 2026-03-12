@@ -235,6 +235,16 @@ set(SHARE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/share CACHE PATH "share install di
 set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake config install dir")
 set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
+set(HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
+  # LLVM-23+: HIPSPV toolchain uses the new offload driver with the
+  # spirv64v1.2-unknown-chipstar triple. The chipstar OS component
+  # in the triple is required and was added in LLVM 23.
+  set(HAVE_CLANG_NEW_OFFLOAD_DRIVER ON)
+endif()
+
+include(CMakeDependentOption)
+
 # HIP options
 option(STANDALONE_TESTS "Create a separate executable for each test instead of combining tests into a shared lib by category" ON)
 
@@ -277,6 +287,10 @@ option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib fun
 # this option will strip the such attributes.
 option(CHIP_MALI_GPU_WORKAROUNDS "Apply work-arounds for avoiding SPIR-V \
 consumption issues in ARM Mali GPU driver." OFF)
+
+cmake_dependent_option(
+  USE_NEW_OFFLOAD_DRIVER "Use Clang's new offload driver."
+  ON HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
 
 if(CHIP_EXT_FLOAT_ATOMICS)
   message(DEPRECATION "-DCHIP_EXT_FLOAT_ATOMICS is no longer effective.")
@@ -401,7 +415,19 @@ endif()
 
 message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
-set(OFFLOAD_TRIPLE spirv64)
+if(USE_NEW_OFFLOAD_DRIVER)
+  # For offloading SPIR-V device code under the new offload driver, "chipstar"
+  # OS component is needed for setting up the right offloading toolchain. This
+  # component also sets up chipStar specific SPIR-V extensions.
+  #
+  # This is also a stepping stone for using LLVM's SPIR-V backend
+  # which does not define --spirv-max-version and instead uses the
+  # subarch string (v#.#) to control SPIR-V version.
+  set(OFFLOAD_TRIPLE spirv64v1.2-unknown-chipstar)
+else()
+  set(OFFLOAD_TRIPLE spirv64)
+endif()
+
 # =============================================================================
 # chipStar BINARIES & TESTS
 add_subdirectory(llvm_passes)
@@ -412,6 +438,7 @@ add_subdirectory(bitcode)
 target_sources(CHIP PRIVATE $<TARGET_OBJECTS:rtdevlib>)
 
 set(HIPCC_BUILD_PATH "${CMAKE_BINARY_DIR}/bin")
+set(HIPCC_SPIRV_TRIPLE ${OFFLOAD_TRIPLE})
 add_subdirectory(HIPCC)
 
 # Make CHIP depend on devicelib_bc and LLVMHipPasses for
@@ -564,6 +591,10 @@ set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
   # excludes the wrappers.
   -nohipwrapperinc)
 
+if(USE_NEW_OFFLOAD_DRIVER)
+  list(APPEND HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ --offload-new-driver)
+endif()
+
 # Include a header for applying fixups before any user or system includes.
 set(HIP_FIXUPS_HEADER_BUILD
   -include ${CMAKE_SOURCE_DIR}/include/hip/spirv_fixups.h)
@@ -571,15 +602,24 @@ set(HIP_FIXUPS_HEADER_INSTALL
   -include ${CMAKE_INSTALL_PREFIX}/include/hip/spirv_fixups.h)
 
 # Flags needed additionally for linking phase with -fgpu-rdc.
-set(HIP_RDC_SUPPLEMENT_LINK_FLAGS_
-  # Infors clang the type of the code object inputs (which are different than
-  # in regular host C/C++ linking)
-  --hip-link
-  # Required for selecting HIPSPV toolchain instead of AMD's one in clang.
-  --offload=spirv64
-  # --hip-path is also needed but not included here (different option
-  # value is needed for build and installation).
-)
+#
+# --hip-path is also needed in RDC linking stage but on purpose it is
+# not added to HIP_RDC_SUPPLEMENT_LINK_FLAGS_ (different option value
+# is needed for build and installation). The option is used to
+# implicitly load and run chipStar's LLVM passes during this stage.
+#
+# On the new offload driver, the --hip-path needs to be wrapped in
+# -Xoffload-compiler-${OFFLOAD_TRIPLE}.
+if(USE_NEW_OFFLOAD_DRIVER)
+  set(HIP_RDC_SUPPLEMENT_LINK_FLAGS_ --offload-new-driver)
+else()
+  set(HIP_RDC_SUPPLEMENT_LINK_FLAGS_
+    # Infors clang the type of the code object inputs (which are different than
+    # in regular host C/C++ linking).
+    --hip-link
+    # Required for selecting HIPSPV toolchain instead of AMD's one in clang.
+    --offload=${OFFLOAD_TRIPLE})
+endif()
 
 if (NOT CLANG_VERSION_LESS_15)
   list(APPEND HIP_RDC_SUPPLEMENT_LINK_FLAGS_
@@ -697,13 +737,16 @@ target_link_libraries(host INTERFACE CHIP)
 add_library(deviceRDCInternal INTERFACE)
 target_compile_options(deviceRDCInternal INTERFACE -fgpu-rdc)
 target_link_options(deviceRDCInternal INTERFACE
-  -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_} --hip-path=${CMAKE_BINARY_DIR})
+  -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}
+  $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:-Xoffload-compiler-${OFFLOAD_TRIPLE}>
+  --hip-path=${CMAKE_BINARY_DIR})
 target_link_libraries(deviceRDCInternal INTERFACE deviceInternal)
 
 add_library(deviceRDC INTERFACE)
 target_compile_options(deviceRDC INTERFACE -fgpu-rdc)
 target_link_options(deviceRDC INTERFACE
   -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}
+  $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:-Xoffload-compiler-${OFFLOAD_TRIPLE}>
   --hip-path=${CMAKE_INSTALL_PREFIX})
 target_link_libraries(deviceRDC INTERFACE device)
 
@@ -794,9 +837,15 @@ add_to_config(_hipInfo_install
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL}")
 add_to_config(_hipInfo_install
   HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_INSTALL}")
-add_to_config(_hipInfo_install
-  HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
-  "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_INSTALL_PREFIX}")
+if(USE_NEW_OFFLOAD_DRIVER)
+  add_to_config(_hipInfo_install
+    HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
+    "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} -Xoffload-compiler-${OFFLOAD_TRIPLE} --hip-path=${CMAKE_INSTALL_PREFIX}")
+else()
+  add_to_config(_hipInfo_install
+    HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
+    "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_INSTALL_PREFIX}")
+endif()
 
 # Build version
 set(_hipInfo_build "# Auto-generated by cmake on ${_timestamp} UTC\n")
@@ -809,9 +858,15 @@ add_to_config(_hipInfo_build
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD}")
 add_to_config(_hipInfo_build
   HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_BUILD}")
-add_to_config(_hipInfo_build
-  HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
-  "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_BINARY_DIR}")
+if(USE_NEW_OFFLOAD_DRIVER)
+  add_to_config(_hipInfo_build
+    HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
+    "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} -Xoffload-compiler-${OFFLOAD_TRIPLE} --hip-path=${CMAKE_BINARY_DIR}")
+else()
+  add_to_config(_hipInfo_build
+    HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
+    "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} --hip-path=${CMAKE_BINARY_DIR}")
+endif()
 
 add_library(hip::host ALIAS host)
 add_library(hip::device ALIAS device)

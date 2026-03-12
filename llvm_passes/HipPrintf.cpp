@@ -218,9 +218,9 @@ std::string getCDSAsString(GlobalVariable *OrigStr, bool &IsEmpty) {
   ConstantDataSequential *CDSInitializer =
       dyn_cast<ConstantDataSequential>(OrigStr->getInitializer());
 
-  assert(OrigStr->getInitializer()->isZeroValue() || CDSInitializer != nullptr);
+  assert(OrigStr->getInitializer()->isNullValue() || CDSInitializer != nullptr);
 
-  IsEmpty = OrigStr->getInitializer()->isZeroValue();
+  IsEmpty = OrigStr->getInitializer()->isNullValue();
   return (IsEmpty ? "" : std::string(CDSInitializer->getAsCString()));
 }
 

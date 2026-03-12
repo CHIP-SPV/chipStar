@@ -186,12 +186,13 @@ void CHIPUninitializeCallOnce() {
       if (LegacyQueue) {
         LegacyQueue->finish();
       }
-      if (Dev->isPerThreadStreamUsed()) {
-        auto PerThreadQueue = Dev->getPerThreadDefaultQueue();
-        if (PerThreadQueue) {
-          PerThreadQueue->finish();
-        }
-      }
+      // Note: We intentionally do NOT sync the per-thread default queue
+      // here.  PerThreadDefaultQueue is a thread_local unique_ptr whose
+      // destructor may have already run by the time this atexit handler
+      // executes (TLS destruction order vs atexit order is
+      // implementation-defined).  Accessing destroyed TLS is UB and
+      // causes a SEGFAULT with some compilers (e.g. clang 23).  The
+      // per-thread queue will be cleaned up by its own TLS destructor.
     }
 
     // call deallocateDeviceVariables on all devices.
