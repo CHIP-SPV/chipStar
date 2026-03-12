@@ -57,3 +57,30 @@ longer needs to fence against them — O(N) cost drops to O(1).
 |           64 |        ~76,000   |
 
 **Flat — no scaling with stream count.**
+
+---
+
+## After Paulius fix (simplify finish())
+
+Replace the two-barrier + event-sync + 2×clSync pattern in `finish()` with a
+single `zeCommandListHostSynchronize(ZeCmdListImm_, UINT64_MAX)`.
+
+Background: `ZeCmdListImmCopy_ == ZeCmdListImm_` (issue #1136 was never
+implemented), so the cross-barrier pattern was self-referential dead code.
+The redundant `zeCommandListAppendBarrier` with a signal event on an in-order
+CL would still scale O(N) if the Colleen fix were ever bypassed. Removing it
+makes `finish()` simpler, correct, and robust against future regressions.
+
+| Idle streams | Median ns/launch |
+|--------------|-----------------|
+|            0 |        ~55,000   |
+|            1 |        ~54,000   |
+|            2 |        ~52,000   |
+|            4 |        ~46,000   |
+|            8 |        ~46,000   |
+|           16 |        ~46,000   |
+|           32 |        ~46,000   |
+|           64 |        ~46,000   |
+
+**Flat — ~46 µs regardless of stream count.**
+Improvement vs baseline: **~29x** at 64 streams (~1,320 µs → ~46 µs).
