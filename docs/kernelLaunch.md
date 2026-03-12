@@ -34,3 +34,26 @@ on the *other* queue's command list.
 
 **~4x slowdown at 64 streams** (real-world apps can show 10–30x depending on
 workload mix and queue counts).
+
+---
+
+## After Colleen fix (isEmptyQueue guard)
+
+Skip `CreateMarkerInQueue` for queues that have no pending work, using an
+`IsEmptyQueue_` atomic bool (set `false` on every submit, reset `true` in
+`finish()`).  Because no signal-event is appended to idle CLs, those CLs
+have no pending GPU work, so `zeCommandListAppendBarrier` in `finish()` no
+longer needs to fence against them — O(N) cost drops to O(1).
+
+| Idle streams | Median ns/launch |
+|--------------|-----------------|
+|            0 |        ~83,000   |
+|            1 |        ~76,000   |
+|            2 |        ~76,000   |
+|            4 |        ~75,000   |
+|            8 |        ~75,000   |
+|           16 |        ~76,000   |
+|           32 |        ~76,000   |
+|           64 |        ~76,000   |
+
+**Flat — no scaling with stream count.**
