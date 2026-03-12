@@ -74,7 +74,7 @@ chipStar_script_test:
   stage: runs_tests_chipstar_install_script_llvm19
   extends: .aurora-batch-runner
   script:
-    - cd ${WRK_DIR}/chipStar/build
+    - cd ${WRK_DIR}/chipStar_llvm19/build
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm19/20251107-19/release
     - CHIP_BE=level0 make build_tests -j
@@ -96,7 +96,7 @@ chipStar_script_test_llvm22:
   stage: runs_tests_chipstar_install_script_llvm22
   extends: .aurora-batch-runner
   script:
-    - cd ${WRK_DIR}/chipStar/build
+    - cd ${WRK_DIR}/chipStar_llvm22/build
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm22/20260311-22/release
     - CHIP_BE=level0 make build_tests -j
