@@ -1,0 +1,128 @@
+# this include allows us to reference defaults in anl/ci-resource/defaults
+include:
+  - project: 'anl/ci-resources/defaults'
+    ref: main
+    file:
+      - '/runners.yml'
+
+# only run on commits to main, otherwise it may be too much for the queue system.
+workflow:
+    rules:
+      - if: $CI_COMMIT_BRANCH == "main"
+
+variables:
+  PROJ: "chipStar_test"
+  QUEUE: "debug"
+  TIME: "1:00:00"
+  WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/test"
+  ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=${TIME},filesystems=home -A ${PROJ}"
+
+stages:
+    - .pre
+    - build_chipstar
+    - builds_chipstar_install_script_llvm19
+    - runs_tests_chipstar_install_script_llvm19
+    - builds_chipstar_install_script_llvm22
+    - runs_tests_chipstar_install_script_llvm22
+    - builds_chipstar_aurora_script_llvm19
+    - builds_chipstar_aurora_script_llvm22
+
+setup:
+  stage: .pre
+  extends: .aurora-shell-runner
+  script:
+    # FIXME: For the time being we delete ${WRK_DIR} if it exists.
+    - rm -rf ${WRK_DIR}
+    - mkdir -p ${WRK_DIR}
+    - cd ${WRK_DIR}
+      # setup chipStar
+    - git clone --single-branch https://github.com/CHIP-SPV/chipStar.git
+    - cd chipStar
+    - git submodule update --init --recursive
+    - module list
+
+# testing with hand script
+aurora_build_test:
+  stage: build_chipstar
+  extends: .aurora-shell-runner
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - cd ${WRK_DIR}/chipStar
+    # first test with already installed clang. will update to patch and build
+    - module use /soft/modulefiles
+    - module load cmake chipStar/.llvm19/20251107-19/release
+    - rm -rf build
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora ..
+    - gitcommit=$(git rev-parse HEAD)
+    - make -j48
+    - make install
+    - cd ..
+    - rm -rf build
+
+# testing with install script
+chipStar_script_install:
+  stage: builds_chipstar_install_script_llvm19
+  extends: .aurora-shell-runner
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - cp -r ${WRK_DIR}/chipStar  ${WRK_DIR}/chipStar_llvm19
+    - cd ${WRK_DIR}/chipStar_llvm19
+    - module use /soft/modulefiles
+    - module load cmake chipStar/.llvm19/20251107-19/release
+    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/
+
+chipStar_script_test:
+  stage: runs_tests_chipstar_install_script_llvm19
+  extends: .aurora-batch-runner
+  script:
+    - cd ${WRK_DIR}/chipStar_llvm19/build
+    - module use /soft/modulefiles
+    - module load cmake chipStar/.llvm19/20251107-19/release
+    - CHIP_BE=level0 make build_tests -j
+    - ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+  allow_failure: true
+
+chipStar_script_install_llvm22:
+  stage: builds_chipstar_install_script_llvm22
+  extends: .aurora-shell-runner
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - cp -r ${WRK_DIR}/chipStar  ${WRK_DIR}/chipStar_llvm22
+    - cd ${WRK_DIR}/chipStar_llvm22
+    - module use /soft/modulefiles
+    - module load cmake chipStar/.llvm22/20260311-22/release
+    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/
+
+chipStar_script_test_llvm22:
+  stage: runs_tests_chipstar_install_script_llvm22
+  extends: .aurora-batch-runner
+  script:
+    - cd ${WRK_DIR}/chipStar_llvm22/build
+    - module use /soft/modulefiles
+    - module load cmake chipStar/.llvm22/20260311-22/release
+    - CHIP_BE=level0 make build_tests -j
+    - ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+  allow_failure: true
+
+# testing with install script
+chipStar_aurora_script_test:
+  stage: builds_chipstar_aurora_script_llvm19
+  extends: .aurora-batch-runner
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - temp=${WRK_DIR}/script_llvm19/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm19/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release chipStar/.llvm19/20251107-19/release
+
+chipStar_aurora_script_test_llvm22:
+  stage: builds_chipstar_aurora_script_llvm22
+  extends: .aurora-batch-runner
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
+
