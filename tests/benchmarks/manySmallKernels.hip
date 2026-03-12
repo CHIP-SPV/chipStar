@@ -57,8 +57,13 @@ static double measureLaunchNs(int numIdleStreams, int warmup, int iters) {
   for (int i = 0; i < iters; ++i) {
     auto t0 = std::chrono::steady_clock::now();
     nopKernel<<<1, 1, 0, nullptr>>>();
+#ifndef CHECK_ONLY_LAUNCH
     CHECK(hipStreamSynchronize(nullptr));
     auto t1 = std::chrono::steady_clock::now();
+#else
+    auto t1 = std::chrono::steady_clock::now();
+    CHECK(hipStreamSynchronize(nullptr));
+#endif
     samples[i] = std::chrono::duration<double, std::nano>(t1 - t0).count();
   }
 
