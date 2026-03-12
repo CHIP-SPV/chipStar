@@ -31,7 +31,7 @@ setup:
     - mkdir -p ${WRK_DIR}
     - cd ${WRK_DIR}
       # setup chipStar
-    - git clone -b gitlab_testing https://github.com/CHIP-SPV/chipStar.git
+    - git clone --single-branch https://github.com/CHIP-SPV/chipStar.git
     - cd chipStar
     - git submodule update --init --recursive
     - module list
@@ -54,6 +54,8 @@ aurora_build_test:
     - gitcommit=$(git rev-parse HEAD)
     - make -j48
     - make install
+    - cd ..
+    - rm -rf build
 
 # testing with install script
 chipStar_script_install:
@@ -67,7 +69,6 @@ chipStar_script_install:
     - cd ${WRK_DIR}/chipStar_llvm19
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm19/20251107-19/release
-    - rm -rf build
     - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/
 
 chipStar_script_test:
@@ -92,7 +93,6 @@ chipStar_script_install_llvm22:
     - cd ${WRK_DIR}/chipStar_llvm22
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm22/20260311-22/release
-    - rm -rf build
     - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/
 
 chipStar_script_test_llvm22:
