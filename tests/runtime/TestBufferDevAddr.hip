@@ -77,12 +77,8 @@ int main(int ArgC, char *ArgV[]) {
   int SrcH = 123, *SrcD;
   CHECK(hipMalloc(&SrcD, sizeof(int)) == hipSuccess);
 
-  // Device and host allocations may alias, thus copy direction can't
-  // be determined robustly.
+  // BufferDevAddr can infer direction via translateDevPtrToBuffer().
   CHECK(hipMemcpy(SrcD, &SrcH, sizeof(int), hipMemcpyDefault) ==
-        hipErrorInvalidMemcpyDirection);
-
-  CHECK(hipMemcpy(SrcD, &SrcH, sizeof(int), hipMemcpyHostToDevice) ==
         hipSuccess);
 
   int *DstD;
@@ -98,6 +94,33 @@ int main(int ArgC, char *ArgV[]) {
         hipSuccess);
   CHECK(*DstH == 123);
 
+  // Test hipMemcpyDefault for all direction combinations.
+  // Device-to-device via Default.
+  int *Tmp;
+  CHECK(hipMalloc(&Tmp, sizeof(int)) == hipSuccess);
+  CHECK(hipMemcpy(Tmp, SrcD, sizeof(int), hipMemcpyDefault) == hipSuccess);
+  int TmpH = 0;
+  CHECK(hipMemcpy(&TmpH, Tmp, sizeof(int), hipMemcpyDeviceToHost) ==
+        hipSuccess);
+  CHECK(TmpH == 123);
+
+  // Device-to-host via Default.
+  TmpH = 0;
+  CHECK(hipMemcpy(&TmpH, SrcD, sizeof(int), hipMemcpyDefault) == hipSuccess);
+  CHECK(TmpH == 123);
+
+  // Host-to-host via Default.
+  int HH = 0;
+  CHECK(hipMemcpy(&HH, &SrcH, sizeof(int), hipMemcpyDefault) == hipSuccess);
+  CHECK(HH == 123);
+
+  // Test hipMemset on device pointer.
+  CHECK(hipMemset(Tmp, 0, sizeof(int)) == hipSuccess);
+  CHECK(hipMemcpy(&TmpH, Tmp, sizeof(int), hipMemcpyDeviceToHost) ==
+        hipSuccess);
+  CHECK(TmpH == 0);
+
+  CHECK(hipFree(Tmp) == hipSuccess);
   CHECK(hipFree(DstD) == hipSuccess);
   CHECK(hipFree(SrcD) == hipSuccess);
   CHECK(hipHostFree(DstH) == hipSuccess);

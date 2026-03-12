@@ -23,6 +23,7 @@
 #include "CHIPBackendOpenCL.hh"
 #include "Utils.hh"
 
+#include <cstring>
 #include <sstream>
 
 #include "Utils.hh"
@@ -35,6 +36,15 @@
 
 // Global mutex to protect against Intel OpenCL driver threading issues
 static std::mutex g_intel_opencl_driver_mutex;
+
+// Callback for cl_arm_printf extension: forwards device printf output to stdout.
+static void CL_CALLBACK armPrintfCallback(const char *Buffer, size_t Len,
+                                          size_t Complete, void *UserData) {
+  (void)Complete;
+  (void)UserData;
+  fwrite(Buffer, 1, Len, stdout);
+  fflush(stdout);
+}
 
 std::vector<cl_event>
 getOpenCLHandles(const chipstar::SharedEventVector &ChipEvents) {
@@ -580,7 +590,10 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.pciBusID = 0x10;
   HipDeviceProps_.pciDeviceID = 0x40 + getDeviceId();
   HipDeviceProps_.isMultiGpuBoard = 0;
-  HipDeviceProps_.canMapHostMemory = 1;
+  HipDeviceProps_.canMapHostMemory =
+      (getContext()->getAllocStrategy() != AllocationStrategy::BufferDevAddr)
+          ? 1
+          : 0;
   HipDeviceProps_.integrated = 0;
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
       HipDeviceProps_.sharedMemPerBlock * 16;
@@ -955,6 +968,8 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
     else
       AppendSource(chipstar::atomicAddDouble_emulation, "atomicAddDouble_emulation");
   }
+
+  AppendSource(chipstar::atomicMinMaxFloat_emulation, "atomicMinMaxFloat_emulation");
 
   if (ChipDev.hasBallot())
     AppendSource(chipstar::ballot_native, "ballot_native");
@@ -1906,16 +1921,41 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 
     case AllocationStrategy::BufferDevAddr: {
       cl_int clStatus = CL_SUCCESS;
+
+      // For HtoH, just do a host-side memcpy.
+      if (Kind == hipMemcpyHostToHost) {
+        std::memcpy(Dst, Src, Size);
+        clStatus = clEnqueueMarker(
+            get()->get(),
+            std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+        CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
+        break;
+      }
+
+      // For Default, try to determine direction from buffer lookups.
+      if (Kind == hipMemcpyDefault) {
+        auto [DstBuf, DstOff] = Ctx->translateDevPtrToBuffer(Dst);
+        auto [SrcBuf, SrcOff] = Ctx->translateDevPtrToBuffer(Src);
+        if (DstBuf && SrcBuf)
+          Kind = hipMemcpyDeviceToDevice;
+        else if (DstBuf)
+          Kind = hipMemcpyHostToDevice;
+        else if (SrcBuf)
+          Kind = hipMemcpyDeviceToHost;
+        else {
+          // Both host pointers — do host memcpy.
+          std::memcpy(Dst, Src, Size);
+          clStatus = clEnqueueMarker(
+              get()->get(),
+              std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+          CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
+          break;
+        }
+      }
+
       switch (Kind) {
       default:
-      case hipMemcpyHostToHost: // Covered up-front.
         assert(!"Unexpected hipMemcpyKind");
-
-      case hipMemcpyDefault: // Invalid flag under BufferDevAddr (can't
-                             // distinguish host and device allocations apart as
-                             // they may alias).
-        CHIPERR_LOG_AND_THROW("Invalid flag (HipMemcpyDefault)",
-                              hipErrorRuntimeMemory);
 
       case hipMemcpyHostToDevice: {
         auto [DstBuf, DstOffset] = Ctx->translateDevPtrToBuffer(Dst);
@@ -2021,14 +2061,24 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   if (Ctx->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
     logTrace("clEnqueueFillBuffer {} / {} B\n", Dst, Size);
     auto [DstBuf, DstOffset] = Ctx->translateDevPtrToBuffer(Dst);
-    if (!DstBuf)
-      CHIPERR_LOG_AND_THROW("Invalid destination pointer.",
-                            hipErrorRuntimeMemory);
-    int Retval = ::clEnqueueFillBuffer(
-        get()->get(), DstBuf, Pattern, PatternSize, DstOffset, Size,
-        SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
-        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueFillBuffer);
+    if (!DstBuf) {
+      // Host pointer — fall back to host-side memset pattern fill.
+      unsigned char *DstBytes = static_cast<unsigned char *>(Dst);
+      const unsigned char *PatBytes =
+          static_cast<const unsigned char *>(Pattern);
+      for (size_t i = 0; i < Size; i++)
+        DstBytes[i] = PatBytes[i % PatternSize];
+      int Retval = clEnqueueMarker(
+          get()->get(),
+          std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
+    } else {
+      int Retval = ::clEnqueueFillBuffer(
+          get()->get(), DstBuf, Pattern, PatternSize, DstOffset, Size,
+          SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+          std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueFillBuffer);
+    }
   } else {
     logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
     int Retval = ::clEnqueueSVMMemFill(
@@ -2752,9 +2802,29 @@ void CHIPBackendOpenCL::initializeImpl() {
   logDebug("CHIP_DEVICE={} Selected OpenCL device {}",
            ChipEnvVars.getDeviceIdx(), Device.getInfo<CL_DEVICE_NAME>());
 
-  // Create context which has devices
-  // Create queues that have devices each of which has an associated context
-  cl::Context Ctx(SupportedDevices);
+  // Create context with the selected device. Using a single device is required
+  // for OpenCL implementations like clvk that only support single-device
+  // contexts, and chipStar only uses one device anyway (see TODO below).
+
+  // If the device supports cl_arm_printf, register a printf callback via
+  // context properties so that kernel printf output is forwarded to stdout.
+  // This is required for Mali GPUs which only support printf through this
+  // vendor extension.
+  std::string DevExtsForCtx = Device.getInfo<CL_DEVICE_EXTENSIONS>();
+  cl_context_properties ArmPrintfProps[] = {
+      CL_PRINTF_CALLBACK_ARM,
+      (cl_context_properties)armPrintfCallback,
+      CL_PRINTF_BUFFERSIZE_ARM,
+      (cl_context_properties)0x100000,
+      CL_CONTEXT_PLATFORM,
+      (cl_context_properties)SelectedPlatform(),
+      0};
+  bool HasArmPrintf =
+      DevExtsForCtx.find("cl_arm_printf") != std::string::npos;
+  cl_context_properties *CtxProps = HasArmPrintf ? ArmPrintfProps : nullptr;
+  if (HasArmPrintf)
+    logInfo("Device supports cl_arm_printf; enabling printf callback.");
+  cl::Context Ctx(Device, CtxProps);
   CHIPContextOpenCL *ChipContext =
       new CHIPContextOpenCL(Ctx, Device, SelectedPlatform);
   ::Backend->addContext(ChipContext);

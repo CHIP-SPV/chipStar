@@ -243,7 +243,7 @@ option(CHIP_ERROR_IF_NOT_IMPLEMENTED "Some HIP functionality is not yet implemen
 option(CHIP_VERBOSE "Verbose compilation" OFF)
 option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
-option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Requires Clang with patch at https://github.com/CHIP-SPV/llvm-project/commit/8e7d42c1562f9961e5c8cdeef6490e0670b27409" OFF)
+option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Auto-detected from LLVM targets when LLVM >= 22." OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
@@ -401,6 +401,7 @@ endif()
 
 message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
+set(OFFLOAD_TRIPLE spirv64)
 # =============================================================================
 # chipStar BINARIES & TESTS
 add_subdirectory(llvm_passes)
@@ -556,7 +557,7 @@ file(CREATE_LINK "${CMAKE_SOURCE_DIR}/include/cuspv"
 # =============================================================================
 # HIP OFFLOAD FLAGS
 set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
-  --offload=spirv64 ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT}
+  --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS} ${DISABLE_OPAQUE_PTRS_OPT}
   # By default RocmInstallationDetector::AddHIPIncludeArgs in the
   # HIP-Clang inserts include wrapper headers which cause compile
   # errors when compiling HIP sources for SPIR-V target.  This flag
@@ -590,17 +591,28 @@ execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE HOST_ARCH)
 set(HOST_ARCH "--target=${HOST_ARCH}")
 
-# On macOS, we need to pass the sysroot to find system headers
+# On macOS, pass the sysroot only to host compilation (-Xarch_host).
+# The spirv64 device compilation cannot use the macOS SDK sysroot because
+# TargetConditionals.h uses __is_target_arch which fails for spirv64.
+# Instead, provide just the C++ stdlib headers to the device via -isystem.
 set(HIP_SYSROOT_OPTIONS "")
-if(APPLE AND CMAKE_OSX_SYSROOT)
-  set(HIP_SYSROOT_OPTIONS "--sysroot=${CMAKE_OSX_SYSROOT}")
-elseif(APPLE)
-  # Try to find SDK path automatically
-  execute_process(COMMAND xcrun --show-sdk-path
-    OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE MACOS_SDK_PATH
-    RESULT_VARIABLE XCRUN_RESULT)
-  if(XCRUN_RESULT EQUAL 0 AND MACOS_SDK_PATH)
-    set(HIP_SYSROOT_OPTIONS "--sysroot=${MACOS_SDK_PATH}")
+set(HIP_SYSROOT_LINK_OPTIONS "")
+if(APPLE)
+  if(NOT CMAKE_OSX_SYSROOT)
+    execute_process(COMMAND xcrun --show-sdk-path
+      OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE CMAKE_OSX_SYSROOT
+      RESULT_VARIABLE XCRUN_RESULT)
+    if(NOT XCRUN_RESULT EQUAL 0)
+      set(CMAKE_OSX_SYSROOT "")
+    endif()
+  endif()
+  if(CMAKE_OSX_SYSROOT)
+    # The macOS SDK TargetConditionals.h uses __is_target_arch() which fails
+    # for the spirv64 target. Provide a stub override for device compilation.
+    set(HIP_SYSROOT_OPTIONS
+      "--sysroot=${CMAKE_OSX_SYSROOT}"
+      "-Xarch_device;-I${CMAKE_SOURCE_DIR}/include/hip/devicelib/macOS")
+    set(HIP_SYSROOT_LINK_OPTIONS "--sysroot=${CMAKE_OSX_SYSROOT}")
   endif()
 endif()
 
@@ -629,10 +641,10 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 #             combined compile and link or when the --hip-link is
 #             present at the link step.
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
-  ${HIP_SYSROOT_OPTIONS}
+  ${HIP_SYSROOT_LINK_OPTIONS}
   "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
-  ${HIP_SYSROOT_OPTIONS}
+  ${HIP_SYSROOT_LINK_OPTIONS}
   "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
 
 if(OpenCL_LIBRARY)
@@ -912,7 +924,7 @@ endif()
 
 if(CHIP_BUILD_SAMPLES)
   add_subdirectory(./samples samples)
-  add_dependencies(samples CHIP devicelib_bc)
+  add_dependencies(samples CHIP devicelib_bc LLVMHipPasses)
 endif()
 
 if(CHIP_BUILD_DOCS)

@@ -11,32 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-tests-llvm-19-debug:
-    runs-on: [self-hosted, Linux, X64]
-    env:
-      CHIP_MODULE_CACHE_DIR: ""
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          submodules: 'recursive'
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-19
-        shell: bash
-  unit-tests-llvm-19-release:
-    runs-on: [self-hosted, Linux, X64]
-    env:
-      CHIP_MODULE_CACHE_DIR: ""
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          submodules: 'recursive'
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-19
-        shell: bash
   unit-tests-llvm-20-debug:
     runs-on: [self-hosted, Linux, X64]
     env:
@@ -89,3 +63,7 @@ jobs:
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh release llvm-21
         shell: bash
+  # NOTE: LLVM 22 unit test jobs are not included here because the
+  # llvm/22.0-translator and llvm/22.0-native modules must first be installed
+  # on the runner via test-llvm-patches.yml's install-llvm-on-main job.
+  # Once LLVM 22 modules are available, add the jobs back.

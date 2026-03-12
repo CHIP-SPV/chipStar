@@ -484,6 +484,27 @@ extern "C++" inline __device__ float atomicMax(float *address, float val) {
   return __chip_atomic_max_f32(__chip_obfuscate_ptr(address), val);
 }
 
+extern "C" __device__ float __chip_atomic_min_system_f32(__chip_obfuscated_ptr_t address, float val);
+extern "C" __device__ double __chip_atomic_min_system_f64(__chip_obfuscated_ptr_t address, double val);
+extern "C" __device__ float __chip_atomic_max_system_f32(__chip_obfuscated_ptr_t address, float val);
+extern "C" __device__ double __chip_atomic_max_system_f64(__chip_obfuscated_ptr_t address, double val);
+
+extern "C++" inline __device__ float atomicMin_system(float *address, float val) {
+  return __chip_atomic_min_system_f32(__chip_obfuscate_ptr(address), val);
+}
+
+extern "C++" inline __device__ double atomicMin_system(double *address, double val) {
+  return __chip_atomic_min_system_f64(__chip_obfuscate_ptr(address), val);
+}
+
+extern "C++" inline __device__ float atomicMax_system(float *address, float val) {
+  return __chip_atomic_max_system_f32(__chip_obfuscate_ptr(address), val);
+}
+
+extern "C++" inline __device__ double atomicMax_system(double *address, double val) {
+  return __chip_atomic_max_system_f64(__chip_obfuscate_ptr(address), val);
+}
+
 extern "C" __device__ unsigned long __chip_atomic_cmpxchg_ul(unsigned long *address, unsigned long compare, unsigned long val);
 extern "C++" inline __device__ unsigned long atomicCAS(unsigned long *address, unsigned long compare, unsigned long val) {
   return __chip_atomic_cmpxchg_ul(address, compare, val);

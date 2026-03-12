@@ -5,10 +5,12 @@ on:
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
+      - '.github/workflows/test-llvm-patches.yml'
   pull_request:
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
+      - '.github/workflows/test-llvm-patches.yml'
   workflow_dispatch:
 
 concurrency:
@@ -25,29 +27,47 @@ jobs:
       - X64
     strategy:
       matrix:
-        llvm-version: [19, 20, 21]
+        include:
+          - llvm-version: 20
+            build-id: "20"
+            install-suffix: ""
+            variant-flag: ""
+          - llvm-version: 21
+            build-id: "21"
+            install-suffix: ""
+            variant-flag: ""
+          - llvm-version: 22
+            build-id: "22-translator"
+            install-suffix: "-translator"
+            variant-flag: "--variant translator"
+          - llvm-version: 22
+            build-id: "22-native"
+            install-suffix: "-native"
+            variant-flag: "--variant native"
       fail-fast: true
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
-      - name: Configure LLVM ${{ matrix.llvm-version }}
+      - name: Configure LLVM ${{ matrix.build-id }}
         run: |
-          rm -rf $HOME/llvm-builds/${{ matrix.llvm-version }}
-          mkdir -p $HOME/llvm-builds/${{ matrix.llvm-version }}
-          cd $HOME/llvm-builds/${{ matrix.llvm-version }}
+          rm -rf $HOME/llvm-builds/${{ matrix.build-id }}
+          mkdir -p $HOME/llvm-builds/${{ matrix.build-id }}
+          cd $HOME/llvm-builds/${{ matrix.build-id }}
           rm -rf scripts llvm-patches
           cp -r ${{ github.workspace }}/scripts .
           cp -r ${{ github.workspace }}/llvm-patches .
           chmod +x scripts/configure_llvm.sh
-          ./scripts/configure_llvm.sh --version ${{ matrix.llvm-version }} --install-dir $HOME/install/llvm/${{ matrix.llvm-version }}.0 --configure-only
+          ./scripts/configure_llvm.sh --version ${{ matrix.llvm-version }} \
+            --install-dir $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }} \
+            ${{ matrix.variant-flag }} --configure-only
 
   step2-build-test:
     needs: step1-configure-all
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    name: Build LLVM ${{ matrix.llvm-version }} and test chipStar
+    name: Build LLVM ${{ matrix.build-id }} and test chipStar
     runs-on:
       - self-hosted
       - Linux
@@ -55,21 +75,37 @@ jobs:
     env:
       IGC_EnableDPEmulation: 1
       OverrideDefaultFP64Settings: 1
+      CHIP_LOGLEVEL: err
+      CHIP_MODULE_CACHE_DIR: ""
+      POCL_KERNEL_CACHE: 0
+      CHIP_L0_EVENT_TIMEOUT: 1790
     strategy:
       matrix:
-        llvm-version: [19, 20, 21]
+        include:
+          - llvm-version: 20
+            build-id: "20"
+            install-suffix: ""
+          - llvm-version: 21
+            build-id: "21"
+            install-suffix: ""
+          - llvm-version: 22
+            build-id: "22-translator"
+            install-suffix: "-translator"
+          - llvm-version: 22
+            build-id: "22-native"
+            install-suffix: "-native"
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
-      - name: Build LLVM ${{ matrix.llvm-version }}
+      - name: Build LLVM ${{ matrix.build-id }}
         id: build_llvm
         continue-on-error: true
         run: |
-          BUILD_DIR="$HOME/llvm-builds/${{ matrix.llvm-version }}/llvm-project/llvm/build_${{ matrix.llvm-version }}"
+          BUILD_DIR="$HOME/llvm-builds/${{ matrix.build-id }}/llvm-project/llvm/build_${{ matrix.llvm-version }}"
           if [ ! -d "$BUILD_DIR" ]; then
             echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
             exit 1
@@ -80,56 +116,332 @@ jobs:
       - name: Stage install for later
         if: steps.build_llvm.outcome == 'success'
         run: |
-          rm -rf $HOME/llvm-stage/${{ matrix.llvm-version }}
-          DESTDIR=$HOME/llvm-stage/${{ matrix.llvm-version }} cmake --install $HOME/llvm-builds/${{ matrix.llvm-version }}/llvm-project/llvm/build_${{ matrix.llvm-version }}
-      - name: Test chipStar with LLVM ${{ matrix.llvm-version }} (OpenCL)
+          rm -rf $HOME/llvm-stage/${{ matrix.build-id }}
+          DESTDIR=$HOME/llvm-stage/${{ matrix.build-id }} cmake --install $HOME/llvm-builds/${{ matrix.build-id }}/llvm-project/llvm/build_${{ matrix.llvm-version }}
+      - name: Build chipStar with LLVM ${{ matrix.build-id }}
+        id: build_chipstar
         if: steps.build_llvm.outcome == 'success'
         run: |
-          test -f $HOME/llvm-builds/${{ matrix.llvm-version }}/llvm-project/llvm/build_${{ matrix.llvm-version }}/bin/clang || exit 1
+          # Source modules for device drivers
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local
+            source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then
+            source /etc/profile.d/lmod.sh &> /dev/null
+          else
+            source /etc/profile.d/modules.sh &> /dev/null
+          fi
+          module use ~/modulefiles
+          module load oneapi/2025.0.4 opencl/dgpu
+
+          LLVM_BIN="$HOME/llvm-builds/${{ matrix.build-id }}/llvm-project/llvm/build_${{ matrix.llvm-version }}/bin"
+          test -f "${LLVM_BIN}/clang" || exit 1
           cd ${{ github.workspace }}
-          mkdir -p build-llvm${{ matrix.llvm-version }}
-          cd build-llvm${{ matrix.llvm-version }}
-          cmake .. -DLLVM_CONFIG_BIN=$HOME/llvm-builds/${{ matrix.llvm-version }}/llvm-project/llvm/build_${{ matrix.llvm-version }}/bin/llvm-config -GNinja -DCMAKE_BUILD_TYPE=Debug
-          ninja CHIP
-          ninja build_tests
-          ninja
+          rm -rf build-llvm${{ matrix.build-id }}
+          mkdir -p build-llvm${{ matrix.build-id }}
+          cd build-llvm${{ matrix.build-id }}
+          cmake .. -DLLVM_CONFIG_BIN=${LLVM_BIN}/llvm-config -GNinja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON
+          ninja all install -j$(nproc)
+          ninja build_tests install -j$(nproc)
+        timeout-minutes: 60
+      - name: Test chipStar with LLVM ${{ matrix.build-id }} (iGPU OpenCL)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load opencl/igpu
+          cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
+          ../scripts/check.py ./ igpu opencl
+        timeout-minutes: 60
+      - name: Test chipStar with LLVM ${{ matrix.build-id }} (iGPU Level0)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load level-zero/igpu
+          cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
+          ../scripts/check.py ./ igpu level0
+        timeout-minutes: 60
+      - name: Test chipStar with LLVM ${{ matrix.build-id }} (dGPU Level0)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load level-zero/dgpu
+          cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+      - name: Test chipStar with LLVM ${{ matrix.build-id }} (dGPU OpenCL)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load opencl/dgpu
+          cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
           ../scripts/check.py ./ dgpu opencl
         timeout-minutes: 60
-      - name: Test chipStar with LLVM ${{ matrix.llvm-version }} (Level0)
-        if: steps.build_llvm.outcome == 'success'
+      - name: Test chipStar with LLVM ${{ matrix.build-id }} (CPU OpenCL)
+        if: always() && steps.build_chipstar.outcome == 'success'
         run: |
-          cd ${{ github.workspace }}/build-llvm${{ matrix.llvm-version }}
-          ../scripts/check.py ./ dgpu level0
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load opencl/cpu
+          cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
+          ../scripts/check.py ./ cpu opencl --num-tries=3
         timeout-minutes: 60
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-logs-llvm${{ matrix.llvm-version }}
+          name: test-logs-llvm${{ matrix.build-id }}
           path: |
-            ${{ github.workspace }}/build-llvm${{ matrix.llvm-version }}/checkpy_*.txt
-            ${{ github.workspace }}/build-llvm${{ matrix.llvm-version }}/Testing/Temporary/LastTest.log
+            ${{ github.workspace }}/build-llvm${{ matrix.build-id }}/checkpy_*.txt
+            ${{ github.workspace }}/build-llvm${{ matrix.build-id }}/Testing/Temporary/LastTest.log
 
   install-llvm-on-main:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    name: Install LLVM ${{ matrix.llvm-version }} on main branch
+    name: Install LLVM ${{ matrix.build-id }} on main branch
     runs-on:
       - self-hosted
       - Linux
       - X64
     strategy:
       matrix:
-        llvm-version: [19, 20, 21]
+        include:
+          - llvm-version: 20
+            build-id: "20"
+            install-suffix: ""
+            module-name: "20.0"
+          - llvm-version: 21
+            build-id: "21"
+            install-suffix: ""
+            module-name: "21.0"
+          - llvm-version: 22
+            build-id: "22-translator"
+            install-suffix: "-translator"
+            module-name: "22.0-translator"
+          - llvm-version: 22
+            build-id: "22-native"
+            install-suffix: "-native"
+            module-name: "22.0-native"
       fail-fast: false
     steps:
-      - name: Install LLVM ${{ matrix.llvm-version }}
+      - name: Install LLVM ${{ matrix.build-id }}
         run: |
-          rm -rf $HOME/install/llvm/${{ matrix.llvm-version }}.0
-          mv $HOME/llvm-stage/${{ matrix.llvm-version }}/$HOME/install/llvm/${{ matrix.llvm-version }}.0 $HOME/install/llvm/${{ matrix.llvm-version }}.0
+          STAGED="$HOME/llvm-stage/${{ matrix.build-id }}"
+          INSTALL_DIR="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
+          rm -rf "$INSTALL_DIR"
+          mv "${STAGED}${INSTALL_DIR}" "$INSTALL_DIR"
         timeout-minutes: 5
-      - name: Verify LLVM ${{ matrix.llvm-version }} installation
+      - name: Verify LLVM ${{ matrix.build-id }} installation
         run: |
-          test -f $HOME/install/llvm/${{ matrix.llvm-version }}.0/bin/clang || exit 1
-          $HOME/install/llvm/${{ matrix.llvm-version }}.0/bin/clang --version
+          test -f $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}/bin/clang || exit 1
+          $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}/bin/clang --version
+      - name: Generate modulefile for LLVM ${{ matrix.build-id }}
+        run: |
+          MODULE_DIR="$HOME/modulefiles/llvm"
+          INSTALL_DIR="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
+          mkdir -p "$MODULE_DIR"
+          {
+            echo '#%Module'
+            echo ''
+            echo "set install_dir $INSTALL_DIR"
+            echo 'pushenv llvm_PATH $install_dir'
+            echo 'pushenv llvm_ROOT $install_dir'
+            echo 'pushenv llvm_DIR $install_dir'
+            echo 'pushenv LLVM_PATH $install_dir'
+            echo 'pushenv LLVM_ROOT $install_dir'
+            echo 'pushenv LLVM_DIR $install_dir'
+            echo ''
+            echo 'prepend-path PATH $install_dir/bin'
+            echo 'prepend-path LD_LIBRARY_PATH $install_dir/lib'
+            echo 'prepend-path LD_LIBRARY_PATH $install_dir/lib64'
+            echo 'prepend-path LIBRARY_PATH $install_dir/lib'
+            echo 'prepend-path LIBRARY_PATH $install_dir/lib64'
+            echo 'prepend-path CPATH $install_dir/include'
+            echo 'prepend-path PKG_CONFIG_PATH $install_dir/lib/pkgconfig'
+            echo 'prepend-path CMAKE_PREFIX_PATH $install_dir/lib/cmake'
+          } > "$MODULE_DIR/${{ matrix.module-name }}"
+          echo "Created modulefile: $MODULE_DIR/${{ matrix.module-name }}"
       - name: Cleanup staged install
         if: always()
-        run: rm -rf $HOME/llvm-stage/${{ matrix.llvm-version }}
+        run: rm -rf $HOME/llvm-stage/${{ matrix.build-id }}
+
+  step1-configure-all-macos:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: 'Step 1: Configure LLVM 22 (macOS)'
+    runs-on: [self-hosted, ARM64, MacOS]
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure LLVM 22 (${{ matrix.variant }})
+        shell: /bin/bash {0}
+        run: |
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          BUILD_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}"
+          rm -rf "$BUILD_DIR"
+          mkdir -p "$BUILD_DIR"
+          cd "$BUILD_DIR"
+          rm -rf scripts llvm-patches
+          cp -r ${{ github.workspace }}/scripts .
+          cp -r ${{ github.workspace }}/llvm-patches .
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 22 \
+            --install-dir $HOME/install/llvm/22.0-${{ matrix.variant }} \
+            --variant ${{ matrix.variant }} --configure-only
+
+  step2-build-test-macos:
+    needs: step1-configure-all-macos
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: Build LLVM 22 (${{ matrix.variant }}) (macOS) and test chipStar
+    runs-on: [self-hosted, ARM64, MacOS]
+    env:
+      CHIP_DEVICE_TYPE: pocl
+      CHIP_MODULE_CACHE_DIR: ""
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Build LLVM 22 (${{ matrix.variant }})
+        id: build_llvm
+        shell: /bin/bash {0}
+        continue-on-error: true
+        run: |
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          BUILD_DIR="$HOME/llvm-builds/22-${{ matrix.variant }}/llvm-project/llvm/build_22"
+          if [ ! -d "$BUILD_DIR" ]; then
+            echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
+            exit 1
+          fi
+          cd "$BUILD_DIR"
+          cmake --build . -j$(sysctl -n hw.ncpu)
+        timeout-minutes: 300
+      - name: Stage install for later
+        if: steps.build_llvm.outcome == 'success'
+        shell: /bin/bash {0}
+        run: |
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          rm -rf $HOME/llvm-stage/22-${{ matrix.variant }}
+          DESTDIR=$HOME/llvm-stage/22-${{ matrix.variant }} cmake --install $HOME/llvm-builds/22-${{ matrix.variant }}/llvm-project/llvm/build_22
+      - name: Test chipStar with LLVM 22 (${{ matrix.variant }}) (PoCL OpenCL)
+        if: steps.build_llvm.outcome == 'success'
+        shell: /bin/bash {0}
+        run: |
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
+          module load pocl
+
+          LLVM_BIN="$HOME/llvm-builds/22-${{ matrix.variant }}/llvm-project/llvm/build_22/bin"
+          test -f "${LLVM_BIN}/clang" || exit 1
+
+          export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          export CHIP_DEVICE_TYPE=pocl
+          export OCL_ICD_VENDORS=/Users/paulius/install/pocl/etc/OpenCL/vendors/
+          export SPIRV_TOOLS_PREFIX=$(brew --prefix spirv-tools)
+          export CMAKE_PREFIX_PATH="${SPIRV_TOOLS_PREFIX}:${CMAKE_PREFIX_PATH}"
+
+          cd ${{ github.workspace }}
+          rm -rf build-22-${{ matrix.variant }}
+          mkdir -p build-22-${{ matrix.variant }}
+          cd build-22-${{ matrix.variant }}
+          /opt/homebrew/bin/cmake .. \
+            -DLLVM_CONFIG_BIN=${LLVM_BIN}/llvm-config \
+            -DOpenCL_LIBRARY=/Users/paulius/install/pocl/lib/libpocl.dylib \
+            -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+          ../scripts/check.py ./ pocl opencl
+        timeout-minutes: 60
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-macos-llvm22-${{ matrix.variant }}
+          path: |
+            build-22-${{ matrix.variant }}/checkpy_*.txt
+            build-22-${{ matrix.variant }}/Testing/Temporary/LastTest.log
+
+  install-llvm-on-main-macos:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Install LLVM 22 (${{ matrix.variant }}) on main branch (macOS)
+    runs-on: [self-hosted, ARM64, MacOS]
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - name: Install LLVM 22 (${{ matrix.variant }})
+        run: |
+          STAGED="$HOME/llvm-stage/22-${{ matrix.variant }}"
+          INSTALL_DIR="$HOME/install/llvm/22.0-${{ matrix.variant }}"
+          rm -rf "$INSTALL_DIR"
+          mv "${STAGED}${INSTALL_DIR}" "$INSTALL_DIR"
+        timeout-minutes: 5
+      - name: Verify LLVM 22 (${{ matrix.variant }}) installation
+        run: |
+          test -f $HOME/install/llvm/22.0-${{ matrix.variant }}/bin/clang || exit 1
+          $HOME/install/llvm/22.0-${{ matrix.variant }}/bin/clang --version
+      - name: Generate modulefile for LLVM 22 (${{ matrix.variant }})
+        shell: /bin/bash {0}
+        run: |
+          MODULE_DIR="$HOME/modulefiles/llvm"
+          INSTALL_DIR="$HOME/install/llvm/22.0-${{ matrix.variant }}"
+          mkdir -p "$MODULE_DIR"
+          {
+            echo '#%Module'
+            echo ''
+            echo "set install_dir $INSTALL_DIR"
+            echo 'pushenv llvm_PATH $install_dir'
+            echo 'pushenv llvm_ROOT $install_dir'
+            echo 'pushenv llvm_DIR $install_dir'
+            echo 'pushenv LLVM_PATH $install_dir'
+            echo 'pushenv LLVM_ROOT $install_dir'
+            echo 'pushenv LLVM_DIR $install_dir'
+            echo ''
+            echo 'prepend-path PATH $install_dir/bin'
+            echo '# Use DYLD_FALLBACK_LIBRARY_PATH instead of DYLD_LIBRARY_PATH'
+            echo '# This allows other libraries (like PoCL) to use their @rpath first,'
+            echo '# while still providing LLVM libs as a fallback for tools that need them.'
+            echo 'prepend-path DYLD_FALLBACK_LIBRARY_PATH $install_dir/lib'
+            echo 'prepend-path DYLD_FALLBACK_LIBRARY_PATH $install_dir/lib64'
+            echo 'prepend-path LIBRARY_PATH $install_dir/lib'
+            echo 'prepend-path LIBRARY_PATH $install_dir/lib64'
+            echo 'prepend-path CPATH $install_dir/include'
+            echo 'prepend-path PKG_CONFIG_PATH $install_dir/lib/pkgconfig'
+            echo 'prepend-path CMAKE_PREFIX_PATH $install_dir/lib/cmake'
+          } > "$MODULE_DIR/22.0-${{ matrix.variant }}"
+          echo "Created modulefile: $MODULE_DIR/22.0-${{ matrix.variant }}"
+      - name: Cleanup staged install
+        if: always()
+        run: rm -rf $HOME/llvm-stage/22-${{ matrix.variant }}

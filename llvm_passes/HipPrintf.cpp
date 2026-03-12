@@ -53,8 +53,10 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "PassPluginCompat.h"
 
+#include <algorithm>
+#include <cctype>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -151,18 +153,58 @@ getFormatStringPieces(Value *FmtStrArg, unsigned &NumberOfFormatSpecs) {
   // TO CHECK again.
   std::string FmtStr = std::string(FmtStrData->getAsCString());
 
-  // TODO: %s can also have * specifier. We have to treat it as a special
-  // case, adding strlen() - width for padding.
+  // Find all string format specifiers (%s, %-8s, %8.5s, %*s, etc.)
+  // and split them out as separate pieces for special handling.
   size_t Pos = 0;
-  while ((Pos = FmtStr.find("%s")) != std::string::npos &&
-         // Without this we'd handle %%s wrongly.
-         !(Pos > 0 && FmtStr[Pos - 1] == '%')) {
-    std::string TokenBefore = FmtStr.substr(0, Pos);
-    if (TokenBefore != "")
-      FmtStrPieces.push_back(TokenBefore);
-    assert(FmtStr.size() > Pos + 2 - 1);
-    FmtStr.erase(0, Pos + 2);
-    FmtStrPieces.push_back("%s");
+  while (Pos < FmtStr.size()) {
+    size_t PctPos = FmtStr.find('%', Pos);
+    if (PctPos == std::string::npos)
+      break;
+
+    // Skip %% (escaped percent).
+    if (PctPos + 1 < FmtStr.size() && FmtStr[PctPos + 1] == '%') {
+      Pos = PctPos + 2;
+      continue;
+    }
+
+    // Parse optional flags: -, +, 0, space, #
+    size_t End = PctPos + 1;
+    while (End < FmtStr.size() &&
+           (FmtStr[End] == '-' || FmtStr[End] == '+' ||
+            FmtStr[End] == '0' || FmtStr[End] == ' ' || FmtStr[End] == '#'))
+      End++;
+
+    // Parse optional width: * or digits
+    if (End < FmtStr.size() && FmtStr[End] == '*')
+      End++;
+    else
+      while (End < FmtStr.size() && isdigit(FmtStr[End]))
+        End++;
+
+    // Parse optional precision: .* or .digits
+    if (End < FmtStr.size() && FmtStr[End] == '.') {
+      End++;
+      if (End < FmtStr.size() && FmtStr[End] == '*')
+        End++;
+      else
+        while (End < FmtStr.size() && isdigit(FmtStr[End]))
+          End++;
+    }
+
+    // Check for 's' conversion specifier.
+    if (End < FmtStr.size() && FmtStr[End] == 's') {
+      size_t SpecLen = End + 1 - PctPos;
+      std::string TokenBefore = FmtStr.substr(0, PctPos);
+      if (!TokenBefore.empty())
+        FmtStrPieces.push_back(TokenBefore);
+      FmtStrPieces.push_back(FmtStr.substr(PctPos, SpecLen));
+      FmtStr.erase(0, PctPos + SpecLen);
+      Pos = 0; // Reset since we erased from the front.
+      continue;
+    }
+
+    // Not a string specifier, skip past this format specifier.
+    Pos = End;
   }
   if (FmtStr != "")
     FmtStrPieces.push_back(FmtStr);
@@ -398,55 +440,109 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
         // Skip the original format string arg and recreate it.
         OrigCallArgI++;
 
+        std::string toAdd;
+        std::vector<Value *> Args;
+
         for (auto FmtStr : FmtSpecPieces) {
           unsigned FormatSpecCount = NumFormatSpecs(FmtStr);
-          std::vector<Value *> Args;
 
           // TODO: handle a (compile time known) null ptr format string arg and
           // return -1 like CUDA does.
           if (FmtStr == "") {
             // No output, the return value suffices.
             continue;
-          } else if (FmtStr == "%s" || FmtStr == "%*s") {
-            // This is a string printout, we do not pass the format string
-            // in that case, but just call a string printer.
-            // We can use the normal printf if the %s arg can be resolved to
-            // a literal C string. However, it must be moved to constant AS
-            // for OpenCL compatibility.
+          } else if (FmtStr.size() >= 2 && FmtStr.front() == '%' &&
+                     FmtStr.back() == 's') {
+            // Handle string format specifier (%s, %-8s, %8.5s, %*s, etc.)
+            // Three strategies:
+            // 1. Bare %s with literal: inline content into format string
+            //    (avoids address space mismatch — no pointer arg needed)
+            // 2. %s with modifiers and literal: clone string to constant AS
+            //    and keep the format specifier (lets OpenCL printf do formatting)
+            // 3. Dynamic strings: use _cl_print_str to print char-by-char
+            bool IsBarePercentS = (FmtStr == "%s");
             Value *OrigArg = *OrigCallArgI++;
-            bool IsEmpty = false;
-            if (Value *ConstantSpaceCStr =
-                    cloneStrArgToConstantAS(OrigArg, B, &IsEmpty)) {
-              if (IsEmpty)
-                continue; // empty str arg to a %s, no output needed
-              // We could copy the arg to constant space, printf it
-              // directly. No format string needed.
-              Args.push_back(ConstantSpaceCStr);
-              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
-            } else if (ASSUME_PRINTF_SUPPORTS_GLOBAL_STRING_ARGS) {
-              if (IsEmpty)
-                continue;
-              // Create a constant space format string for %s.
-              Args.push_back(getOrCreateStrLiteralArg("%s", B));
-              // ...and then assume the data arg can point to a generic
-              // address space string (eventually residing in global AS).
-              Args.push_back(OrigArg);
-              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
-            } else {
-              Args.push_back(OrigArg);
-              CallInst::Create(getOrCreatePrintStringF(), Args, "", &OrigCall);
+
+            // Consume the * width/precision args if present.
+            unsigned StarCount = std::count(FmtStr.begin(), FmtStr.end(), '*');
+            std::vector<Value *> StarArgs;
+            while (StarCount--) {
+              assert(OrigCallArgI != OrigCallArgs.end());
+              StarArgs.push_back(*OrigCallArgI++);
             }
+
+            // Try to extract literal string content
+            bool IsEmpty = false;
+            ConstantExpr *CE = dyn_cast<ConstantExpr>(OrigArg);
+            if (CE != nullptr) {
+              Value *StrOpr = CE->getOperand(0);
+              GlobalVariable *OrigStr = findGlobalStr(StrOpr);
+              if (OrigStr != nullptr && OrigStr->hasInitializer()) {
+                std::string LiteralContent = getCDSAsString(OrigStr, IsEmpty);
+                if (IsEmpty && IsBarePercentS)
+                  continue; // empty str arg with bare %s, no output needed
+
+                if (IsBarePercentS) {
+                  // Inline the literal string into the format string.
+                  // Escape any % chars to prevent them being treated as specs.
+                  for (char C : LiteralContent) {
+                    if (C == '%')
+                      toAdd += "%%";
+                    else
+                      toAdd += C;
+                  }
+                  continue;
+                }
+                // Has modifiers (e.g. %-8s) - keep the format specifier but
+                // move the string to constant AS so OpenCL printf handles it.
+                Value *ConstStr = getOrCreateStrLiteralArg(
+                    IsEmpty ? "" : LiteralContent, B);
+                toAdd += FmtStr;
+                for (auto *SA : StarArgs)
+                  Args.push_back(SA);
+                Args.push_back(ConstStr);
+                continue;
+              }
+            }
+
+            // Dynamic string - use _cl_print_str
+            // First flush any pending format string
+            if (!toAdd.empty()) {
+              Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
+              toAdd.clear();
+              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+              Args.clear();
+            }
+
+            // Flush any star args for this specifier as a separate printf
+            // (can't use them with _cl_print_str).
+
+            // _cl_print_str expects a generic address space pointer
+            auto *Int8Ty = IntegerType::get(M_->getContext(), 8);
+            PointerType *GenericPtrTy =
+                PointerType::get(Int8Ty, SPIRV_OPENCL_GENERIC_AS);
+            Value *GenericPtr =
+                B.CreateAddrSpaceCast(OrigArg, GenericPtrTy, "str.generic");
+
+            Args.push_back(GenericPtr);
+            CallInst::Create(getOrCreatePrintStringF(), Args, "", &OrigCall);
+            Args.clear();
             continue;
           }
 
           // Handle as a normal printf() call.
-          Args.push_back(getOrCreateStrLiteralArg(FmtStr, B));
+          toAdd += FmtStr;
           while (FormatSpecCount--) {
             assert(OrigCallArgI != OrigCallArgs.end());
             Value *OrigArg = *OrigCallArgI++;
             Args.push_back(OrigArg);
           }
+        }
+        if (!toAdd.empty()) {
+          Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
+          toAdd.clear();
           CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+          Args.clear();
         }
 
         // Instead of returning the success/failure from the OpenCL printf(),

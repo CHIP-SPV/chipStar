@@ -380,6 +380,11 @@ DwtHaar1D::setupHIP(void)
     cout << " System major " << devProp.major << endl;
     cout << " agent prop name " << devProp.name << endl;
 
+    if (!devProp.canMapHostMemory) {
+        cout << "HIP_SKIP_THIS_TEST" << endl;
+        exit(EXIT_SUCCESS);
+    }
+
     hipHostMalloc((void**)&inDataBuf, sizeof(float) * signalLength,hipHostMallocDefault);
     hipHostMalloc((void**)&dOutDataBuf, signalLength * sizeof(float),hipHostMallocDefault);
     hipHostMalloc((void**)&dPartialOutDataBuf, signalLength * sizeof(float),hipHostMallocDefault);

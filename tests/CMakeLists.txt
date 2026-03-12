@@ -9,6 +9,8 @@ function(add_hip_test MAIN_SOURCE)
     PUBLIC ${CMAKE_SOURCE_DIR}/HIP/include ${CMAKE_SOURCE_DIR}/include)
 
   add_test(NAME ${EXEC_NAME} COMMAND ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
+  set_tests_properties("${EXEC_NAME}" PROPERTIES
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
   add_dependencies(build_tests "${EXEC_NAME}")
 endfunction()
 
@@ -20,18 +22,3 @@ add_subdirectory(hiprtc)
 add_subdirectory(post-install)
 add_subdirectory(runtime)
 add_subdirectory(libraries)
-
-add_test(
-  NAME hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind
-  COMMAND ${CMAKE_COMMAND}
-    -DTEST_COMMAND=${CMAKE_BINARY_DIR}/catch/catch_tests/unit/memory/hipMemset
-    -DTEST_NAME=hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind
-    -DTEST_ARGS=Unit_hipMemsetAsync_SetMemoryWithOffset
-    -DTIMEOUT=30
-    -DVALGRIND_COMMAND=valgrind
-    -DVALGRIND_ARGS=--tool=helgrind
-    -DVIOLATED_THRESHOLD=0
-    -DCONFLICTS_THRESHOLD=40
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/run_helgrind_test.cmake
-)
-

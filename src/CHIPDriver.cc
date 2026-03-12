@@ -117,6 +117,36 @@ static void createBackendObject() {
 
 void CHIPInitializeCallOnce() {
   logDebug("CHIPDriver Initialize");
+
+  if (ChipEnvVars.getBackend().getType() == BackendType::Default) {
+    // Default mode: try each compiled backend until one initializes.
+#ifdef HAVE_OPENCL
+    try {
+      logDebug("CHIPBE=default... trying OpenCL Backend");
+      Backend = new CHIPBackendOpenCL();
+      Backend->initialize();
+      return;
+    } catch (...) {
+      logDebug("OpenCL backend failed to initialize");
+      if (Backend) delete Backend, Backend = nullptr;
+    }
+#endif
+#ifdef HAVE_LEVEL0
+    try {
+      logDebug("CHIPBE=default... trying Level0 Backend");
+      Backend = new CHIPBackendLevel0();
+      Backend->initialize();
+      return;
+    } catch (...) {
+      logDebug("Level0 backend failed to initialize");
+      if (Backend) delete Backend, Backend = nullptr;
+    }
+#endif
+    CHIPERR_LOG_AND_THROW(
+        "No backend could be initialized. Tried all compiled backends.",
+        hipErrorInitializationError);
+  }
+
   try {
     createBackendObject();
     Backend->initialize();

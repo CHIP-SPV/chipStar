@@ -47,7 +47,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "PassPluginCompat.h"
 
 #define DEBUG_TYPE "hip-lower-gv"
 
@@ -161,9 +161,10 @@ static void emitGlobalVarBindShadowKernel(Module &M, GlobalVariable *GVar,
 #endif
 
   Value *BindArg = Builder.GetInsertBlock()->getParent()->getArg(0);
-  BindArg = Builder.CreatePointerBitCastOrAddrSpaceCast(BindArg,
-                                                        GVar->getValueType());
-  Builder.CreateStore(BindArg, GVar);
+  // GVar is now i64; convert the pointer argument to i64 before storing.
+  Value *AddrAsInt = Builder.CreatePtrToInt(BindArg,
+                                            Type::getInt64Ty(M.getContext()));
+  Builder.CreateStore(AddrAsInt, GVar);
 }
 
 // Returns a constant expression rewritten as instructions if needed.
@@ -181,12 +182,14 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
 
   if (auto *GVar = dyn_cast<GlobalVariable>(C)) {
     if (GVarMap.count(GVar)) {
-      // Replace with pointer load. All constant expressions depending
-      // on this will be rewritten as instructions.
+      // Replace with i64 load + inttoptr. The new GVar stores a device
+      // address as i64.
       auto *NewGVar = GVarMap[GVar];
       auto *LD = Builder.CreateLoad(NewGVar->getValueType(), NewGVar);
-      InsnCache[GVar] = LD;
-      return LD;
+      auto *PtrAS = PointerType::get(C->getContext(), SpirvCrossWorkGroupAS);
+      auto *AsPtr = cast<Instruction>(Builder.CreateIntToPtr(LD, PtrAS));
+      InsnCache[GVar] = AsPtr;
+      return AsPtr;
     }
     return GVar;
   }
@@ -282,16 +285,20 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
   // *1: Emitted by emitIndirectGlobalVariable().
   //
 
-  assert(GVar->getValueType()->isPointerTy());
+  assert(GVar->getValueType()->isIntegerTy(64));
   assert(OriginalGVar->hasInitializer());
 
   auto Name = std::string(ChipVarInitPrefix) + OriginalGVar->getName().str();
   IRBuilder<> Builder(createKernelStub(M, Name, {}));
 
+  // GVar is i64; load and convert to pointer.
+  auto *PtrAS = PointerType::get(M.getContext(), SpirvCrossWorkGroupAS);
+
   if (hasNoRuntimeConstants(OriginalGVar->getInitializer(), GVarMap)) {
     // Emit A)
     // <ChipVarPrefix>Foo
-    Value *Ptr = Builder.CreateLoad(GVar->getValueType(), GVar);
+    Value *AddrInt = Builder.CreateLoad(GVar->getValueType(), GVar);
+    Value *Ptr = Builder.CreateIntToPtr(AddrInt, PtrAS);
 
     auto *InitSrc = createCopyableValue(M, OriginalGVar->getInitializer());
     auto Alignment = OriginalGVar->getAlign();
@@ -312,7 +319,8 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
       expandConstant(OriginalGVar->getInitializer(), GVarMap, Builder, Cache);
 
   // *<ChipVarPrefix>Foo
-  Value *Ptr = Builder.CreateLoad(GVar->getValueType(), GVar);
+  Value *AddrInt = Builder.CreateLoad(GVar->getValueType(), GVar);
+  Value *Ptr = Builder.CreateIntToPtr(AddrInt, PtrAS);
 
   // *<ChipVarPrefix>Foo = SomeInit;
   Builder.CreateStore(Init, Ptr);
@@ -328,18 +336,25 @@ static bool shouldLower(const GlobalVariable &GVar) {
 #endif
     return false;  // Already lowered.
 
+  // __chipspv_device_heap is a pointer-typed global from the device malloc
+  // bitcode. It may not be externally_initialized (the bitcode defines it as a
+  // regular global), but we still need to lower it to i64 so clspv can handle
+  // it. Accept it by name regardless of externally_initialized.
+  bool IsDeviceHeap = (GVar.getName() == ChipDeviceHeapName);
+
   // All host accessible global device variables are marked to be externally
   // initialized. For templated variables, we allow COMDAT linkage.
-  if (!GVar.isExternallyInitialized()) {
-    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName() 
+  if (!IsDeviceHeap && !GVar.isExternallyInitialized()) {
+    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName()
                       << " - not externally initialized\n");
     return false;
   }
 
   // String literals get an unnamed_addr attribute, we know by it to
-  // skip them.
-  if (GVar.hasAtLeastLocalUnnamedAddr()) {
-    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName() 
+  // skip them. The device heap may also get local_unnamed_addr from -O3
+  // when it has no users in the module, but we still need to lower it.
+  if (!IsDeviceHeap && GVar.hasAtLeastLocalUnnamedAddr()) {
+    LLVM_DEBUG(dbgs() << "Skipping variable " << GVar.getName()
                       << " - has unnamed_addr\n");
     return false;
   }
@@ -444,16 +459,18 @@ static void eraseMappedGlobalVariables(GVarMapT &GVarMap) {
 
 static GlobalVariable *emitIndirectGlobalVariable(Module &M,
                                                   GlobalVariable *GVar) {
-  // Create new global variable.
+  // Create new global variable as i64 (stores a device address).
+  // Using i64 instead of pointer avoids issues with clspv's SPIR-V generation
+  // for cross-workgroup pointers. The i64 value is converted to/from pointer
+  // via inttoptr/ptrtoint at use sites.
   assert(GVar->hasName());
   auto NewGVarName = std::string(ChipVarPrefix) + GVar->getName().str();
-  auto *NewGVarTy = PointerType::get(GVar->getValueType(),
-                                     GVar->getType()->getAddressSpace());
+  auto *I64Ty = Type::getInt64Ty(M.getContext());
   GlobalVariable *NewGVar = new GlobalVariable(
-      M, NewGVarTy, /*isConstant=*/false, GVar->getLinkage(),
-      Constant::getNullValue(NewGVarTy), NewGVarName, (GlobalVariable *)nullptr,
+      M, I64Ty, /*isConstant=*/false, GVar->getLinkage(),
+      ConstantInt::get(I64Ty, 0), NewGVarName, (GlobalVariable *)nullptr,
       GVar->getThreadLocalMode(), SpirvCrossWorkGroupAS,
-      GVar->isExternallyInitialized());
+      /*isExternallyInitialized=*/true);
   // Original GVars emitted by HIP-Clang are hidden. Make new GVars hidden too
   // for consistency.
   NewGVar->setVisibility(GlobalValue::HiddenVisibility);
@@ -522,8 +539,15 @@ static bool lowerGlobalVariables(Module &M) {
     for (auto Kv : GVarMap) {
       emitGlobalVarInfoShadowKernel(M, Kv.first);
       emitGlobalVarBindShadowKernel(M, Kv.second, Kv.first);
-      if (Kv.first->hasInitializer())
-        emitGlobalVarInitShadowKernel(M, Kv.second, Kv.first, GVarMap);
+      if (Kv.first->hasInitializer()) {
+        // Skip init kernel only for __chipspv_device_heap which has a
+        // pointer-typed null initializer that clspv cannot handle.
+        bool IsDeviceHeapNull =
+            Kv.first->getName() == ChipDeviceHeapName &&
+            Kv.first->getInitializer()->isNullValue();
+        if (!IsDeviceHeapNull)
+          emitGlobalVarInitShadowKernel(M, Kv.second, Kv.first, GVarMap);
+      }
     }
     replaceGlobalVariableUses(GVarMap);
     eraseMappedGlobalVariables(GVarMap);

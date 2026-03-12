@@ -34,44 +34,35 @@ if(NOT CLANG_VERSION_LESS_15 AND CLANG_VERSION_LESS_16)
   list(APPEND EXTRA_FLAGS ${DISABLE_OPAQUE_PTRS_OPT})
 endif()
 
-if("${LLVM_VERSION}" VERSION_LESS 14.0)
-  # Definitions for pre-upstreamed HIP-Clang.
-  set(BC_TRIPLE "spirv64")
-  set(BC_FILE "devicelib.bc")
-  set(BC_DESTINATION share)
-else()
-  # HIP-Clang automatically looks for hipspv-<triple>.bc in
-  # <bc-destination> directory in HIP compilation mode.
-  set(BC_TRIPLE "spirv64")
-  set(BC_FILE "hipspv-${BC_TRIPLE}.bc")
-  set(BC_DESTINATION lib/hip-device-lib)
-endif()
+set(BC_FILE "hipspv-${OFFLOAD_TRIPLE}.bc")
+set(BC_DESTINATION lib/hip-device-lib)
 
 set(BITCODE_CL_COMPILE_FLAGS
   -Xclang -finclude-default-header -O2 -x cl -cl-std=CL2.0
-  -cl-ext=+cl_khr_subgroup --target=${BC_TRIPLE}
+  -cl-ext=+cl_khr_subgroup
   -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE} -emit-llvm
   ${EXTRA_FLAGS})
 set(BITCODE_C_COMPILE_FLAGS
-  --target=${BC_TRIPLE} -O2 -x c -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE}
+  --target=${OFFLOAD_TRIPLE} -O2 -x c -DDEFAULT_WARP_SIZE=${DEFAULT_WARP_SIZE}
   -emit-llvm ${EXTRA_FLAGS})
 
 # non-OCML sources
 set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture" "malloc") # "printf_support"
 
 # Compiles SOURCE treated as OpenCL to LLVM bitcode.
-function(add_opencl_bitcode SOURCE OUTPUT)
+function(add_opencl_bitcode TARGET SOURCE OUTPUT)
   add_custom_command(
     OUTPUT "${OUTPUT}"
     DEPENDS "${SOURCE}"
     COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
-    -o "${OUTPUT}" -c "${SOURCE}"
+    --target=${TARGET} -o "${OUTPUT}" -c "${SOURCE}"
     COMMENT "Building ${SOURCE}"
     VERBATIM)
 endfunction()
 
 foreach(SOURCE IN LISTS NON_OCML_SOURCES)
   add_opencl_bitcode(
+    ${OFFLOAD_TRIPLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
     "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
@@ -83,6 +74,7 @@ set(AMDGPU_TARGET_TRIPLE "spirv64" CACHE STRING "Target triple for ROCm device l
 
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
 set(CMAKE_WARN_DEPRECATED OFF)
+set(AMDGPU_TARGET_TRIPLE ${OFFLOAD_TRIPLE})
 add_subdirectory(ROCm-Device-Libs EXCLUDE_FROM_ALL)
 set(CMAKE_WARN_DEPRECATED ${SAVED_WARN_DEPRECATED})
 
@@ -159,19 +151,40 @@ install(FILES "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
 # Sources requiring SPIR-V 1.2 at most.
 set(RTDEVLIB_SOURCES_v1_2
   atomicAddFloat_native atomicAddFloat_emulation
-  atomicAddDouble_native atomicAddDouble_emulation)
+  atomicAddDouble_native atomicAddDouble_emulation
+  atomicMinMaxFloat_emulation)
 
 # Sources requiring SPIR-V 1.3 at most.
 set(RTDEVLIB_SOURCES_v1_3
   ballot_native)
 
+# Set rtdevlib compile triples. With integrated SPIR-V (LLVM 22+), use chipstar
+# triples. With external translator, use OFFLOAD_TRIPLE (spirv64).
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  set(RTDEVLIB_TRIPLE_v1_2 spirv64v1.2-unknown-chipstar)
+  set(RTDEVLIB_TRIPLE_v1_3 spirv64v1.3-unknown-chipstar)
+else()
+  set(RTDEVLIB_TRIPLE_v1_2 ${OFFLOAD_TRIPLE})
+  set(RTDEVLIB_TRIPLE_v1_3 ${OFFLOAD_TRIPLE})
+endif()
+
 # Alias for add_opencl_bitcode.
-foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2 RTDEVLIB_SOURCES_v1_3)
- add_opencl_bitcode(
-   "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
-   "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
- list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
+foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2)
+  add_opencl_bitcode(
+    ${RTDEVLIB_TRIPLE_v1_2}
+    "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
+  list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
 endforeach()
+
+foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_3)
+  add_opencl_bitcode(
+    ${RTDEVLIB_TRIPLE_v1_3}
+    "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
+  list(APPEND RTDEVLIB_BITCODES "${CMAKE_CURRENT_BINARY_DIR}/${SOURCE}.bc")
+endforeach()
+
 
 add_custom_target("rtdevlib-bitcodes" DEPENDS ${RTDEVLIB_BITCODES})
 
@@ -184,19 +197,40 @@ function(embed_spirv_in_cpp
   # Name of the intermediate SPIR-V binary. The name of the C array will be
   # based on this filepath (with punctuation replaced with "_").
   set(SPIR_BINARY ${SOURCE_BASENAME}.spv)
-  add_custom_command(
-    OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
-    DEPENDS "${BC_SOURCE}"
-    BYPRODUCTS "${SPIR_BINARY}"
-    COMMAND "${LLVM_SPIRV}"
-    --spirv-ext=${SPIRV_EXTENSIONS}
-    --spirv-max-version=${MAX_SPIRV_VERSION}
-    "${BC_SOURCE}" -o "${SPIR_BINARY}"
-    COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
-    ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
-    COMMENT "Generating embedded SPIR-V binary: ${OUTPUT_SOURCE}"
-    VERBATIM
-  )
+  # Use the in-tree LLVM SPIR-V backend via clang when integrated SPIR-V is
+  # enabled (LLVM 22+), or the external llvm-spirv translator otherwise.
+  if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND CHIP_LLVM_USE_INTERGRATED_SPIRV)
+    # In-tree SPIR-V backend via clang
+    add_custom_command(
+      OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
+      DEPENDS "${BC_SOURCE}"
+      BYPRODUCTS "${SPIR_BINARY}"
+      COMMAND "${CMAKE_CXX_COMPILER}"
+      --target=spirv64v${MAX_SPIRV_VERSION}-unknown-chipstar
+      -mllvm -spirv-ext=${SPIRV_EXTENSIONS}
+      -c -x ir
+      "${BC_SOURCE}" -o "${SPIR_BINARY}"
+      COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
+      ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
+      COMMENT "Generating embedded SPIR-V binary (in-tree backend): ${OUTPUT_SOURCE}"
+      VERBATIM
+    )
+  else()
+    # External llvm-spirv translator
+    add_custom_command(
+      OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
+      DEPENDS "${BC_SOURCE}"
+      BYPRODUCTS "${SPIR_BINARY}"
+      COMMAND "${LLVM_SPIRV}"
+      --spirv-ext=${SPIRV_EXTENSIONS}
+      --spirv-max-version=${MAX_SPIRV_VERSION}
+      "${BC_SOURCE}" -o "${SPIR_BINARY}"
+      COMMAND ${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash
+      ${ARRAY_NAME} ${SPIR_BINARY} ${OUTPUT_SOURCE} ${OUTPUT_HEADER}
+      COMMENT "Generating embedded SPIR-V binary (llvm-spirv): ${OUTPUT_SOURCE}"
+      VERBATIM
+    )
+  endif()
 endfunction()
 
 foreach(SOURCE IN LISTS RTDEVLIB_SOURCES_v1_2)

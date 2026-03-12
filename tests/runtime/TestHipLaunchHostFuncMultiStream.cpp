@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <hip/hip_runtime.h>
+#include <cstdio>
 #include <iostream>
 
 void host_function(void* userData) {
@@ -18,6 +19,13 @@ __global__ void simple_kernel456(int* device_data) {
 }
 
 int main() {
+    hipDeviceProp_t devProp;
+    hipGetDeviceProperties(&devProp, 0);
+    if (!devProp.canMapHostMemory) {
+      printf("HIP_SKIP_THIS_TEST\n");
+      return 0;
+    }
+
     int* host_data;
     int* device_data;
 

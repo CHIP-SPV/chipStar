@@ -64,9 +64,8 @@ static RegisterPass<HipStripCompilerUsedLegacyPass>
     X("hip-strip-compiler-used", "Strip llvm.compiler.used variables.");
 
 // Pass hook for the new pass manager.
-#if LLVM_VERSION_MAJOR > 11
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "PassPluginCompat.h"
 
 PreservedAnalyses HipStripUsedIntrinsicsPass::run(Module &M,
                                                   ModuleAnalysisManager &AM) {
@@ -90,5 +89,3 @@ llvmGetPassPluginInfo() {
                 });
           }};
 }
-
-#endif // LLVM_VERSION_MAJOR > 11

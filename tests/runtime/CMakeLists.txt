@@ -107,12 +107,59 @@ add_hip_runtime_test(TestNegativeHasNoIGBAs1.hip)
 add_hip_runtime_test(TestNegativeHasNoIGBAs2.hip)
 add_hip_runtime_test(TestPositiveHasNoIGBAs.hip)
 
-add_hip_runtime_test(CatchMemLeak1.hip)
+# CatchMemLeak1 monitors RSS growth which is unreliable on macOS
+# (different ru_maxrss units, PoCL JIT memory behavior varies)
+if(NOT APPLE)
+  add_hip_runtime_test(CatchMemLeak1.hip)
+endif()
 if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
 endif()
 add_hip_runtime_test(Test887.hip)
 add_hip_runtime_test(TestTemplatedConstantMemcpy.hip)
+# Multi-TU test: same template instantiation in two separate TUs (#808)
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -c
+    ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddOne.hip
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddOne.hip
+    hipcc.bin CHIP devicelib_bc
+)
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -c
+    ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddTwo.hip
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddTwo.hip
+    hipcc.bin CHIP devicelib_bc
+)
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -c
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplateKernelModules.hip
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplateKernelModules.hip
+    hipcc.bin CHIP devicelib_bc
+)
+add_custom_target(TestTemplateKernelModules ALL
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
+    ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules
+  DEPENDS
+    ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
+    ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
+  COMMENT "Linking TestTemplateKernelModules (multi-TU)"
+)
+add_test(NAME TestTemplateKernelModules
+  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules)
+set_tests_properties(TestTemplateKernelModules PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS"
+  FAIL_REGULAR_EXPRESSION "device function is already registered"
+  TIMEOUT 60)
 
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES
@@ -135,7 +182,22 @@ add_hip_runtime_test(TestDefaultStreamImplicitSync.hip)
 add_hip_runtime_test(TestTypeCastIntrinsics.hip)
 add_hip_runtime_test(TestHipLaunchHostFunc.cpp)
 
+add_hip_runtime_test(TestBoolKernelParam.hip)
+find_program(SPIRV_DIS spirv-dis)
+if(SPIRV_DIS)
+  add_shell_test(TestBoolKernelParamSPIRV.bash)
+endif()
 # Test hipLaunchHostFunc with multi-stream and events (from PR #1071)
 add_hip_runtime_test(TestHipLaunchHostFuncMultiStream.cpp)
 set_tests_properties(TestHipLaunchHostFuncMultiStream PROPERTIES
   TIMEOUT 30)
+
+add_hip_runtime_test(TestDefaultBackend.cpp)
+add_test(NAME TestDefaultBackend_NoBE
+  COMMAND env -u CHIP_BE -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE
+    ${CMAKE_CURRENT_BINARY_DIR}/TestDefaultBackend)
+set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS")
+
+add_hip_runtime_test(TestHeCBenchF16Max.hip)
+add_hip_runtime_test(TestHeCBenchLebesgue.hip)

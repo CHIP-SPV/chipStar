@@ -76,7 +76,7 @@
 
 /// Check 'Kind' is valid for the target device. Throw an exception if not.
 static void checkMemcpyKind(chipstar::Device &Dev, hipMemcpyKind Kind) {
-  if (Kind == hipMemcpyDefault && !Dev.hasUnifiedVirtualAddressing())
+  if (Kind == hipMemcpyDefault && !Dev.canInferMemcpyDirection())
     CHIPERR_LOG_AND_THROW(
         "Can't determine copy direction without unified virtual addressing.",
         hipErrorInvalidMemcpyDirection);

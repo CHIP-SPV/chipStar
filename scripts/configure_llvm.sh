@@ -3,11 +3,29 @@
 # if an error is enountered, exit
 set -e
 
+# Retry wrapper for network operations (handles transient DNS failures)
+retry() {
+  local max_attempts=5
+  local delay=10
+  local attempt=1
+  while [ $attempt -le $max_attempts ]; do
+    if "$@"; then
+      return 0
+    fi
+    echo "Attempt $attempt/$max_attempts failed. Retrying in ${delay}s..."
+    sleep $delay
+    attempt=$((attempt + 1))
+    delay=$((delay * 2))
+  done
+  echo "All $max_attempts attempts failed."
+  return 1
+}
 # default values for optional arguments
 LINK_TYPE="dynamic"
 EMIT_ONLY="off"
 CONFIGURE_ONLY="off"
 WITH_BINUTILS=""
+VARIANT="translator"
 
 THIS_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 initial_pwd=$(pwd)
@@ -46,6 +64,10 @@ while [ $# -gt 0 ]; do
       CONFIGURE_ONLY="on"
       shift 1
       ;;
+    --variant)
+      VARIANT="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option $1"
       exit 1
@@ -55,10 +77,11 @@ done
 
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
-  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--with-binutils [path]] [--configure-only] [-N]"
-  echo "--version: LLVM version 17, 18, 19, 20 or 21"
+  echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--variant translator|native] [--with-binutils [path]] [--configure-only] [-N]"
+  echo "--version: LLVM version 17, 18, 19, 20, 21 or 22"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: dynamic)"
+  echo "--variant: translator (host only) or native (host;SPIRV) (default: translator)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "--configure-only: only clone, patch, and run cmake configure (skip build and install)"
   echo "-N: only emit the cmake configure command without executing it"
@@ -73,8 +96,8 @@ fi
 
 # validate version argument
 if [ "$VERSION" != "17" ] && [ "$VERSION" != "18" ] && [ "$VERSION" != "19" ] \
-       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ]; then
-  echo "Invalid version. Must be 17, 18, 19, 20 or 21."
+       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ]; then
+  echo "Invalid version. Must be 17, 18, 19, 20, 21 or 22."
   exit 1
 fi
 
@@ -84,8 +107,25 @@ if [ "$LINK_TYPE" != "static" ] && [ "$LINK_TYPE" != "dynamic" ]; then
   exit 1
 fi
 
-# get the gcc base path to use in cmake flags
-gcc_base_path=$( which gcc | sed s+'bin/gcc'++ )
+# validate VARIANT argument
+if [ "$VARIANT" != "translator" ] && [ "$VARIANT" != "native" ]; then
+  echo "Invalid VARIANT. Must be 'translator' or 'native'."
+  exit 1
+fi
+
+# Platform-specific compiler selection
+if [[ "$(uname)" == "Darwin" ]]; then
+  CC=clang
+  CXX=clang++
+  gcc_base_path=""
+else
+  CC=gcc
+  CXX=g++
+  # get the gcc base path to use in cmake flags
+  gcc_base_path=$( which gcc | sed s+'bin/gcc'++ )
+fi
+
+NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 
 # Map version to upstream LLVM branch and SPIRV-Translator branch
 LLVM_BRANCH="release/${VERSION}.x"
@@ -98,13 +138,13 @@ if [ "$EMIT_ONLY" != "on" ]; then
   # check if llvm-project exists, if not clone it
   if [ ! -d llvm-project ]; then
     echo "Cloning LLVM from upstream..."
-    git clone https://github.com/llvm/llvm-project.git
+    retry git clone https://github.com/llvm/llvm-project.git
     cd llvm-project
     git checkout ${LLVM_BRANCH}
     
     echo "Cloning SPIRV-LLVM-Translator from upstream..."
     cd llvm/projects
-    git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
+    retry git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
     cd SPIRV-LLVM-Translator
     git checkout ${TRANSLATOR_BRANCH}
   else
@@ -119,7 +159,7 @@ if [ "$EMIT_ONLY" != "on" ]; then
     if [ ! -d llvm/projects/SPIRV-LLVM-Translator ]; then
       echo "Cloning SPIRV-LLVM-Translator from upstream..."
       cd llvm/projects
-      git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
+      retry git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
       cd SPIRV-LLVM-Translator
     else
       cd llvm/projects/SPIRV-LLVM-Translator
@@ -142,19 +182,49 @@ if [ "$EMIT_ONLY" != "on" ]; then
       if [ -f "$patch" ]; then
         patch_name=$(basename $patch)
         
-        # Skip data layout patch for LLVM 17-19 (only needed for 20+)
-        if [[ "$patch_name" == *"data-layout"* ]] && [ "$VERSION" -lt 20 ]; then
+        # Skip SPIR-V data layout patches for LLVM 17-19 (not needed) and 22+ (fixed at chipStar level)
+        # Note: only match 0002-fix-SPIR-V-data-layout, NOT 0005-fix-archive-data-layout
+        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout"* ]] && ([ "$VERSION" -lt 20 ] || [ "$VERSION" -ge 22 ]); then
           echo "  Skipping $patch_name (not needed for LLVM ${VERSION})"
           continue
         fi
-        
+
         # Use LLVM 21-specific data layout patch for version 21, skip LLVM 20 version
         if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 21 ]; then
           echo "  Skipping $patch_name (using LLVM 21-specific patch instead)"
           continue
         fi
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
+        if [[ "$patch_name" == *"data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
           echo "  Skipping $patch_name (only needed for LLVM 21)"
+          continue
+        fi
+
+        # Skip Unbundle SDL patch for LLVM 22+ (already upstream)
+        if [[ "$patch_name" == *"Unbundle-SDL"* ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+          continue
+        fi
+
+        # For LLVM 22+: skip individual 0001/0004 patches (line shifts due to upstream 0003),
+        # use combined llvm22 patch instead
+        if [[ "$patch_name" == "0001-Allow-up-to-v1.2-SPIR-V-features.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific combined patch instead)"
+          continue
+        fi
+        if [[ "$patch_name" == "0004-only-necessary-exts.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific combined patch instead)"
+          continue
+        fi
+
+        # Skip old macOS patch for LLVM 22+ (replaced by llvm22-specific patch)
+        if [[ "$patch_name" == "0006-fix-macos-hip-spirv.patch" ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (using LLVM 22-specific macOS patch instead)"
+          continue
+        fi
+
+        # Skip LLVM 22-specific patches when building older versions
+        if [[ "$patch_name" == *"-llvm22.patch" ]] && [ "$VERSION" -lt 22 ]; then
+          echo "  Skipping $patch_name (only for LLVM 22+)"
           continue
         fi
         
@@ -196,6 +266,12 @@ if [ "$EMIT_ONLY" != "on" ]; then
           continue
         fi
         
+        # Skip LoopMerge and blockMerge patches for LLVM 22+ (already upstream in translator)
+        if [[ "$patch_name" == *"LoopMerge"* || "$patch_name" == *"blockMerge"* ]] && [ "$VERSION" -ge 22 ]; then
+          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
+          continue
+        fi
+
         echo "  Applying $patch_name..."
         git apply "$patch" || {
           echo "Error: Failed to apply $patch_name"
@@ -257,7 +333,7 @@ if [ -n "${WITH_BINUTILS}" ]; then
         
         # Configure, compile, and install binutils
         ./configure --prefix=${BINUTILS_INSTALL_DIR}
-        make -j$(nproc)
+        make -j${NPROC}
         make install
         
         # Clean up
@@ -276,25 +352,34 @@ fi
 
 # Add build type condition
 # Forcing the use of gcc and g++ to avoid issues with intel compilers
-# NOTE: chipStar uses the external SPIRV-LLVM-Translator tool exclusively for SPIRV generation,
-# so we don't need LLVM's experimental/native SPIRV target at all
-LLVM_TARGETS="host"
+# translator: SPIRV-LLVM-Translator only (host targets). native: also enable LLVM's experimental SPIR-V backend.
+if [ "$VARIANT" = "native" ]; then
+  LLVM_TARGETS="host;SPIRV"
+else
+  LLVM_TARGETS="host"
+fi
 
 COMMON_CMAKE_OPTIONS=(
-  "-DCMAKE_CXX_COMPILER=g++"
-  "-DCMAKE_C_COMPILER=gcc"
+  "-DCMAKE_CXX_COMPILER=${CXX}"
+  "-DCMAKE_C_COMPILER=${CC}"
   "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}"
   "-DCMAKE_BUILD_TYPE=Release"
   "-DLLVM_ENABLE_PROJECTS=\"clang;openmp;clang-tools-extra\""
   "-DLLVM_TARGETS_TO_BUILD=\"${LLVM_TARGETS}\""
   "-DLLVM_ENABLE_ASSERTIONS=On"
-  "-DCMAKE_CXX_LINK_FLAGS=\"-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64\""
-  "-DCLANG_DEFAULT_PIE_ON_LINUX=off"
   "-DLLVM_INCLUDE_TESTS=OFF"
   "-DLLVM_INCLUDE_EXAMPLES=OFF"
   "-DLLVM_INCLUDE_BENCHMARKS=OFF"
   "-DLLVM_INCLUDE_DOCS=OFF"
 )
+
+# Linux-specific flags
+if [[ "$(uname)" != "Darwin" ]]; then
+  COMMON_CMAKE_OPTIONS+=(
+    "-DCMAKE_CXX_LINK_FLAGS=\"-Wl,-rpath,${gcc_base_path}/lib64 -L${gcc_base_path}/lib64\""
+    "-DCLANG_DEFAULT_PIE_ON_LINUX=off"
+  )
+fi
 
 if [ -n "${BINUTILS_HEADER_DIR}" ]; then
   COMMON_CMAKE_OPTIONS+=("-DLLVM_BINUTILS_INCDIR=${BINUTILS_HEADER_DIR}")
@@ -319,7 +404,7 @@ else
     echo "Configure complete. Skipping build and install (--configure-only)."
   else
     echo "Building LLVM (this may take a while)..."
-    cmake --build . -j$(nproc)
+    cmake --build . -j${NPROC}
     echo "Installing LLVM to ${INSTALL_DIR}..."
     cmake --build . --target install
     echo "LLVM ${VERSION} installed to ${INSTALL_DIR}"

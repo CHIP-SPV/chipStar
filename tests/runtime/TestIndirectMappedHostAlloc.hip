@@ -23,7 +23,7 @@ int main() {
   HIP_CHECK(hipGetDevice(&Device));
   HIP_CHECK(hipGetDeviceProperties(&Prop, Device));
   if (!Prop.canMapHostMemory) {
-    printf("SKIP: Test requires canMapHostMemory == 1\n");
+    printf("HIP_SKIP_THIS_TEST: Test requires canMapHostMemory == 1\n");
     return CHIP_SKIP_TEST;
   }
 

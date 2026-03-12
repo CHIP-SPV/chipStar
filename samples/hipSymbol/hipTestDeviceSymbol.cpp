@@ -49,6 +49,12 @@ __global__ void checkAddress(int* addr, bool* out) {
 }
 
 int main() {
+    hipDeviceProp_t devProp;
+    hipGetDeviceProperties(&devProp, 0);
+    if (!devProp.canMapHostMemory) {
+        printf("HIP_SKIP_THIS_TEST\n");
+        return 0;
+    }
     int *A, *Am, *B, *Ad, *C, *Cm;
     A = new int[NUM];
     B = new int[NUM];
