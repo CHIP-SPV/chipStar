@@ -4,3 +4,10 @@ set_target_properties(manySmallKernels PROPERTIES CXX_STANDARD_REQUIRED ON)
 target_link_libraries(manySmallKernels CHIP deviceInternal)
 target_include_directories(manySmallKernels
   PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+add_executable(manySmallKernelsOnlyLaunch manySmallKernels.hip)
+set_target_properties(manySmallKernelsOnlyLaunch PROPERTIES CXX_STANDARD_REQUIRED ON)
+target_compile_definitions(manySmallKernelsOnlyLaunch PRIVATE CHECK_ONLY_LAUNCH)
+target_link_libraries(manySmallKernelsOnlyLaunch CHIP deviceInternal)
+target_include_directories(manySmallKernelsOnlyLaunch
+  PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)

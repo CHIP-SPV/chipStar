@@ -1873,6 +1873,12 @@ void CHIPQueueLevel0::finish() {
   LOCK(CommandListMtx);
 
   // host wait for command list to complete
+  if( ZeCmdListImmCopy_ != ZeCmdListImm_) {
+    zeStatus = zeCommandListHostSynchronize(ZeCmdListImmCopy_, UINT64_MAX);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
+  }
+  
+  // host wait for command list to complete
   zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
 
