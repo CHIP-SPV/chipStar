@@ -71,6 +71,10 @@ include(LLVMCheck)
 include(chip_spv_cmake_macros)
 enable_testing()
 
+# Exclude ROCm-Device-Libs tests that target amdgcn (not applicable to SPIR-V builds).
+file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake"
+  "set(CTEST_CUSTOM_TESTS_IGNORE \"constant_fold_lgamma_r\")\n")
+
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "..." FORCE)
 endif()
