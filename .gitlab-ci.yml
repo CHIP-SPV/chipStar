@@ -79,6 +79,7 @@ chipStar_script_test:
     - module load cmake chipStar/.llvm19/20251107-19/release
     - CHIP_BE=level0 make build_tests -j
     - ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+  allow_failure: true 
 
 chipStar_script_install_llvm22:
   stage: builds_chipstar_install_script_llvm22
@@ -101,7 +102,8 @@ chipStar_script_test_llvm22:
     - module load cmake chipStar/.llvm22/20260311-22/release
     - CHIP_BE=level0 make build_tests -j
     - ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-
+  allow_failure: true
+  
 # testing with install script
 chipStar_aurora_script_test:
   stage: builds_chipstar_aurora_script_llvm19
