@@ -118,7 +118,7 @@ chipStar_aurora_script_test:
 
 chipStar_aurora_script_test_llvm22:
   stage: builds_chipstar_aurora_script_llvm22
-  needs: ["aurora_build_test"]
+  needs: ["chipStar_aurora_script_test"]
   extends: .aurora-batch-runner
   script:
     - hostname
