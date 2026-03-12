@@ -58,7 +58,7 @@ aurora_build_test:
 # testing with install script
 chipStar_script_install:
   stage: builds_chipstar_install_script_llvm19
-  needs: ["build_chipstar"]
+  needs: ["aurora_build_test"]
   extends: .aurora-shell-runner
   script:
     - hostname
@@ -72,7 +72,7 @@ chipStar_script_install:
 
 chipStar_script_test:
   stage: runs_tests_chipstar_install_script_llvm19
-  needs: ["builds_chipstar_install_script_llvm19"]
+  needs: ["chipStar_script_install"]
   extends: .aurora-batch-runner
   script:
     - cd ${WRK_DIR}/chipStar/build
@@ -83,7 +83,7 @@ chipStar_script_test:
 
 chipStar_script_install_llvm22:
   stage: builds_chipstar_install_script_llvm22
-  needs: ["build_chipstar"]
+  needs: ["aurora_build_test"]
   extends: .aurora-shell-runner
   script:
     - hostname
@@ -97,7 +97,7 @@ chipStar_script_install_llvm22:
 
 chipStar_script_test_llvm22:
   stage: runs_tests_chipstar_install_script_llvm22
-  needs: ["builds_chipstar_install_script_llvm22"]
+  needs: ["chipStar_script_install_llvm22"]
   extends: .aurora-batch-runner
   script:
     - cd ${WRK_DIR}/chipStar/build
@@ -109,7 +109,7 @@ chipStar_script_test_llvm22:
 # testing with install script
 chipStar_aurora_script_test:
   stage: builds_chipstar_aurora_script_llvm19
-  needs: ["build_chipstar"]
+  needs: ["aurora_build_test"]
   extends: .aurora-batch-runner
   script:
     - hostname
@@ -118,7 +118,7 @@ chipStar_aurora_script_test:
 
 chipStar_aurora_script_test_llvm22:
   stage: builds_chipstar_aurora_script_llvm22
-  needs: ["build_chipstar"]
+  needs: ["aurora_build_test"]
   extends: .aurora-batch-runner
   script:
     - hostname
