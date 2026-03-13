@@ -262,6 +262,9 @@ option(CHIP_L0_MAKE_MEM_RESIDENT "First-touch workaround for Level Zero." OFF)
 option(CHIP_L0_KERNEL_TIMESTAMPS "Enable kernel timestamps for Level Zero events." ON)
 set(CHIP_DEFAULT_JIT_FLAGS "-cl-kernel-arg-info -cl-std=CL3.0")
 
+# This mitigation might be necessary for PVC on Aurora (https://github.com/argonne-lcf/AuroraBugTracking/issues/124)
+option(CHIP_LZ_API_QUERY_QUEUE_EMPTY "This uses zeCommandListHostSynchronize(CmdList, 0) to query if CmdList is empty instead of using a boolean." OFF)
+
 option(CHIP_PROFILE_TESTS "Attach iprof to each test under ctest" OFF)
 if (CHIP_PROFILE_TESTS)
   set(HIP_PROFILE_TESTS_COMMAND "iprof" "-m" "full" "--")
