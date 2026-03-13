@@ -1,7 +1,7 @@
 [submodule "HIP"]
 	path = HIP
 	url = https://github.com/CHIP-SPV/HIP.git
-	branch = origin/chipStar-hip-7-macos
+	branch = chipStar-hip-7
 [submodule "hip-testsuite"]
 	path = hip-testsuite
 	url = https://github.com/CHIP-SPV/hip-testsuite.git
