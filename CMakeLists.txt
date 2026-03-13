@@ -443,8 +443,12 @@ add_dependencies(CHIP devicelib_bc LLVMHipPasses)
 add_dependencies(CHIP hipcc.bin hipconfig.bin)
 
 file(MAKE_DIRECTORY ${HIPCC_BUILD_PATH})
-file(CREATE_LINK hipcc.bin ${HIPCC_BUILD_PATH}/hipcc SYMBOLIC)
-file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
+if(NOT EXISTS "${HIPCC_BUILD_PATH}/hipcc")
+  file(CREATE_LINK hipcc.bin ${HIPCC_BUILD_PATH}/hipcc SYMBOLIC)
+endif()
+if(NOT EXISTS "${HIPCC_BUILD_PATH}/hipconfig")
+  file(CREATE_LINK hipconfig.bin ${HIPCC_BUILD_PATH}/hipconfig SYMBOLIC)
+endif()
 
 add_subdirectory(bin)
 
@@ -573,8 +577,10 @@ target_include_directories(CHIP
 
 # For cucc tool which uses HIP_PATH for locating headers.
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
-file(CREATE_LINK "${CMAKE_SOURCE_DIR}/include/cuspv"
-  ${CMAKE_BINARY_DIR}/include/cuspv SYMBOLIC)
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/include/cuspv")
+  file(CREATE_LINK "${CMAKE_SOURCE_DIR}/include/cuspv"
+    ${CMAKE_BINARY_DIR}/include/cuspv SYMBOLIC)
+endif()
 
 # =============================================================================
 # HIP OFFLOAD FLAGS
