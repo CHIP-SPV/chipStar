@@ -76,17 +76,11 @@ execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--version"
 message(STATUS "Using LLVM_VERSION: ${LLVM_VERSION}")
 string(REGEX MATCH "[0-9]+" LLVM_VERSION_MAJOR "${LLVM_VERSION}")
 
-# Check if the LLVM_INCLUDE_DIR is already cached
-if(NOT LLVM_INCLUDE_DIRS)
-  # Get the include directory
-  execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--includedir"
-    RESULT_VARIABLE RES
-    OUTPUT_VARIABLE LLVM_INCLUDE_DIRS
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-  # Cache the include directory
-  set(LLVM_INCLUDE_DIRS "${LLVM_INCLUDE_DIRS}" CACHE PATH "LLVM include directory")
-endif()
+execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--includedir"
+  RESULT_VARIABLE RES
+  OUTPUT_VARIABLE LLVM_INCLUDE_DIRS
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+set(LLVM_INCLUDE_DIRS "${LLVM_INCLUDE_DIRS}" CACHE PATH "LLVM include directory" FORCE)
 
 
 # Cache the include directory
