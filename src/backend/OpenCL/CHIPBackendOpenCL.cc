@@ -2146,7 +2146,11 @@ hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
   cl_platform_id Plat = Dev->getInfo<CL_DEVICE_PLATFORM>();
   NativeInfo[1] = (uintptr_t)Plat;
 
-  NativeInfo[0] = (uintptr_t)ChipEnvVars.getBackend().str();
+  // Always report the concrete backend name, not the CHIP_BE env-var value.
+  // When CHIP_BE is unset or "default", getBackend().str() returns "default"
+  // which confuses interop callers (e.g. MKLShim) that expect "opencl" or
+  // "level0". Hard-code the actual backend. (Issue #1199)
+  NativeInfo[0] = (uintptr_t) "opencl";
   return hipSuccess;
 }
 
