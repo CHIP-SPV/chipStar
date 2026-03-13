@@ -6219,6 +6219,15 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   NULLCHECK(Module);
   logDebug("hipModuleUnload(Module={}", (void *)Module);
 
+  // Synchronize all queues before releasing the module.  Some OpenCL drivers
+  // (e.g. Intel Arc / libigdrcl.so) crash in clFinish() if the underlying
+  // cl::Program is released while kernels compiled from it are still in-flight.
+  // Completing all work first ensures the driver holds no dangling references
+  // to the program object when we call delete Module below.
+  auto SyncStatus = hipDeviceSynchronizeInternal();
+  if (SyncStatus != hipSuccess)
+    RETURN(SyncStatus);
+
   auto *ChipModule = reinterpret_cast<chipstar::Module *>(Module);
   const auto &SrcMod = ChipModule->getSourceModule();
   Backend->getActiveDevice()->eraseModule(ChipModule);
