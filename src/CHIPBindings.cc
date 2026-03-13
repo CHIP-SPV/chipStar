@@ -4917,8 +4917,8 @@ hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
-                              hipStream_t Stream) {
+hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, const void *Src,
+                              size_t SizeBytes, hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
@@ -4927,7 +4927,7 @@ hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
+hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, const void *Src, size_t SizeBytes) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
