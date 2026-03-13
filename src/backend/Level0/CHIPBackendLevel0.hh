@@ -387,7 +387,11 @@ public:
   /// ze_events while GPU operations on this queue still reference them.
   std::vector<std::shared_ptr<chipstar::Event>> PendingCrossQueueDeps_;
   bool isEmptyQueue() override {
+#ifndef CHIP_LZ_API_QUERY_QUEUE_EMPTY
     return IsEmptyQueue_.load();
+#else
+    return (zeCommandListHostSynchronize(ZeCmdListImm_, 0) == ZE_RESULT_SUCCESS);
+#endif
   }
 
   std::vector<ze_event_handle_t> getEventListHandles(
