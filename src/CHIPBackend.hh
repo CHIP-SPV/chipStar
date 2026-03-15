@@ -2141,6 +2141,7 @@ public:
   virtual void recordEvent(chipstar::Event *Event) = 0;
   bool isDefaultLegacyQueue() { return isDefaultLegacyQueue_; }
   bool isDefaultPerThreadQueue() { return isPerThreadDefaultQueue_; }
+  virtual bool isEmptyQueue() {return false;} ;
   void setDefaultLegacyQueue(bool Status) { isDefaultLegacyQueue_ = Status; }
   void setDefaultPerThreadQueue(bool Status) {
     isPerThreadDefaultQueue_ = Status;
@@ -2165,54 +2166,73 @@ protected:
     EventLocks.push_back(
         std::make_unique<std::unique_lock<std::mutex>>(ChipDevice_->QueueAddRemoveMtx));
 
+    // Collect marker events to keep alive on this queue. These are
+    // cross-queue sync markers whose underlying ze_events are referenced
+    // as GPU-level wait dependencies. They must not be recycled by
+    // checkEvents() until this queue finishes.
+    std::vector<std::shared_ptr<chipstar::Event>> MarkerEvents;
+
     // If this is a default stream (legacy or per-thread), create markers for all blocking queues
     if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
       // Create markers for all blocking queues
       for (auto &q : ChipDevice_->getQueuesNoLock()) {
-        if (q->getQueueFlags().isBlocking()) {
+	// only do this if it's blocking and there's anything in the other queue.
+        if (q->getQueueFlags().isBlocking() && !q->isEmptyQueue()) {
           // Create a marker event in the other queue
           std::shared_ptr<chipstar::Event> ChipMarkerEvent;
           EventHandle handle = CreateMarkerInQueue(q, ChipMarkerEvent);
-          
+
           // Add the marker to the list of events to wait on
           EventHandles.push_back(handle);
 
           // Track the marker event so it gets properly managed by the event monitor
           BackendPtr->trackEvent(ChipMarkerEvent);
+          MarkerEvents.push_back(ChipMarkerEvent);
 
-          // Add dependency to the target event
-          TargetEvent->addDependency(ChipMarkerEvent);
-        }
+	}
       }
     } else if (this->getQueueFlags().isBlocking()) {
       // This is a blocking queue, sync with default streams
       // Create marker for legacy default stream
       auto LegacyDefaultQueue = ChipDevice_->getLegacyDefaultQueue();
-      if (LegacyDefaultQueue) {
+      if (LegacyDefaultQueue && !LegacyDefaultQueue->isEmptyQueue()) {
+
         std::shared_ptr<chipstar::Event> ChipMarkerEvent;
         EventHandle handle = CreateMarkerInQueue(LegacyDefaultQueue, ChipMarkerEvent);
-        
+
         EventHandles.push_back(handle);
         BackendPtr->trackEvent(ChipMarkerEvent);
-        TargetEvent->addDependency(ChipMarkerEvent);
+        MarkerEvents.push_back(ChipMarkerEvent);
       }
 
       // Create marker for per-thread default stream if used
       if (ChipDevice_->isPerThreadStreamUsedNoLock()) {
         auto PerThreadDefaultQueue = ChipDevice_->getPerThreadDefaultQueueNoLock();
-        if (PerThreadDefaultQueue) {
+        if (PerThreadDefaultQueue && !PerThreadDefaultQueue->isEmptyQueue() ) {
           std::shared_ptr<chipstar::Event> ChipMarkerEvent;
           EventHandle handle = CreateMarkerInQueue(PerThreadDefaultQueue, ChipMarkerEvent);
-          
+
           EventHandles.push_back(handle);
           BackendPtr->trackEvent(ChipMarkerEvent);
-          TargetEvent->addDependency(ChipMarkerEvent);
+          MarkerEvents.push_back(ChipMarkerEvent);
         }
       }
     }
 
+    // Store marker events on this queue to prevent premature recycling.
+    // checkEvents() may see that marker ze_events have been signaled and
+    // recycle them, but GPU operations on THIS queue still reference those
+    // ze_events as wait dependencies. Holding shared_ptrs here prevents
+    // the event pool from resetting the ze_events until this queue finishes.
+    if (!MarkerEvents.empty()) {
+      storeCrossQueueDeps(std::move(MarkerEvents));
+    }
+
     return {EventHandles, std::move(EventLocks)};
   }
+
+  virtual void storeCrossQueueDeps(
+      std::vector<std::shared_ptr<chipstar::Event>> Markers) {}
 
 public:
   enum MEM_MAP_TYPE { HOST_READ, HOST_WRITE, HOST_READ_WRITE };
