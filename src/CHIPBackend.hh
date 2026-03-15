@@ -2208,7 +2208,7 @@ protected:
       // Create marker for per-thread default stream if used
       if (ChipDevice_->isPerThreadStreamUsedNoLock()) {
         auto PerThreadDefaultQueue = ChipDevice_->getPerThreadDefaultQueueNoLock();
-        if (PerThreadDefaultQueue && !LegacyDefaultQueue->isEmptyQueue() ) {
+        if (PerThreadDefaultQueue && !PerThreadDefaultQueue->isEmptyQueue() ) {
           std::shared_ptr<chipstar::Event> ChipMarkerEvent;
           EventHandle handle = CreateMarkerInQueue(PerThreadDefaultQueue, ChipMarkerEvent);
 
