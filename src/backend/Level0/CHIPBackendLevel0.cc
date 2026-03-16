@@ -3137,7 +3137,13 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
 
   auto *LzDev = static_cast<CHIPDeviceLevel0 *>(ChipDev);
 
-  std::string_view SPIRVBin = Src_->getBinary();
+  // LLVM 22's in-tree SPIR-V backend unconditionally declares
+  // SPV_EXT_relaxed_printf_string_address_space for any printf call even when
+  // not needed. The Intel GPU Level0 driver rejects such SPIR-V. Strip it.
+  std::string FixedBin =
+      stripSpirvExtension(Src_->getBinary(),
+                          "SPV_EXT_relaxed_printf_string_address_space");
+  std::string_view SPIRVBin = FixedBin;
   std::vector<size_t> ILSizes(1, SPIRVBin.size());
   std::vector<const uint8_t *> ILInputs(
       1, reinterpret_cast<const uint8_t *>(SPIRVBin.data()));

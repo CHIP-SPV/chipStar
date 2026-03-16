@@ -1205,7 +1205,15 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       (CHIPContextOpenCL *)(ChipDevOcl->getContext());
 
   int Err;
-  auto SrcBin = Src_->getBinary();
+  auto SrcBinRaw = Src_->getBinary();
+  // LLVM 22's in-tree SPIR-V backend unconditionally declares
+  // SPV_EXT_relaxed_printf_string_address_space for any printf call, even when
+  // format strings are in UniformConstant (constant address space) and the
+  // extension is not semantically required. The Intel GPU OpenCL driver rejects
+  // such SPIR-V. Strip the declaration so the driver accepts the module.
+  std::string FixedBin = stripSpirvExtension(
+      SrcBinRaw, "SPV_EXT_relaxed_printf_string_address_space");
+  std::string_view SrcBin = FixedBin;
   std::string buildOptions =
       Backend->getDefaultJitFlags() + " " + ChipEnvVars.getJitFlags();
   std::string binAsStr = std::string(SrcBin.begin(), SrcBin.end());

@@ -101,6 +101,59 @@ std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,
 std::string_view trim(std::string_view Str);
 bool startsWith(std::string_view Str, std::string_view WithStr);
 
+/// Strip an OpExtension declaration from a SPIR-V binary by name.
+/// Returns a new binary with the extension removed, or the original if not
+/// found. LLVM 22's in-tree SPIR-V backend unconditionally declares
+/// SPV_EXT_relaxed_printf_string_address_space for any printf, even when format
+/// strings are in UniformConstant (constant address space) and the extension is
+/// not semantically required. The Intel GPU OpenCL driver rejects SPIR-V that
+/// declares this extension. Strip it so the driver accepts the module.
+inline std::string stripSpirvExtension(std::string_view Binary,
+                                       std::string_view ExtName) {
+  static constexpr uint32_t SpirvMagic = 0x07230203;
+  static constexpr uint32_t OpExtension = 10;
+
+  if (Binary.size() < 20)
+    return std::string(Binary);
+
+  const uint32_t *Words = reinterpret_cast<const uint32_t *>(Binary.data());
+  if (Words[0] != SpirvMagic)
+    return std::string(Binary);
+
+  std::string Result;
+  Result.reserve(Binary.size());
+  // Copy header (5 words = 20 bytes) unchanged.
+  Result.append(Binary.data(), 20);
+
+  size_t Offset = 20; // bytes after header
+  while (Offset + 4 <= Binary.size()) {
+    const uint32_t *InstrWords =
+        reinterpret_cast<const uint32_t *>(Binary.data() + Offset);
+    uint32_t Opcode = InstrWords[0] & 0xFFFF;
+    uint32_t WordCount = InstrWords[0] >> 16;
+    if (WordCount == 0)
+      break; // malformed
+    size_t InstrBytes = WordCount * 4;
+    if (Offset + InstrBytes > Binary.size())
+      break; // malformed
+
+    if (Opcode == OpExtension && WordCount >= 2) {
+      // The name starts at word 1, null-terminated, padded to 4-byte boundary.
+      const char *NameStart =
+          reinterpret_cast<const char *>(Binary.data() + Offset + 4);
+      size_t NameMaxLen = (WordCount - 1) * 4;
+      std::string_view Name(NameStart, strnlen(NameStart, NameMaxLen));
+      if (Name == ExtName) {
+        Offset += InstrBytes;
+        continue; // skip this instruction
+      }
+    }
+    Result.append(Binary.data() + Offset, InstrBytes);
+    Offset += InstrBytes;
+  }
+  return Result;
+}
+
 /// Return true if the SPIR-V binary imports rtdevlib symbols (atomics, ballot).
 /// Used to decide whether to append device library sources/link step.
 inline bool spirvNeedsRtdevlib(std::string_view Binary) {
