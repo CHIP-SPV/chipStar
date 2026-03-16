@@ -3280,7 +3280,8 @@ hipError_t hipSetDeviceFlags(unsigned Flags) {
   // Invalid flag check
   if (Flags != hipDeviceScheduleAuto && Flags != hipDeviceScheduleSpin &&
       Flags != hipDeviceScheduleYield &&
-      Flags != hipDeviceScheduleBlockingSync) {
+      Flags != hipDeviceScheduleBlockingSync &&
+      Flags != hipDeviceMapHost) {
     RETURN(hipErrorInvalidValue);
   }
 
