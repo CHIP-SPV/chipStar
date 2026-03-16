@@ -401,7 +401,15 @@ endif()
 
 message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
-set(OFFLOAD_TRIPLE spirv64)
+if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  # When using LLVM's in-tree SPIR-V backend (LLVM 22+), use the chipstar OS
+  # component in the triple. This enables the ChipStar-specific compilation path
+  # in LLVM's HIPSPV toolchain (clang -c --target=spirv64v1.2-unknown-chipstar)
+  # instead of the old pipeline that requires the missing external hipspv-link tool.
+  set(OFFLOAD_TRIPLE spirv64v1.2-unknown-chipstar)
+else()
+  set(OFFLOAD_TRIPLE spirv64)
+endif()
 # =============================================================================
 # chipStar BINARIES & TESTS
 add_subdirectory(llvm_passes)
@@ -604,7 +612,7 @@ set(HIP_RDC_SUPPLEMENT_LINK_FLAGS_
   # in regular host C/C++ linking)
   --hip-link
   # Required for selecting HIPSPV toolchain instead of AMD's one in clang.
-  --offload=spirv64
+  --offload=${OFFLOAD_TRIPLE}
   # --hip-path is also needed but not included here (different option
   # value is needed for build and installation).
 )
