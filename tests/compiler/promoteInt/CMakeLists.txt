@@ -56,11 +56,20 @@ foreach(IR_FILE ${TEST_IR_FILES})
     set(TEST_DISABLED TRUE)
   endif()
 
+  # LLVM_SPIRV may be "NOT_NEEDED" when using LLVM 22+ integrated SPIR-V backend.
+  # In that case pass an empty string so the bash script falls back to clang.
+  if(LLVM_SPIRV STREQUAL "NOT_NEEDED")
+    set(SPIRV_TOOL_PATH "")
+  else()
+    set(SPIRV_TOOL_PATH "${LLVM_SPIRV}")
+  endif()
+
   add_test(
     NAME hipPromoteInt-${BASENAME}
-    COMMAND env 
+    COMMAND env
       LLVM_OPT=${LLVM_TOOLS_BINARY_DIR}/opt
-      LLVM_SPIRV=${LLVM_TOOLS_BINARY_DIR}/llvm-spirv
+      LLVM_SPIRV=${SPIRV_TOOL_PATH}
+      LLVM_CLANG=${LLVM_TOOLS_BINARY_DIR}/clang
       LLVM_DIS=${LLVM_TOOLS_BINARY_DIR}/llvm-dis
       HIP_SPV_PASSES_LIB=${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
       ${CMAKE_CURRENT_BINARY_DIR}/run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME}

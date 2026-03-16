@@ -29,7 +29,17 @@ if [ "${NON_STD_INT_COUNT}" -gt 0 ]; then
     exit 1
 fi
 
-# Convert to SPIR-V to check validity
-${LLVM_SPIRV} "${OUTPUT_BC}" ${SPIRV_OPTS} -o "${OUTPUT_SPV}" || exit 1
+# Convert to SPIR-V to check validity.
+# Use the external llvm-spirv translator when available; fall back to the
+# in-tree SPIR-V backend via clang (LLVM 22+ with integrated SPIR-V).
+if [ -x "${LLVM_SPIRV}" ]; then
+    ${LLVM_SPIRV} "${OUTPUT_BC}" ${SPIRV_OPTS} -o "${OUTPUT_SPV}" || exit 1
+elif [ -n "${LLVM_CLANG}" ] && [ -x "${LLVM_CLANG}" ]; then
+    ${LLVM_CLANG} -c --target=spirv64v1.2-unknown-chipstar \
+        -mllvm -spirv-ext=+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_relaxed_printf_string_address_space \
+        -x ir "${OUTPUT_BC}" -o "${OUTPUT_SPV}" || exit 1
+else
+    echo "WARNING: Neither llvm-spirv nor clang in-tree backend available; skipping SPIR-V validation"
+fi
 
 exit 0 
