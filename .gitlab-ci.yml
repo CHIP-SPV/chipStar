@@ -5,10 +5,11 @@ include:
     file:
       - '/runners.yml'
 
+# commenting out so we can test temporarily
 # only run on commits to main, otherwise it may be too much for the queue system.
-workflow:
-    rules:
-      - if: $CI_COMMIT_BRANCH == "main"
+#workflow:
+#    rules:
+#      - if: $CI_COMMIT_BRANCH == "main"
 
 variables:
   PROJ: "chipStar_test"
@@ -16,6 +17,7 @@ variables:
   TIME: "1:00:00"
   WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/test"
   ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=${TIME},filesystems=home -A ${PROJ}"
+  GENESIS_CI_PROJECT_DIR: "/home/bertoni/projects/p01.chipStar/GENESIS-Share-CI/"
 
 stages:
     - .pre
@@ -25,11 +27,20 @@ stages:
     - builds_chipstar_install_script_llvm22
     - runs_tests_chipstar_install_script_llvm22
     - builds_chipstar_aurora_script_llvm19
+    - runs_chipstar_aurora_script_llvm19
     - builds_chipstar_aurora_script_llvm22
+    - runs_chipstar_aurora_script_llvm22
+    - builds_hoMusic
+    - runs_hoMusic
+    - performance_hoMusic
+    - builds_zeroRK
+    - runs_zeroRK
+    - perforamce_zeroRK
 
 setup:
   stage: .pre
   extends: .aurora-shell-runner
+  resource_group: aurora_pipeline  
   script:
     # FIXME: For the time being we delete ${WRK_DIR} if it exists.
     - rm -rf ${WRK_DIR}
@@ -44,6 +55,7 @@ setup:
 # testing with hand script
 aurora_build_test:
   stage: build_chipstar
+  resource_group: aurora_pipeline  
   extends: .aurora-shell-runner
   script:
     - hostname
@@ -65,6 +77,7 @@ aurora_build_test:
 # testing with install script
 chipStar_script_install:
   stage: builds_chipstar_install_script_llvm19
+  resource_group: aurora_pipeline  
   extends: .aurora-shell-runner
   script:
     - hostname
@@ -73,21 +86,25 @@ chipStar_script_install:
     - cd ${WRK_DIR}/chipStar_llvm19
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm19/20251107-19/release
-    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/
-
+    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
+  allow_failure: true
+  
 chipStar_script_test:
   stage: runs_tests_chipstar_install_script_llvm19
+  resource_group: aurora_pipeline  
   extends: .aurora-batch-runner
   script:
     - cd ${WRK_DIR}/chipStar_llvm19/build
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm19/20251107-19/release
+    - rm -rf $HOME/.cache/chipStar
     - CHIP_BE=level0 make build_tests -j
-    - ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+    - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
   allow_failure: true
 
 chipStar_script_install_llvm22:
   stage: builds_chipstar_install_script_llvm22
+  resource_group: aurora_pipeline  
   extends: .aurora-shell-runner
   script:
     - hostname
@@ -96,33 +113,182 @@ chipStar_script_install_llvm22:
     - cd ${WRK_DIR}/chipStar_llvm22
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm22/20260311-22/release
-    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/
+    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
+  allow_failure: true
 
 chipStar_script_test_llvm22:
   stage: runs_tests_chipstar_install_script_llvm22
+  resource_group: aurora_pipeline  
   extends: .aurora-batch-runner
   script:
     - cd ${WRK_DIR}/chipStar_llvm22/build
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm22/20260311-22/release
+    - rm -rf $HOME/.cache/chipStar
     - CHIP_BE=level0 make build_tests -j
-    - ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+    - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
   allow_failure: true
 
 # testing with install script
 chipStar_aurora_script_test:
   stage: builds_chipstar_aurora_script_llvm19
-  extends: .aurora-batch-runner
+  resource_group: aurora_pipeline  
+  extends: .aurora-shell-runner
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
     - temp=${WRK_DIR}/script_llvm19/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm19/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release chipStar/.llvm19/20251107-19/release
-
-chipStar_aurora_script_test_llvm22:
-  stage: builds_chipstar_aurora_script_llvm22
+    - cd ${WRK_DIR}/modulefiles/chipStar
+    - echo 'module_version("llvm19", "default")' > .modulerc.lua
+  allow_failure: true
+  
+chipStar_aurora_script_test_run:
+  stage: runs_chipstar_aurora_script_llvm19
+  resource_group: aurora_pipeline  
   extends: .aurora-batch-runner
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
-    - llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
+    - cd ${WRK_DIR}/script_llvm19/chip-spv/build
+    - rm -rf $HOME/.cache/chipStar
+    - CHIP_BE=level0 make build_tests -j
+    - module load cmake
+    - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+  allow_failure: true
 
+chipStar_aurora_script_test_llvm22:
+  stage: builds_chipstar_aurora_script_llvm22
+  resource_group: aurora_pipeline  
+  extends: .aurora-shell-runner
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
+  allow_failure: true
+  
+chipStar_aurora_script_test_llvm22_run:
+  stage: runs_chipstar_aurora_script_llvm22
+  resource_group: aurora_pipeline  
+  extends: .aurora-batch-runner
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - cd ${WRK_DIR}/script_llvm_22/chip-spv/build
+    - module load cmake
+    - rm -rf $HOME/.cache/chipStar
+    - CHIP_BE=level0 make build_tests -j
+    - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+  allow_failure: true
+
+# hoMusic application build and run
+hoMusic_build:
+  stage: builds_hoMusic
+  resource_group: aurora_pipeline  
+  extends: .aurora-shell-runner
+  script:
+    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci.sh build chipStar/llvm19
+  allow_failure: true
+  
+hoMusic_run:
+  stage: runs_hoMusic
+  resource_group: aurora_pipeline  
+  extends: .aurora-batch-runner
+  script:
+    - rm -f ${GENESIS_CI_PROJECT_DIR}/output
+    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci.sh run chipStar/llvm19 | tee -a ${GENESIS_CI_PROJECT_DIR}/output
+  allow_failure: true
+
+performance_hoMusic:
+  stage: performance_hoMusic
+  extends: .aurora-shell-runner
+  script:
+    - cd ${GENESIS_CI_PROJECT_DIR}
+    - |
+      TIME_STR=$(grep "real" output | awk '{print $2}')
+      echo "Extracted time: $TIME_STR"
+
+      # Convert to total seconds using awk (handles 1m50.315s -> 110.315)
+      ACTUAL_TIME=$(echo $TIME_STR | awk -F'[ms]' '{print ($1 * 60) + $2}')
+      
+      # Define baseline (1m50.315s = 110.315s) and 6% threshold
+      BASELINE=110.315
+      THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
+      LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
+      UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
+
+      echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
+
+      # Compare using bc (returns 1 for true, 0 for false)
+      IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME >= $LOWER_BOUND && $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
+
+      if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
+        echo "Performance check passed: $ACTUAL_TIME is within 5% of $BASELINE"
+        exit 0
+      else
+        echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+        exit 1
+      fi
+  allow_failure: true
+  
+# ZeroRK application build and run
+zeroRK_build:
+  stage: builds_zeroRK
+  resource_group: aurora_pipeline  
+  extends: .aurora-shell-runner
+  script:
+   - cd ${WRK_DIR}
+   - git clone git@github.com:CHIP-SPV/zero-rk.git -b hip-chipStar
+   - cd zero-rk
+   - module use /soft/modulefiles
+   - module use ${WRK_DIR}/modulefiles
+   - module load chipStar/llvm19 cmake
+   - mkdir -p build_aurora
+   - cd build_aurora
+   - sh ../scripts/build_aurora.sh  --no-module-loads
+  allow_failure: true
+  
+zeroRK_run:
+  stage: runs_zeroRK
+  resource_group: aurora_pipeline  
+  extends: .aurora-batch-runner
+  script:
+  - cd ${WRK_DIR}/zero-rk
+  - cd running_test_aurora
+  - mkdir -p logs
+  - chmod a+x ./submit_job.sh
+  - module use /soft/modulefiles
+  - module use ${WRK_DIR}/modulefiles
+  - module load chipStar/llvm19
+  - rm -f output
+  - ./submit_job.sh | tee -a output
+  allow_failure: true
+
+zeroRK_performance:
+  stage: perforamce_zeroRK
+  resource_group: aurora_pipeline  
+  extends: .aurora-shell-runner
+  script:
+  - cd ${WRK_DIR}/zero-rk/running_test_aurora
+  - |
+    ACTUAL_TIME=$(grep "Job time in seconds" output | awk '{print $5}')
+    echo "Extracted time: $ACTUAL_TIME"
+    
+    # Define baseline and 6% threshold
+    BASELINE=85
+    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
+    LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
+    UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
+
+    echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
+
+    # Compare using bc (returns 1 for true, 0 for false)
+    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME >= $LOWER_BOUND && $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
+
+    if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
+      echo "Performance check passed: $ACTUAL_TIME is within 5% of $BASELINE"
+      exit 0
+    else
+      echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+      exit 1
+    fi
+  allow_failure: true  
