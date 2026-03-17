@@ -622,39 +622,6 @@ class Builder:
                 if not icpx_check.exists():
                     llvm_dir = potential_dir
         
-        # If still not found, search known install locations
-        if not llvm_dir:
-            llvm_search_roots = [
-                Path("/space/pvelesko/install/llvm"),
-                Path.home() / "install" / "llvm",
-            ]
-            for root in llvm_search_roots:
-                if root.exists():
-                    # Only consider numeric-named dirs (e.g. "22.0-native"), sorted newest-first
-                    # Sort: by version (newest first), then prefer "native" over other suffixes
-                    def _llvm_sort_key(d):
-                        parts = d.name.split("-", 1)
-                        ver = parts[0]
-                        suffix = parts[1] if len(parts) > 1 else ""
-                        # "native" preferred (0), others deprioritized (1)
-                        suffix_prio = 1 if suffix == "native" else 0  # native sorts highest (reverse=True)
-                        return (ver, suffix_prio)
-
-                    numeric_dirs = sorted(
-                        [d for d in root.iterdir() if d.is_dir() and d.name[0].isdigit()],
-                        key=_llvm_sort_key,
-                        reverse=True,
-                    )
-                    for d in numeric_dirs:
-                        candidate = d / "bin" / "clang++"
-                        if candidate.exists():
-                            # Skip if this dir also has icpx (oneAPI)
-                            if not (d / "bin" / "icpx").exists():
-                                llvm_dir = d
-                                break
-                if llvm_dir:
-                    break
-
         # Last resort fallback
         if not llvm_dir:
             llvm_dir = Path("/usr")
@@ -858,17 +825,7 @@ class Builder:
     
     def setup_chipstar_env(self):
         """Set up environment for chipStar-based builds."""
-        chipstar_base = self.config.install_base / "chipStar"
-        chipstar_install = chipstar_base / self.config.date_stamp
-        # Fall back to most recent existing install if today's doesn't exist yet
-        if not chipstar_install.exists() and chipstar_base.exists():
-            candidates = sorted(
-                [d for d in chipstar_base.iterdir() if d.is_dir() and d.name[0].isdigit()],
-                reverse=True,
-            )
-            if candidates:
-                chipstar_install = candidates[0]
-                print(f"  {Colors.YELLOW}[INFO]{Colors.NC} chipStar {self.config.date_stamp} not found; using {chipstar_install.name}")
+        chipstar_install = self.config.install_base / "chipStar" / self.config.date_stamp
         
         self.env["HIP_PATH"] = str(chipstar_install)
         self.env["HIP_PLATFORM"] = "spirv"
@@ -1125,14 +1082,6 @@ class Builder:
         self.clone_or_update(component.repo, "H4I-HipBLAS", component.branch,
                             self.config.staging_dir)
 
-        # Fix: install-hipblas-header.sh uses bash (( )) arithmetic in #!/bin/sh script — fails on dash
-        install_sh = src_dir / "Scripts" / "install-hipblas-header.sh"
-        if install_sh.exists():
-            text = install_sh.read_text()
-            if "if (( $# != 3 ))" in text:
-                install_sh.write_text(text.replace("if (( $# != 3 ))", 'if [ "$#" -ne 3 ]'))
-                print(f"  {Colors.YELLOW}[PATCH]{Colors.NC} H4I-HipBLAS: fixed bash-ism in install-hipblas-header.sh")
-
         if build_dir.exists():
             shutil.rmtree(build_dir)
         build_dir.mkdir(parents=True)
@@ -1211,33 +1160,6 @@ class Builder:
         
         self.clone_or_update(component.repo, "H4I-HipFFT", component.branch,
                             self.config.staging_dir)
-
-        # Fix: H4I-HipFFT hipfftCreate() incorrectly shifted handles and decremented nHandles
-        # before calling MKLShim::Create(), but Create() expects handles[0]=backendName (count=5).
-        # Remove the erroneous shift/decrement so the full handle array is passed unchanged.
-        hipfft_src = src_dir / "src" / "hipfft.cpp"
-        if hipfft_src.exists():
-            text = hipfft_src.read_text()
-            old_frag = (
-                "    hipGetBackendNativeHandles((uintptr_t)NULL, handles.data(), 0);\n"
-                "    char* backendName = (char*)handles[0];\n"
-                "    // New implementation of hipGetBackendNativeHandles keep backend name in the Native handles\n"
-                "    // Removing backend name from the list to make it sync to older native handle. This will help Shim layer remains unchanged\n"
-                "    for(auto i=1; i<nHandles; ++i) {\n"
-                "        handles[i-1] = handles[i];\n"
-                "    }\n"
-                "    handles[nHandles-1] = 0;\n"
-                "    nHandles--;\n"
-                "    auto *ctxt = H4I::MKLShim::Create(handles.data(), nHandles);"
-            )
-            new_frag = (
-                "    hipGetBackendNativeHandles((uintptr_t)NULL, handles.data(), 0);\n"
-                "    // MKLShim::Create expects handles[0]=backendName, handles[1..n-1]=native handles\n"
-                "    auto *ctxt = H4I::MKLShim::Create(handles.data(), nHandles);"
-            )
-            if old_frag in text:
-                hipfft_src.write_text(text.replace(old_frag, new_frag))
-                print(f"  {Colors.YELLOW}[PATCH]{Colors.NC} H4I-HipFFT: fixed handle-shifting bug in hipfftCreate()")
 
         if build_dir.exists():
             shutil.rmtree(build_dir)
