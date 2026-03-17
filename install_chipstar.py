@@ -998,23 +998,27 @@ class Builder:
         """Build H4I-MKLShim."""
         # MKLShim needs HIP headers for the interface
         self.setup_chipstar_env()
-        
-        src_dir = self.config.staging_dir / "H4I-MKLShim"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "H4I-MKLShim" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "H4I-MKLShim", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        # Find icpx
+
+        # Find icpx — required for H4I-MKLShim
         icpx_path = subprocess.run(
             ["which", "icpx"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
         ).stdout.strip()
-        
+        if not icpx_path:
+            print(f"{Colors.YELLOW}[SKIP]{Colors.NC} H4I-MKLShim requires icpx (Intel oneAPI) — not found in PATH.")
+            print(f"       Install Intel oneAPI Base Toolkit and source setvars.sh to enable.")
+            return
+
+        src_dir = self.config.staging_dir / "H4I-MKLShim"
+        build_dir = src_dir / "build"
+        install_dir = self.config.install_base / "H4I-MKLShim" / self.config.date_stamp
+
+        self.clone_or_update(component.repo, "H4I-MKLShim", component.branch,
+                            self.config.staging_dir)
+
+        if build_dir.exists():
+            shutil.rmtree(build_dir)
+        build_dir.mkdir(parents=True)
+
         cmake_args = [
             "cmake", "..",
             f"-DCMAKE_CXX_COMPILER={icpx_path}",
@@ -1032,7 +1036,11 @@ class Builder:
     def build_hipblas(self, component: Component):
         """Build H4I-HipBLAS."""
         self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "H4I-MKLShim" / self.config.date_stamp)
+        mklshim_dir = self.config.install_base / "H4I-MKLShim" / self.config.date_stamp
+        if not mklshim_dir.exists():
+            print(f"{Colors.YELLOW}[SKIP]{Colors.NC} H4I-HipBLAS requires H4I-MKLShim — not installed (icpx missing?).")
+            return
+        self.add_to_prefix_path(mklshim_dir)
         
         src_dir = self.config.staging_dir / "H4I-HipBLAS"
         build_dir = src_dir / "build"
@@ -1071,7 +1079,11 @@ class Builder:
     def build_hipsolver(self, component: Component):
         """Build H4I-HipSOLVER."""
         self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "H4I-MKLShim" / self.config.date_stamp)
+        mklshim_dir = self.config.install_base / "H4I-MKLShim" / self.config.date_stamp
+        if not mklshim_dir.exists():
+            print(f"{Colors.YELLOW}[SKIP]{Colors.NC} H4I-HipSOLVER requires H4I-MKLShim — not installed (icpx missing?).")
+            return
+        self.add_to_prefix_path(mklshim_dir)
         
         src_dir = self.config.staging_dir / "H4I-HipSOLVER"
         build_dir = src_dir / "build"
@@ -1103,7 +1115,11 @@ class Builder:
     def build_hipfft(self, component: Component):
         """Build H4I-HipFFT."""
         self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "H4I-MKLShim" / self.config.date_stamp)
+        mklshim_dir = self.config.install_base / "H4I-MKLShim" / self.config.date_stamp
+        if not mklshim_dir.exists():
+            print(f"{Colors.YELLOW}[SKIP]{Colors.NC} H4I-HipFFT requires H4I-MKLShim — not installed (icpx missing?).")
+            return
+        self.add_to_prefix_path(mklshim_dir)
         
         src_dir = self.config.staging_dir / "H4I-HipFFT"
         build_dir = src_dir / "build"
