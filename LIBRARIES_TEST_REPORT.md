@@ -1,6 +1,6 @@
 # chipStar Libraries CI Test Report
 
-**Date**: 2026-03-16
+**Date**: 2026-03-17
 **Platform**: x86_64 Linux, Intel Arc A770 dGPU (15 GB)
 **LLVM**: 22.0-native (22.1.0-rc3, in-tree SPIR-V backend)
 **Backend**: Level0 (dgpu)
@@ -20,10 +20,10 @@
 | rocSPARSE | ~458 | ~1500+ | partial | axpby (432) + csr2coo (26) pass |
 | hipSPARSE | partial | — | partial | axpyi (64) + bad_arg tests pass |
 | hipMM | 42 | 54 | 78% | 12 build failures |
-| H4I-MKLShim | — | — | NOT TESTED | requires `icpx` |
-| H4I-HipBLAS | — | — | NOT TESTED | depends on MKLShim |
-| H4I-HipSOLVER | — | — | NOT TESTED | depends on MKLShim |
-| H4I-HipFFT | — | — | NOT TESTED | depends on MKLShim |
+| H4I-MKLShim | 4 | 4 | 100% | conda oneAPI 2025.0.4 |
+| H4I-HipBLAS | 4 | 4 | 100% | |
+| H4I-HipSOLVER | 2 | 2 | 100% | |
+| H4I-HipFFT | 2 | 2 | 100% | required handle bug fix |
 
 ---
 
@@ -116,9 +116,25 @@ Pass: ARENA_MR, BINNING_MR, CUDA_ASYNC_VIEW_MR, DEVICE_ACCESSIBLE_RESOURCE, DEVI
 
 Build failures (12): DEVICE_MR_REF, POOL_MR, HOST_MR_REF, PINNED_POOL_MR, THRUST_ALLOCATOR, DEVICE_BUFFER (×2 variants each) — CUDA CUB headers not available via rocThrust compatibility layer
 
-### H4I-MKLShim / H4I-HipBLAS / H4I-HipSOLVER / H4I-HipFFT — NOT TESTED
+### H4I-MKLShim — 4/4 (100%)
 
-`install_chipstar.py` skips build when `icpx` is not found. These libraries require Intel oneAPI (`icpx`) for MKL integration. Not installed in this environment.
+Built with conda oneAPI 2025.0.4 (`icpx` at `/space/pvelesko/install/oneapi/2025.0.4/bin/icpx`, MKL sequential threading). All 4 tests pass: context_test, batch_smoke_test, batch_correctness_test, handle_management_test.
+
+### H4I-HipBLAS — 4/4 (100%)
+
+All 4 tests pass: context_test, simple_batched_test, batched_correctness_test, basic_context_test.
+
+Fix applied: `Scripts/install-hipblas-header.sh` used bash `(( ))` arithmetic in a `#!/bin/sh` script — changed to POSIX `[ "$#" -ne 3 ]`.
+
+### H4I-HipSOLVER — 2/2 (100%)
+
+Both tests pass: basic_context_test, context_test.
+
+### H4I-HipFFT — 2/2 (100%)
+
+Both tests pass: hipfft_real_1d, hipfft_complex_1d.
+
+Fix applied to `src/hipfft.cpp`: `hipfftCreate()` was incorrectly shifting the native handles array and decrementing `nHandles` from 5 to 4 before calling `H4I::MKLShim::Create()`. `MKLShim::Create()` requires ≥5 handles with `handles[0]` = backend name pointer, causing "Error: Invalid handles". Removed the erroneous shift/decrement — the full array is now passed unchanged, matching the pattern used by H4I-HipBLAS.
 
 ---
 
@@ -130,6 +146,6 @@ Build failures (12): DEVICE_MR_REF, POOL_MR, HOST_MR_REF, PINNED_POOL_MR, THRUST
 | P1 | Fix subgroup shuffle/ballot emission in LLVM SPIR-V backend | Unblocks rocPRIM/hipCUB/rocThrust sort (most failures) |
 | P2 | Add `sub_group_barrier`/`mem_fence` to rtdevlib | Unblocks rocSPARSE/hipSPARSE csrsort |
 | P2 | Fix KeyValuePair arg-reduce in SPIR-V | Unblocks rocPRIM/hipCUB ReduceArgMin/ArgMax |
-| P3 | Install `icpx` / Intel oneAPI | Enables H4I-MKLShim + H4I-HipBLAS/SOLVER/FFT testing |
+| P3 | ~~Install `icpx` / Intel oneAPI~~ | **DONE** — conda oneAPI 2025.0.4; H4I-* all 12/12 (100%) |
 | P3 | Fix CUDA CUB stubs for rocThrust compat layer | Unblocks 12 hipMM build failures |
 | P4 | Implement hipGraph | Unblocks rocRAND hipgraphs test |
