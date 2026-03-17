@@ -2197,6 +2197,8 @@ hipError_t hipGraphAddEmptyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!pGraphNode || !graph)
+    RETURN(hipErrorInvalidValue);
   CHIPGraphNodeEmpty *Node = new CHIPGraphNodeEmpty();
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
   *pGraphNode = Node;
