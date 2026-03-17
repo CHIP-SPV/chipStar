@@ -911,6 +911,9 @@ int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) const {
   case hipDeviceAttributeMemoryPoolsSupported:
     return Prop.memoryPoolsSupported;
     break;
+  case hipDeviceAttributeImageSupport:
+    // Image support is indicated by non-zero texture dimensions.
+    return Prop.maxTexture1D > 0 ? 1 : 0;
   default:
     CHIPERR_LOG_AND_THROW("Device::getAttr asked for an unkown attribute",
                           hipErrorInvalidValue);
