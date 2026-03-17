@@ -793,18 +793,26 @@ hipError_t hipDeviceGetMemPool(hipMemPool_t *mem_pool, int device) {
 
   CHIP_CATCH
 }
+// Forward declarations for internal helpers defined later in this file.
+static inline hipError_t hipMallocInternal(void **Ptr, size_t Size);
+static inline hipError_t hipFreeInternal(void *Ptr);
+
 hipError_t hipMallocAsync(void **dev_ptr, size_t size, hipStream_t stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+  if (!dev_ptr)
+    RETURN(hipErrorInvalidValue);
+
+  RETURN(hipMallocInternal(dev_ptr, size));
   CHIP_CATCH
 }
 hipError_t hipFreeAsync(void *dev_ptr, hipStream_t stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  RETURN(hipFreeInternal(dev_ptr));
   CHIP_CATCH
 }
 hipError_t hipMemPoolSetAttribute(hipMemPool_t mem_pool, hipMemPoolAttr attr,
@@ -860,7 +868,12 @@ hipError_t hipMallocFromPoolAsync(void **dev_ptr, size_t size,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+  if (!dev_ptr)
+    RETURN(hipErrorInvalidValue);
+
+  // Ignore mem_pool — allocate from the default device allocator.
+  RETURN(hipMallocInternal(dev_ptr, size));
   CHIP_CATCH
 }
 hipError_t hipMemPoolDestroy(hipMemPool_t mem_pool) {
