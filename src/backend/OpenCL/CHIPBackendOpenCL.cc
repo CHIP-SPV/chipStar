@@ -648,21 +648,16 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.pageableMemoryAccess = 0;
   HipDeviceProps_.pageableMemoryAccessUsesHostPageTables = 0;
 
-  auto Max1D2DWidth = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>();
-  auto Max2DHeight = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>();
-  auto Max3DWidth = ClDevice->getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>();
-  auto Max3DHeight = ClDevice->getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>();
-  auto Max3DDepth = ClDevice->getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>();
-
-  // Clamp texture dimensions to [0, INT_MAX] because the return value
-  // of hipDeviceGetAttribute() is int type.
-  HipDeviceProps_.maxTexture1DLinear = clampToInt(Max1D2DWidth);
-  HipDeviceProps_.maxTexture1D = clampToInt(Max1D2DWidth);
-  HipDeviceProps_.maxTexture2D[0] = clampToInt(Max1D2DWidth);
-  HipDeviceProps_.maxTexture2D[1] = clampToInt(Max2DHeight);
-  HipDeviceProps_.maxTexture3D[0] = clampToInt(Max3DWidth);
-  HipDeviceProps_.maxTexture3D[1] = clampToInt(Max3DHeight);
-  HipDeviceProps_.maxTexture3D[2] = clampToInt(Max3DDepth);
+  // The OpenCL backend does not implement HIP texture/image operations,
+  // so report zero texture dimensions.  This causes isImageSupported() to
+  // return false and image-dependent tests to skip rather than fail.
+  HipDeviceProps_.maxTexture1DLinear = 0;
+  HipDeviceProps_.maxTexture1D = 0;
+  HipDeviceProps_.maxTexture2D[0] = 0;
+  HipDeviceProps_.maxTexture2D[1] = 0;
+  HipDeviceProps_.maxTexture3D[0] = 0;
+  HipDeviceProps_.maxTexture3D[1] = 0;
+  HipDeviceProps_.maxTexture3D[2] = 0;
 
   constexpr char ArchName[] = "unavailable";
   static_assert(sizeof(ArchName) <= sizeof(HipDeviceProps_.gcnArchName),
