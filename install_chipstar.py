@@ -1035,10 +1035,30 @@ class Builder:
         oneapi_dir = Path(icpx_path).parent.parent
         mkl_cmake_dir = oneapi_dir / "lib" / "cmake" / "mkl"
 
+        # If MKL not found next to icpx, search sibling oneAPI installations
+        if not mkl_cmake_dir.exists():
+            oneapi_parent = oneapi_dir.parent
+            candidates = []
+            if oneapi_parent.exists():
+                for d in sorted(oneapi_parent.iterdir(), reverse=True):
+                    candidate = d / "lib" / "cmake" / "mkl"
+                    if candidate.exists():
+                        candidates.append(candidate)
+            if candidates:
+                mkl_cmake_dir = candidates[0]
+                print(f"  MKL not found next to icpx, using: {mkl_cmake_dir}")
+
         # Add oneAPI dir to CMAKE_PREFIX_PATH so find_package(MKL CONFIG REQUIRED) and find_package(hip) both work
         if mkl_cmake_dir.exists():
-            self.add_to_prefix_path(oneapi_dir)
+            mkl_oneapi_dir = mkl_cmake_dir.parent.parent.parent
+            self.add_to_prefix_path(mkl_oneapi_dir)
             self.env["MKL_DIR"] = str(mkl_cmake_dir)
+            # If MKL is from a different oneAPI than icpx, add its include dir to CPATH.
+            # Older oneAPI SYCL headers use CL/__spirv/ paths that may not exist in newer icpx.
+            if mkl_oneapi_dir != oneapi_dir:
+                mkl_include = str(mkl_oneapi_dir / "include")
+                existing_cpath = self.env.get("CPATH", os.environ.get("CPATH", ""))
+                self.env["CPATH"] = mkl_include + (":" + existing_cpath if existing_cpath else "")
 
         src_dir = self.config.staging_dir / "H4I-MKLShim"
         build_dir = src_dir / "build"
