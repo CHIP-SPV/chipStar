@@ -1210,8 +1210,8 @@ class Builder:
             cmake_args.append(f"-DCMAKE_CXX_FLAGS=-I{hip_path}/include")
 
         self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["ninja", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["ninja", "install"], cwd=build_dir)
+        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
+        self.run_cmd(["make", "install"], cwd=build_dir)
 
         self._generate_module("H4I-HipFFT", install_dir)
     
