@@ -622,7 +622,40 @@ class Builder:
                 if not icpx_check.exists():
                     llvm_dir = potential_dir
         
-        # If still not found, use /usr as fallback
+        # If still not found, search known install locations
+        if not llvm_dir:
+            llvm_search_roots = [
+                Path("/space/pvelesko/install/llvm"),
+                Path.home() / "install" / "llvm",
+            ]
+            for root in llvm_search_roots:
+                if root.exists():
+                    # Only consider numeric-named dirs (e.g. "22.0-native"), sorted newest-first
+                    # Sort: by version (newest first), then prefer "native" over other suffixes
+                    def _llvm_sort_key(d):
+                        parts = d.name.split("-", 1)
+                        ver = parts[0]
+                        suffix = parts[1] if len(parts) > 1 else ""
+                        # "native" preferred (0), others deprioritized (1)
+                        suffix_prio = 1 if suffix == "native" else 0  # native sorts highest (reverse=True)
+                        return (ver, suffix_prio)
+
+                    numeric_dirs = sorted(
+                        [d for d in root.iterdir() if d.is_dir() and d.name[0].isdigit()],
+                        key=_llvm_sort_key,
+                        reverse=True,
+                    )
+                    for d in numeric_dirs:
+                        candidate = d / "bin" / "clang++"
+                        if candidate.exists():
+                            # Skip if this dir also has icpx (oneAPI)
+                            if not (d / "bin" / "icpx").exists():
+                                llvm_dir = d
+                                break
+                if llvm_dir:
+                    break
+
+        # Last resort fallback
         if not llvm_dir:
             llvm_dir = Path("/usr")
         
@@ -825,7 +858,17 @@ class Builder:
     
     def setup_chipstar_env(self):
         """Set up environment for chipStar-based builds."""
-        chipstar_install = self.config.install_base / "chipStar" / self.config.date_stamp
+        chipstar_base = self.config.install_base / "chipStar"
+        chipstar_install = chipstar_base / self.config.date_stamp
+        # Fall back to most recent existing install if today's doesn't exist yet
+        if not chipstar_install.exists() and chipstar_base.exists():
+            candidates = sorted(
+                [d for d in chipstar_base.iterdir() if d.is_dir() and d.name[0].isdigit()],
+                reverse=True,
+            )
+            if candidates:
+                chipstar_install = candidates[0]
+                print(f"  {Colors.YELLOW}[INFO]{Colors.NC} chipStar {self.config.date_stamp} not found; using {chipstar_install.name}")
         
         self.env["HIP_PATH"] = str(chipstar_install)
         self.env["HIP_PLATFORM"] = "spirv"
@@ -1004,9 +1047,41 @@ class Builder:
             ["which", "icpx"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
         ).stdout.strip()
         if not icpx_path:
+            # Search known conda oneAPI install locations, prefer newest
+            conda_oneapi_base = Path(os.path.expanduser("~")) / ".." / "pvelesko" / "install" / "oneapi"
+            # More portable: check relative to home or a fixed prefix
+            search_roots = [
+                Path("/space/pvelesko/install/oneapi"),
+                Path.home() / "install" / "oneapi",
+            ]
+            candidates = []
+            for root in search_roots:
+                if root.exists():
+                    for d in sorted(root.iterdir(), reverse=True):
+                        p = d / "bin" / "icpx"
+                        if p.exists():
+                            candidates.append(str(p))
+            if candidates:
+                icpx_path = candidates[0]
+                print(f"  icpx not in PATH, using conda install: {icpx_path}")
+                # Ensure its lib dir is in LD_LIBRARY_PATH and PATH for MKL (use self.env, not os.environ)
+                _oneapi_dir = Path(icpx_path).parent.parent
+                self.env["PATH"] = str(Path(icpx_path).parent) + ":" + self.env.get("PATH", "")
+                self.env["LD_LIBRARY_PATH"] = str(_oneapi_dir / "lib") + ":" + self.env.get("LD_LIBRARY_PATH", "")
+                if not self.env.get("MKLROOT"):
+                    self.env["MKLROOT"] = str(_oneapi_dir)
+        if not icpx_path:
             print(f"{Colors.YELLOW}[SKIP]{Colors.NC} H4I-MKLShim requires icpx (Intel oneAPI) — not found in PATH.")
             print(f"       Install Intel oneAPI Base Toolkit and source setvars.sh to enable.")
             return
+
+        oneapi_dir = Path(icpx_path).parent.parent
+        mkl_cmake_dir = oneapi_dir / "lib" / "cmake" / "mkl"
+
+        # Add oneAPI dir to CMAKE_PREFIX_PATH so find_package(MKL CONFIG REQUIRED) and find_package(hip) both work
+        if mkl_cmake_dir.exists():
+            self.add_to_prefix_path(oneapi_dir)
+            self.env["MKL_DIR"] = str(mkl_cmake_dir)
 
         src_dir = self.config.staging_dir / "H4I-MKLShim"
         build_dir = src_dir / "build"
@@ -1025,6 +1100,7 @@ class Builder:
             f"-DINTEL_COMPILER_PATH={icpx_path}",
             f"-DCMAKE_BUILD_TYPE=Release",
             f"-DCMAKE_INSTALL_PREFIX={install_dir}",
+            f"-DMKL_THREADING=sequential",
         ]
         
         self.run_cmd(cmake_args, cwd=build_dir)
@@ -1048,7 +1124,15 @@ class Builder:
         
         self.clone_or_update(component.repo, "H4I-HipBLAS", component.branch,
                             self.config.staging_dir)
-        
+
+        # Fix: install-hipblas-header.sh uses bash (( )) arithmetic in #!/bin/sh script — fails on dash
+        install_sh = src_dir / "Scripts" / "install-hipblas-header.sh"
+        if install_sh.exists():
+            text = install_sh.read_text()
+            if "if (( $# != 3 ))" in text:
+                install_sh.write_text(text.replace("if (( $# != 3 ))", 'if [ "$#" -ne 3 ]'))
+                print(f"  {Colors.YELLOW}[PATCH]{Colors.NC} H4I-HipBLAS: fixed bash-ism in install-hipblas-header.sh")
+
         if build_dir.exists():
             shutil.rmtree(build_dir)
         build_dir.mkdir(parents=True)
@@ -1127,22 +1211,66 @@ class Builder:
         
         self.clone_or_update(component.repo, "H4I-HipFFT", component.branch,
                             self.config.staging_dir)
-        
+
+        # Fix: H4I-HipFFT hipfftCreate() incorrectly shifted handles and decremented nHandles
+        # before calling MKLShim::Create(), but Create() expects handles[0]=backendName (count=5).
+        # Remove the erroneous shift/decrement so the full handle array is passed unchanged.
+        hipfft_src = src_dir / "src" / "hipfft.cpp"
+        if hipfft_src.exists():
+            text = hipfft_src.read_text()
+            old_frag = (
+                "    hipGetBackendNativeHandles((uintptr_t)NULL, handles.data(), 0);\n"
+                "    char* backendName = (char*)handles[0];\n"
+                "    // New implementation of hipGetBackendNativeHandles keep backend name in the Native handles\n"
+                "    // Removing backend name from the list to make it sync to older native handle. This will help Shim layer remains unchanged\n"
+                "    for(auto i=1; i<nHandles; ++i) {\n"
+                "        handles[i-1] = handles[i];\n"
+                "    }\n"
+                "    handles[nHandles-1] = 0;\n"
+                "    nHandles--;\n"
+                "    auto *ctxt = H4I::MKLShim::Create(handles.data(), nHandles);"
+            )
+            new_frag = (
+                "    hipGetBackendNativeHandles((uintptr_t)NULL, handles.data(), 0);\n"
+                "    // MKLShim::Create expects handles[0]=backendName, handles[1..n-1]=native handles\n"
+                "    auto *ctxt = H4I::MKLShim::Create(handles.data(), nHandles);"
+            )
+            if old_frag in text:
+                hipfft_src.write_text(text.replace(old_frag, new_frag))
+                print(f"  {Colors.YELLOW}[PATCH]{Colors.NC} H4I-HipFFT: fixed handle-shifting bug in hipfftCreate()")
+
         if build_dir.exists():
             shutil.rmtree(build_dir)
         build_dir.mkdir(parents=True)
-        
+
+        # Use icpx for H4I-HipFFT (it's a SYCL-based library)
+        icpx_path = self.env.get("PATH", "").split(":")[0]  # first PATH entry may have icpx
+        icpx_candidates = []
+        for p_dir in self.env.get("PATH", "").split(":"):
+            cand = Path(p_dir) / "icpx"
+            if cand.exists():
+                icpx_candidates.append(str(cand))
+        cxx_compiler = icpx_candidates[0] if icpx_candidates else self.hipcc_path
+
         cmake_args = [
             "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
+            f"-DCMAKE_CXX_COMPILER={cxx_compiler}",
             f"-DCMAKE_BUILD_TYPE=Release",
             f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         ]
-        
+        # Add MKL_DIR if known (set by build_mklshim)
+        mkl_dir = self.env.get("MKL_DIR", "")
+        if mkl_dir:
+            cmake_args.append(f"-DMKL_DIR={mkl_dir}")
+        # Add HIP include path so hip/hip_runtime.h is found
+        hip_path = self.env.get("HIP_PATH", "")
+        if hip_path:
+            cmake_args.append(f"-DCMAKE_CXX_FLAGS=-I{hip_path}/include")
+
         self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
+        self.run_cmd(["ninja", f"-j{self.config.jobs}"], cwd=build_dir)
+        self.run_cmd(["ninja", "install"], cwd=build_dir)
+
         self._generate_module("H4I-HipFFT", install_dir)
     
     def build_rocrand(self, component: Component):
