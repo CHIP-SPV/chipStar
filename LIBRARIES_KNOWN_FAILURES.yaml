@@ -1,0 +1,250 @@
+# Libraries Known Failures
+# Generated: 2026-03-16
+# Platform: x86_64 Linux, Intel Arc A770 dGPU (15 GB)
+# LLVM: 22.0-native (22.1.0-rc3, in-tree SPIR-V backend)
+# chipStar: libraries-tests-ci branch
+# Backend: Level0 (dgpu)
+#
+# Format per entry:
+#   reason: what the test does / how it fails
+#   source: root cause
+#
+# Overall summary:
+#   rocPRIM:    29/48 pass  (60%) — 14 fail, 5 timeout
+#   hipCUB:     19/34 pass  (56%) — 12 fail, 3 timeout
+#   rocRAND:    41/45 pass  (91%) — 1 fail, 3 timeout
+#   hipRAND:     2/4 pass   (50%) — 2 timeout
+#   rocThrust: ~170/289 pass (~59%) — mix of compile errors and runtime failures
+#   rocSPARSE: partial — axpby/csr2coo pass; bsrmv/most others fail
+#   hipSPARSE: partial — basic tests pass; sort/advanced tests fail
+#   hipMM:      42/54 pass  (78%) — 12 build failures
+#   H4I-*:     NOT TESTED — requires icpx (Intel oneAPI), not available
+
+library_known_failures:
+
+  rocPRIM:
+    backend: LEVEL0_GPU
+    platform: x86_64 Linux, LLVM 22.0-native
+    failures:
+      block_sort_merge:
+        reason: "Block sort using merge algorithm hangs (300s timeout)"
+        source: "Subgroup shuffle/ballot operations used by merge-based sort not functional; known chipStar limitation with sub_group_shuffle_* in SPIR-V"
+      block_sort_merge_stable:
+        reason: "Stable block merge sort hangs (300s timeout)"
+        source: "Same as block_sort_merge — subgroup shuffle operations"
+      block_sort_bitonic:
+        reason: "Bitonic block sort hangs (300s timeout)"
+        source: "Bitonic sort uses sub_group_shuffle_xor; SPIR-V OpGroupNonUniformShuffleXor not working correctly on Intel Arc via Level0"
+      device_radix_sort:
+        reason: "Device radix sort hangs (300s timeout)"
+        source: "Radix sort uses block_radix_sort internally; subgroup ballot/shuffle operations cause hang"
+      device_segmented_radix_sort:
+        reason: "Device segmented radix sort hangs (300s timeout)"
+        source: "Same as device_radix_sort"
+      warp_reduce:
+        reason: "WarpReduceTests with __half fail: ReduceSum gives wrong results for warp_params<__half, 4> and warp_params<__half, 8>"
+        source: "__half warp reduction produces incorrect results; likely half-precision arithmetic or subgroup reduction not handling fp16 correctly in SPIR-V on Intel Arc"
+      warp_scan:
+        reason: "Warp scan tests fail with numerical errors"
+        source: "Subgroup scan operations; similar to warp_reduce root cause"
+      block_radix_rank:
+        reason: "Block radix rank fails"
+        source: "Uses subgroup operations (sub_group_ballot, sub_group_shuffle); not correctly emitted for Intel Arc Level0"
+      block_radix_sort:
+        reason: "Block radix sort fails"
+        source: "Depends on block_radix_rank; same root cause"
+      block_reduce:
+        reason: "Block reduce fails for some type/size combinations"
+        source: "Uses subgroup reduce operations; SPIR-V OpGroupNonUniformFAdd/IAdd may produce wrong results for certain warp widths"
+      block_scan:
+        reason: "Block scan fails for some type/size combinations"
+        source: "Subgroup scan operations; same root cause as block_reduce"
+      device_reduce:
+        reason: "ReduceArgMinimum/ReduceArgMaximum return 0 instead of correct index; ReduceSum fails for short types"
+        source: "KeyValuePair<int, T> comparison in argmin/argmax uses 64-bit struct loads that may not be correctly handled by SPIR-V code generation; short (i16) arithmetic issue"
+      device_reduce_by_key:
+        reason: "Device reduce-by-key fails"
+        source: "Same as device_reduce — KeyValuePair struct operations"
+      device_partition:
+        reason: "Device partition fails"
+        source: "Partition uses device_scan internally; scan failures propagate"
+      device_select:
+        reason: "Device select fails"
+        source: "Uses device_scan; same root cause"
+      device_merge_sort:
+        reason: "Device merge sort fails"
+        source: "Merge sort uses subgroup operations; same as block_sort_merge"
+      device_run_length_encode:
+        reason: "Device RLE fails"
+        source: "Uses device_reduce and device_scan; failures in those propagate"
+      device_segmented_reduce:
+        reason: "Device segmented reduce fails"
+        source: "Same as device_reduce"
+      arg_index_iterator:
+        reason: "ArgIndex iterator test fails"
+        source: "Iterator involves KeyValuePair operations; same root cause as device_reduce ReduceArgMin"
+
+  hipCUB:
+    backend: LEVEL0_GPU
+    platform: x86_64 Linux, LLVM 22.0-native
+    build_failures:
+      test_hipcub_thread:
+        reason: "Failed to compile: 'unable to translate instruction: call (in function: _Z19thread_store_kernelImLN6hipcub18CacheStoreModifierE4EEvPT_S3_)'"
+        source: "ThreadStore<CacheStoreModifier::STORE_CS> (cache hint store, modifier 4) generates a cache-hint write instruction that has no SPIR-V equivalent; unimplemented LLVM SPIRV translation"
+    failures:
+      BlockRadixRank:
+        reason: "Hangs (180s timeout)"
+        source: "Block radix rank uses subgroup ballot/shuffle; same as rocPRIM block_radix_rank"
+      BlockRadixSort:
+        reason: "Fails"
+        source: "Depends on BlockRadixRank; same root cause"
+      BlockScan:
+        reason: "Fails for some type/size combinations"
+        source: "Subgroup scan operations not correctly handled on Intel Arc Level0"
+      DeviceHistogram:
+        reason: "Fails"
+        source: "Device histogram uses block-level reductions; subgroup operation issues"
+      DeviceRadixSort:
+        reason: "Fails"
+        source: "Radix sort relies on BlockRadixSort; same root cause"
+      DeviceReduce:
+        reason: "ReduceArgMinimum/ReduceArgMaximum fail for all types; ReduceSum/ReduceMinimum fail for short"
+        source: "Same as rocPRIM device_reduce — KeyValuePair struct operations and short arithmetic"
+      DeviceReduceByKey:
+        reason: "Fails"
+        source: "Same as DeviceReduce — KeyValuePair"
+      DeviceRunLengthEncode:
+        reason: "Fails"
+        source: "Uses DeviceReduce/DeviceScan; failures propagate"
+      DeviceSegmentedRadixSort:
+        reason: "Hangs (180s timeout)"
+        source: "Same as DeviceRadixSort"
+      DeviceSegmentedReduce:
+        reason: "Fails"
+        source: "Same as DeviceReduce"
+      DeviceSegmentedSort:
+        reason: "Hangs (180s timeout)"
+        source: "Segmented sort uses radix sort; hangs on subgroup operations"
+      DeviceSelect:
+        reason: "Fails"
+        source: "Uses DeviceScan; scan failures propagate"
+      DevicePartition:
+        reason: "Fails"
+        source: "Uses DeviceScan"
+      Grid:
+        reason: "Fails"
+        source: "CUB Grid abstraction; underlying kernel dispatch issue"
+
+  rocRAND:
+    backend: LEVEL0_GPU
+    platform: x86_64 Linux, LLVM 22.0-native
+    failures:
+      test_rocrand_cpp_basic:
+        reason: "Timeout — basic C++ wrapper test hangs"
+        source: "rocRAND C++ API exercises multiple generators; some generators (MT19937) may trigger slow compilation or hang on certain kernel patterns"
+      test_rocrand_cpp_wrapper:
+        reason: "Timeout — C++ wrapper tests hang"
+        source: "Same as test_rocrand_cpp_basic"
+      test_rocrand_hipgraphs:
+        reason: "Failed — hipGraph tests fail immediately"
+        source: "hipGraph (CUDA Graph equivalent) is not implemented in chipStar; hipGraphCreate returns hipErrorNotSupported"
+      test_rocrand_mt19937_prng:
+        reason: "Timeout — MT19937 PRNG tests hang"
+        source: "MT19937 PRNG uses non-standard integer types (i127/i192 for Mersenne Twister state); SPIR-V backend may fail to lower these; or the kernel compilation itself times out"
+
+  hipRAND:
+    backend: LEVEL0_GPU
+    platform: x86_64 Linux, LLVM 22.0-native
+    failures:
+      test_hiprand_api:
+        reason: "Timeout — full hipRAND API test hangs"
+        source: "hipRAND delegates to rocRAND; API test exercises all generator types including MT19937 which causes timeout (see rocRAND test_rocrand_mt19937_prng)"
+      test_hiprand_cpp_wrapper:
+        reason: "Timeout — C++ wrapper tests hang"
+        source: "Same as test_hiprand_api"
+
+  rocThrust:
+    backend: LEVEL0_GPU
+    platform: x86_64 Linux, LLVM 22.0-native
+    build_failures:
+      generate_const_iterators:
+        reason: "Build failure: 'Appending variables with different element types'"
+        source: "hipspv-spirv64v1.2-unknown-chipstar.bc device library module has array types that conflict with Thrust iterator module; LLVM linker rejects mismatched appending variable element types. Affects: generate_const_iterators, partition, partition_point, is_partitioned, and ~6 more tests"
+      partition:
+        reason: "Build failure: same as generate_const_iterators"
+        source: "Same root cause — hipspv BC module link conflict"
+      partition_point:
+        reason: "Build failure: same as generate_const_iterators"
+        source: "Same root cause"
+      is_partitioned:
+        reason: "Build failure: same as generate_const_iterators"
+        source: "Same root cause"
+    failures:
+      adjacent_difference:
+        reason: "Fails or wrong results for some type combinations"
+        source: "Thrust adjacent_difference uses subgroup operations internally; numerical issues with non-float types"
+      async_copy:
+        reason: "Fails"
+        source: "Async Thrust operations use hipStreamSynchronize; ordering issues or missing async semantics in chipStar"
+      async_reduce:
+        reason: "Fails"
+        source: "Same as async_copy — async Thrust operations"
+      transform_reduce:
+        reason: "Fails for some type combinations"
+        source: "Uses block-level reductions; same root cause as rocPRIM device_reduce"
+      sort_by_key:
+        reason: "Timeout for some configurations (variable bits, permutation iterator)"
+        source: "Radix sort with subgroup shuffle/ballot operations; same timeout cause as rocPRIM block_sort_bitonic"
+      counting_iterator:
+        reason: "Fails"
+        source: "Counter arithmetic with 64-bit types; potential i64 overflow or incorrect code generation"
+      unique:
+        reason: "Fails"
+        source: "thrust::unique uses scan/reduce; scan failures propagate"
+      unique_by_key:
+        reason: "Fails"
+        source: "Same as unique"
+
+  rocSPARSE:
+    backend: LEVEL0_GPU
+    platform: x86_64 Linux, LLVM 22.0-native
+    notes:
+      - "Tests run via single gtest binary: rocsparse-test"
+      - "axpby (432 tests): ALL PASS"
+      - "csr2coo (26 tests): ALL PASS"
+      - "All other test groups with hipMallocAsync in code path: FAIL"
+    failures:
+      bsrmv:
+        reason: "All 992 bsrmv test cases fail with 'hipErrorNotSupported: hipMallocAsync not implemented'"
+        source: "rocSPARSE library uses hipMallocAsync extensively (36 source files). chipStar does not implement hipMallocAsync (CHIPBindings.cc:800 returns hipErrorNotSupported)"
+      bsric0:
+        reason: "Fails — hipMallocAsync"
+        source: "Uses rocSPARSE preconditioner that calls hipMallocAsync via rocsparse_memstat"
+      bsrilu0:
+        reason: "Fails — hipMallocAsync"
+        source: "Same"
+      csric0:
+        reason: "Fails — hipMallocAsync"
+        source: "Same"
+      csrilu0:
+        reason: "Fails — hipMallocAsync"
+        source: "Same"
+      csrsv:
+        reason: "Fails — hipMallocAsync via sub_group_barrier missing"
+        source: "Also uses sub_group_barrier/mem_fence; clLinkProgram -17 failure"
+      csrsort:
+        reason: "Fails — 'Missing definition for sub_group_barrier/mem_fence', clLinkProgram error -17"
+        source: "rocSPARSE csrsort uses OpenCL 1.x built-ins sub_group_barrier() and mem_fence() which are not provided by chipStar's rtdevlib; these are distinct from hipMallocAsync issue"
+
+  hipSPARSE:
+    backend: LEVEL0_GPU
+    platform: x86_64 Linux, LLVM 22.0-native
+    notes:
+      - "Tests run via single gtest binary: hipsparse-test"
+      - "axpyi (64 tests + bad_arg): ALL PASS"
+      - "csr2coo_bad_arg: PASSES"
+      - "coosort_bad_arg: PASSES"
+      - "csrsort_bad_arg: PASSES"
+    failures:
+      csrsort:
+        reason: "csrsort tests timeout/fail: 'Missing definition for sub_group_barrier/mem_fence', clLinkProgram error -17"
