@@ -248,3 +248,104 @@ library_known_failures:
     failures:
       csrsort:
         reason: "csrsort tests timeout/fail: 'Missing definition for sub_group_barrier/mem_fence', clLinkProgram error -17"
+        source: "hipSPARSE wraps rocSPARSE; csrsort uses OpenCL 1.x sub_group_barrier() and mem_fence() built-ins not provided by chipStar rtdevlib"
+      coosort:
+        reason: "Same as csrsort — sub_group_barrier/mem_fence missing"
+        source: "Same root cause"
+      bsrmv:
+        reason: "All bsrmv test cases fail — hipMallocAsync not implemented"
+        source: "Same as rocSPARSE bsrmv"
+      most_sparse_operations:
+        reason: "Tests that exercise algorithms using hipMallocAsync or sub_group_barrier fail"
+        source: "hipSPARSE delegates to rocSPARSE; inherits both failure categories"
+
+  hipMM:
+    backend: LEVEL0_GPU
+    platform: x86_64 Linux, LLVM 22.0-native
+    notes:
+      - "42/54 tests PASS (78%)"
+      - "12/54 tests FAIL — all are build failures due to CUDA Thrust header issue"
+    build_failures:
+      DEVICE_MR_REF_TEST:
+        reason: "Build failure: rocThrust CUDA compatibility headers include CUDA CUB headers (cub/util_namespace.cuh, cub/detail/device_synchronize.cuh, etc.) which are not available"
+        source: "rocThrust installs CUDA Thrust compatibility headers in thrust/system/cuda/. When hipMM tests include Thrust via device_uvector.hpp/device_buffer.hpp, the CUDA compatibility headers are transitively included and require CUDA CUB which is not installed. Affects: DEVICE_MR_REF, POOL_MR, HOST_MR_REF, PINNED_POOL_MR, THRUST_ALLOCATOR, DEVICE_BUFFER tests"
+      POOL_MR_TEST:
+        reason: "Same as DEVICE_MR_REF_TEST — CUDA CUB headers not available"
+        source: "Same root cause"
+      HOST_MR_REF_TEST:
+        reason: "Same — CUDA CUB headers not available"
+        source: "Same root cause"
+      PINNED_POOL_MR_TEST:
+        reason: "Same — CUDA CUB headers not available"
+        source: "Same root cause"
+      THRUST_ALLOCATOR_TEST:
+        reason: "Same — CUDA CUB headers not available"
+        source: "Same root cause"
+      DEVICE_BUFFER_TEST:
+        reason: "Same + additional: __host__/__device__ qualifiers unknown in device compilation of .cu files when CUDA Thrust headers included"
+        source: "Same root cause; .cu compilation exacerbates the issue"
+
+  H4I-MKLShim:
+    backend: N/A
+    platform: x86_64 Linux
+    failures:
+      all:
+        reason: "NOT TESTED — build requires icpx (Intel oneAPI C++ compiler)"
+        source: "H4I-MKLShim is an Intel MKL shim library that calls Intel MKL via oneAPI. The cmake configuration requires icpx. icpx is not installed in this environment."
+
+  H4I-HipBLAS:
+    backend: N/A
+    platform: x86_64 Linux
+    failures:
+      all:
+        reason: "NOT TESTED — depends on H4I-MKLShim which requires icpx"
+        source: "H4I-HipBLAS wraps H4I-MKLShim for BLAS operations. Cannot test without MKLShim."
+
+  H4I-HipSOLVER:
+    backend: N/A
+    platform: x86_64 Linux
+    failures:
+      all:
+        reason: "NOT TESTED — depends on H4I-MKLShim which requires icpx"
+        source: "Same as H4I-HipBLAS"
+
+  H4I-HipFFT:
+    backend: N/A
+    platform: x86_64 Linux
+    failures:
+      all:
+        reason: "NOT TESTED — depends on H4I-MKLShim which requires icpx"
+        source: "Same as H4I-HipBLAS"
+
+# Cross-cutting failure categories:
+#
+# 1. hipMallocAsync not implemented (chipStar CHIPBindings.cc:800)
+#    Affects: rocSPARSE (many tests), any library using stream-ordered memory alloc
+#    Fix: Implement hipMallocAsync in chipStar (maps to zeMemAllocDevice with stream context)
+#
+# 2. Subgroup ballot/shuffle operations (sub_group_shuffle_xor, sub_group_ballot)
+#    Affects: rocPRIM sort, hipCUB sort, rocThrust sort — causes hangs/wrong results
+#    Root cause: Intel Arc Level0 SPIR-V subgroup operations not correctly emitted
+#                by LLVM 22 in-tree SPIR-V backend for all shuffle variants
+#    Fix: Investigate LLVM SPIRV translator handling of OpGroupNonUniformShuffleXor
+#
+# 3. sub_group_barrier() / mem_fence() built-ins missing
+#    Affects: rocSPARSE csrsort, hipSPARSE csrsort/coosort
+#    Root cause: OpenCL 1.x built-in functions not in chipStar rtdevlib
+#    Fix: Add sub_group_barrier() and mem_fence() to chipStar device library
+#
+# 4. KeyValuePair (ReduceArgMin/ArgMax) incorrect results
+#    Affects: rocPRIM device_reduce, hipCUB DeviceReduce
+#    Root cause: 64-bit struct (index, value) comparison kernel gives wrong results
+#    Fix: Investigate CUB/rocPRIM arg-reduction kernel in SPIR-V context
+#
+# 5. hipGraph not implemented
+#    Affects: rocRAND test_rocrand_hipgraphs
+#    Root cause: hipGraph API not implemented in chipStar
+#    Fix: Implement hipGraph in chipStar (complex feature)
+#
+# 6. CUDA CUB headers absent for rocThrust CUDA compatibility layer
+#    Affects: hipMM tests that include Thrust via device_uvector/device_buffer
+#    Root cause: rocThrust installs CUDA compatibility headers requiring CUDA CUB
+#    Fix: Either install dummy CUDA CUB stubs system-wide, or patch hipMM cmake
+#         to not link rocThrust CUDA headers when building with chipStar
