@@ -229,12 +229,25 @@ fi
 
 module unload opencl/dgpu
 
+# LLVM 22+ generates SPIR-V that triggers an IGC bug on i915 igpus with
+# emulated double precision (IGC_EnableDPEmulation). The testInt2Double kernel
+# causes a GPU hang (ZE_RESULT_ERROR_DEVICE_LOST) on UHD 730/770 igpus.
+# Exclude the affected test on igpu until the IGC driver is fixed.
+igpu_exclude=""
+if [[ "$llvm_version" -ge 22 ]]; then
+  igpu_exclude="--regex-exclude=TestTypeCastIntrinsics"
+fi
+
 # Function to run tests
 run_tests() {
     local device=$1
     local backend=$2
+    local extra_args=""
+    if [[ "$device" == "igpu" ]]; then
+      extra_args="$igpu_exclude"
+    fi
     echo "begin ${device}_${backend}_failed_tests"
-    ../scripts/check.py ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries | tee ${device}_${backend}_make_check_result.txt
+    ../scripts/check.py ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries $extra_args | tee ${device}_${backend}_make_check_result.txt
     echo "end ${device}_${backend}_failed_tests"
 }
 
