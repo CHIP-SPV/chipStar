@@ -63,7 +63,55 @@ jobs:
       - name: Run unit test checking script
         run: ./scripts/unit_tests.sh release llvm-21
         shell: bash
-  # NOTE: LLVM 22 unit test jobs are not included here because the
-  # llvm/22.0-translator and llvm/22.0-native modules must first be installed
-  # on the runner via test-llvm-patches.yml's install-llvm-on-main job.
-  # Once LLVM 22 modules are available, add the jobs back.
+  unit-tests-llvm-22-translator-debug:
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh debug llvm-22 --variant=translator
+        shell: bash
+  unit-tests-llvm-22-translator-release:
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh release llvm-22 --variant=translator
+        shell: bash
+  unit-tests-llvm-22-native-debug:
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh debug llvm-22 --variant=native
+        shell: bash
+  unit-tests-llvm-22-native-release:
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Run unit test checking script
+        run: ./scripts/unit_tests.sh release llvm-22 --variant=native
+        shell: bash
