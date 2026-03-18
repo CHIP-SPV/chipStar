@@ -1,0 +1,4 @@
+#ifndef CHIPSTAR_STUB_CUDA_STD_SPAN
+#define CHIPSTAR_STUB_CUDA_STD_SPAN
+#include <span>
+#endif

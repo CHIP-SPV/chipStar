@@ -1,0 +1,4 @@
+#ifndef CHIPSTAR_STUB_CUDA_STD_TYPE_TRAITS
+#define CHIPSTAR_STUB_CUDA_STD_TYPE_TRAITS
+#include <type_traits>
+#endif
