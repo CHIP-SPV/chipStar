@@ -2268,9 +2268,7 @@ public:
   void initCaptureGraph();
 
   hipStreamCaptureStatus getCaptureStatus() const {
-    // TODO: fix this in graphs refactor
-    //  return CaptureStatus_;
-    return hipStreamCaptureStatusNone;
+    return CaptureStatus_;
   }
 
   void setCaptureStatus(hipStreamCaptureStatus CaptureMode) {
