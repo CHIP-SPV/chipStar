@@ -37,7 +37,12 @@ THE SOFTWARE.
 #include <hip/spirv_hip_cooperative_groups_helper.h>
 #endif
 
+#ifdef __APPLE__
+// On macOS, assert() expands to __assert_rtn which is not available in device code.
+#define __hip_assert(cond) do { if (!(cond)) __builtin_trap(); } while(0)
+#else
 #define __hip_assert assert
+#endif
 
 namespace cooperative_groups {
 
