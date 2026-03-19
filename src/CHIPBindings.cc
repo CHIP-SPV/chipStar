@@ -793,26 +793,18 @@ hipError_t hipDeviceGetMemPool(hipMemPool_t *mem_pool, int device) {
 
   CHIP_CATCH
 }
-// Forward declarations for internal helpers defined later in this file.
-static inline hipError_t hipMallocInternal(void **Ptr, size_t Size);
-static inline hipError_t hipFreeInternal(void *Ptr);
-
 hipError_t hipMallocAsync(void **dev_ptr, size_t size, hipStream_t stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-
-  if (!dev_ptr)
-    RETURN(hipErrorInvalidValue);
-
-  RETURN(hipMallocInternal(dev_ptr, size));
+  UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 hipError_t hipFreeAsync(void *dev_ptr, hipStream_t stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  RETURN(hipFreeInternal(dev_ptr));
+  UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 hipError_t hipMemPoolSetAttribute(hipMemPool_t mem_pool, hipMemPoolAttr attr,
@@ -868,12 +860,7 @@ hipError_t hipMallocFromPoolAsync(void **dev_ptr, size_t size,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-
-  if (!dev_ptr)
-    RETURN(hipErrorInvalidValue);
-
-  // Ignore mem_pool — allocate from the default device allocator.
-  RETURN(hipMallocInternal(dev_ptr, size));
+  UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
 hipError_t hipMemPoolDestroy(hipMemPool_t mem_pool) {
@@ -3293,8 +3280,7 @@ hipError_t hipSetDeviceFlags(unsigned Flags) {
   // Invalid flag check
   if (Flags != hipDeviceScheduleAuto && Flags != hipDeviceScheduleSpin &&
       Flags != hipDeviceScheduleYield &&
-      Flags != hipDeviceScheduleBlockingSync &&
-      Flags != hipDeviceMapHost) {
+      Flags != hipDeviceScheduleBlockingSync) {
     RETURN(hipErrorInvalidValue);
   }
 
@@ -4931,8 +4917,8 @@ hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
-                              hipStream_t Stream) {
+hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, const void *Src,
+                              size_t SizeBytes, hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
@@ -4941,7 +4927,7 @@ hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
+hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, const void *Src, size_t SizeBytes) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
@@ -6232,15 +6218,6 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   CHIPInitialize();
   NULLCHECK(Module);
   logDebug("hipModuleUnload(Module={}", (void *)Module);
-
-  // Synchronize all queues before releasing the module.  Some OpenCL drivers
-  // (e.g. Intel Arc / libigdrcl.so) crash in clFinish() if the underlying
-  // cl::Program is released while kernels compiled from it are still in-flight.
-  // Completing all work first ensures the driver holds no dangling references
-  // to the program object when we call delete Module below.
-  auto SyncStatus = hipDeviceSynchronizeInternal();
-  if (SyncStatus != hipSuccess)
-    RETURN(SyncStatus);
 
   auto *ChipModule = reinterpret_cast<chipstar::Module *>(Module);
   const auto &SrcMod = ChipModule->getSourceModule();

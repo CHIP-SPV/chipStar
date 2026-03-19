@@ -170,7 +170,16 @@ _wassert(const wchar_t *_msg, const wchar_t *_file, unsigned _line)
   // FIXME: Need `wchar_t` support to generate assertion message.
   abort();
 }
-#else  // defined(_WIN32) || defined(_WIN64)
+#elif defined(__APPLE__)
+// On macOS, assert() expands to __assert_rtn instead of __assert_fail.
+__device__ __attribute__((noinline)) __attribute__((weak)) void
+__assert_rtn(const char *function, const char *file, int line,
+             const char *assertion) {
+  printf("%s:%d: %s: Device-side assertion `%s' failed.\n", file, line,
+         function, assertion);
+  abort();
+}
+#else  // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
 __device__ __attribute__((noinline)) __attribute__((weak)) void
 __assert_fail(const char *assertion, const char *file, unsigned int line,
               const char *function) {
@@ -178,7 +187,7 @@ __assert_fail(const char *assertion, const char *file, unsigned int line,
          function, assertion);
   abort();
 }
-#endif // defined(_WIN32) || defined(_WIN64)
+#endif // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
 } // extern "C"
 #endif // defined(__clang__) && defined(__HIP__)
 

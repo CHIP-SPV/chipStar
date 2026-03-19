@@ -248,7 +248,7 @@ option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar ex
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
-option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
+option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" ON)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
@@ -261,9 +261,6 @@ option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
 option(CHIP_L0_MAKE_MEM_RESIDENT "First-touch workaround for Level Zero." OFF)
 option(CHIP_L0_KERNEL_TIMESTAMPS "Enable kernel timestamps for Level Zero events." ON)
 set(CHIP_DEFAULT_JIT_FLAGS "-cl-kernel-arg-info -cl-std=CL3.0")
-
-# This mitigation might be necessary for PVC on Aurora (https://github.com/argonne-lcf/AuroraBugTracking/issues/124)
-option(CHIP_LZ_API_QUERY_QUEUE_EMPTY "This uses zeCommandListHostSynchronize(CmdList, 0) to query if CmdList is empty instead of using a boolean." OFF)
 
 option(CHIP_PROFILE_TESTS "Attach iprof to each test under ctest" OFF)
 if (CHIP_PROFILE_TESTS)

@@ -22,8 +22,8 @@ void checkBallot(unsigned BlockSize, uint64_t In,
   }
 
   if (OutH != In) {
-    printf("FAILED: BlockSize=%u:\nError: Expected '%llu'. Got '%llu'\n", BlockSize, In,
-           OutH);
+    printf("FAILED: BlockSize=%u:\nError: Expected '%llu'. Got '%llu'\n", BlockSize,
+           (unsigned long long)In, (unsigned long long)OutH);
     exit(1);
   }
   (void)hipFree(OutD);
