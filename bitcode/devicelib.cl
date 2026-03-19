@@ -532,14 +532,18 @@ EXPORT void __chip_syncthreads() { barrier(CLK_LOCAL_MEM_FENCE); }
 // local_fence
 EXPORT void __chip_threadfence_block() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
-// global_fence
+// global_fence — device-scoped to ensure cross-workgroup visibility
 EXPORT void __chip_threadfence() {
-  mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+  atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE,
+                         memory_order_seq_cst,
+                         memory_scope_device);
 }
 
-// system_fence
+// system_fence — all-SVM-devices scope
 EXPORT void __chip_threadfence_system() {
-  mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+  atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE,
+                         memory_order_seq_cst,
+                         memory_scope_all_svm_devices);
 }
 /* memory routines */
 
@@ -612,9 +616,9 @@ EXPORT long __chip_ctz_li(long var) { return ctz(var); }
   }
 
 #define DEF_CHIP_ATOMIC2(NAME, OP)                                            \
-  DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME, OP, relaxed, device)                    \
-  DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME##_system, OP, relaxed, all_svm_devices)  \
-  DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME##_block, OP, relaxed, work_group)
+  DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME, OP, seq_cst, device)                    \
+  DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME##_system, OP, seq_cst, all_svm_devices)  \
+  DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME##_block, OP, seq_cst, work_group)
 
 // __chip_atomic_add_i, __chip_atomic_add_u, __chip_atomic_add_l
 DEF_CHIP_ATOMIC2 (add, fetch_add)
