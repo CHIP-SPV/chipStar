@@ -3210,6 +3210,13 @@ hipError_t hipDeviceSetSharedMemConfig(hipSharedMemConfig Cfg) {
   LOCK(ApiMtx);
   CHIPInitialize();
 
+  // Invalid Cfg check
+  if (Cfg != hipSharedMemBankSizeDefault &&
+      Cfg != hipSharedMemBankSizeFourByte &&
+      Cfg != hipSharedMemBankSizeEightByte ) {
+    RETURN(hipErrorInvalidValue);
+  }
+  
   Backend->getActiveDevice()->setSharedMemConfig(Cfg);
   RETURN(hipSuccess);
 
