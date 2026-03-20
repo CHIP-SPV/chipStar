@@ -314,21 +314,81 @@ HipPrintfToOpenCLPrintfPass::getOrCreateStrLiteralArg(const std::string &Str,
 Function *HipPrintfToOpenCLPrintfPass::getOrCreatePrintStringF() {
 
   if (GlobalValue *OldPrintStrF =
-          M_->getNamedValue(ORIG_PRINT_STRING_FUNC_NAME))
-    return cast<Function>(OldPrintStrF);
+          M_->getNamedValue(ORIG_PRINT_STRING_FUNC_NAME)) {
+    auto *Existing = cast<Function>(OldPrintStrF);
+    if (!Existing->isDeclaration())
+      return Existing;
+    // Declaration exists (e.g. inserted on a prior call before we got
+    // to define a body); fall through and define the body now.
+  }
 
-  auto *Int8Ty = IntegerType::get(M_->getContext(), 8);
+  auto &Ctx = M_->getContext();
+  auto *Int8Ty = IntegerType::get(Ctx, 8);
+  auto *Int32Ty = IntegerType::get(Ctx, 32);
+  auto *VoidTy = Type::getVoidTy(Ctx);
   PointerType *GenericCStrArgT =
       PointerType::get(Int8Ty, SPIRV_OPENCL_GENERIC_AS);
+  PointerType *ConstStrPtrT =
+      PointerType::get(Int8Ty, SPIRV_OPENCL_CONSTANT_AS);
 
-  FunctionType *PrintStrFTy = FunctionType::get(
-      Type::getVoidTy(M_->getContext()), {GenericCStrArgT}, false);
+  FunctionType *PrintStrFTy =
+      FunctionType::get(VoidTy, {GenericCStrArgT}, false);
+  Function *F = cast<Function>(
+      M_->getOrInsertFunction(ORIG_PRINT_STRING_FUNC_NAME, PrintStrFTy)
+          .getCallee());
+  F->setCallingConv(llvm::CallingConv::SPIR_FUNC);
+  F->setLinkage(llvm::GlobalValue::InternalLinkage);
 
-  FunctionCallee PrintStrF =
-      M_->getOrInsertFunction(ORIG_PRINT_STRING_FUNC_NAME, PrintStrFTy);
-  cast<Function>(PrintStrF.getCallee())
-      ->setCallingConv(llvm::CallingConv::SPIR_FUNC);
-  return cast<Function>(PrintStrF.getCallee());
+  // Define the body inline so the kernel module is self-contained for %s
+  // printf support. The historical implementation in bitcode/_cl_print_str.cl
+  // required `static __attribute__((used))`, which forced an `@llvm.used`
+  // entry into hipspv.bc. That collided with `@llvm.used` from HIP TUs
+  // (different element address space) at `-mlink-builtin-bitcode` time and
+  // broke any HIP code that also uses `__attribute__((used))` (rocThrust).
+  //
+  // Equivalent C:
+  //   void _cl_print_str(__generic const char *S) {
+  //     if (S == 0) return;
+  //     unsigned Pos = 0;
+  //     char C;
+  //     while ((C = S[Pos]) != 0) { printf("%c", C); ++Pos; }
+  //   }
+  BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", F);
+  BasicBlock *Loop = BasicBlock::Create(Ctx, "loop", F);
+  BasicBlock *Body = BasicBlock::Create(Ctx, "body", F);
+  BasicBlock *Exit = BasicBlock::Create(Ctx, "exit", F);
+
+  Argument *S = F->getArg(0);
+
+  FunctionType *PrintfTy =
+      FunctionType::get(Int32Ty, {ConstStrPtrT}, /*isVarArg=*/true);
+  Function *Printf = cast<Function>(
+      M_->getOrInsertFunction("printf", PrintfTy).getCallee());
+
+  IRBuilder<> B(Entry);
+  Value *IsNull = B.CreateICmpEQ(S, ConstantPointerNull::get(GenericCStrArgT));
+  B.CreateCondBr(IsNull, Exit, Loop);
+
+  B.SetInsertPoint(Loop);
+  PHINode *Pos = B.CreatePHI(Int32Ty, 2);
+  Pos->addIncoming(ConstantInt::get(Int32Ty, 0), Entry);
+  Value *CharPtr = B.CreateGEP(Int8Ty, S, Pos);
+  Value *C = B.CreateLoad(Int8Ty, CharPtr);
+  Value *IsZero = B.CreateICmpEQ(C, ConstantInt::get(Int8Ty, 0));
+  B.CreateCondBr(IsZero, Exit, Body);
+
+  B.SetInsertPoint(Body);
+  Constant *PercentC = getOrCreateStrLiteralArg("%c", B);
+  CallInst *PrintfCall = B.CreateCall(Printf, {PercentC, C});
+  PrintfCall->setCallingConv(llvm::CallingConv::SPIR_FUNC);
+  Value *PosNext = B.CreateAdd(Pos, ConstantInt::get(Int32Ty, 1));
+  Pos->addIncoming(PosNext, Body);
+  B.CreateBr(Loop);
+
+  B.SetInsertPoint(Exit);
+  B.CreateRetVoid();
+
+  return F;
 }
 
 // Get called function from 'CI' call or return nullptr the call is indirect.
