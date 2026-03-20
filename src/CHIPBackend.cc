@@ -999,7 +999,7 @@ hipFuncCache_t chipstar::Device::getCacheConfig() {
 }
 
 hipSharedMemConfig chipstar::Device::getSharedMemConfig() {
-  UNIMPLEMENTED(hipSharedMemBankSizeDefault);
+  return hipSharedMemBankSizeDefault;
 }
 
 void chipstar::Device::removeContext(chipstar::Context *Context) {}
@@ -1031,7 +1031,12 @@ bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
 }
 
 void chipstar::Device::setSharedMemConfig(hipSharedMemConfig Cfg) {
-  UNIMPLEMENTED();
+  // From https://rocm.docs.amd.com/projects/HIP/en/latest/doxygen/html/group___device.html#ga9b1f279084e76691cedfbfadf9c717ee
+  // and https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__DEVICE__DEPRECATED.html#group__CUDART__DEVICE__DEPRECATED_1g76cb4f94c7af96c1247dfc7f105eabae 
+  // "This function will do nothing on devices with fixed shared memory bank size."
+  // and https://github.com/CHIP-SPV/HIP/blob/7d8de68cef8ed7d455dafc78012988a08e624586/include/hip/hip_runtime_api.h#L1310
+  // warns that " @warning On AMD devices and some Nvidia devices, these hints and controls are ignored."
+  // as it is a performance hint. So it is safe to do nothing for now.
 }
 
 size_t chipstar::Device::getUsedGlobalMem() {
