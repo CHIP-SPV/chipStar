@@ -184,6 +184,7 @@ add_hip_runtime_test(TestTypeCastIntrinsics.hip)
 add_hip_runtime_test(TestHipLaunchHostFunc.cpp)
 
 add_hip_runtime_test(TestBoolKernelParam.hip)
+add_hip_runtime_test(TestBoolParamShuffle.cpp)
 find_program(SPIRV_DIS spirv-dis)
 if(SPIRV_DIS)
   add_shell_test(TestBoolKernelParamSPIRV.bash)
