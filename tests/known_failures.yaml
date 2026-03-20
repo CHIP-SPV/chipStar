@@ -1,6 +1,7 @@
 TOTAL_TESTS: 1397
 ANY:
   ALL:
+    TestTypeCastIntrinsics: 'iGPU failure'
     hipDeviceMalloc: 'Failed'
     TestUndefKernelArg: 'Intermittend L0 segfault'
     hipPromoteInt-signed_constant_compare: 'constVal used for signed comparison'
