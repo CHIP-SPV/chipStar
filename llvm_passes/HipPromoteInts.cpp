@@ -1238,15 +1238,18 @@ static bool needsKernelArgPromotion(Type *T) {
 }
 
 /// Promote narrow (< i32) integer kernel arguments to i32 for SPIR-V/OpenCL
-/// conformance. Creates a wrapper kernel with i32 args that truncates them
-/// back to the original type before calling the original function body.
+/// conformance. Modifies the kernel function in-place: replaces narrow
+/// params with i32 and inserts trunc instructions at the entry block.
+///
+/// Previous implementation created a wrapper+unpromoted-function pattern
+/// which broke subgroup shuffle operations on Intel GPUs (IGC bug: shuffles
+/// don't work in called non-kernel functions).
 static bool promoteKernelArgs(Module &M) {
   bool Changed = false;
 
   SmallVector<Function *, 8> WorkList;
   for (auto &F : M)
     if (F.getCallingConv() == CallingConv::SPIR_KERNEL && !F.isDeclaration()) {
-      // Check if any argument needs promotion
       for (const auto &Arg : F.args()) {
         if (needsKernelArgPromotion(Arg.getType())) {
           WorkList.push_back(&F);
@@ -1261,14 +1264,11 @@ static bool promoteKernelArgs(Module &M) {
 
     // Build new argument type list, promoting narrow ints to i32
     SmallVector<Type *, 8> NewArgTys;
-    SmallVector<unsigned, 4> PromotedArgIndices;
     for (auto &Arg : F->args()) {
-      if (needsKernelArgPromotion(Arg.getType())) {
+      if (needsKernelArgPromotion(Arg.getType()))
         NewArgTys.push_back(Type::getInt32Ty(M.getContext()));
-        PromotedArgIndices.push_back(Arg.getArgNo());
-      } else {
+      else
         NewArgTys.push_back(Arg.getType());
-      }
     }
 
     // Create new kernel function with promoted signature
@@ -1278,32 +1278,41 @@ static bool promoteKernelArgs(Module &M) {
                                   F->getAddressSpace(), "", F->getParent());
     NewF->copyAttributesFrom(F);
     NewF->takeName(F);
+    NewF->setCallingConv(F->getCallingConv());
+    NewF->copyMetadata(F, 0);
 
-    // Demote the original kernel to a regular internal function
-    F->setName(NewF->getName() + ".unpromoted");
-    F->setCallingConv(CallingConv::SPIR_FUNC);
-    F->setLinkage(GlobalValue::InternalLinkage);
+    // Move the function body from the old function to the new one.
+    NewF->splice(NewF->begin(), F);
 
-    // Build the wrapper body: truncate promoted args back, then call original
-    IRBuilder<> B(BasicBlock::Create(F->getContext(), "entry", NewF));
-    auto *RI = B.CreateRetVoid();
-    B.SetInsertPoint(RI);
-
-    SmallVector<Value *, 8> CallArgs;
-    for (auto &OrigArg : F->args()) {
-      auto *NewArg = NewF->getArg(OrigArg.getArgNo());
-      if (needsKernelArgPromotion(OrigArg.getType())) {
-        // Truncate i32 back to the original narrow type
-        auto *Trunc = B.CreateTrunc(NewArg, OrigArg.getType());
-        CallArgs.push_back(Trunc);
-        LLVM_DEBUG(dbgs() << "  Arg " << OrigArg.getArgNo() << ": "
-                          << *OrigArg.getType() << " -> i32 (with trunc)\n");
+    // Replace old args with new args, inserting truncations where needed.
+    auto NewArgIt = NewF->arg_begin();
+    for (auto &OldArg : F->args()) {
+      NewArgIt->setName(OldArg.getName());
+      if (needsKernelArgPromotion(OldArg.getType())) {
+        // Insert trunc at the start of the entry block.
+        IRBuilder<> B(&*NewF->getEntryBlock().getFirstInsertionPt());
+        Value *Trunc = B.CreateTrunc(&*NewArgIt, OldArg.getType(),
+                                      OldArg.getName() + ".trunc");
+        OldArg.replaceAllUsesWith(Trunc);
+        LLVM_DEBUG(dbgs() << "  Arg " << OldArg.getArgNo() << ": "
+                          << *OldArg.getType() << " -> i32 (with trunc)\n");
       } else {
-        CallArgs.push_back(NewArg);
+        OldArg.replaceAllUsesWith(&*NewArgIt);
       }
+      ++NewArgIt;
     }
 
-    B.CreateCall(F, CallArgs);
+    // Remove parameter attributes specific to narrow types.
+    AttributeList Attrs = NewF->getAttributes();
+    for (unsigned I = 0; I < F->arg_size(); I++) {
+      if (needsKernelArgPromotion(F->getArg(I)->getType())) {
+        Attrs = Attrs.removeParamAttribute(M.getContext(), I, Attribute::SExt);
+        Attrs = Attrs.removeParamAttribute(M.getContext(), I, Attribute::ZExt);
+      }
+    }
+    NewF->setAttributes(Attrs);
+
+    F->eraseFromParent();
     Changed = true;
   }
 

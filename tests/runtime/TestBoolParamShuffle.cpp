@@ -79,7 +79,9 @@ int main() {
   hipDeviceProp_t prop;
   hipGetDeviceProperties(&prop, 0);
   if (std::strstr(prop.name, "Mali") != nullptr) {
-    printf("SKIP: device '%s' lacks SPV_INTEL_subgroups support\n", prop.name);
+    printf("HIP_SKIP_THIS_TEST: device '%s' lacks SPV_INTEL_subgroups "
+           "support\n",
+           prop.name);
     return CHIP_SKIP_TEST;
   }
 
