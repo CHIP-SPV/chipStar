@@ -381,6 +381,18 @@ protected:
 public:
   void recordEvent(chipstar::Event *ChipEvent) override;
   std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
+  std::atomic<bool> IsEmptyQueue_{true};
+  /// Cross-queue sync marker events that must be kept alive until this queue
+  /// is finished. Without this, checkEvents() may recycle their underlying
+  /// ze_events while GPU operations on this queue still reference them.
+  std::vector<std::shared_ptr<chipstar::Event>> PendingCrossQueueDeps_;
+  bool isEmptyQueue() override {
+#ifndef CHIP_LZ_API_QUERY_QUEUE_EMPTY
+    return IsEmptyQueue_.load();
+#else
+    return (zeCommandListHostSynchronize(ZeCmdListImm_, 0) == ZE_RESULT_SUCCESS);
+#endif
+  }
 
   std::vector<ze_event_handle_t> getEventListHandles(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor);
@@ -422,6 +434,12 @@ public:
   void finishNoLock(); // Helper that assumes EventsMtx is already held
 
   virtual void finishWithoutEventsMtx() override;
+
+  void storeCrossQueueDeps(
+      std::vector<std::shared_ptr<chipstar::Event>> Markers) override {
+    for (auto& M : Markers)
+      PendingCrossQueueDeps_.push_back(std::move(M));
+  }
 
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
