@@ -8,6 +8,7 @@ include:
 # only run on commits to main, otherwise it may be too much for the queue system.
 workflow:
     rules:
+      - if: $CI_PIPELINE_SOURCE == "trigger"   # triggered from GitHub via /run-aurora-ci
       - if: $CI_COMMIT_BRANCH == "main"
 
 variables:
