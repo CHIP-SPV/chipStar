@@ -1,0 +1,79 @@
+name: Trigger GitLab Aurora CI
+
+# Fires when a PR comment contains /run-aurora-ci
+#
+# Requires these GitHub repository secrets:
+#   GITLAB_URL           - e.g. https://git.cels.anl.gov
+#   GITLAB_PROJECT_ID    - numeric project ID from GitLab project settings
+#   GITLAB_TRIGGER_TOKEN - from GitLab project > Settings > CI/CD > Pipeline triggers
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  trigger-from-comment:
+    name: Trigger from /run-aurora-ci comment
+    # Only on PR comments (not plain issue comments) from trusted users
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request.url != '' &&
+      contains(github.event.comment.body, '/run-aurora-ci') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR head SHA and ref
+        id: pr-info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number
+            });
+            core.setOutput('sha', pr.data.head.sha);
+            core.setOutput('ref', pr.data.head.ref);
+
+      - name: Trigger GitLab pipeline
+        env:
+          GITLAB_URL: ${{ secrets.GITLAB_URL }}
+          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+          GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
+        run: |
+          curl -X POST --fail-with-body \
+            "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/trigger/pipeline" \
+            -F "token=${GITLAB_TRIGGER_TOKEN}" \
+            -F "ref=main" \
+            -F "variables[TRIGGER_SOURCE]=github_comment" \
+            -F "variables[GITHUB_PR_NUMBER]=${{ github.event.issue.number }}" \
+            -F "variables[GITHUB_SHA]=${{ steps.pr-info.outputs.sha }}" \
+            -F "variables[GITHUB_REF]=${{ steps.pr-info.outputs.ref }}"
+
+      - name: React with rocket on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+      - name: Post failure comment
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: ':x: Failed to trigger GitLab Aurora CI pipeline. See [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.'
+            });
