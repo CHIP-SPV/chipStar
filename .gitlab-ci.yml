@@ -1,21 +1,20 @@
 # this include allows us to reference defaults in anl/ci-resource/defaults
+
 include:
   - project: 'anl/ci-resources/defaults'
     ref: main
     file:
       - '/runners.yml'
 
-# only run on commits to main, otherwise it may be too much for the queue system.
 workflow:
     rules:
       - if: $CI_PIPELINE_SOURCE == "trigger"   # triggered from GitHub via /run-aurora-ci
-      - if: $CI_COMMIT_BRANCH == "main"
 
 variables:
   PROJ: "chipStar_test"
   QUEUE: "debug"
   TIME: "1:00:00"
-  WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/test"
+  WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/pipeline_${CI_PIPELINE_ID}"
   ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=${TIME},filesystems=home -A ${PROJ}"
   GENESIS_CI_PROJECT_DIR: "/home/bertoni/projects/p01.chipStar/GENESIS-Share-CI/"
 
@@ -36,19 +35,24 @@ stages:
     - builds_zeroRK
     - runs_zeroRK
     - perforamce_zeroRK
+    - cleanup
 
 setup:
   stage: .pre
   extends: .aurora-shell-runner
   resource_group: aurora_pipeline  
   script:
-    # FIXME: For the time being we delete ${WRK_DIR} if it exists.
-    - rm -rf ${WRK_DIR}
+    # Remove pipeline directories older than 7 days
+    - find /lus/flare/projects/${PROJ}/chipStar -maxdepth 1 -name "pipeline_*" -mtime +7 -exec rm -rf {} \;
     - mkdir -p ${WRK_DIR}
     - cd ${WRK_DIR}
       # setup chipStar
-    - git clone --single-branch https://github.com/CHIP-SPV/chipStar.git
+    - BRANCH=${GITHUB_REF:-${CI_COMMIT_BRANCH}}
+    - SHA=${GITHUB_SHA:-${CI_COMMIT_SHA}}
+    - echo "Branch ${BRANCH} and commit ${SHA}"
+    - git clone --single-branch --branch ${BRANCH} https://github.com/CHIP-SPV/chipStar.git
     - cd chipStar
+    - git checkout ${SHA}
     - git submodule update --init --recursive
     - module list
 
@@ -82,7 +86,7 @@ chipStar_script_install:
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
-    - cp -r ${WRK_DIR}/chipStar  ${WRK_DIR}/chipStar_llvm19
+    - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/chipStar_llvm19
     - cd ${WRK_DIR}/chipStar_llvm19
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm19/20251107-19/release
@@ -137,7 +141,9 @@ chipStar_aurora_script_test:
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
-    - temp=${WRK_DIR}/script_llvm19/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm19/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release chipStar/.llvm19/20251107-19/release
+    - mkdir ${WRK_DIR}/script_llvm19
+    - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm19
+    - NO_FRESH_CHIPSTAR_PULL=true temp=${WRK_DIR}/script_llvm19 MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm19/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release chipStar/.llvm19/20251107-19/release
     - cd ${WRK_DIR}/modulefiles/chipStar
     - echo 'module_version("llvm19", "default")' > .modulerc.lua
   allow_failure: true
@@ -149,7 +155,7 @@ chipStar_aurora_script_test_run:
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
-    - cd ${WRK_DIR}/script_llvm19/chip-spv/build
+    - cd ${WRK_DIR}/script_llvm19/chipStar/build
     - rm -rf $HOME/.cache/chipStar
     - CHIP_BE=level0 make build_tests -j
     - module load cmake
@@ -163,7 +169,9 @@ chipStar_aurora_script_test_llvm22:
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
-    - llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
+    - mkdir ${WRK_DIR}/script_llvm_22
+    - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm_22
+    - NO_FRESH_CHIPSTAR_PULL=true llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
   allow_failure: true
   
 chipStar_aurora_script_test_llvm22_run:
@@ -173,7 +181,7 @@ chipStar_aurora_script_test_llvm22_run:
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
-    - cd ${WRK_DIR}/script_llvm_22/chip-spv/build
+    - cd ${WRK_DIR}/script_llvm_22/chipStar/build
     - module load cmake
     - rm -rf $HOME/.cache/chipStar
     - CHIP_BE=level0 make build_tests -j
@@ -292,3 +300,39 @@ zeroRK_performance:
       exit 1
     fi
   allow_failure: true  
+
+cleanup:
+  stage: cleanup
+  extends: .aurora-shell-runner
+  resource_group: aurora_pipeline
+  when: on_success
+  script:
+    - rm -rf ${WRK_DIR}
+
+.report_github_status:
+  stage: cleanup
+  extends: .aurora-shell-runner
+  script:
+    - |
+      if [ -z "${GITHUB_SHA}" ]; then
+        echo "No GITHUB_SHA set, skipping GitHub status report"
+        exit 0
+      fi
+      curl -X POST \
+        --fail \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        https://api.github.com/repos/CHIP-SPV/chipStar/statuses/${GITHUB_SHA} \
+        -d "{\"state\":\"${GITHUB_STATUS}\",\"context\":\"aurora-ci\",\"target_url\":\"${CI_PIPELINE_URL}\"}"
+
+report_success:
+  extends: .report_github_status
+  when: on_success
+  variables:
+    GITHUB_STATUS: "success"
+
+report_failure:
+  extends: .report_github_status
+  when: on_failure
+  variables:
+    GITHUB_STATUS: "failure"
