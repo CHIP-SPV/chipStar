@@ -3,7 +3,7 @@
 ![Unit Tests Intel GPUs](https://github.com/CHIP-SPV/chipStar/workflows/Unit%20Tests%20Intel%20GPUs/badge.svg)
 ![Unit Tests ARM GPUs](https://github.com/CHIP-SPV/chipStar/workflows/Unit%20Tests%20ARM%20GPUs/badge.svg)
 ![Docker Build and Publish](https://github.com/CHIP-SPV/chipStar/workflows/Docker%20Build%20and%20Publish/badge.svg)
-![Aurora CI Pipeline](https://gitlab-ci.alcf.anl.gov/anl/chipstar_test/chipStar/badges/main/pipeline.svg)
+[![Aurora CI](https://img.shields.io/github/checks-status/CHIP-SPV/chipStar/main?label=aurora-ci)](https://github.com/CHIP-SPV/chipStar/commits/main)
 
 chipStar enables compiling and running HIP and CUDA applications on platforms which support
 SPIR-V as the device intermediate representation. It supports
