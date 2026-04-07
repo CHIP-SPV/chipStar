@@ -47,10 +47,14 @@ setup:
     - mkdir -p ${WRK_DIR}
     - cd ${WRK_DIR}
       # setup chipStar
-    - BRANCH=${GITHUB_REF:-${CI_COMMIT_BRANCH}}
-    - SHA=${GITHUB_SHA:-${CI_COMMIT_SHA}}
-    - echo "Branch ${BRANCH} and commit ${SHA}"
-    - git clone --single-branch --branch ${BRANCH} https://github.com/CHIP-SPV/chipStar.git
+    - git clone https://github.com/CHIP-SPV/chipStar.git
+    - |
+      if [ -n "${GITHUB_PR_NUMBER}" ]; then
+         git fetch origin pull/${GITHUB_PR_NUMBER}/head
+         git checkout FETCH_HEAD
+      else
+         git checkout ${GITHUB_SHA}
+      fi
     - cd chipStar
     - git checkout ${SHA}
     - git submodule update --init --recursive
