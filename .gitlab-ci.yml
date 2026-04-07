@@ -48,6 +48,7 @@ setup:
     - cd ${WRK_DIR}
       # setup chipStar
     - git clone https://github.com/CHIP-SPV/chipStar.git
+    - cd chipStar
     - |
       if [ -n "${GITHUB_PR_NUMBER}" ]; then
          git fetch origin pull/${GITHUB_PR_NUMBER}/head
@@ -55,8 +56,6 @@ setup:
       else
          git checkout ${GITHUB_SHA}
       fi
-    - cd chipStar
-    - git checkout ${SHA}
     - git submodule update --init --recursive
     - module list
 
