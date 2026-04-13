@@ -28,3 +28,7 @@ add_hip_test(TestHiprtcOptions.cc)
 add_hip_test(TestShellMetacharacters.cc)
 add_hip_test(TestConstantMemory.cc)
 add_hip_test(TestProjectionBasisKernel.cc)
+
+# Regression test for https://github.com/CHIP-SPV/chipStar/issues/1142
+# Verify the HIPRTC cache is read back on repeated compilations.
+add_hip_test(TestHiprtcCache.cc)
