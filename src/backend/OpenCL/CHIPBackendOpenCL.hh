@@ -125,6 +125,10 @@ public:
   friend class CHIPEventOpenCL;
   std::shared_ptr<chipstar::Event> RecordedEvent;
   uint64_t HostTimeStamp;
+  // Objects whose lifetime must be extended until this event completes.
+  // Stored here instead of in a clSetEventCallback to avoid calling
+  // OpenCL APIs from within a callback (which can deadlock, issue #1090).
+  std::vector<std::shared_ptr<void>> KeepAlives;
 
 public:
   CHIPEventOpenCL(CHIPContextOpenCL *ChipContext, cl_event ClEvent,

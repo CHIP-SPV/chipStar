@@ -324,16 +324,6 @@ annotateIndirectPointers(const CHIPContextOpenCL &Ctx,
   return AllocKeepAlives;
 }
 
-struct KernelEventCallbackData {
-  std::shared_ptr<chipstar::ArgSpillBuffer> ArgSpillBuffer;
-  std::unique_ptr<std::vector<std::shared_ptr<void>>> AllocKeepAlives;
-};
-static void CL_CALLBACK kernelEventCallback(cl_event Event,
-                                            cl_int CommandExecStatus,
-                                            void *UserData) {
-  delete static_cast<KernelEventCallbackData *>(UserData);
-}
-
 // CHIPCallbackDataLevel0
 // ************************************************************************
 
@@ -1695,29 +1685,23 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
       ExecItem->getArgSpillBuffer();
 
-  if (SpillBuf || AllocationsToKeepAlive) {
-    // Use an event call back to prolong the lifetimes of the
-    // following objects until the kernel terminates.
-    //
-    // * SpillBuffer holds an allocation referenced by the kernel
-    //   shared by exec item, which might get destroyed before the
-    //   kernel is launched/completed
-    //
-    // * Annotated indirect SVM/USM pointers may need to outlive the
-    //   kernel execution. The OpenCL spec does not clearly specify
-    //   how long the pointers, annotated via clSetKernelExecInfo(),
-    //   needs to live.
-    auto *CBData = new KernelEventCallbackData;
-    CBData->ArgSpillBuffer = SpillBuf;
-    CBData->AllocKeepAlives = std::move(AllocationsToKeepAlive);
-    clStatus = clSetEventCallback(
-        std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativeRef(),
-        CL_COMPLETE, kernelEventCallback, CBData);
-    if (clStatus != CL_SUCCESS) {
-      delete CBData;
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
-    }
-  }
+  // Extend the lifetimes of SpillBuf and indirect-pointer annotations by
+  // storing them in the launch event's KeepAlives list.  They will be
+  // released when the event is eventually destroyed (after the caller
+  // waits on it or it goes out of scope), by which time the kernel has
+  // completed and the buffers are no longer referenced.
+  //
+  // We deliberately avoid clSetEventCallback here: the callback fires on
+  // an OpenCL-internal thread that may hold driver locks, and calling
+  // clReleaseMemObject() (triggered by ArgSpillBuffer's destructor) from
+  // within that callback can deadlock on Intel OpenCL (issue #1090).
+  auto *LaunchEventOCL =
+      static_cast<CHIPEventOpenCL *>(LaunchEvent.get());
+  if (SpillBuf)
+    LaunchEventOCL->KeepAlives.push_back(SpillBuf);
+  if (AllocationsToKeepAlive)
+    for (auto &Item : *AllocationsToKeepAlive)
+      LaunchEventOCL->KeepAlives.push_back(Item);
 
   LaunchEvent->Msg = "KernelLaunch";
   return LaunchEvent;
