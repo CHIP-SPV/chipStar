@@ -83,3 +83,21 @@ int main() {
       filesAfterFirst++;
   TEST_ASSERT(filesAfterFirst >= 1 && "Cache should have been written after first compilation");
 
+  // --- Second compilation: cache hit, no recompilation needed. ---
+  hipModule_t Mod2 = compileAndLoad(cacheDir.c_str());
+  runKernel(Mod2);
+  HIP_CHECK(hipModuleUnload(Mod2));
+
+  // The number of cache files should not have increased (same key → same file).
+  int filesAfterSecond = 0;
+  for (auto &e : fs::directory_iterator(cacheDir + "/hiprtc"))
+    filesAfterSecond++;
+  TEST_ASSERT(filesAfterSecond == filesAfterFirst &&
+              "Second compilation should reuse the cached entry, not create a new one");
+
+  fs::remove_all(cacheDir);
+  unsetenv("CHIP_MODULE_CACHE_DIR");
+
+  std::cerr << "PASSED\n";
+  return 0;
+}
