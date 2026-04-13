@@ -214,3 +214,9 @@ set_tests_properties(TestNativeHandlesBackendName_NoBE PROPERTIES
 
 add_hip_runtime_test(TestHeCBenchF16Max.hip)
 add_hip_runtime_test(TestHeCBenchLebesgue.hip)
+
+# Regression test for https://github.com/CHIP-SPV/chipStar/issues/1090
+# Concurrent ArgSpillBuffer launches must not deadlock via OpenCL callback.
+add_hip_runtime_test(TestArgSpillBufferConcurrent.hip)
+set_tests_properties(TestArgSpillBufferConcurrent PROPERTIES
+  TIMEOUT 60)
