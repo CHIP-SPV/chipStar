@@ -200,6 +200,10 @@ hipError_t hipGraphAddMemAllocNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!pGraphNode)
+    RETURN(hipErrorInvalidValue);
+  if (!graph)
+    RETURN(hipErrorInvalidValue);
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
@@ -210,6 +214,10 @@ hipError_t hipGraphAddMemFreeNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!pGraphNode)
+    RETURN(hipErrorInvalidValue);
+  if (!graph)
+    RETURN(hipErrorInvalidValue);
   UNIMPLEMENTED(hipErrorNotSupported);
   CHIP_CATCH
 }
@@ -1105,6 +1113,8 @@ hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!pGraph)
+    RETURN(hipErrorInvalidValue);
   CHIPGraph *Graph = new CHIPGraph();
   *pGraph = Graph;
   RETURN(hipSuccess);
@@ -1225,6 +1235,10 @@ hipError_t hipGraphNodeGetDependencies(hipGraphNode_t node,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!node)
+    RETURN(hipErrorInvalidValue);
+  if (!pNumDependencies)
+    RETURN(hipErrorInvalidValue);
   auto Deps = NODE(node)->getDependencies();
   *pNumDependencies = Deps.size();
   if (!pDependencies)
@@ -1242,6 +1256,10 @@ hipError_t hipGraphNodeGetDependentNodes(hipGraphNode_t node,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!node)
+    RETURN(hipErrorInvalidValue);
+  if (!pNumDependentNodes)
+    RETURN(hipErrorInvalidValue);
   auto Deps = NODE(node)->getDependants();
   *pNumDependentNodes = Deps.size();
   if (!pDependentNodes)
@@ -1343,6 +1361,12 @@ hipError_t hipGraphNodeFindInClone(hipGraphNode_t *pNode,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!pNode)
+    RETURN(hipErrorInvalidValue);
+  if (!originalNode)
+    RETURN(hipErrorInvalidValue);
+  if (!clonedGraph)
+    RETURN(hipErrorInvalidValue);
   auto Node = GRAPH(clonedGraph)->getClonedNodeFromOriginal(NODE(originalNode));
   *pNode = Node;
   RETURN(hipSuccess);
@@ -1406,6 +1430,8 @@ hipError_t hipGraphExecDestroy(hipGraphExec_t graphExec) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!graphExec)
+    RETURN(hipErrorInvalidValue);
   delete graphExec;
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1640,7 +1666,7 @@ hipError_t hipGraphAddMemcpyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   // NULLCHECK(graph, pGraphNode, pCopyParams);
   if (!graph || !pGraphNode || !pCopyParams)
     RETURN(hipErrorInvalidValue);
-  if (!pDependencies & numDependencies > 0)
+  if (!pDependencies && numDependencies > 0)
     CHIPERR_LOG_AND_THROW(
         "numDependencies is not 0 while pDependencies is null",
         hipErrorInvalidValue);
@@ -2204,6 +2230,10 @@ hipError_t hipGraphAddEmptyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!pGraphNode)
+    RETURN(hipErrorInvalidValue);
+  if (!graph)
+    RETURN(hipErrorInvalidValue);
   CHIPGraphNodeEmpty *Node = new CHIPGraphNodeEmpty();
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
   *pGraphNode = Node;
