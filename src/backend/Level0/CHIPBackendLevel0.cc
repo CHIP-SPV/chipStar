@@ -1872,14 +1872,26 @@ void CHIPQueueLevel0::finish() {
   }
   LOCK(CommandListMtx);
 
-  // host wait for command list to complete
-  if( ZeCmdListImmCopy_ != ZeCmdListImm_) {
-    zeStatus = zeCommandListHostSynchronize(ZeCmdListImmCopy_, UINT64_MAX);
+  // Poll with a finite timeout per iteration so that a GPU reset (e.g. from
+  // the i915 hangcheck / heartbeat mechanism) can be detected and reported
+  // instead of blocking forever (issue #1191).
+  //
+  // With UINT64_MAX, zeCommandListHostSynchronize() never returns after the
+  // driver kills in-flight batches during a GPU reset.  Using a 1-second
+  // poll interval allows Level Zero to surface ZE_RESULT_ERROR_DEVICE_LOST
+  // on the next iteration.
+  constexpr uint64_t PollIntervalNs = 1000000000ULL; // 1 second
+
+  if (ZeCmdListImmCopy_ != ZeCmdListImm_) {
+    do {
+      zeStatus = zeCommandListHostSynchronize(ZeCmdListImmCopy_, PollIntervalNs);
+    } while (zeStatus == ZE_RESULT_NOT_READY);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
   }
-  
-  // host wait for command list to complete
-  zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, UINT64_MAX);
+
+  do {
+    zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, PollIntervalNs);
+  } while (zeStatus == ZE_RESULT_NOT_READY);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
 
   // All GPU work on this queue has completed. Release cross-queue dependency
