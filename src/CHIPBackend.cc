@@ -1419,14 +1419,28 @@ hipError_t chipstar::Context::free(void *Ptr) {
     // test suite excepts hipErrorInvalidValue. Go with the latter.
     return hipErrorInvalidValue;
 
-  if (AllocInfo->DevPtr)
-    ChipDev->AllocTracker->releaseMemReservation(AllocInfo->Size);
-  if (AllocInfo->MemoryType == hipMemoryTypeHost && AllocInfo->HostPtr &&
-      AllocInfo->HostPtr != AllocInfo->DevPtr)
-    std::free(AllocInfo->HostPtr);
+  // Save the fields we need before eraseRecord() deletes AllocInfo.
+  bool HasDevPtr = AllocInfo->DevPtr != nullptr;
+  size_t AllocSize = AllocInfo->Size;
+  bool IsHostNonMapped = (AllocInfo->MemoryType == hipMemoryTypeHost &&
+                          AllocInfo->HostPtr &&
+                          AllocInfo->HostPtr != AllocInfo->DevPtr);
+  void *HostPtrToFree = AllocInfo->HostPtr;
+
+  if (HasDevPtr)
+    ChipDev->AllocTracker->releaseMemReservation(AllocSize);
+
+  // Erase the record BEFORE freeing the underlying memory.  Freeing first
+  // returns the address to the allocator pool, so a concurrent allocation
+  // could obtain the same address and call recordAllocation() while the old
+  // entry is still in the tracker, causing a "Device pointer already
+  // recorded" abort (issue #1133).
+  ChipDev->AllocTracker->eraseRecord(AllocInfo); // AllocInfo deleted here.
+
+  if (IsHostNonMapped)
+    std::free(HostPtrToFree);
   else
     freeImpl(Ptr);
-  ChipDev->AllocTracker->eraseRecord(AllocInfo);
 
   return hipSuccess;
 }
