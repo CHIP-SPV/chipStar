@@ -214,3 +214,10 @@ set_tests_properties(TestNativeHandlesBackendName_NoBE PROPERTIES
 
 add_hip_runtime_test(TestHeCBenchF16Max.hip)
 add_hip_runtime_test(TestHeCBenchLebesgue.hip)
+
+# Regression test for https://github.com/CHIP-SPV/chipStar/issues/1191
+# GPU hangcheck recovery: hipDeviceSynchronize must return an error (not hang)
+# when the i915 driver resets the GPU after the hangcheck threshold.
+add_hip_runtime_test(TestGpuHangcheckRecovery.hip)
+set_tests_properties(TestGpuHangcheckRecovery PROPERTIES
+  TIMEOUT 120)
