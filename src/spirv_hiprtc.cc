@@ -380,8 +380,20 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
   return HIPRTC_SUCCESS;
 }
 
+/// FNV-1a 64-bit hash — portable, deterministic across runs and platforms,
+/// unlike std::hash<std::string> which is implementation-defined and may
+/// produce different values in different program runs or on different systems.
+static uint64_t fnv1a64(const std::string &s) {
+  uint64_t hash = UINT64_C(14695981039346656037);
+  for (unsigned char c : s) {
+    hash ^= c;
+    hash *= UINT64_C(1099511628211);
+  }
+  return hash;
+}
+
 /// Compute a cache key for HIPRTC output based on source, headers, and options.
-/// The key is a hash of all inputs that affect the SPIRV output.
+/// The key is a portable, stable hash of all inputs that affect the SPIRV output.
 static std::string computeHiprtcCacheKey(const chipstar::Program &Program,
                                          int NumOptions,
                                          const char *const *Options) {
@@ -398,8 +410,7 @@ static std::string computeHiprtcCacheKey(const chipstar::Program &Program,
       combined += Options[i];
     combined += "\n";
   }
-  std::hash<std::string> hasher;
-  return std::to_string(hasher(combined));
+  return std::to_string(fnv1a64(combined));
 }
 
 /// Try to load a cached HIPRTC compilation result.
