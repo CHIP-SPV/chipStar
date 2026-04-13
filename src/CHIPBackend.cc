@@ -1778,12 +1778,35 @@ static void mapHostAlloc(const void *Ptr,
 }
 
 ///////// Enqueue Operations //////////
+
+// Validate that a pointer expected to be a device allocation is actually
+// a known allocation in the tracker.  Throws hipErrorInvalidValue if not.
+static void validateDevicePtr(chipstar::AllocationTracker *AT, void *Ptr,
+                               bool IsDevice, const char *Role) {
+  if (!IsDevice)
+    return;
+  if (!AT->getAllocInfoCheckPtrRanges(Ptr))
+    CHIPERR_LOG_AND_THROW(std::string("hipMemcpy: invalid ") + Role +
+                              " device pointer.",
+                          hipErrorInvalidValue);
+}
+
 hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size,
                                     hipMemcpyKind Kind) {
 
   std::shared_ptr<chipstar::Event> ChipEvent;
   unmapHostAlloc(Src);
   unmapHostAlloc(Dst);
+
+  auto *AT = getDevice()->AllocTracker;
+  bool DstDev = (Kind == hipMemcpyHostToDevice || Kind == hipMemcpyDeviceToDevice);
+  bool SrcDev = (Kind == hipMemcpyDeviceToHost || Kind == hipMemcpyDeviceToDevice);
+  if (Kind == hipMemcpyDefault) {
+    DstDev = AT->getAllocInfo(Dst) != nullptr;
+    SrcDev = AT->getAllocInfo(Src) != nullptr;
+  }
+  validateDevicePtr(AT, Dst, DstDev, "destination");
+  validateDevicePtr(AT, const_cast<void *>(Src), SrcDev, "source");
 
   ChipEvent = memCopyAsyncImpl(Dst, Src, Size, Kind);
 
@@ -1800,6 +1823,16 @@ void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size,
   std::shared_ptr<chipstar::Event> ChipEvent;
   unmapHostAlloc(Src);
   unmapHostAlloc(Dst);
+
+  auto *AT = getDevice()->AllocTracker;
+  bool DstDev = (Kind == hipMemcpyHostToDevice || Kind == hipMemcpyDeviceToDevice);
+  bool SrcDev = (Kind == hipMemcpyDeviceToHost || Kind == hipMemcpyDeviceToDevice);
+  if (Kind == hipMemcpyDefault) {
+    DstDev = AT->getAllocInfo(Dst) != nullptr;
+    SrcDev = AT->getAllocInfo(Src) != nullptr;
+  }
+  validateDevicePtr(AT, Dst, DstDev, "destination");
+  validateDevicePtr(AT, const_cast<void *>(Src), SrcDev, "source");
 
   ChipEvent = memCopyAsyncImpl(Dst, Src, Size, Kind);
 
