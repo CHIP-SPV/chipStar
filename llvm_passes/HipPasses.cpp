@@ -27,6 +27,7 @@
 #include "HipKernelArgSpiller.h"
 #include "HipLowerZeroLengthArrays.h"
 #include "HipSanityChecks.h"
+#include "HipStripAMDGCNAsm.h"
 #include "HipLowerSwitch.h"
 #include "HipLowerMemset.h"
 #include "HipIGBADetector.h"
@@ -125,6 +126,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // Initial verification
   MPM.addPass(HipVerifyPass("Pre-HIP passes", false)); // false = don't print summary yet
+
+  // Strip AMDGCN-mnemonic inline assembly (hipCUB ThreadStore/ThreadLoad)
+  // before any other pass sees it. These call sites would otherwise reach
+  // SPIRV-LLVM-Translator and null-deref transDirectCallInst.
+  addPassWithVerification(MPM, HipStripAMDGCNAsmPass(),
+                          "HipStripAMDGCNAsmPass");
 
   // Use HipVerify for intermediate passes without printing summary
   addPassWithVerification(MPM, HipSanityChecksPass(), "HipSanityChecksPass");
