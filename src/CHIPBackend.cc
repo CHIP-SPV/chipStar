@@ -1419,14 +1419,28 @@ hipError_t chipstar::Context::free(void *Ptr) {
     // test suite excepts hipErrorInvalidValue. Go with the latter.
     return hipErrorInvalidValue;
 
-  if (AllocInfo->DevPtr)
-    ChipDev->AllocTracker->releaseMemReservation(AllocInfo->Size);
-  if (AllocInfo->MemoryType == hipMemoryTypeHost && AllocInfo->HostPtr &&
-      AllocInfo->HostPtr != AllocInfo->DevPtr)
-    std::free(AllocInfo->HostPtr);
+  // Save the fields we need before eraseRecord() deletes AllocInfo.
+  bool HasDevPtr = AllocInfo->DevPtr != nullptr;
+  size_t AllocSize = AllocInfo->Size;
+  bool IsHostNonMapped = (AllocInfo->MemoryType == hipMemoryTypeHost &&
+                          AllocInfo->HostPtr &&
+                          AllocInfo->HostPtr != AllocInfo->DevPtr);
+  void *HostPtrToFree = AllocInfo->HostPtr;
+
+  if (HasDevPtr)
+    ChipDev->AllocTracker->releaseMemReservation(AllocSize);
+
+  // Erase the record BEFORE freeing the underlying memory.  Freeing first
+  // returns the address to the allocator pool, so a concurrent allocation
+  // could obtain the same address and call recordAllocation() while the old
+  // entry is still in the tracker, causing a "Device pointer already
+  // recorded" abort (issue #1133).
+  ChipDev->AllocTracker->eraseRecord(AllocInfo); // AllocInfo deleted here.
+
+  if (IsHostNonMapped)
+    std::free(HostPtrToFree);
   else
     freeImpl(Ptr);
-  ChipDev->AllocTracker->eraseRecord(AllocInfo);
 
   return hipSuccess;
 }
@@ -1778,12 +1792,35 @@ static void mapHostAlloc(const void *Ptr,
 }
 
 ///////// Enqueue Operations //////////
+
+// Validate that a pointer expected to be a device allocation is actually
+// a known allocation in the tracker.  Throws hipErrorInvalidValue if not.
+static void validateDevicePtr(chipstar::AllocationTracker *AT, void *Ptr,
+                               bool IsDevice, const char *Role) {
+  if (!IsDevice)
+    return;
+  if (!AT->getAllocInfoCheckPtrRanges(Ptr))
+    CHIPERR_LOG_AND_THROW(std::string("hipMemcpy: invalid ") + Role +
+                              " device pointer.",
+                          hipErrorInvalidValue);
+}
+
 hipError_t chipstar::Queue::memCopy(void *Dst, const void *Src, size_t Size,
                                     hipMemcpyKind Kind) {
 
   std::shared_ptr<chipstar::Event> ChipEvent;
   unmapHostAlloc(Src);
   unmapHostAlloc(Dst);
+
+  auto *AT = getDevice()->AllocTracker;
+  bool DstDev = (Kind == hipMemcpyHostToDevice || Kind == hipMemcpyDeviceToDevice);
+  bool SrcDev = (Kind == hipMemcpyDeviceToHost || Kind == hipMemcpyDeviceToDevice);
+  if (Kind == hipMemcpyDefault) {
+    DstDev = AT->getAllocInfo(Dst) != nullptr;
+    SrcDev = AT->getAllocInfo(Src) != nullptr;
+  }
+  validateDevicePtr(AT, Dst, DstDev, "destination");
+  validateDevicePtr(AT, const_cast<void *>(Src), SrcDev, "source");
 
   ChipEvent = memCopyAsyncImpl(Dst, Src, Size, Kind);
 
@@ -1800,6 +1837,16 @@ void chipstar::Queue::memCopyAsync(void *Dst, const void *Src, size_t Size,
   std::shared_ptr<chipstar::Event> ChipEvent;
   unmapHostAlloc(Src);
   unmapHostAlloc(Dst);
+
+  auto *AT = getDevice()->AllocTracker;
+  bool DstDev = (Kind == hipMemcpyHostToDevice || Kind == hipMemcpyDeviceToDevice);
+  bool SrcDev = (Kind == hipMemcpyDeviceToHost || Kind == hipMemcpyDeviceToDevice);
+  if (Kind == hipMemcpyDefault) {
+    DstDev = AT->getAllocInfo(Dst) != nullptr;
+    SrcDev = AT->getAllocInfo(Src) != nullptr;
+  }
+  validateDevicePtr(AT, Dst, DstDev, "destination");
+  validateDevicePtr(AT, const_cast<void *>(Src), SrcDev, "source");
 
   ChipEvent = memCopyAsyncImpl(Dst, Src, Size, Kind);
 

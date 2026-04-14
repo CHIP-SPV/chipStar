@@ -32,6 +32,15 @@ else
     echo "Skip: clang++ or g++ is required"
 fi
 echo
+echo "### Check hip::device with mixed C/C++ sources (#1001)"
+setup-test-dir
+cmake @CMAKE_CURRENT_SOURCE_DIR@/HipDeviceCSource \
+      -DCMAKE_PREFIX_PATH=@CMAKE_INSTALL_PREFIX@ \
+      -DCMAKE_CXX_COMPILER=${CXX}
+make VERBOSE=1
+echo "Success"
+echo
+
 echo "### check CMake-CUDA"
 setup-test-dir
 
