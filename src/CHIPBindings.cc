@@ -3755,9 +3755,6 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   ERROR_IF((!ChipQueue), hipErrorInvalidResourceHandle);
   ERROR_IF((!Event), hipErrorInvalidResourceHandle);
 
-  if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusActive)
-    ChipQueue->setCaptureStatus(hipStreamCaptureStatusActive);
-
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT)
     RETURN(hipSuccess);
 
