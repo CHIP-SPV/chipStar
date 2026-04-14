@@ -200,18 +200,6 @@ add_test(NAME TestDefaultBackend_NoBE
 set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
 
-# Regression test for https://github.com/CHIP-SPV/chipStar/issues/1199
-# hipGetBackendNativeHandles must return "opencl" or "level0" in NativeHandles[0],
-# never "default", even when CHIP_BE is unset.
-add_hip_runtime_test(TestNativeHandlesBackendName.cpp)
-add_test(NAME TestNativeHandlesBackendName_NoBE
-  COMMAND env -u CHIP_BE -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE
-    ${CMAKE_CURRENT_BINARY_DIR}/TestNativeHandlesBackendName)
-set_tests_properties(TestNativeHandlesBackendName_NoBE PROPERTIES
-  PASS_REGULAR_EXPRESSION "PASS"
-  SKIP_RETURN_CODE ${CHIP_SKIP_TEST}
-  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
-
 add_hip_runtime_test(TestHeCBenchF16Max.hip)
 add_hip_runtime_test(TestHeCBenchLebesgue.hip)
 add_hip_runtime_test(TestHipMemcpyInvalidPtr.hip)

@@ -898,12 +898,7 @@ int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) const {
     return Prop.pageableMemoryAccessUsesHostPageTables;
     break;
   case hipDeviceAttributeCanUseStreamWaitValue:
-    // hipStreamWaitValue64() and hipStreamWaitValue32() support
-    // return g_devices[device]->devices()[0]->info().aqlBarrierValue_;
-    CHIPERR_LOG_AND_THROW(
-        "Device::getAttr(hipDeviceAttributeCanUseStreamWaitValue path "
-        "unimplemented",
-        hipErrorTbd);
+    return 0; // Not supported
     break;
   case hipDeviceAttributeUnifiedAddressing:
     return Prop.unifiedAddressing;
@@ -911,9 +906,152 @@ int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) const {
   case hipDeviceAttributeMemoryPoolsSupported:
     return Prop.memoryPoolsSupported;
     break;
+  case hipDeviceAttributeAccessPolicyMaxWindowSize:
+    return Prop.accessPolicyMaxWindowSize;
+    break;
+  case hipDeviceAttributeAsyncEngineCount:
+    return Prop.asyncEngineCount;
+    break;
+  case hipDeviceAttributeCanUseHostPointerForRegisteredMem:
+    return Prop.canUseHostPointerForRegisteredMem;
+    break;
+  case hipDeviceAttributeComputePreemptionSupported:
+    return Prop.computePreemptionSupported;
+    break;
+  case hipDeviceAttributeDeviceOverlap:
+    return Prop.deviceOverlap;
+    break;
+  case hipDeviceAttributeGlobalL1CacheSupported:
+    return Prop.globalL1CacheSupported;
+    break;
+  case hipDeviceAttributeHostNativeAtomicSupported:
+    return Prop.hostNativeAtomicSupported;
+    break;
+  case hipDeviceAttributeLocalL1CacheSupported:
+    return Prop.localL1CacheSupported;
+    break;
+  case hipDeviceAttributeMaxBlocksPerMultiProcessor:
+    return Prop.maxBlocksPerMultiProcessor;
+    break;
+  case hipDeviceAttributeMaxRegistersPerMultiprocessor:
+    return Prop.regsPerMultiprocessor;
+    break;
+  case hipDeviceAttributeMaxTexture1DLayered:
+    return Prop.maxTexture1DLayered[0];
+    break;
+  case hipDeviceAttributeMaxTexture1DMipmap:
+    return Prop.maxTexture1DMipmap;
+    break;
+  case hipDeviceAttributeMaxTexture2DGather:
+    return Prop.maxTexture2DGather[0];
+    break;
+  case hipDeviceAttributeMaxTexture2DLayered:
+    return Prop.maxTexture2DLayered[0];
+    break;
+  case hipDeviceAttributeMaxTexture2DMipmap:
+    return Prop.maxTexture2DMipmap[0];
+    break;
+  case hipDeviceAttributeMaxTexture3DAlt:
+    return Prop.maxTexture3DAlt[0];
+    break;
+  case hipDeviceAttributeMaxTextureCubemap:
+    return Prop.maxTextureCubemap;
+    break;
+  case hipDeviceAttributeMaxTextureCubemapLayered:
+    return Prop.maxTextureCubemapLayered[0];
+    break;
+  case hipDeviceAttributeMaxSurface1D:
+    return Prop.maxSurface1D;
+    break;
+  case hipDeviceAttributeMaxSurface1DLayered:
+    return Prop.maxSurface1DLayered[0];
+    break;
+  case hipDeviceAttributeMaxSurface2D:
+    return Prop.maxSurface2D[0];
+    break;
+  case hipDeviceAttributeMaxSurface2DLayered:
+    return Prop.maxSurface2DLayered[0];
+    break;
+  case hipDeviceAttributeMaxSurface3D:
+    return Prop.maxSurface3D[0];
+    break;
+  case hipDeviceAttributeMaxSurfaceCubemap:
+    return Prop.maxSurfaceCubemap;
+    break;
+  case hipDeviceAttributeMaxSurfaceCubemapLayered:
+    return Prop.maxSurfaceCubemapLayered[0];
+    break;
+  case hipDeviceAttributeMultiGpuBoardGroupID:
+    return Prop.multiGpuBoardGroupID;
+    break;
+  case hipDeviceAttributePciDomainId:
+    return Prop.pciDomainID;
+    break;
+  case hipDeviceAttributePersistingL2CacheMaxSize:
+    return Prop.persistingL2CacheMaxSize;
+    break;
+  case hipDeviceAttributeReservedSharedMemPerBlock:
+    return static_cast<int>(Prop.reservedSharedMemPerBlock);
+    break;
+  case hipDeviceAttributeSharedMemPerBlockOptin:
+    return static_cast<int>(Prop.sharedMemPerBlockOptin);
+    break;
+  case hipDeviceAttributeSharedMemPerMultiprocessor:
+    return static_cast<int>(Prop.sharedMemPerMultiprocessor);
+    break;
+  case hipDeviceAttributeSingleToDoublePrecisionPerfRatio:
+    return Prop.singleToDoublePrecisionPerfRatio;
+    break;
+  case hipDeviceAttributeStreamPrioritiesSupported:
+    return Prop.streamPrioritiesSupported;
+    break;
+  case hipDeviceAttributeSurfaceAlignment:
+    return static_cast<int>(Prop.surfaceAlignment);
+    break;
+  case hipDeviceAttributeTccDriver:
+    return Prop.tccDriver;
+    break;
+  case hipDeviceAttributeTotalGlobalMem:
+    return static_cast<int>(Prop.totalGlobalMem / (1024 * 1024)); // MB
+    break;
+  case hipDeviceAttributeVirtualMemoryManagementSupported:
+    return 0; // Not supported
+    break;
+  case hipDeviceAttributeHostRegisterSupported:
+    return Prop.hostRegisterSupported;
+    break;
+  case hipDeviceAttributeMemoryPoolSupportedHandleTypes:
+    return static_cast<int>(Prop.memoryPoolSupportedHandleTypes);
+    break;
+  case hipDeviceAttributePhysicalMultiProcessorCount:
+    return Prop.multiProcessorCount;
+    break;
+  case hipDeviceAttributeClockInstructionRate:
+    return Prop.clockRate; // Approximate with clock rate
+    break;
+  case hipDeviceAttributeImageSupport:
+    return 0; // Not supported in chipStar
+    break;
+  case hipDeviceAttributeMaxThreadsDim:
+    return Prop.maxThreadsDim[0];
+    break;
+  case hipDeviceAttributeHostNumaId:
+    return -1; // NUMA not supported
+    break;
+  case hipDeviceAttributeIsLargeBar:
+    return 0;
+    break;
+  case hipDeviceAttributeFineGrainSupport:
+    return 0;
+    break;
+  case hipDeviceAttributeWallClockRate:
+    return Prop.clockRate;
+    break;
   default:
-    CHIPERR_LOG_AND_THROW("Device::getAttr asked for an unkown attribute",
-                          hipErrorInvalidValue);
+    CHIPERR_LOG_AND_THROW(
+        "Device::getAttr asked for an unknown attribute: " +
+            std::to_string(static_cast<int>(Attr)),
+        hipErrorInvalidValue);
   }
   return -1;
 }
@@ -2055,16 +2193,31 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
     logDebug("{}", InfoStr.str());
   }
 
-  auto TotalThreadsPerBlock =
-      ExItem->getBlock().x * ExItem->getBlock().y * ExItem->getBlock().z;
   auto DeviceProps = getDevice()->getDeviceProps();
   auto MaxTotalThreadsPerBlock = DeviceProps.maxThreadsPerBlock;
+
+  // Detect negative block dimensions passed as large unsigned values (sign wrap).
+  // Use INT32_MAX as threshold since no legitimate block dimension approaches it.
+  const auto kMaxReasonableBlockDim =
+      static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
+  if (ExItem->getBlock().x > kMaxReasonableBlockDim ||
+      ExItem->getBlock().y > kMaxReasonableBlockDim ||
+      ExItem->getBlock().z > kMaxReasonableBlockDim) {
+    logCritical("Negative block dimension ({}, {}, {})",
+                ExItem->getBlock().x, ExItem->getBlock().y,
+                ExItem->getBlock().z);
+    CHIPERR_LOG_AND_THROW("Negative block dimension",
+                          hipErrorInvalidConfiguration);
+  }
+
+  auto TotalThreadsPerBlock =
+      ExItem->getBlock().x * ExItem->getBlock().y * ExItem->getBlock().z;
 
   if (TotalThreadsPerBlock > MaxTotalThreadsPerBlock) {
     logCritical("Requested total local size {} exceeds HW limit {}",
                 TotalThreadsPerBlock, MaxTotalThreadsPerBlock);
     CHIPERR_LOG_AND_THROW("Requested local size exceeds HW max",
-                          hipErrorLaunchFailure);
+                          hipErrorInvalidValue);
   }
 
   if (ExItem->getBlock().x > DeviceProps.maxThreadsDim[0] ||
@@ -2076,7 +2229,7 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
         DeviceProps.maxThreadsDim[0], DeviceProps.maxThreadsDim[1],
         DeviceProps.maxThreadsDim[2]);
     CHIPERR_LOG_AND_THROW("Requested local size exceeds HW max",
-                          hipErrorLaunchFailure);
+                          hipErrorInvalidValue);
   }
 
   std::shared_ptr<chipstar::Event> RegisteredVarInEvent =

@@ -31,7 +31,6 @@ THE SOFTWARE.
 #include <fstream>
 #include <regex>
 #include <set>
-#include <chrono>
 
 struct CompileOptions {
   std::vector<std::string> Options; /// All accepted user options.
@@ -380,75 +379,6 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
   return HIPRTC_SUCCESS;
 }
 
-/// Compute a cache key for HIPRTC output based on source, headers, and options.
-/// The key is a hash of all inputs that affect the SPIRV output.
-static std::string computeHiprtcCacheKey(const chipstar::Program &Program,
-                                         int NumOptions,
-                                         const char *const *Options) {
-  std::string combined;
-  combined += Program.getSource();
-  combined += "\n---headers---\n";
-  // std::map is sorted by key, so iteration order is deterministic
-  for (auto &[name, content] : Program.getHeaders()) {
-    combined += name + ":" + content + "\n";
-  }
-  combined += "\n---options---\n";
-  for (int i = 0; i < NumOptions; i++) {
-    if (Options[i])
-      combined += Options[i];
-    combined += "\n";
-  }
-  std::hash<std::string> hasher;
-  return std::to_string(hasher(combined));
-}
-
-/// Try to load a cached HIPRTC compilation result.
-/// Returns true and populates Program.Code_ if a cache hit is found.
-static bool loadHiprtcCache(chipstar::Program &Program,
-                             const std::string &cacheKey) {
-  if (!ChipEnvVars.getModuleCacheDir().has_value())
-    return false;
-  auto cacheFile = fs::path(ChipEnvVars.getModuleCacheDir().value())
-                   / "hiprtc" / cacheKey;
-  std::ifstream in(cacheFile, std::ios::binary | std::ios::ate);
-  if (!in)
-    return false;
-  auto size = in.tellg();
-  if (size <= 0)
-    return false;
-  in.seekg(0);
-  std::string content(size, '\0');
-  in.read(content.data(), size);
-  if (!in)
-    return false;
-  Program.addCode(content);
-  logInfo("hiprtc: Loaded SPIRV from cache (key={})", cacheKey);
-  return true;
-}
-
-/// Save HIPRTC compilation result to cache.
-static void saveHiprtcCache(const chipstar::Program &Program,
-                             const std::string &cacheKey) {
-  if (!ChipEnvVars.getModuleCacheDir().has_value())
-    return;
-  auto cacheDir = fs::path(ChipEnvVars.getModuleCacheDir().value()) / "hiprtc";
-  std::error_code ec;
-  fs::create_directories(cacheDir, ec);
-  if (ec) {
-    logDebug("hiprtc: Could not create cache directory: {}", ec.message());
-    return;
-  }
-  auto cacheFile = cacheDir / cacheKey;
-  std::ofstream out(cacheFile, std::ios::binary);
-  if (!out) {
-    logDebug("hiprtc: Could not open cache file for writing: {}", cacheFile.string());
-    return;
-  }
-  const auto &code = Program.getCode();
-  out.write(code.data(), code.size());
-  logInfo("hiprtc: Saved SPIRV to cache (key={})", cacheKey);
-}
-
 hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
                                   const char* const* Options) {
   logTrace("{}", __func__);
@@ -467,16 +397,6 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
     return HIPRTC_ERROR_INVALID_INPUT;
   try {
     auto &Program = *(chipstar::Program *)Prog;
-
-    // Check HIPRTC output cache before invoking clang.
-    auto cacheKey = computeHiprtcCacheKey(Program, NumOptions, Options);
-    auto t0 = std::chrono::steady_clock::now();
-    if (loadHiprtcCache(Program, cacheKey)) {
-      auto t1 = std::chrono::steady_clock::now();
-      double elapsed = std::chrono::duration<double>(t1 - t0).count();
-      logInfo("hiprtc: Cache hit — skipped clang compilation ({:.3f}s saved)", elapsed);
-      return HIPRTC_SUCCESS;
-    }
 
     // Create temporary directory for compilation I/O.
     auto TmpDir = createTemporaryDirectory();
@@ -497,10 +417,6 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
       std::error_code IgnoreErrors;
       fs::remove_all(*TmpDir, IgnoreErrors);
     }
-
-    // Cache the compiled SPIRV for future runs.
-    if (Result == HIPRTC_SUCCESS)
-      saveHiprtcCache(Program, cacheKey);
 
     return Result;
   } catch (...) {

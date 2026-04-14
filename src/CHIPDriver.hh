@@ -195,9 +195,16 @@ public:
       assert(!"Invalid chipStar Backend Selected. This chipStar "
               "was not compiled with Level Zero backend");
 #endif
-    } else if (StrIn == "" || StrIn == "default") {
-      // Empty string or "default": auto-select the best available backend.
-      Type_ = BackendType::Default;
+    } else if (StrIn == "") {
+#ifdef HAVE_LEVEL0
+      Type_ = BackendType::Level0;
+#elif HAVE_OPENCL
+      Type_ = BackendType::OpenCL;
+#else
+      CHIPERR_LOG_AND_THROW("Invalid chipStar Backend Selected. This chipStar "
+                            "was not compiled with OpenCL or Level0 backend",
+                            hipErrorInitializationError);
+#endif
     } else
       CHIPERR_LOG_AND_THROW("Invalid backend type value: " + StrIn,
                             hipErrorInitializationError);
