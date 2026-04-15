@@ -3290,6 +3290,53 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   for (auto &Kernel : KernelNames)
     logTrace("Kernel {}", Kernel);
 
+  // Workaround for an Intel Graphics Compiler optimisation bug: with certain
+  // SPIR-V kernel patterns (multiple similarly-shaped __global__ kernels that
+  // share a nested device-function template, as in libCEED's
+  // hip-shared-basis-tensor-at-points.h), IGC silently drops some kernels
+  // from the produced module at default optimization. The dropped kernels
+  // were declared as OpEntryPoint in the SPIR-V handed to Level Zero but do
+  // not show up in zeModuleGetKernelNames.
+  //
+  // Detect by comparing L0's kernel set against the SPIR-V's parsed function
+  // info (which mirrors OpEntryPoint). If anything is missing and we did not
+  // already pass -cl-opt-disable, recompile this module with that flag, which
+  // bypasses the IGC pass that drops the kernels.
+  auto isKernelReported = [&](const std::string &Name) {
+    for (const char *N : KernelNames)
+      if (Name == N)
+        return true;
+    return false;
+  };
+  bool MissingKernel = false;
+  for (const auto &Kv : getInfo().FuncInfoMap) {
+    if (!isKernelReported(Kv.first)) {
+      MissingKernel = true;
+      logWarn("Level Zero did not expose kernel '{}' that is declared in the "
+              "SPIR-V module (likely IGC optimisation bug).", Kv.first);
+    }
+  }
+  if (MissingKernel &&
+      Flags.find("-cl-opt-disable") == std::string::npos) {
+    logWarn("Recompiling module with -cl-opt-disable to recover dropped "
+            "kernels. Set CHIP_JIT_FLAGS to override.");
+    zeModuleDestroy(ZeModule_);
+    ZeModule_ = nullptr;
+    Flags += " -cl-opt-disable";
+    BuildFlags[0] = Flags.c_str();
+    ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc, LzDev);
+    if (!ZeModule_)
+      CHIPERR_LOG_AND_THROW("Module is null after -cl-opt-disable retry",
+                            hipErrorTbd);
+    KernelCount = 0;
+    zeStatus = zeModuleGetKernelNames(ZeModule_, &KernelCount, nullptr);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetKernelNames);
+    KernelNames.assign(KernelCount, nullptr);
+    zeStatus =
+        zeModuleGetKernelNames(ZeModule_, &KernelCount, KernelNames.data());
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetKernelNames);
+  }
+
   auto kernelCreationStart = std::chrono::high_resolution_clock::now();
   for (uint32_t i = 0; i < KernelCount; i++) {
     std::string HostFName = KernelNames[i];

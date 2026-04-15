@@ -1208,6 +1208,12 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   auto SrcBin = Src_->getBinary();
   std::string buildOptions =
       Backend->getDefaultJitFlags() + " " + ChipEnvVars.getJitFlags();
+
+  bool RetriedWithOptDisable = false;
+  bool RetryRequested = false;
+  bool cached = false;
+  do {
+  RetryRequested = false;
   std::string binAsStr = std::string(SrcBin.begin(), SrcBin.end());
 
   // Include device name in cache key
@@ -1215,8 +1221,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   std::string cacheName =
       generateCacheName(binAsStr + buildOptions, deviceName);
 
-  bool cached =
-      load(*ChipCtxOcl->get(), {*ChipDevOcl->get()}, cacheName, Program_);
+  cached = load(*ChipCtxOcl->get(), {*ChipDevOcl->get()}, cacheName, Program_);
 
   if (!cached) {
     if (spirvNeedsRtdevlib(Src_->getBinary())) {
@@ -1228,18 +1233,16 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       ClObjects.push_back(ClMainObj);
       appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
 
-      std::string Flags = "";
+      std::string LinkFlags = "";
       std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
       bool isIntelGPU =
           (vendor.find("Intel") != std::string::npos) &&
           (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
       if (isIntelGPU)
-        Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
-                                             : ChipEnvVars.getJitFlags() + " " +
-                                                   Backend->getDefaultJitFlags();
+        LinkFlags = buildOptions;
       logInfo("Linking {} program objects", ClObjects.size());
-      Program_ =
-          cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
+      Program_ = cl::linkProgram(ClObjects, LinkFlags.c_str(), nullptr, nullptr,
+                                 &Err);
       if (Err != CL_SUCCESS) {
         logError("clLinkProgram failed: {} (0x{:x})", Err, (unsigned)Err);
         dumpProgramLog(*ChipDevOcl, Program_);
@@ -1256,11 +1259,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
           ChipCtxOcl->get()->get(), SrcBin.data(), SrcBin.size(), &CreateErr));
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateProgramWithIL);
       cl_device_id DevId = ChipDevOcl->get()->get();
-      auto Flags = ChipEnvVars.hasJitOverride()
-                       ? ChipEnvVars.getJitFlagsOverride()
-                       : ChipEnvVars.getJitFlags() + " " +
-                             Backend->getDefaultJitFlags();
-      Err = clBuildProgram(Program_.get(), 1, &DevId, Flags.c_str(),
+      Err = clBuildProgram(Program_.get(), 1, &DevId, buildOptions.c_str(),
                            nullptr, nullptr);
       dumpProgramLog(*ChipDevOcl, Program_);
       if (Err != CL_SUCCESS)
@@ -1282,18 +1281,64 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateKernelsInProgram);
 
   logTrace("Kernels in CHIPModuleOpenCL: {} \n", Kernels.size());
+
+  // Workaround for an Intel Graphics Compiler optimisation bug: with certain
+  // SPIR-V kernel patterns (multiple similarly-shaped __global__ kernels that
+  // share a nested device-function template, as in libCEED's
+  // hip-shared-basis-tensor-at-points.h), IGC silently drops some kernels
+  // from the compiled program at default optimization. The dropped kernels
+  // were declared as OpEntryPoint in the SPIR-V handed to the OpenCL driver
+  // but do not show up in clCreateKernelsInProgram output.
+  //
+  // Detect by comparing the OpenCL-reported kernel set against the SPIR-V's
+  // parsed function info (which mirrors OpEntryPoint). If anything is
+  // missing and we did not already pass -cl-opt-disable, recompile this
+  // module with that flag, which bypasses the IGC pass that drops kernels.
+  std::vector<std::string> ReportedKernelNames;
+  ReportedKernelNames.reserve(Kernels.size());
   for (auto &Krnl : Kernels) {
     std::string HostFName;
     Err = Krnl.getInfo(CL_KERNEL_FUNCTION_NAME, &HostFName);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetKernelInfo);
+    ReportedKernelNames.push_back(std::move(HostFName));
+  }
+  auto isKernelReported = [&](const std::string &Name) {
+    for (const auto &N : ReportedKernelNames)
+      if (Name == N)
+        return true;
+    return false;
+  };
+  bool MissingKernel = false;
+  for (const auto &Kv : getInfo().FuncInfoMap) {
+    if (!isKernelReported(Kv.first)) {
+      MissingKernel = true;
+      logWarn("OpenCL did not expose kernel '{}' that is declared in the "
+              "SPIR-V module (likely IGC optimisation bug).",
+              Kv.first);
+    }
+  }
+  if (MissingKernel && !RetriedWithOptDisable &&
+      buildOptions.find("-cl-opt-disable") == std::string::npos) {
+    logWarn("Recompiling module with -cl-opt-disable to recover dropped "
+            "kernels. Set CHIP_JIT_FLAGS to override.");
+    buildOptions += " -cl-opt-disable";
+    RetriedWithOptDisable = true;
+    Program_ = cl::Program(); // release the broken program
+    RetryRequested = true;
+    continue;
+  }
+
+  for (size_t i = 0; i < Kernels.size(); ++i) {
+    const std::string &HostFName = ReportedKernelNames[i];
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
       continue;
     }
     CHIPKernelOpenCL *ChipKernel =
-        new CHIPKernelOpenCL(Krnl, ChipDevOcl, HostFName, FuncInfo, this);
+        new CHIPKernelOpenCL(Kernels[i], ChipDevOcl, HostFName, FuncInfo, this);
     addKernel(ChipKernel);
   }
+  } while (RetryRequested);
 
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end - start;
