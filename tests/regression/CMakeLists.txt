@@ -1,0 +1,1 @@
+add_hip_test(test_stream_wait_event_sync.cpp)
