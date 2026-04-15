@@ -206,7 +206,7 @@ hoMusic_run:
   extends: .aurora-batch-runner
   script:
     - rm -f ${GENESIS_CI_PROJECT_DIR}/output
-    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci.sh run chipStar/llvm19 | tee -a ${GENESIS_CI_PROJECT_DIR}/output
+    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci.sh run chipStar/llvm19 |& tee -a ${GENESIS_CI_PROJECT_DIR}/output
   allow_failure: true
 
 performance_hoMusic:
@@ -271,7 +271,7 @@ zeroRK_run:
   - module use ${WRK_DIR}/modulefiles
   - module load chipStar/llvm19
   - rm -f output
-  - ./submit_job.sh | tee -a output
+  - ./submit_job.sh |& tee -a output
   allow_failure: true
 
 zeroRK_performance:
