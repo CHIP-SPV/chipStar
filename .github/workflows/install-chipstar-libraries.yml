@@ -1,0 +1,27 @@
+name: Install chipStar and Libraries
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  install:
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Install chipStar and all libraries
+        shell: bash
+        run: |
+          source /home/pvelesko/install/modules/init/bash
+          module use /home/pvelesko/modulefiles
+          module load llvm/19.0
+          ./install_chipstar.py --all \
+            --install-dir ~/install/chipStar/main \
+            --module-dir ~/modulefiles/chipStar/main \
+            --staging-dir ${{ github.workspace }}/stage \
+            --jobs $(nproc)
