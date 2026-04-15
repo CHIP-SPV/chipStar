@@ -1136,11 +1136,15 @@ hipError_t hipGraphAddDependencies(hipGraph_t graph, const hipGraphNode_t *from,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  CHIPGraphNode *FoundNode = GRAPH(graph)->findNode(NODE(*to));
-  if (!FoundNode)
-    RETURN(hipErrorInvalidValue);
-
-  FoundNode->addDependencies(DECONST_NODES(from), numDependencies);
+  for (size_t i = 0; i < numDependencies; i++) {
+    CHIPGraphNode *ToNode = GRAPH(graph)->findNode(NODE(to[i]));
+    if (!ToNode)
+      RETURN(hipErrorInvalidValue);
+    CHIPGraphNode *FromNode = GRAPH(graph)->findNode(NODE(from[i]));
+    if (!FromNode)
+      RETURN(hipErrorInvalidValue);
+    ToNode->addDependency(FromNode);
+  }
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1162,16 +1166,15 @@ hipError_t hipGraphRemoveDependencies(hipGraph_t graph,
   if (!to)
     RETURN(hipErrorInvalidValue);
 
-  CHIPGraphNode *FoundNode = GRAPH(graph)->findNode(NODE(*to));
-  if (!FoundNode)
-    RETURN(hipErrorInvalidValue);
-
-  if (FoundNode->getDependencies().empty()) {
-    RETURN(hipErrorInvalidValue);
+  for (size_t i = 0; i < numDependencies; i++) {
+    CHIPGraphNode *ToNode = GRAPH(graph)->findNode(NODE(to[i]));
+    if (!ToNode)
+      RETURN(hipErrorInvalidValue);
+    CHIPGraphNode *FromNode = GRAPH(graph)->findNode(NODE(from[i]));
+    if (!FromNode)
+      RETURN(hipErrorInvalidValue);
+    ToNode->removeDependency(FromNode);
   }
-
-  FoundNode->removeDependencies(DECONST_NODES(from), numDependencies);
-  // FoundNode->getDependencies().clear();
   RETURN(hipSuccess);
   CHIP_CATCH
 }

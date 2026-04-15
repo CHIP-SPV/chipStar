@@ -215,6 +215,8 @@ set_tests_properties(TestNativeHandlesBackendName_NoBE PROPERTIES
 
 add_hip_runtime_test(TestHeCBenchF16Max.hip)
 add_hip_runtime_test(TestHeCBenchLebesgue.hip)
+
+add_hip_runtime_test(TestGraphAddDependenciesMulti.hip)
 add_hip_runtime_test(TestHipMemcpyInvalidPtr.hip)
 
 add_hip_runtime_test(TestGraphNullPtrValidation.hip)
