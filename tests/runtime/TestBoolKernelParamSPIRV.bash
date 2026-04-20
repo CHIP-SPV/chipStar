@@ -24,10 +24,13 @@ fi
 cd "$WORKDIR"
 "$HIPCC" --save-temps "$SRC" -o test_bool 2>/dev/null
 
-# Find the SPIR-V binary
-SPV_FILE=$(ls *.out 2>/dev/null | head -1)
+# Find the SPIR-V binary (native backend produces *.spv, translator produces *.out)
+SPV_FILE=$(ls *.spv 2>/dev/null | head -1)
 if [ -z "$SPV_FILE" ]; then
-  echo "FAIL: No .out SPIR-V file produced by hipcc --save-temps"
+  SPV_FILE=$(ls *.out 2>/dev/null | head -1)
+fi
+if [ -z "$SPV_FILE" ]; then
+  echo "FAIL: No SPIR-V file produced by hipcc --save-temps"
   exit 1
 fi
 
