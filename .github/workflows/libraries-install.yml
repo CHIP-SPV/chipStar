@@ -1,0 +1,61 @@
+name: Libraries Install (post-merge)
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: libraries-install
+  cancel-in-progress: false
+
+jobs:
+  install-libraries:
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install from staging
+        shell: bash
+        run: |
+          set -e
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local
+            source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then
+            source /etc/profile.d/lmod.sh
+          else
+            source /etc/profile.d/modules.sh
+          fi
+          module use /space/pvelesko/modulefiles
+          module load oneapi/2025.0.4 llvm/22.0-native level-zero/dgpu
+
+          # Find the most recent staging dir
+          STAGING=$(ls -dt /tmp/chipstar-ci-staging/*/ 2>/dev/null | head -1)
+          if [ -z "$STAGING" ]; then
+            echo "No staging dir found — running full build+install"
+            ./install_chipstar.py --all \
+              --install-dir $HOME/install/HIP/chipStar/main \
+              --staging-dir /tmp/chipstar-ci-install-staging \
+              -j 8
+            exit 0
+          fi
+
+          echo "Installing from staging: $STAGING"
+
+          # Copy each installed library to the main module path
+          for lib_dir in $STAGING/*/; do
+            lib=$(basename $lib_dir)
+            [ "$lib" = "staging" ] && continue
+            # Each lib is at $STAGING/<lib>/<date_stamp>/
+            for dated_dir in $lib_dir/*/; do
+              dest=$HOME/install/HIP/chipStar/main
+              echo "Copying $lib → $dest"
+              cp -a "$dated_dir"/* "$dest/" 2>/dev/null || true
+            done
+          done
+
+          echo "All libraries installed to $HOME/install/HIP/chipStar/main"
