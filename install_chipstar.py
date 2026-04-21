@@ -40,8 +40,27 @@ if sys.version_info < (3, 6):
 # ============================================================================
 
 class Component:
-    """Represents an installable component."""
-    def __init__(self, name, display_name, repo, branch="main", depends_on=None, description="", enabled=True):
+    """Represents an installable component.
+
+    Build behavior is encoded in data rather than bespoke build_* methods:
+      compiler: "llvm" (chipStar), "hipcc", or "icpx".
+      cmake_flags: extra -D flags appended to the cmake command.
+      prefix_path_deps: other component *names* whose install dir is added
+                       to CMAKE_PREFIX_PATH before configure.
+      with_clang_compiler_path: append -DCLANG_COMPILER_PATH=<llvm_clang>.
+      with_hip_include_flag: append -DCMAKE_CXX_FLAGS=-I<HIP_PATH>/include.
+      use_cwd_if_chipstar_repo / git_submodule_update: chipStar-only source
+                       handling (reuse in-tree checkout, init submodules).
+    """
+    def __init__(self, name, display_name, repo, branch="main", depends_on=None,
+                 description="", enabled=True,
+                 compiler="hipcc",
+                 cmake_flags=None,
+                 prefix_path_deps=None,
+                 with_clang_compiler_path=False,
+                 with_hip_include_flag=False,
+                 use_cwd_if_chipstar_repo=False,
+                 git_submodule_update=False):
         self.name = name
         self.display_name = display_name
         self.repo = repo
@@ -49,6 +68,13 @@ class Component:
         self.depends_on = depends_on if depends_on is not None else []
         self.description = description
         self.enabled = enabled
+        self.compiler = compiler
+        self.cmake_flags = list(cmake_flags) if cmake_flags else []
+        self.prefix_path_deps = list(prefix_path_deps) if prefix_path_deps else []
+        self.with_clang_compiler_path = with_clang_compiler_path
+        self.with_hip_include_flag = with_hip_include_flag
+        self.use_cwd_if_chipstar_repo = use_cwd_if_chipstar_repo
+        self.git_submodule_update = git_submodule_update
     
     def __hash__(self):
         return hash(self.name)
@@ -61,6 +87,9 @@ COMPONENTS = [
         display_name="chipStar",
         repo="git@github.com:CHIP-SPV/chipStar.git",
         description="Core HIP runtime for SPIR-V (required)",
+        compiler="llvm",
+        use_cwd_if_chipstar_repo=True,
+        git_submodule_update=True,
     ),
     Component(
         name="rocprim",
@@ -68,6 +97,7 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/rocPRIM.git",
         depends_on=["chipstar"],
         description="Parallel primitives library",
+        cmake_flags=["-DBUILD_TEST=ON", "-DBUILD_BENCHMARK=OFF"],
     ),
     Component(
         name="hipcub",
@@ -75,6 +105,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/hipCUB.git",
         depends_on=["chipstar", "rocprim"],
         description="CUB-like primitives for HIP",
+        cmake_flags=["-DBUILD_TEST=ON"],
+        prefix_path_deps=["rocprim"],
     ),
     Component(
         name="rocthrust",
@@ -82,6 +114,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/rocThrust.git",
         depends_on=["chipstar", "rocprim"],
         description="Thrust parallel algorithms",
+        cmake_flags=["-DBUILD_TEST=ON"],
+        prefix_path_deps=["rocprim"],
     ),
     Component(
         name="rocrand",
@@ -89,6 +123,11 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/rocRAND.git",
         depends_on=["chipstar"],
         description="Random number generation",
+        cmake_flags=[
+            "-DBUILD_TEST=ON",
+            "-DBUILD_BENCHMARK=OFF",
+            "-DROCRAND_HAVE_ASM_INCBIN=OFF",  # Disable ASM for SPIR-V
+        ],
     ),
     Component(
         name="hiprand",
@@ -96,6 +135,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/hipRAND.git",
         depends_on=["chipstar", "rocrand"],
         description="HIP random number interface",
+        cmake_flags=["-DBUILD_TEST=ON"],
+        prefix_path_deps=["rocrand"],
     ),
     Component(
         name="rocsparse",
@@ -103,6 +144,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/rocSPARSE.git",
         depends_on=["chipstar"],
         description="Sparse matrix operations",
+        cmake_flags=["-DBUILD_CLIENTS_TESTS=ON", "-DBUILD_CLIENTS_SAMPLES=OFF"],
+        prefix_path_deps=["rocprim"],
     ),
     Component(
         name="hipsparse",
@@ -110,6 +153,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/hipSPARSE.git",
         depends_on=["chipstar", "rocsparse"],
         description="HIP sparse matrix interface",
+        cmake_flags=["-DBUILD_CLIENTS_TESTS=ON", "-DBUILD_CLIENTS_SAMPLES=OFF"],
+        prefix_path_deps=["rocsparse"],
     ),
     Component(
         name="mklshim",
@@ -117,6 +162,7 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/H4I-MKLShim.git",
         depends_on=["chipstar"],
         description="Intel MKL shim layer",
+        compiler="icpx",
     ),
     Component(
         name="hipblas",
@@ -124,6 +170,10 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/H4I-HipBLAS.git",
         depends_on=["chipstar", "mklshim"],
         description="HIP BLAS via MKL",
+        cmake_flags=["-DBUILD_SAMPLES=OFF"],
+        prefix_path_deps=["mklshim"],
+        with_clang_compiler_path=True,
+        with_hip_include_flag=True,
     ),
     Component(
         name="hipsolver",
@@ -131,6 +181,9 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/H4I-HipSOLVER.git",
         depends_on=["chipstar", "mklshim"],
         description="HIP linear solver via MKL",
+        cmake_flags=["-DBUILD_TESTING=ON", "-DBUILD_SAMPLES=OFF"],
+        prefix_path_deps=["mklshim"],
+        with_clang_compiler_path=True,
     ),
     Component(
         name="hipfft",
@@ -138,6 +191,7 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/H4I-HipFFT.git",
         depends_on=["chipstar", "mklshim"],
         description="HIP FFT via MKL",
+        prefix_path_deps=["mklshim"],
     ),
     Component(
         name="hipmm",
@@ -145,6 +199,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/hipMM.git",
         depends_on=["chipstar", "rocprim", "rocthrust", "hipcub"],
         description="HIP memory manager (RMM port)",
+        cmake_flags=["-DBUILD_TESTS=ON", "-DBUILD_BENCHMARKS=OFF"],
+        prefix_path_deps=["rocprim", "hipcub", "rocthrust"],
     ),
 ]
 
@@ -211,7 +267,8 @@ def input_with_default(prompt: str, default: str) -> str:
 class InstallConfig:
     """Installation configuration."""
     def __init__(self, install_base=None, module_base=None, staging_dir=None, jobs=None,
-                 date_stamp=None, llvm_dir=None, dry_run=False, verbose=True, module_format="tcl"):
+                 date_stamp=None, llvm_dir=None, dry_run=False, verbose=True, module_format="tcl",
+                 no_install=False, install_only=False):
         self.install_base = install_base if install_base else Path.home() / "install" / "HIP"
         self.module_base = module_base if module_base else Path.home() / "modulefiles" / "HIP"
         self.staging_dir = staging_dir if staging_dir else Path("/tmp")
@@ -221,6 +278,8 @@ class InstallConfig:
         self.dry_run = dry_run
         self.verbose = verbose
         self.module_format = module_format  # "tcl" or "lua"
+        self.no_install = no_install
+        self.install_only = install_only
 
 
 # ============================================================================
@@ -597,6 +656,7 @@ class Builder:
     def __init__(self, config: InstallConfig):
         self.config = config
         self.env = os.environ.copy()
+        self._components_by_name = {c.name: c for c in COMPONENTS}
         self._setup_environment()
     
     def _setup_environment(self):
@@ -796,6 +856,16 @@ class Builder:
         )
         return result
     
+    def clone_or_update_if_needed(self, repo: str, name: str, branch: str, dest: Path):
+        """Clone or update unless --install-only (source already present)."""
+        if self.config.install_only:
+            src_dir = dest / name
+            if not src_dir.exists():
+                print(f"{Colors.RED}[ERROR]{Colors.NC} --install-only but {src_dir} does not exist")
+                sys.exit(1)
+            return
+        self.clone_or_update(repo, name, branch, dest)
+
     def clone_or_update(self, repo: str, name: str, branch: str, dest: Path):
         """Clone or update a repository."""
         repo_path = dest / name
@@ -814,6 +884,26 @@ class Builder:
                 shutil.rmtree(repo_path)
             print(f"{Colors.YELLOW}[INFO]{Colors.NC} Cloning {name}...")
             self.run_cmd(["git", "clone", "-b", branch, repo, name], cwd=dest)
+
+    def _prepare_fresh_build_dir(self, build_dir: Path) -> None:
+        """Remove and recreate build_dir unless --install-only (reuse existing build tree)."""
+        if self.config.install_only:
+            return
+        if build_dir.exists():
+            shutil.rmtree(build_dir)
+        build_dir.mkdir(parents=True)
+
+    def _cmake_configure_and_build(self, build_dir: Path, cmake_args: List[str]) -> None:
+        """Run cmake + make unless --install-only."""
+        if self.config.install_only:
+            return
+        self.run_cmd(cmake_args, cwd=build_dir)
+        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
+
+    def _make_install_if_needed(self, build_dir: Path) -> None:
+        """Run make install unless --no-install."""
+        if not self.config.no_install:
+            self.run_cmd(["make", "install"], cwd=build_dir)
     
     def add_to_prefix_path(self, path: Path):
         """Add path to CMAKE_PREFIX_PATH."""
@@ -851,439 +941,82 @@ class Builder:
         # Add to CMAKE_PREFIX_PATH
         self.add_to_prefix_path(chipstar_install)
     
-    def build_chipstar(self, component: Component):
-        """Build chipStar."""
-        # Check if we're already in a chipStar repository
-        current_dir = Path.cwd()
-        chipstar_cmake = current_dir / "CMakeLists.txt"
-        chipstar_git = current_dir / ".git"
+    def _is_chipstar_source_tree(self, path: Path) -> bool:
+        """Return True if `path` looks like the chipStar source repo (CMakeLists + .git)."""
+        cmake = path / "CMakeLists.txt"
+        if not cmake.exists() or not (path / ".git").exists():
+            return False
+        try:
+            content = cmake.read_text()
+        except (OSError, UnicodeDecodeError):
+            return False
+        return "project(chipStar" in content or "project(chipstar" in content
 
-        def is_chipstar_repo() -> bool:
-            """Verify this is chipStar, not just any CMake git repo."""
-            if not chipstar_cmake.exists() or not chipstar_git.exists():
-                return False
-            try:
-                content = chipstar_cmake.read_text()
-                return "project(chipStar" in content or "project(chipstar" in content
-            except (OSError, UnicodeDecodeError):
-                return False
+    def _resolve_src_dir(self, component: Component) -> Path:
+        """Pick the source directory for a component (cwd for in-tree chipStar, else staging)."""
+        if component.use_cwd_if_chipstar_repo:
+            current_dir = Path.cwd()
+            if self._is_chipstar_source_tree(current_dir):
+                print(f"{Colors.YELLOW}[INFO]{Colors.NC} Using current chipStar repository: {current_dir}")
+                return current_dir
+        src_dir = self.config.staging_dir / component.display_name
+        self.clone_or_update_if_needed(component.repo, component.display_name,
+                                       component.branch, self.config.staging_dir)
+        return src_dir
 
-        if is_chipstar_repo():
-            # We're in the chipStar repo, use it directly
-            print(f"{Colors.YELLOW}[INFO]{Colors.NC} Using current chipStar repository: {current_dir}")
-            src_dir = current_dir
-        else:
-            # Clone to staging directory
-            src_dir = self.config.staging_dir / "chipStar"
-            self.clone_or_update(component.repo, "chipStar", component.branch,
-                                self.config.staging_dir)
+    def _compiler_cmake_flags(self, component: Component) -> List[str]:
+        """Return compiler-specific -D flags for the given component."""
+        if component.compiler == "llvm":
+            return [f"-DLLVM_CONFIG={self.llvm_dir}/bin/llvm-config"]
+        if component.compiler == "icpx":
+            icpx_path = subprocess.run(
+                ["which", "icpx"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True,
+            ).stdout.strip()
+            return [
+                f"-DCMAKE_CXX_COMPILER={icpx_path}",
+                f"-DINTEL_COMPILER_PATH={icpx_path}",
+            ]
+        # default: hipcc (from chipStar install)
+        return [f"-DCMAKE_CXX_COMPILER={self.hipcc_path}"]
 
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "chipStar" / self.config.date_stamp
+    def _build_component(self, component: Component) -> None:
+        """Generic build pipeline driven by Component metadata."""
+        # Environment: every non-chipStar build consumes the chipStar install.
+        if component.compiler != "llvm":
+            self.setup_chipstar_env()
+        for dep_name in component.prefix_path_deps:
+            dep = self._components_by_name[dep_name]
+            self.add_to_prefix_path(
+                self.config.install_base / dep.display_name / self.config.date_stamp
+            )
 
-        # Ensure submodules are initialized (idempotent; no-op if already up to date)
-        self.run_cmd(["git", "submodule", "update", "--init", "--recursive"],
-                    cwd=src_dir)
-        
-        # Clear build directory to ensure fresh cmake configuration
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            f"-DLLVM_CONFIG={self.llvm_dir}/bin/llvm-config",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        # Generate module file
-        self._generate_module("chipStar", install_dir)
-    
-    def build_rocprim(self, component: Component):
-        """Build rocPRIM."""
-        self.setup_chipstar_env()
-        
-        src_dir = self.config.staging_dir / "rocPRIM"
+        src_dir = self._resolve_src_dir(component)
         build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "rocPRIM" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "rocPRIM", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
+        install_dir = self.config.install_base / component.display_name / self.config.date_stamp
+
+        if component.git_submodule_update and not self.config.install_only:
+            self.run_cmd(["git", "submodule", "update", "--init", "--recursive"], cwd=src_dir)
+
+        self._prepare_fresh_build_dir(build_dir)
+
         cmake_args = [
             "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
             f"-DCMAKE_BUILD_TYPE=Release",
             f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_TEST=OFF",
-            "-DBUILD_BENCHMARK=OFF",
+            *self._compiler_cmake_flags(component),
         ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("rocPRIM", install_dir)
-    
-    def build_hipcub(self, component: Component):
-        """Build hipCUB."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "rocPRIM" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "hipCUB"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "hipCUB" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "hipCUB", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_TEST=OFF",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("hipCUB", install_dir)
-    
-    def build_rocthrust(self, component: Component):
-        """Build rocThrust."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "rocPRIM" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "rocThrust"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "rocThrust" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "rocThrust", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_TEST=OFF",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("rocThrust", install_dir)
-    
-    def build_mklshim(self, component: Component):
-        """Build H4I-MKLShim."""
-        # MKLShim needs HIP headers for the interface
-        self.setup_chipstar_env()
-        
-        src_dir = self.config.staging_dir / "H4I-MKLShim"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "H4I-MKLShim" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "H4I-MKLShim", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        # Find icpx
-        icpx_path = subprocess.run(
-            ["which", "icpx"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-        ).stdout.strip()
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={icpx_path}",
-            f"-DINTEL_COMPILER_PATH={icpx_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("H4I-MKLShim", install_dir)
-    
-    def build_hipblas(self, component: Component):
-        """Build H4I-HipBLAS."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "H4I-MKLShim" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "H4I-HipBLAS"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "H4I-HipBLAS" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "H4I-HipBLAS", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        # Get HIP include path from environment
-        hip_path = self.env.get("HIP_PATH", "")
-        hip_include = "{}/include".format(hip_path) if hip_path else ""
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCLANG_COMPILER_PATH={self.llvm_clang}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_SAMPLES=OFF",
-        ]
-        
-        # Add HIP include path to fix 'hip/hip_runtime.h' not found
-        if hip_include:
-            cmake_args.append(f"-DCMAKE_CXX_FLAGS=-I{hip_include}")
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("H4I-HipBLAS", install_dir)
-    
-    def build_hipsolver(self, component: Component):
-        """Build H4I-HipSOLVER."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "H4I-MKLShim" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "H4I-HipSOLVER"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "H4I-HipSOLVER" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "H4I-HipSOLVER", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCLANG_COMPILER_PATH={self.llvm_clang}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_TESTING=OFF",
-            "-DBUILD_SAMPLES=OFF",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("H4I-HipSOLVER", install_dir)
-    
-    def build_hipfft(self, component: Component):
-        """Build H4I-HipFFT."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "H4I-MKLShim" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "H4I-HipFFT"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "H4I-HipFFT" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "H4I-HipFFT", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("H4I-HipFFT", install_dir)
-    
-    def build_rocrand(self, component: Component):
-        """Build rocRAND."""
-        self.setup_chipstar_env()
-        
-        src_dir = self.config.staging_dir / "rocRAND"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "rocRAND" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "rocRAND", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_TEST=OFF",
-            "-DBUILD_BENCHMARK=OFF",
-            "-DROCRAND_HAVE_ASM_INCBIN=OFF",  # Disable ASM for SPIR-V
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("rocRAND", install_dir)
-    
-    def build_hiprand(self, component: Component):
-        """Build hipRAND."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "rocRAND" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "hipRAND"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "hipRAND" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "hipRAND", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_TEST=OFF",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("hipRAND", install_dir)
-    
-    def build_rocsparse(self, component: Component):
-        """Build rocSPARSE."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "rocPRIM" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "rocSPARSE"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "rocSPARSE" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "rocSPARSE", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_CLIENTS_TESTS=OFF",
-            "-DBUILD_CLIENTS_SAMPLES=OFF",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("rocSPARSE", install_dir)
-    
-    def build_hipsparse(self, component: Component):
-        """Build hipSPARSE."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "rocSPARSE" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "hipSPARSE"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "hipSPARSE" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "hipSPARSE", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_CLIENTS_TESTS=OFF",
-            "-DBUILD_CLIENTS_SAMPLES=OFF",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("hipSPARSE", install_dir)
-    
-    def build_hipmm(self, component: Component):
-        """Build hipMM."""
-        self.setup_chipstar_env()
-        self.add_to_prefix_path(self.config.install_base / "rocPRIM" / self.config.date_stamp)
-        self.add_to_prefix_path(self.config.install_base / "hipCUB" / self.config.date_stamp)
-        self.add_to_prefix_path(self.config.install_base / "rocThrust" / self.config.date_stamp)
-        
-        src_dir = self.config.staging_dir / "hipMM"
-        build_dir = src_dir / "build"
-        install_dir = self.config.install_base / "hipMM" / self.config.date_stamp
-        
-        self.clone_or_update(component.repo, "hipMM", component.branch,
-                            self.config.staging_dir)
-        
-        if build_dir.exists():
-            shutil.rmtree(build_dir)
-        build_dir.mkdir(parents=True)
-        
-        cmake_args = [
-            "cmake", "..",
-            f"-DCMAKE_CXX_COMPILER={self.hipcc_path}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-DBUILD_TESTS=OFF",
-            "-DBUILD_BENCHMARKS=OFF",
-        ]
-        
-        self.run_cmd(cmake_args, cwd=build_dir)
-        self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
-        self.run_cmd(["make", "install"], cwd=build_dir)
-        
-        self._generate_module("hipMM", install_dir)
+        if component.with_clang_compiler_path:
+            cmake_args.append(f"-DCLANG_COMPILER_PATH={self.llvm_clang}")
+        cmake_args.extend(component.cmake_flags)
+        if component.with_hip_include_flag:
+            hip_path = self.env.get("HIP_PATH", "")
+            if hip_path:
+                cmake_args.append(f"-DCMAKE_CXX_FLAGS=-I{hip_path}/include")
+
+        self._cmake_configure_and_build(build_dir, cmake_args)
+        self._make_install_if_needed(build_dir)
+        self._generate_module(component.display_name, install_dir)
     
     def _generate_module(self, name: str, install_dir: Path, version: Optional[str] = None):
         """Generate a module file (TCL or Lua format)."""
@@ -1342,29 +1075,12 @@ prepend-path PATH $install_dir/bin
         print(f"\n{Colors.CYAN}{'=' * 70}{Colors.NC}")
         print(f"{Colors.BOLD}Building {component.display_name}{Colors.NC}")
         print(f"{Colors.CYAN}{'=' * 70}{Colors.NC}\n")
-        
-        # Dispatch to appropriate build function
-        build_methods = {
-            "chipstar": self.build_chipstar,
-            "rocprim": self.build_rocprim,
-            "hipcub": self.build_hipcub,
-            "rocthrust": self.build_rocthrust,
-            "mklshim": self.build_mklshim,
-            "hipblas": self.build_hipblas,
-            "hipsolver": self.build_hipsolver,
-            "hipfft": self.build_hipfft,
-            "rocrand": self.build_rocrand,
-            "hiprand": self.build_hiprand,
-            "rocsparse": self.build_rocsparse,
-            "hipsparse": self.build_hipsparse,
-            "hipmm": self.build_hipmm,
-        }
-        
-        if component.name in build_methods:
-            build_methods[component.name](component)
-            print(f"\n{Colors.GREEN}[SUCCESS]{Colors.NC} {component.display_name} installed!")
-        else:
+
+        if component.name not in self._components_by_name:
             print(f"{Colors.RED}[ERROR]{Colors.NC} Unknown component: {component.name}")
+            return
+        self._build_component(component)
+        print(f"\n{Colors.GREEN}[SUCCESS]{Colors.NC} {component.display_name} installed!")
 
 
 # ============================================================================
@@ -1444,7 +1160,17 @@ Examples:
         "--verbose", "-v", action="store_true", default=True,
         help="Verbose output"
     )
-    
+
+    parser.add_argument(
+        "--no-install", action="store_true",
+        help="Build only, skip 'make install' step (for CI presubmit)"
+    )
+
+    parser.add_argument(
+        "--install-only", action="store_true",
+        help="Run 'make install' from existing build dirs, skip configure+build (for post-merge)"
+    )
+
     return parser.parse_args()
 
 
@@ -1467,12 +1193,18 @@ def main():
         list_components()
         return 0
     
+    if args.no_install and args.install_only:
+        print(f"{Colors.RED}[ERROR]{Colors.NC} --no-install and --install-only are mutually exclusive.")
+        return 1
+
     # Create config
     config = InstallConfig(
         jobs=args.jobs,
         dry_run=args.dry_run,
         verbose=args.verbose,
         module_format=args.module_format,
+        no_install=args.no_install,
+        install_only=args.install_only,
     )
     
     if args.install_dir:

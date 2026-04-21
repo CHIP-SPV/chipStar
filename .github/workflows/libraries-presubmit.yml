@@ -1,0 +1,114 @@
+name: Libraries Presubmit
+
+on:
+  pull_request:
+    paths-ignore: "docs/**"
+
+concurrency:
+  group: libraries-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test-libraries:
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Build chipStar + all libraries
+        shell: bash
+        run: |
+          set -e
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local
+            source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then
+            source /etc/profile.d/lmod.sh
+          else
+            source /etc/profile.d/modules.sh
+          fi
+          module use /space/pvelesko/modulefiles
+          module load oneapi/2025.0.4 llvm/22.0-native level-zero/dgpu
+          module list
+
+          STAGING=/tmp/chipstar-ci-staging/${{ github.event.pull_request.number }}
+          rm -rf $STAGING
+
+          ./install_chipstar.py --all \
+            --install-dir $STAGING \
+            --staging-dir $STAGING/staging \
+            -j 8
+
+          echo "STAGING=$STAGING" >> $GITHUB_ENV
+
+      - name: Run library tests
+        shell: bash
+        run: |
+          set -e
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local
+            source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then
+            source /etc/profile.d/lmod.sh
+          else
+            source /etc/profile.d/modules.sh
+          fi
+          module use /space/pvelesko/modulefiles
+          module load oneapi/2025.0.4 llvm/22.0-native level-zero/dgpu
+
+          # Find the chipStar install (date-stamped subdir)
+          CHIP_INSTALL=$(ls -d $STAGING/chipStar/*/ | head -1)
+          export PATH=$CHIP_INSTALL/bin:$PATH
+          export LD_LIBRARY_PATH=$CHIP_INSTALL/lib:${LD_LIBRARY_PATH:-}
+          export HIP_PATH=$CHIP_INSTALL
+          export HIP_PLATFORM=spirv
+          export CHIP_LOGLEVEL=err
+          # Enable IGC software fp64 emulation on Intel Arc (Alchemist lacks native fp64)
+          export IGC_EnableDPEmulation=1
+          export OverrideDefaultFP64Settings=1
+
+          failed=0
+          for lib_staging in $STAGING/staging/*/; do
+            lib=$(basename $lib_staging)
+            lib_build="$lib_staging/build"
+            if [ ! -d "$lib_build" ]; then
+              continue
+            fi
+            if [ -f "$lib_build/CTestTestfile.cmake" ]; then
+              echo "=== Testing $lib ==="
+              exclude=""
+              exclude_file="$lib_staging/.ci/exclude.txt"
+              if [ -f "$exclude_file" ]; then
+                exclude=$(grep -Ev '^\s*(#|$)' "$exclude_file" | paste -sd '|' - || true)
+              fi
+              labels=""
+              labels_file="$lib_staging/.ci/ctest-labels.txt"
+              if [ -f "$labels_file" ]; then
+                labels=$(grep -Ev '^\s*(#|$)' "$labels_file" | paste -sd '|' - || true)
+              fi
+              cd "$lib_build"
+              if ! ctest --output-on-failure --timeout 1800 ${labels:+-L "$labels"} ${exclude:+-E "$exclude"}; then
+                echo "::warning::$lib tests had failures"
+                failed=$((failed + 1))
+              fi
+            else
+              echo "=== $lib: no CTest tests ==="
+            fi
+          done
+          if [ $failed -gt 0 ]; then
+            echo "::error::$failed libraries had test failures"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: library-test-logs
+          path: |
+            /tmp/chipstar-ci-staging/${{ github.event.pull_request.number }}/staging/*/build/Testing/**/LastTest*.log
+          if-no-files-found: ignore
