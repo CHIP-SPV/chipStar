@@ -508,7 +508,7 @@ private:
   std::string Name_;
 
   std::unordered_set<chipstar::AllocationInfo *> AllocInfos_;
-  std::unordered_map<void *, chipstar::AllocationInfo *> PtrToAllocInfo_;
+  std::map<void *, chipstar::AllocationInfo *> PtrToAllocInfo_;
 
   size_t NumHostAllocations_ = 0;
   size_t NumManagedAllocations_ = 0;

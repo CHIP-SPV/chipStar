@@ -11,3 +11,10 @@ target_compile_definitions(manySmallKernelsOnlyLaunch PRIVATE CHECK_ONLY_LAUNCH)
 target_link_libraries(manySmallKernelsOnlyLaunch CHIP deviceInternal)
 target_include_directories(manySmallKernelsOnlyLaunch
   PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+set_source_files_properties(manyMallocMemcopies.hip PROPERTIES LANGUAGE CXX)
+add_executable(manyMallocMemcopies manyMallocMemcopies.hip)
+set_target_properties(manyMallocMemcopies PROPERTIES CXX_STANDARD_REQUIRED ON)
+target_link_libraries(manyMallocMemcopies CHIP deviceInternal)
+target_include_directories(manyMallocMemcopies
+  PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)

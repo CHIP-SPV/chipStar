@@ -250,14 +250,20 @@ void chipstar::AllocationTracker::recordAllocation(
 chipstar::AllocationInfo *
 chipstar::AllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
   // Note: This function is called from within a locked context
-  for (auto &Info : PtrToAllocInfo_) {
-    chipstar::AllocationInfo *AllocInfo = Info.second;
-    void *Start = AllocInfo->DevPtr;
-    void *End = (char *)Start + AllocInfo->Size;
 
-    if (Start <= DevPtr && DevPtr < End)
-      return AllocInfo;
-  }
+  // upper_bound gives the first entry with key > DevPtr; step back one to get
+  // the candidate whose start address is <= DevPtr, then range-check it.
+  auto It = PtrToAllocInfo_.upper_bound(DevPtr);
+  if (It == PtrToAllocInfo_.begin())
+    return nullptr;
+  --It;
+
+  chipstar::AllocationInfo *AllocInfo = It->second;
+  void *Start = AllocInfo->DevPtr;
+  void *End = (char *)Start + AllocInfo->Size;
+
+  if (Start <= DevPtr && DevPtr < End)
+    return AllocInfo;
 
   return nullptr;
 }
