@@ -40,6 +40,7 @@ jobs:
           rm -rf $STAGING
 
           ./install_chipstar.py --all \
+            --with-tests \
             --install-dir $STAGING \
             --staging-dir $STAGING/staging \
             -j 8
