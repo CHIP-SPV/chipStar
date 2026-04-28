@@ -16,6 +16,8 @@
 
 #include "spirv-extractor.hh"
 
+// Note: Elf64_Ehdr / Elf64_Shdr / ELFMAG / SELFMAG are defined portably
+// (Linux + macOS) by spirv-extractor.hh, included above.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -200,8 +202,9 @@ int main(int argc, char *argv[]) {
   // to parse and previously crashed it.
   if (buf.size() >= sizeof(Elf64_Ehdr)) {
     auto *eh = reinterpret_cast<const Elf64_Ehdr *>(buf.data());
-    if (std::memcmp(eh->e_ident, ELFMAG, SELFMAG) == 0 &&
-        eh->e_ident[EI_CLASS] == ELFCLASS64) {
+    // Magic match implies an ELF host (Linux). macOS uses Mach-O so this
+    // never fires there — Mach-O outputs follow the existing scan paths.
+    if (std::memcmp(eh->e_ident, ELFMAG, SELFMAG) == 0) {
       bool hasHipFatbin = false;
       if (eh->e_shoff + eh->e_shnum * sizeof(Elf64_Shdr) <= buf.size() &&
           eh->e_shstrndx < eh->e_shnum) {
