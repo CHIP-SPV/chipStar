@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <elf.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -192,6 +193,35 @@ int main(int argc, char *argv[]) {
   std::vector<char> buf((std::istreambuf_iterator<char>(f)),
                         std::istreambuf_iterator<char>());
   if (buf.empty()) return 0;
+
+  // If the input is ELF, only verify when it actually has a .hip_fatbin
+  // section. Intermediate object files (e.g. -dc/-c output from hipcc) carry
+  // partial / pre-link offload bundles that the SPIR-V extractor isn't built
+  // to parse and previously crashed it.
+  if (buf.size() >= sizeof(Elf64_Ehdr)) {
+    auto *eh = reinterpret_cast<const Elf64_Ehdr *>(buf.data());
+    if (std::memcmp(eh->e_ident, ELFMAG, SELFMAG) == 0 &&
+        eh->e_ident[EI_CLASS] == ELFCLASS64) {
+      bool hasHipFatbin = false;
+      if (eh->e_shoff + eh->e_shnum * sizeof(Elf64_Shdr) <= buf.size() &&
+          eh->e_shstrndx < eh->e_shnum) {
+        auto *sh = reinterpret_cast<const Elf64_Shdr *>(buf.data() + eh->e_shoff);
+        const auto &strtab_hdr = sh[eh->e_shstrndx];
+        if (strtab_hdr.sh_offset + strtab_hdr.sh_size <= buf.size()) {
+          const char *strtab = buf.data() + strtab_hdr.sh_offset;
+          for (uint16_t i = 0; i < eh->e_shnum; ++i) {
+            if (sh[i].sh_name >= strtab_hdr.sh_size) continue;
+            if (std::strcmp(strtab + sh[i].sh_name, ".hip_fatbin") == 0) {
+              hasHipFatbin = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!hasHipFatbin) return 0; // not a final HIP-bearing image; skip
+    }
+  }
+
   constexpr size_t kScanPad = 1024 * 1024 + 64;
   if (buf.size() < kScanPad) buf.resize(kScanPad, 0);
 
