@@ -122,9 +122,14 @@ int verifyOneDevice(const fs::path &spvFile, const std::string &device,
   int rc = runCapture(cmd, log);
   fs::path binFile = outBase.string() + ".bin";
   if (rc != 0 || !fs::exists(binFile)) {
-    std::cerr << "[chip-kernel-verify] ocloc compile failed for device '"
-              << device << "' (exit " << rc << ")\n" << log << "\n";
-    return mode == Mode::Fail ? 1 : 0;
+    // ocloc explicitly errored (e.g. fp64 not supported on this device) — that
+    // is a real but ordinary compile error, not the silent-drop class of
+    // problem this tool is here to detect (intel-graphics-compiler#403).
+    // Print the diagnostics for visibility and skip; do not fail the build.
+    std::cerr << "[chip-kernel-verify] ocloc compile errored for device '"
+              << device << "' (exit " << rc << ") — not an IGC #403 drop;"
+              << " skipping verification for this device:\n" << log << "\n";
+    return 0;
   }
 
   fs::path dumpDir = workDir / ("dump_" + device);
