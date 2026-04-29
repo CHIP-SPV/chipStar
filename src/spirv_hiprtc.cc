@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include <set>
 #include <vector>
 #include <chrono>
+#include <unistd.h>
 
 struct CompileOptions {
   std::vector<std::string> Options; /// All accepted user options.
@@ -387,10 +388,8 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
 /// std::hash<std::string> is implementation-defined and may produce different
 /// values across program runs (some libc++ randomize it) or across different
 /// compiler/stdlib versions, making the cache effectively write-only on those
-/// platforms. The same change was previously proposed in #1231 (closed
-/// unmerged); we re-introduce it here because a stable on-disk cache key is
-/// part of the new versioned cache file format ('CHC1' magic) — without a
-/// stable hash, the version header doesn't help.
+/// platforms. A stable on-disk hash is required for the versioned cache file
+/// format ('CHC1' magic) to be useful.
 static uint64_t fnv1a64(const std::string &s) {
   uint64_t hash = UINT64_C(14695981039346656037);
   for (unsigned char c : s) {
@@ -460,11 +459,10 @@ static void writeU32LE(std::ostream &out, uint32_t v) {
 
 static bool readU32LE(std::istream &in, uint32_t &v) {
   unsigned char b[4];
-  if (!in.read((char *)b, 4)) return false;
-  v = (uint32_t)b[0]
-    | ((uint32_t)b[1] << 8)
-    | ((uint32_t)b[2] << 16)
-    | ((uint32_t)b[3] << 24);
+  if (!in.read((char *)b, 4))
+    return false;
+  v = (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) |
+      ((uint32_t)b[3] << 24);
   return true;
 }
 
@@ -473,18 +471,18 @@ static bool readU32LE(std::istream &in, uint32_t &v) {
 /// cache hit is found. Returns false on miss, missing magic (old format), or
 /// any read/parse error (treated as cache miss).
 static bool loadHiprtcCache(chipstar::Program &Program,
-                             const std::string &cacheKey) {
+                            const std::string &cacheKey) {
   if (!ChipEnvVars.getModuleCacheDir().has_value())
     return false;
-  auto cacheFile = fs::path(ChipEnvVars.getModuleCacheDir().value())
-                   / "hiprtc" / cacheKey;
+  auto cacheFile =
+      fs::path(ChipEnvVars.getModuleCacheDir().value()) / "hiprtc" / cacheKey;
   std::ifstream in(cacheFile, std::ios::binary);
   if (!in)
     return false;
 
-  char magic[4];
-  if (!in.read(magic, 4) ||
-      std::memcmp(magic, kCacheMagic, 4) != 0) {
+  char magic[sizeof(kCacheMagic)];
+  if (!in.read(magic, sizeof(magic)) ||
+      std::memcmp(magic, kCacheMagic, sizeof(kCacheMagic)) != 0) {
     logDebug("hiprtc: cache file '{}' has missing/old magic; ignoring",
              cacheFile.string());
     return false;
@@ -507,13 +505,17 @@ static bool loadHiprtcCache(chipstar::Program &Program,
   names.reserve(nameCount);
   for (uint32_t i = 0; i < nameCount; i++) {
     uint32_t exprLen = 0;
-    if (!readU32LE(in, exprLen)) return false;
+    if (!readU32LE(in, exprLen))
+      return false;
     std::string expr(exprLen, '\0');
-    if (exprLen && !in.read(expr.data(), exprLen)) return false;
+    if (exprLen && !in.read(expr.data(), exprLen))
+      return false;
     uint32_t loweredLen = 0;
-    if (!readU32LE(in, loweredLen)) return false;
+    if (!readU32LE(in, loweredLen))
+      return false;
     std::string lowered(loweredLen, '\0');
-    if (loweredLen && !in.read(lowered.data(), loweredLen)) return false;
+    if (loweredLen && !in.read(lowered.data(), loweredLen))
+      return false;
     names.emplace_back(std::move(expr), std::move(lowered));
   }
 
@@ -527,8 +529,8 @@ static bool loadHiprtcCache(chipstar::Program &Program,
     if (It != NameExprMap.end())
       It->second = lowered;
   }
-  logInfo("hiprtc: Loaded SPIRV from cache (key={}, names={})",
-          cacheKey, nameCount);
+  logInfo("hiprtc: Loaded SPIRV from cache (key={}, names={})", cacheKey,
+          nameCount);
   return true;
 }
 
@@ -536,7 +538,7 @@ static bool loadHiprtcCache(chipstar::Program &Program,
 /// Writes both the SPIR-V binary and the name-expression -> lowered-name
 /// table so subsequent cache hits can satisfy hiprtcGetLoweredName().
 static void saveHiprtcCache(const chipstar::Program &Program,
-                             const std::string &cacheKey) {
+                            const std::string &cacheKey) {
   if (!ChipEnvVars.getModuleCacheDir().has_value())
     return;
   auto cacheDir = fs::path(ChipEnvVars.getModuleCacheDir().value()) / "hiprtc";
@@ -547,10 +549,12 @@ static void saveHiprtcCache(const chipstar::Program &Program,
     return;
   }
   auto cacheFile = cacheDir / cacheKey;
-  // Write to a temp file then rename, so a crash mid-write does not leave a
-  // partial cache file that would later be loaded as if valid.
+  // Write to a per-process temp file then atomically rename. The PID suffix
+  // prevents two concurrent writers from interleaving into the same temp
+  // file; the rename step then races safely (both produce the same content
+  // since the cache key is content-derived).
   auto tmpFile = cacheFile;
-  tmpFile += ".tmp";
+  tmpFile += "." + std::to_string(getpid()) + ".tmp";
   {
     std::ofstream out(tmpFile, std::ios::binary | std::ios::trunc);
     if (!out) {
@@ -558,12 +562,11 @@ static void saveHiprtcCache(const chipstar::Program &Program,
                tmpFile.string());
       return;
     }
-    out.write(kCacheMagic, 4);
+    out.write(kCacheMagic, sizeof(kCacheMagic));
     const auto &code = Program.getCode();
     if (code.size() > UINT32_MAX) {
       logDebug("hiprtc: SPIR-V too large for cache file format ({} bytes)",
                code.size());
-      out.close();
       fs::remove(tmpFile, ec);
       return;
     }
@@ -590,8 +593,8 @@ static void saveHiprtcCache(const chipstar::Program &Program,
     fs::remove(tmpFile, ec);
     return;
   }
-  logInfo("hiprtc: Saved SPIRV to cache (key={}, names={})",
-          cacheKey, Program.getNameExpressionMap().size());
+  logInfo("hiprtc: Saved SPIRV to cache (key={}, names={})", cacheKey,
+          Program.getNameExpressionMap().size());
 }
 
 hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
