@@ -848,10 +848,12 @@ class Program {
   /// Include headers.
   std::map<std::string, std::string> Headers_;
 
-  /// Name expressions added before compilation as key to the
-  /// map. After compilation they point to their lowered/mangled
-  /// names. The map value may also be empty meaning the lowered name
-  /// is unknown.
+  /// Name expressions added before compilation are inserted as keys with an
+  /// empty value. After a successful compilation (or a successful HIPRTC
+  /// cache load) the value holds the lowered/mangled name. An empty value
+  /// after compilation indicates a pipeline error: hiprtcGetLoweredName
+  /// treats it as HIPRTC_ERROR_INTERNAL_ERROR rather than returning a
+  /// pointer to an empty string.
   std::map<std::string, std::string> NameExpressions_;
 
   std::string ProgramLog_; ///< Captured compilation log.
