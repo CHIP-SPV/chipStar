@@ -50,8 +50,8 @@ __global__ void demo_kernel(int *data, int n) {
 // Compile once and return the (mangled) lowered name for "demo_kernel".
 static std::string compileAndGetLoweredName() {
   hiprtcProgram Prog;
-  HIPRTC_CHECK(hiprtcCreateProgram(&Prog, Source, "demo.hip", 0, nullptr,
-                                   nullptr));
+  HIPRTC_CHECK(
+      hiprtcCreateProgram(&Prog, Source, "demo.hip", 0, nullptr, nullptr));
   HIPRTC_CHECK(hiprtcAddNameExpression(Prog, "demo_kernel"));
 
   hiprtcResult R = hiprtcCompileProgram(Prog, 0, nullptr);
