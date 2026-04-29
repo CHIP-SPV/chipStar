@@ -27,11 +27,15 @@ THE SOFTWARE.
 #include "Utils.hh"
 #include "logging.hh"
 
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <regex>
 #include <set>
+#include <vector>
 #include <chrono>
+#include <unistd.h>
 
 struct CompileOptions {
   std::vector<std::string> Options; /// All accepted user options.
@@ -380,8 +384,29 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
   return HIPRTC_SUCCESS;
 }
 
-/// Compute a cache key for HIPRTC output based on source, headers, and options.
-/// The key is a hash of all inputs that affect the SPIRV output.
+/// FNV-1a 64-bit hash — portable, deterministic across runs and platforms.
+/// std::hash<std::string> is implementation-defined and may produce different
+/// values across program runs (some libc++ randomize it) or across different
+/// compiler/stdlib versions, making the cache effectively write-only on those
+/// platforms. A stable on-disk hash is required for the versioned cache file
+/// format ('CHC1' magic) to be useful.
+static uint64_t fnv1a64(const std::string &s) {
+  uint64_t hash = UINT64_C(14695981039346656037);
+  for (unsigned char c : s) {
+    hash ^= c;
+    hash *= UINT64_C(1099511628211);
+  }
+  return hash;
+}
+
+/// Compute a cache key for HIPRTC output based on source, headers, options,
+/// and registered name expressions.
+/// The key is a portable, stable hash of all inputs that affect the SPIRV
+/// output AND the set of name expressions that need a lowered-name mapping.
+/// Without including name expressions, two compilations with the same
+/// source/options but a different set of registered name expressions would
+/// alias to the same cache entry, leaving some lowered-name lookups unmapped
+/// on cache hit.
 static std::string computeHiprtcCacheKey(const chipstar::Program &Program,
                                          int NumOptions,
                                          const char *const *Options) {
@@ -398,37 +423,122 @@ static std::string computeHiprtcCacheKey(const chipstar::Program &Program,
       combined += Options[i];
     combined += "\n";
   }
-  std::hash<std::string> hasher;
-  return std::to_string(hasher(combined));
+  combined += "\n---name-expressions---\n";
+  // Map values are empty at hash time (filled in only after compilation), so
+  // only keys (the expressions) contribute. std::map iteration is sorted.
+  for (auto &[expr, lowered] : Program.getNameExpressionMap()) {
+    combined += expr + "\n";
+  }
+  return std::to_string(fnv1a64(combined));
+}
+
+// Cache file format (binary, little-endian):
+//   magic[4]      = 'C','H','C','1'
+//   spirv_size    = uint32_t
+//   spirv_bytes   = spirv_size bytes
+//   name_count    = uint32_t
+//   for each entry:
+//     expr_len    = uint32_t
+//     expr_bytes  = expr_len bytes (UTF-8)
+//     lowered_len = uint32_t
+//     lowered_bytes = lowered_len bytes (UTF-8)
+//
+// 'CHC1' marks format v1. A future schema change should bump to 'CHC2' etc.
+// loadHiprtcCache rejects any file lacking the magic — old (pre-fix) caches
+// are auto-evicted on first use.
+static constexpr char kCacheMagic[4] = {'C', 'H', 'C', '1'};
+
+static void writeU32LE(std::ostream &out, uint32_t v) {
+  char b[4];
+  b[0] = (char)(v & 0xff);
+  b[1] = (char)((v >> 8) & 0xff);
+  b[2] = (char)((v >> 16) & 0xff);
+  b[3] = (char)((v >> 24) & 0xff);
+  out.write(b, 4);
+}
+
+static bool readU32LE(std::istream &in, uint32_t &v) {
+  unsigned char b[4];
+  if (!in.read((char *)b, 4))
+    return false;
+  v = (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) |
+      ((uint32_t)b[3] << 24);
+  return true;
 }
 
 /// Try to load a cached HIPRTC compilation result.
-/// Returns true and populates Program.Code_ if a cache hit is found.
+/// Returns true and populates Program.Code_ and the name-expression map if a
+/// cache hit is found. Returns false on miss, missing magic (old format), or
+/// any read/parse error (treated as cache miss).
 static bool loadHiprtcCache(chipstar::Program &Program,
-                             const std::string &cacheKey) {
+                            const std::string &cacheKey) {
   if (!ChipEnvVars.getModuleCacheDir().has_value())
     return false;
-  auto cacheFile = fs::path(ChipEnvVars.getModuleCacheDir().value())
-                   / "hiprtc" / cacheKey;
-  std::ifstream in(cacheFile, std::ios::binary | std::ios::ate);
+  auto cacheFile =
+      fs::path(ChipEnvVars.getModuleCacheDir().value()) / "hiprtc" / cacheKey;
+  std::ifstream in(cacheFile, std::ios::binary);
   if (!in)
     return false;
-  auto size = in.tellg();
-  if (size <= 0)
+
+  char magic[sizeof(kCacheMagic)];
+  if (!in.read(magic, sizeof(magic)) ||
+      std::memcmp(magic, kCacheMagic, sizeof(kCacheMagic)) != 0) {
+    logDebug("hiprtc: cache file '{}' has missing/old magic; ignoring",
+             cacheFile.string());
     return false;
-  in.seekg(0);
-  std::string content(size, '\0');
-  in.read(content.data(), size);
-  if (!in)
+  }
+
+  uint32_t spirvSize = 0;
+  if (!readU32LE(in, spirvSize))
     return false;
-  Program.addCode(content);
-  logInfo("hiprtc: Loaded SPIRV from cache (key={})", cacheKey);
+  std::string spirv(spirvSize, '\0');
+  if (spirvSize && !in.read(spirv.data(), spirvSize))
+    return false;
+
+  uint32_t nameCount = 0;
+  if (!readU32LE(in, nameCount))
+    return false;
+  // Stage parsed names locally; only commit to Program after a fully
+  // successful read so a partial/corrupt cache file doesn't leave half-set
+  // state on the program object.
+  std::vector<std::pair<std::string, std::string>> names;
+  names.reserve(nameCount);
+  for (uint32_t i = 0; i < nameCount; i++) {
+    uint32_t exprLen = 0;
+    if (!readU32LE(in, exprLen))
+      return false;
+    std::string expr(exprLen, '\0');
+    if (exprLen && !in.read(expr.data(), exprLen))
+      return false;
+    uint32_t loweredLen = 0;
+    if (!readU32LE(in, loweredLen))
+      return false;
+    std::string lowered(loweredLen, '\0');
+    if (loweredLen && !in.read(lowered.data(), loweredLen))
+      return false;
+    names.emplace_back(std::move(expr), std::move(lowered));
+  }
+
+  Program.addCode(spirv);
+  // Populate the name-expression map. The user-registered expressions are
+  // already present (with empty values) from prior hiprtcAddNameExpression()
+  // calls; we fill in the lowered names from the cache.
+  auto &NameExprMap = Program.getNameExpressionMap();
+  for (auto &[expr, lowered] : names) {
+    auto It = NameExprMap.find(expr);
+    if (It != NameExprMap.end())
+      It->second = lowered;
+  }
+  logInfo("hiprtc: Loaded SPIRV from cache (key={}, names={})", cacheKey,
+          nameCount);
   return true;
 }
 
 /// Save HIPRTC compilation result to cache.
+/// Writes both the SPIR-V binary and the name-expression -> lowered-name
+/// table so subsequent cache hits can satisfy hiprtcGetLoweredName().
 static void saveHiprtcCache(const chipstar::Program &Program,
-                             const std::string &cacheKey) {
+                            const std::string &cacheKey) {
   if (!ChipEnvVars.getModuleCacheDir().has_value())
     return;
   auto cacheDir = fs::path(ChipEnvVars.getModuleCacheDir().value()) / "hiprtc";
@@ -439,14 +549,52 @@ static void saveHiprtcCache(const chipstar::Program &Program,
     return;
   }
   auto cacheFile = cacheDir / cacheKey;
-  std::ofstream out(cacheFile, std::ios::binary);
-  if (!out) {
-    logDebug("hiprtc: Could not open cache file for writing: {}", cacheFile.string());
+  // Write to a per-process temp file then atomically rename. The PID suffix
+  // prevents two concurrent writers from interleaving into the same temp
+  // file; the rename step then races safely (both produce the same content
+  // since the cache key is content-derived).
+  auto tmpFile = cacheFile;
+  tmpFile += "." + std::to_string(getpid()) + ".tmp";
+  {
+    std::ofstream out(tmpFile, std::ios::binary | std::ios::trunc);
+    if (!out) {
+      logDebug("hiprtc: Could not open cache temp file for writing: {}",
+               tmpFile.string());
+      return;
+    }
+    out.write(kCacheMagic, sizeof(kCacheMagic));
+    const auto &code = Program.getCode();
+    if (code.size() > UINT32_MAX) {
+      logDebug("hiprtc: SPIR-V too large for cache file format ({} bytes)",
+               code.size());
+      fs::remove(tmpFile, ec);
+      return;
+    }
+    writeU32LE(out, (uint32_t)code.size());
+    out.write(code.data(), code.size());
+    const auto &NameExprMap = Program.getNameExpressionMap();
+    writeU32LE(out, (uint32_t)NameExprMap.size());
+    for (auto &[expr, lowered] : NameExprMap) {
+      writeU32LE(out, (uint32_t)expr.size());
+      out.write(expr.data(), expr.size());
+      writeU32LE(out, (uint32_t)lowered.size());
+      out.write(lowered.data(), lowered.size());
+    }
+    if (!out) {
+      logDebug("hiprtc: Error while writing cache temp file: {}",
+               tmpFile.string());
+      fs::remove(tmpFile, ec);
+      return;
+    }
+  }
+  fs::rename(tmpFile, cacheFile, ec);
+  if (ec) {
+    logDebug("hiprtc: Could not rename cache temp file: {}", ec.message());
+    fs::remove(tmpFile, ec);
     return;
   }
-  const auto &code = Program.getCode();
-  out.write(code.data(), code.size());
-  logInfo("hiprtc: Saved SPIRV to cache (key={})", cacheKey);
+  logInfo("hiprtc: Saved SPIRV to cache (key={}, names={})", cacheKey,
+          Program.getNameExpressionMap().size());
 }
 
 hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
@@ -584,6 +732,17 @@ hiprtcResult hiprtcGetLoweredName(hiprtcProgram WrappedProg,
   const auto &NameExprMap = Prog.getNameExpressionMap();
   auto It = NameExprMap.find(NameExpression);
   if (It != NameExprMap.end()) {
+    if (It->second.empty()) {
+      // Defensive: a populated map entry should never have an empty lowered
+      // name. If it does, the compilation pipeline (or cache load) failed
+      // to record the mapping. Returning success with an empty string makes
+      // the caller pass "" to hipModuleGetFunction, which fails downstream
+      // with the misleading error "Failed to find kernel via kernel name: ".
+      logError("hiprtc: lowered name for '{}' is empty; refusing to return "
+               "empty string as success",
+               NameExpression);
+      return HIPRTC_ERROR_INTERNAL_ERROR;
+    }
     *LoweredName = It->second.data();
     return HIPRTC_SUCCESS;
   }
