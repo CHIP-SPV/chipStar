@@ -443,7 +443,11 @@ hipError_t hipStreamGetDevice(hipStream_t stream, hipDevice_t *device) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(device);
+  chipstar::Device *Device =
+      Backend->findQueue(static_cast<chipstar::Queue *>(stream))->getDevice();
+  *device = static_cast<hipDevice_t>(Device->getDeviceId());
+  return hipSuccess;
   CHIP_CATCH
 }
 
