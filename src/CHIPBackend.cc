@@ -2000,10 +2000,6 @@ std::shared_ptr<chipstar::Event>
 chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
                                    MANAGED_MEM_STATE ExecState) {
 
-  // TODO: Inspect kernel code for indirect allocation accesses. If
-  //       the kernel does not have any, we only need inspect kernels
-  //       pointer arguments for allocations to be synchronized.
-
   auto *AllocTracker = ::Backend->getActiveDevice()->AllocTracker;
   if (!AllocTracker->getNumHostAllocations() &&
       !AllocTracker->getNumManagedAllocations())
@@ -2021,6 +2017,27 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
         MemMap(&AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
     } else if (AllocInfo.HostPtr &&
                AllocInfo.MemoryType == hipMemoryTypeManaged) {
+      // If the module has no indirect global buffer accesses, only sync
+      // allocations whose DevPtr is explicitly passed as a kernel argument.
+      const SPVModuleInfo &ModInfo = ExecItem->getKernel()->getModule()->getInfo();
+      if (ModInfo.HasNoIGBAs) {
+        bool IsKernelArg = false;
+        const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
+        FuncInfo.visitKernelArgs(ExecItem->getArgs(),
+                                 [&](const SPVFuncInfo::KernelArg &Arg) {
+                                   if (Arg.Kind == SPVTypeKind::Pointer &&
+                                       !Arg.isWorkgroupPtr()) {
+                                     void *PtrVal = *static_cast<void **>(
+                                         const_cast<void *>(Arg.Data));
+                                     if (PtrVal == AllocInfo.DevPtr)
+                                       IsKernelArg = true;
+                                   }
+                                 });
+        if (!IsKernelArg) {
+          logDebug("Skipping sync of managed memory {} - not a kernel arg",
+                   AllocInfo.DevPtr);
+          return;
+        }
       void *Src = PreKernel ? AllocInfo.HostPtr : AllocInfo.DevPtr;
       void *Dst = PreKernel ? AllocInfo.DevPtr : AllocInfo.HostPtr;
       logDebug("Sync managed memory {} -> {} ({})", Src, Dst,
