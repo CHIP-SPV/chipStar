@@ -18,3 +18,10 @@ set_target_properties(manyMallocMemcopies PROPERTIES CXX_STANDARD_REQUIRED ON)
 target_link_libraries(manyMallocMemcopies CHIP deviceInternal)
 target_include_directories(manyMallocMemcopies
   PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+set_source_files_properties(hostRegisterOverhead.hip PROPERTIES LANGUAGE CXX)
+add_executable(hostRegisterOverhead hostRegisterOverhead.hip)
+set_target_properties(hostRegisterOverhead PROPERTIES CXX_STANDARD_REQUIRED ON)
+target_link_libraries(hostRegisterOverhead CHIP deviceInternal)
+target_include_directories(hostRegisterOverhead
+  PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
