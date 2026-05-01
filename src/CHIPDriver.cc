@@ -152,6 +152,7 @@ void CHIPInitializeCallOnce() {
     Backend->initialize();
   } catch (...) {
     if (Backend) delete Backend, Backend = nullptr;
+    CHIPERR_LOG_AND_ABORT("Backend initialization failed. No device available.");
   }
 }
 

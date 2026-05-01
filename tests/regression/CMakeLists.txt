@@ -1,1 +1,2 @@
 add_hip_test(test_stream_wait_event_sync.cpp)
+add_hip_test(test_hipMemcpyHtoD_link.cpp)

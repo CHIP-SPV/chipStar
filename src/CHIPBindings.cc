@@ -443,7 +443,11 @@ hipError_t hipStreamGetDevice(hipStream_t stream, hipDevice_t *device) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(device);
+  chipstar::Device *Device =
+      Backend->findQueue(static_cast<chipstar::Queue *>(stream))->getDevice();
+  *device = static_cast<hipDevice_t>(Device->getDeviceId());
+  return hipSuccess;
   CHIP_CATCH
 }
 
@@ -4968,7 +4972,7 @@ hipError_t hipMemcpyDtoD(hipDeviceptr_t Dst, hipDeviceptr_t Src,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
+hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, const void *Src, size_t SizeBytes,
                               hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
@@ -4978,7 +4982,7 @@ hipError_t hipMemcpyHtoDAsync(hipDeviceptr_t Dst, void *Src, size_t SizeBytes,
   CHIP_CATCH
 }
 
-hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, void *Src, size_t SizeBytes) {
+hipError_t hipMemcpyHtoD(hipDeviceptr_t Dst, const void *Src, size_t SizeBytes) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();

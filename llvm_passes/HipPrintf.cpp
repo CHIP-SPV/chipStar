@@ -133,7 +133,11 @@ getFormatStringPieces(Value *FmtStrArg, unsigned &NumberOfFormatSpecs) {
       dyn_cast<ConstantDataSequential>(OrigFmtStr->getInitializer());
 
   if (FmtStrData == nullptr) {
+#if LLVM_VERSION_MAJOR >= 23
+    assert(OrigFmtStr->getInitializer()->isNullValue());
+#else
     assert(OrigFmtStr->getInitializer()->isZeroValue());
+#endif
     FmtStrPieces.push_back("");
     NumberOfFormatSpecs = 0;
     return FmtStrPieces;
@@ -218,9 +222,16 @@ std::string getCDSAsString(GlobalVariable *OrigStr, bool &IsEmpty) {
   ConstantDataSequential *CDSInitializer =
       dyn_cast<ConstantDataSequential>(OrigStr->getInitializer());
 
+#if LLVM_VERSION_MAJOR >= 23
+  assert(OrigStr->getInitializer()->isNullValue() || CDSInitializer != nullptr);
+
+  IsEmpty = OrigStr->getInitializer()->isNullValue();
+#else
   assert(OrigStr->getInitializer()->isZeroValue() || CDSInitializer != nullptr);
 
   IsEmpty = OrigStr->getInitializer()->isZeroValue();
+#endif
+
   return (IsEmpty ? "" : std::string(CDSInitializer->getAsCString()));
 }
 

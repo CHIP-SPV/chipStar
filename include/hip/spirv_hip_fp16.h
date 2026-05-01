@@ -184,42 +184,42 @@ THE SOFTWARE.
             #endif
 
             #if !defined(__HIP_NO_HALF_OPERATORS__)
-                __device__
+                __HOST_DEVICE__
                 __half& operator+=(const __half& x)
                 {
                     data += x.data;
                     return *this;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half& operator-=(const __half& x)
                 {
                     data -= x.data;
                     return *this;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half& operator*=(const __half& x)
                 {
                     data *= x.data;
                     return *this;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half& operator/=(const __half& x)
                 {
                     data /= x.data;
                     return *this;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half& operator++() { ++data; return *this; }
-                __device__
+                __HOST_DEVICE__
                 __half operator++(int)
                 {
                     __half tmp{*this};
                     ++*this;
                     return tmp;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half& operator--() { --data; return *this; }
-                __device__
+                __HOST_DEVICE__
                 __half operator--(int)
                 {
                     __half tmp{*this};
@@ -252,9 +252,9 @@ THE SOFTWARE.
             #endif
 
             #if !defined(__HIP_NO_HALF_OPERATORS__)
-                __device__
+                __HOST_DEVICE__
                 __half operator+() const { return *this; }
-                __device__
+                __HOST_DEVICE__
                 __half operator-() const
                 {
                     __half tmp{*this};
@@ -267,70 +267,70 @@ THE SOFTWARE.
             #if !defined(__HIP_NO_HALF_OPERATORS__)
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 __half operator+(const __half& x, const __half& y)
                 {
                     return __half{x} += y;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 __half operator-(const __half& x, const __half& y)
                 {
                     return __half{x} -= y;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 __half operator*(const __half& x, const __half& y)
                 {
                     return __half{x} *= y;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 __half operator/(const __half& x, const __half& y)
                 {
                     return __half{x} /= y;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator==(const __half& x, const __half& y)
                 {
                     return x.data == y.data;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator!=(const __half& x, const __half& y)
                 {
                     return !(x == y);
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator<(const __half& x, const __half& y)
                 {
                     return x.data < y.data;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator>(const __half& x, const __half& y)
                 {
                     return y.data < x.data;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator<=(const __half& x, const __half& y)
                 {
                     return !(y < x);
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator>=(const __half& x, const __half& y)
                 {
                     return !(x < y);
@@ -387,42 +387,42 @@ THE SOFTWARE.
 
             // MANIPULATORS - DEVICE ONLY
             #if !defined(__HIP_NO_HALF_OPERATORS__)
-                __device__
+                __HOST_DEVICE__
                 __half2& operator+=(const __half2& xx)
                 {
                     data += xx.data;
                     return *this;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half2& operator-=(const __half2& xx)
                 {
                     data -= xx.data;
                     return *this;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half2& operator*=(const __half2& xx)
                 {
                     data *= xx.data;
                     return *this;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half2& operator/=(const __half2& xx)
                 {
                     data /= xx.data;
                     return *this;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half2& operator++() { return *this += _Float16_2{1, 1}; }
-                __device__
+                __HOST_DEVICE__
                 __half2 operator++(int)
                 {
                     __half2 tmp{*this};
                     ++*this;
                     return tmp;
                 }
-                __device__
+                __HOST_DEVICE__
                 __half2& operator--() { return *this -= _Float16_2{1, 1}; }
-                __device__
+                __HOST_DEVICE__
                 __half2 operator--(int)
                 {
                     __half2 tmp{*this};
@@ -443,9 +443,9 @@ THE SOFTWARE.
 
             // ACCESSORS - DEVICE ONLY
             #if !defined(__HIP_NO_HALF_OPERATORS__)
-                __device__
+                __HOST_DEVICE__
                 __half2 operator+() const { return *this; }
-                __device__
+                __HOST_DEVICE__
                 __half2 operator-() const
                 {
                     __half2 tmp{*this};
@@ -458,35 +458,35 @@ THE SOFTWARE.
             #if !defined(__HIP_NO_HALF_OPERATORS__)
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 __half2 operator+(const __half2& xx, const __half2& yy)
                 {
                     return __half2{xx} += yy;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 __half2 operator-(const __half2& xx, const __half2& yy)
                 {
                     return __half2{xx} -= yy;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 __half2 operator*(const __half2& xx, const __half2& yy)
                 {
                     return __half2{xx} *= yy;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 __half2 operator/(const __half2& xx, const __half2& yy)
                 {
                     return __half2{xx} /= yy;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator==(const __half2& xx, const __half2& yy)
                 {
                     auto r = xx.data == yy.data;
@@ -494,14 +494,14 @@ THE SOFTWARE.
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator!=(const __half2& xx, const __half2& yy)
                 {
                     return !(xx == yy);
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator<(const __half2& xx, const __half2& yy)
                 {
                     auto r = xx.data < yy.data;
@@ -509,21 +509,21 @@ THE SOFTWARE.
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator>(const __half2& xx, const __half2& yy)
                 {
                     return yy < xx;
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator<=(const __half2& xx, const __half2& yy)
                 {
                     return !(yy < xx);
                 }
                 friend
                 inline
-                __device__
+                __HOST_DEVICE__
                 bool operator>=(const __half2& xx, const __half2& yy)
                 {
                     return !(xx < yy);

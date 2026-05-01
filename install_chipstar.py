@@ -45,8 +45,7 @@ class Component:
     Build behavior is encoded in data rather than bespoke build_* methods:
       compiler: "llvm" (chipStar), "hipcc", or "icpx".
       cmake_flags: extra -D flags appended to the cmake command.
-      prefix_path_deps: other component *names* whose install dir is added
-                       to CMAKE_PREFIX_PATH before configure.
+      test_cmake_flags: -D flags appended only when --with-tests is passed.
       with_clang_compiler_path: append -DCLANG_COMPILER_PATH=<llvm_clang>.
       with_hip_include_flag: append -DCMAKE_CXX_FLAGS=-I<HIP_PATH>/include.
       use_cwd_if_chipstar_repo / git_submodule_update: chipStar-only source
@@ -56,7 +55,7 @@ class Component:
                  description="", enabled=True,
                  compiler="hipcc",
                  cmake_flags=None,
-                 prefix_path_deps=None,
+                 test_cmake_flags=None,
                  with_clang_compiler_path=False,
                  with_hip_include_flag=False,
                  use_cwd_if_chipstar_repo=False,
@@ -70,7 +69,7 @@ class Component:
         self.enabled = enabled
         self.compiler = compiler
         self.cmake_flags = list(cmake_flags) if cmake_flags else []
-        self.prefix_path_deps = list(prefix_path_deps) if prefix_path_deps else []
+        self.test_cmake_flags = list(test_cmake_flags) if test_cmake_flags else []
         self.with_clang_compiler_path = with_clang_compiler_path
         self.with_hip_include_flag = with_hip_include_flag
         self.use_cwd_if_chipstar_repo = use_cwd_if_chipstar_repo
@@ -97,7 +96,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/rocPRIM.git",
         depends_on=["chipstar"],
         description="Parallel primitives library",
-        cmake_flags=["-DBUILD_TEST=ON", "-DBUILD_BENCHMARK=OFF"],
+        cmake_flags=["-DBUILD_BENCHMARK=OFF", "-DBUILD_TEST=OFF"],
+        test_cmake_flags=["-DBUILD_TEST=ON"],
     ),
     Component(
         name="hipcub",
@@ -105,8 +105,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/hipCUB.git",
         depends_on=["chipstar", "rocprim"],
         description="CUB-like primitives for HIP",
-        cmake_flags=["-DBUILD_TEST=ON"],
-        prefix_path_deps=["rocprim"],
+        cmake_flags=["-DBUILD_TEST=OFF"],
+        test_cmake_flags=["-DBUILD_TEST=ON"],
     ),
     Component(
         name="rocthrust",
@@ -114,8 +114,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/rocThrust.git",
         depends_on=["chipstar", "rocprim"],
         description="Thrust parallel algorithms",
-        cmake_flags=["-DBUILD_TEST=ON"],
-        prefix_path_deps=["rocprim"],
+        cmake_flags=["-DBUILD_TEST=OFF"],
+        test_cmake_flags=["-DBUILD_TEST=ON"],
     ),
     Component(
         name="rocrand",
@@ -124,10 +124,11 @@ COMPONENTS = [
         depends_on=["chipstar"],
         description="Random number generation",
         cmake_flags=[
-            "-DBUILD_TEST=ON",
             "-DBUILD_BENCHMARK=OFF",
+            "-DBUILD_TEST=OFF",
             "-DROCRAND_HAVE_ASM_INCBIN=OFF",  # Disable ASM for SPIR-V
         ],
+        test_cmake_flags=["-DBUILD_TEST=ON"],
     ),
     Component(
         name="hiprand",
@@ -135,8 +136,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/hipRAND.git",
         depends_on=["chipstar", "rocrand"],
         description="HIP random number interface",
-        cmake_flags=["-DBUILD_TEST=ON"],
-        prefix_path_deps=["rocrand"],
+        cmake_flags=["-DBUILD_TEST=OFF"],
+        test_cmake_flags=["-DBUILD_TEST=ON"],
     ),
     Component(
         name="rocsparse",
@@ -144,8 +145,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/rocSPARSE.git",
         depends_on=["chipstar"],
         description="Sparse matrix operations",
-        cmake_flags=["-DBUILD_CLIENTS_TESTS=ON", "-DBUILD_CLIENTS_SAMPLES=OFF"],
-        prefix_path_deps=["rocprim"],
+        cmake_flags=["-DBUILD_CLIENTS_SAMPLES=OFF", "-DBUILD_CLIENTS_TESTS=OFF"],
+        test_cmake_flags=["-DBUILD_CLIENTS_TESTS=ON"],
     ),
     Component(
         name="hipsparse",
@@ -153,8 +154,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/hipSPARSE.git",
         depends_on=["chipstar", "rocsparse"],
         description="HIP sparse matrix interface",
-        cmake_flags=["-DBUILD_CLIENTS_TESTS=ON", "-DBUILD_CLIENTS_SAMPLES=OFF"],
-        prefix_path_deps=["rocsparse"],
+        cmake_flags=["-DBUILD_CLIENTS_SAMPLES=OFF", "-DBUILD_CLIENTS_TESTS=OFF"],
+        test_cmake_flags=["-DBUILD_CLIENTS_TESTS=ON"],
     ),
     Component(
         name="mklshim",
@@ -171,7 +172,6 @@ COMPONENTS = [
         depends_on=["chipstar", "mklshim"],
         description="HIP BLAS via MKL",
         cmake_flags=["-DBUILD_SAMPLES=OFF"],
-        prefix_path_deps=["mklshim"],
         with_clang_compiler_path=True,
         with_hip_include_flag=True,
     ),
@@ -181,8 +181,8 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/H4I-HipSOLVER.git",
         depends_on=["chipstar", "mklshim"],
         description="HIP linear solver via MKL",
-        cmake_flags=["-DBUILD_TESTING=ON", "-DBUILD_SAMPLES=OFF"],
-        prefix_path_deps=["mklshim"],
+        cmake_flags=["-DBUILD_SAMPLES=OFF", "-DBUILD_TESTING=OFF"],
+        test_cmake_flags=["-DBUILD_TESTING=ON"],
         with_clang_compiler_path=True,
     ),
     Component(
@@ -191,7 +191,6 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/H4I-HipFFT.git",
         depends_on=["chipstar", "mklshim"],
         description="HIP FFT via MKL",
-        prefix_path_deps=["mklshim"],
     ),
     Component(
         name="hipmm",
@@ -199,8 +198,9 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/hipMM.git",
         depends_on=["chipstar", "rocprim", "rocthrust", "hipcub"],
         description="HIP memory manager (RMM port)",
-        cmake_flags=["-DBUILD_TESTS=ON", "-DBUILD_BENCHMARKS=OFF"],
-        prefix_path_deps=["rocprim", "hipcub", "rocthrust"],
+        cmake_flags=["-DBUILD_BENCHMARKS=OFF", "-DBUILD_TESTS=OFF"],
+        test_cmake_flags=["-DBUILD_TESTS=ON"],
+        with_hip_include_flag=True,
     ),
 ]
 
@@ -268,7 +268,7 @@ class InstallConfig:
     """Installation configuration."""
     def __init__(self, install_base=None, module_base=None, staging_dir=None, jobs=None,
                  date_stamp=None, llvm_dir=None, dry_run=False, verbose=True, module_format="tcl",
-                 no_install=False, install_only=False):
+                 no_install=False, install_only=False, build_tests=False):
         self.install_base = install_base if install_base else Path.home() / "install" / "HIP"
         self.module_base = module_base if module_base else Path.home() / "modulefiles" / "HIP"
         self.staging_dir = staging_dir if staging_dir else Path("/tmp")
@@ -280,6 +280,7 @@ class InstallConfig:
         self.module_format = module_format  # "tcl" or "lua"
         self.no_install = no_install
         self.install_only = install_only
+        self.build_tests = build_tests
 
 
 # ============================================================================
@@ -752,7 +753,7 @@ class Builder:
             print(f"\n  {Colors.BOLD}Intel MKL:{Colors.NC} {Colors.YELLOW}Not found{Colors.NC}")
         
         # Existing chipStar
-        chipstar_path = self.config.install_base / "chipStar" / self.config.date_stamp
+        chipstar_path = self._unified_install_dir()
         hipcc_path = chipstar_path / "bin" / "hipcc"
         if hipcc_path.exists():
             print(f"\n  {Colors.BOLD}chipStar (existing):{Colors.NC}")
@@ -766,43 +767,34 @@ class Builder:
             else:
                 print(f"\n  {Colors.BOLD}chipStar:{Colors.NC} {Colors.YELLOW}Will be built{Colors.NC}")
         
-        # Check what's already installed
+        # Check what's already installed in the unified prefix
         print(f"\n  {Colors.BOLD}Installed Components:{Colors.NC}")
-        installed = []
-        not_installed = []
-        
-        component_dirs = {
-            "chipStar": f"chipStar/{self.config.date_stamp}",
-            "rocPRIM": f"rocPRIM/{self.config.date_stamp}",
-            "hipCUB": f"hipCUB/{self.config.date_stamp}",
-            "rocThrust": f"rocThrust/{self.config.date_stamp}",
-            "rocRAND": f"rocRAND/{self.config.date_stamp}",
-            "hipRAND": f"hipRAND/{self.config.date_stamp}",
-            "rocSPARSE": f"rocSPARSE/{self.config.date_stamp}",
-            "hipSPARSE": f"hipSPARSE/{self.config.date_stamp}",
-            "H4I-MKLShim": f"H4I-MKLShim/{self.config.date_stamp}",
-            "H4I-HipBLAS": f"H4I-HipBLAS/{self.config.date_stamp}",
-            "H4I-HipSOLVER": f"H4I-HipSOLVER/{self.config.date_stamp}",
-            "H4I-HipFFT": f"H4I-HipFFT/{self.config.date_stamp}",
-            "hipMM": f"hipMM/{self.config.date_stamp}",
-        }
-        
-        for name, subpath in component_dirs.items():
-            install_path = self.config.install_base / subpath
-            lib_path = install_path / "lib"
-            include_path = install_path / "include"
-            if lib_path.exists() or include_path.exists():
-                installed.append(name)
-            else:
-                not_installed.append(name)
-        
-        if installed:
-            for name in installed:
+        prefix = self._unified_install_dir()
+
+        # Sentinel paths (relative to the unified prefix) that uniquely
+        # indicate a given component has been installed.
+        component_sentinels = [
+            ("chipStar",      "bin/hipcc"),
+            ("rocPRIM",       "include/rocprim/rocprim.hpp"),
+            ("hipCUB",        "include/hipcub/hipcub.hpp"),
+            ("rocThrust",     "include/thrust/version.h"),
+            ("rocRAND",       "include/rocrand/rocrand.h"),
+            ("hipRAND",       "include/hiprand/hiprand.h"),
+            ("rocSPARSE",     "include/rocsparse/rocsparse.h"),
+            ("hipSPARSE",     "include/hipsparse/hipsparse.h"),
+            ("H4I-MKLShim",   "lib/libMKLShim.so"),
+            ("H4I-HipBLAS",   "lib/libhipblas.so"),
+            ("H4I-HipSOLVER", "lib/libhipsolver.so"),
+            ("H4I-HipFFT",    "lib/libhipfft.so"),
+            ("hipMM",         "include/rmm/rmm.hpp"),
+        ]
+
+        for name, sentinel in component_sentinels:
+            if (prefix / sentinel).exists():
                 print(f"    {Colors.GREEN}[installed]{Colors.NC} {name}")
-        if not_installed:
-            for name in not_installed:
+            else:
                 print(f"    {Colors.DIM}[missing]{Colors.NC}   {name}")
-        
+
         print()
     
     def print_build_plan(self, components: list):
@@ -811,7 +803,7 @@ class Builder:
         print(f"{Colors.BOLD}Build Plan{Colors.NC}")
         print(f"{Colors.CYAN}{'=' * 70}{Colors.NC}\n")
         
-        print(f"  {Colors.BOLD}Target Directory:{Colors.NC} {self.config.install_base}")
+        print(f"  {Colors.BOLD}Target Directory:{Colors.NC} {self._unified_install_dir()}")
         print(f"  {Colors.BOLD}Module Directory:{Colors.NC} {self.config.module_base}")
         print(f"  {Colors.BOLD}Module Format:{Colors.NC} {self.config.module_format.upper()}")
         print(f"  {Colors.BOLD}Staging Directory:{Colors.NC} {self.config.staging_dir}")
@@ -913,9 +905,13 @@ class Builder:
         else:
             self.env["CMAKE_PREFIX_PATH"] = str(path)
     
+    def _unified_install_dir(self) -> Path:
+        """All components install into this single prefix."""
+        return self.config.install_base / "chipStar" / self.config.date_stamp
+
     def setup_chipstar_env(self):
         """Set up environment for chipStar-based builds."""
-        chipstar_install = self.config.install_base / "chipStar" / self.config.date_stamp
+        chipstar_install = self._unified_install_dir()
         
         self.env["HIP_PATH"] = str(chipstar_install)
         self.env["HIP_PLATFORM"] = "spirv"
@@ -983,17 +979,14 @@ class Builder:
     def _build_component(self, component: Component) -> None:
         """Generic build pipeline driven by Component metadata."""
         # Environment: every non-chipStar build consumes the chipStar install.
+        # All components share one install prefix, so setup_chipstar_env's
+        # CMAKE_PREFIX_PATH entry covers every dependency.
         if component.compiler != "llvm":
             self.setup_chipstar_env()
-        for dep_name in component.prefix_path_deps:
-            dep = self._components_by_name[dep_name]
-            self.add_to_prefix_path(
-                self.config.install_base / dep.display_name / self.config.date_stamp
-            )
 
         src_dir = self._resolve_src_dir(component)
         build_dir = src_dir / "build"
-        install_dir = self.config.install_base / component.display_name / self.config.date_stamp
+        install_dir = self._unified_install_dir()
 
         if component.git_submodule_update and not self.config.install_only:
             self.run_cmd(["git", "submodule", "update", "--init", "--recursive"], cwd=src_dir)
@@ -1009,6 +1002,8 @@ class Builder:
         if component.with_clang_compiler_path:
             cmake_args.append(f"-DCLANG_COMPILER_PATH={self.llvm_clang}")
         cmake_args.extend(component.cmake_flags)
+        if self.config.build_tests:
+            cmake_args.extend(component.test_cmake_flags)
         if component.with_hip_include_flag:
             hip_path = self.env.get("HIP_PATH", "")
             if hip_path:
@@ -1016,7 +1011,6 @@ class Builder:
 
         self._cmake_configure_and_build(build_dir, cmake_args)
         self._make_install_if_needed(build_dir)
-        self._generate_module(component.display_name, install_dir)
     
     def _generate_module(self, name: str, install_dir: Path, version: Optional[str] = None):
         """Generate a module file (TCL or Lua format)."""
@@ -1070,6 +1064,10 @@ prepend-path PATH $install_dir/bin
         
         print(f"{Colors.GREEN}[INFO]{Colors.NC} Generated module: {module_file}")
     
+    def generate_combined_module(self) -> None:
+        """Generate one module file pointing at the unified install prefix."""
+        self._generate_module("chipStar", self._unified_install_dir())
+
     def build(self, component: Component):
         """Build a component."""
         print(f"\n{Colors.CYAN}{'=' * 70}{Colors.NC}")
@@ -1171,6 +1169,11 @@ Examples:
         help="Run 'make install' from existing build dirs, skip configure+build (for post-merge)"
     )
 
+    parser.add_argument(
+        "--with-tests", action="store_true",
+        help="Build each library's test suite (off by default; CI test stages should set this)"
+    )
+
     return parser.parse_args()
 
 
@@ -1205,6 +1208,7 @@ def main():
         module_format=args.module_format,
         no_install=args.no_install,
         install_only=args.install_only,
+        build_tests=args.with_tests,
     )
     
     if args.install_dir:
@@ -1301,6 +1305,9 @@ def main():
             print(f"{Colors.RED}[FAILED]{Colors.NC} {comp.display_name}: {e}")
             failed.append(comp)
     
+    if succeeded:
+        builder.generate_combined_module()
+
     # Summary
     print(f"\n{Colors.CYAN}{'=' * 70}{Colors.NC}")
     print(f"{Colors.BOLD}Installation Summary{Colors.NC}")
