@@ -41,6 +41,24 @@ make VERBOSE=1
 echo "Success"
 echo
 
+echo "### Check legacy FindHIP cmake integration on SPIR-V platform (run_hipcc.cmake spirv branch)"
+# Regression test: when HIP_PLATFORM=spirv, run_hipcc.cmake must use the clang
+# branch, not the nvcc branch. The nvcc branch inserts '--compiler-options -fPIC'
+# which clang does not understand, causing compilation to fail.
+setup-test-dir
+cmake @CMAKE_CURRENT_SOURCE_DIR@/FindHIPLegacySpirvTarget \
+      -DCMAKE_PREFIX_PATH=@CMAKE_INSTALL_PREFIX@ \
+      -DCMAKE_MODULE_PATH=@CMAKE_INSTALL_PREFIX@/lib/cmake/hip \
+      -DCMAKE_CXX_COMPILER=${CXX}
+# Build only the compilation step (linking requires hipcc_cmake_linker_helper, tested separately).
+# run_hipcc.cmake names the output file foo_generated_foo.hip.o
+ninja -v "CMakeFiles/foo.dir/foo_generated_foo.hip.o" 2>&1 | tee build.log
+if grep -qF "''-fPIC''" build.log; then
+    echo "FAIL: NVCC-style quoted -fPIC found — run_hipcc.cmake spirv branch missing"
+    exit 1
+fi
+if [ ! -f CMakeFiles/foo.dir/foo_generated_foo.hip.o ]; then
+    echo "FAIL: foo_generated_foo.hip.o was not produced — compilation failed"
 echo "### check CMake-CUDA"
 setup-test-dir
 
