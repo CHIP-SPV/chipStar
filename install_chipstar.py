@@ -963,7 +963,7 @@ class Builder:
     def _compiler_cmake_flags(self, component: Component) -> List[str]:
         """Return compiler-specific -D flags for the given component."""
         if component.compiler == "llvm":
-            return [f"-DLLVM_CONFIG={self.llvm_dir}/bin/llvm-config"]
+            return [f"-DLLVM_CONFIG_BIN={self.llvm_dir}/bin/llvm-config"]
         if component.compiler == "icpx":
             icpx_path = subprocess.run(
                 ["which", "icpx"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
