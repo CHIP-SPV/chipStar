@@ -195,7 +195,11 @@ COMPONENTS = [
     Component(
         name="chipfft",
         display_name="chipFFT",
-        repo="git@github.com:CHIP-SPV/chipFFT.git",
+        # HTTPS rather than SSH: chipFFT is public and we want CI runners
+        # without an SSH key (or with port 22 firewalled) to be able to
+        # clone. The other CHIP-SPV components are also public so could
+        # be migrated to HTTPS if SSH becomes a sustained problem.
+        repo="https://github.com/CHIP-SPV/chipFFT.git",
         depends_on=["chipstar"],
         description=("Portable hipFFT API on chipStar + VkFFT (Level Zero). "
                      "Mutually exclusive with H4I-HipFFT — both install "
