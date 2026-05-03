@@ -1,0 +1,97 @@
+name: chipFFT Presubmit
+
+# Dedicated workflow for chipFFT (https://github.com/CHIP-SPV/chipFFT).
+# It is intentionally separate from libraries-presubmit.yml because chipFFT
+# and H4I-HipFFT both install lib/libhipfft.so — running them together
+# (which `--all` would do) clobbers the prefix. This job builds chipStar +
+# chipFFT into an isolated staging directory and runs chipFFT's own ctest
+# suite (round-trip self-tests, FFTW CPU-reference accuracy, imported
+# ROCm/hipFFT samples, etc).
+
+on:
+  pull_request:
+    paths-ignore: "docs/**"
+
+concurrency:
+  group: chipfft-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test-chipfft:
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Build chipStar + chipFFT
+        shell: bash
+        run: |
+          set -e
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local
+            source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then
+            source /etc/profile.d/lmod.sh
+          else
+            source /etc/profile.d/modules.sh
+          fi
+          module use /space/pvelesko/modulefiles
+          module load oneapi/2025.0.4 llvm/22.0-native level-zero/dgpu
+          module list
+
+          STAGING=/tmp/chipfft-ci-staging/${{ github.event.pull_request.number }}
+          rm -rf $STAGING
+
+          ./install_chipstar.py --components chipfft \
+            --with-tests \
+            --install-dir $STAGING \
+            --staging-dir $STAGING/staging \
+            -j 8
+
+          echo "STAGING=$STAGING" >> $GITHUB_ENV
+
+      - name: Run chipFFT tests
+        shell: bash
+        run: |
+          set -e
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local
+            source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then
+            source /etc/profile.d/lmod.sh
+          else
+            source /etc/profile.d/modules.sh
+          fi
+          module use /space/pvelesko/modulefiles
+          module load oneapi/2025.0.4 llvm/22.0-native level-zero/dgpu
+
+          CHIP_INSTALL=$(ls -d $STAGING/chipStar/*/ | head -1)
+          export PATH=$CHIP_INSTALL/bin:$PATH
+          export LD_LIBRARY_PATH=$CHIP_INSTALL/lib:${LD_LIBRARY_PATH:-}
+          export HIP_PATH=$CHIP_INSTALL
+          export HIP_PLATFORM=spirv
+          export CHIP_LOGLEVEL=err
+          # Intel Arc (Alchemist) lacks native FP64 — emulate.
+          export IGC_EnableDPEmulation=1
+          export OverrideDefaultFP64Settings=1
+
+          BUILD=$STAGING/staging/chipFFT/build
+          if [ ! -f "$BUILD/CTestTestfile.cmake" ]; then
+            echo "::error::chipFFT build directory missing or unconfigured: $BUILD"
+            exit 1
+          fi
+          cd "$BUILD"
+          ctest --output-on-failure --timeout 1800
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: chipfft-test-logs
+          path: |
+            /tmp/chipfft-ci-staging/${{ github.event.pull_request.number }}/staging/chipFFT/build/Testing/**/LastTest*.log
+          if-no-files-found: ignore

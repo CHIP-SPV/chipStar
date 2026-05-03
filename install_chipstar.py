@@ -193,6 +193,27 @@ COMPONENTS = [
         description="HIP FFT via MKL",
     ),
     Component(
+        name="chipfft",
+        display_name="chipFFT",
+        # SSH to match the rest of the suite; the CI runner has SSH access
+        # to all CHIP-SPV mirrors. (Initial attempt with HTTPS hit
+        # 'could not read Username' because the runner's git config
+        # requires a credential helper for github.com.)
+        repo="git@github.com:CHIP-SPV/chipFFT.git",
+        depends_on=["chipstar"],
+        description=("Portable hipFFT API on chipStar + VkFFT (Level Zero). "
+                     "Mutually exclusive with H4I-HipFFT — both install "
+                     "lib/libhipfft.so. Disabled by default; opt in via "
+                     "-c chipfft."),
+        enabled=False,  # opt-in; conflicts with H4I-HipFFT
+        cmake_flags=[
+            "-DCHIPFFT_BUILD_TESTS=OFF",
+            "-DCHIPFFT_BACKEND=LEVEL_ZERO",
+        ],
+        test_cmake_flags=["-DCHIPFFT_BUILD_TESTS=ON"],
+        git_submodule_update=True,  # third_party/VkFFT is a submodule
+    ),
+    Component(
         name="hipmm",
         display_name="hipMM",
         repo="git@github.com:CHIP-SPV/hipMM.git",
@@ -786,6 +807,7 @@ class Builder:
             ("H4I-HipBLAS",   "lib/libhipblas.so"),
             ("H4I-HipSOLVER", "lib/libhipsolver.so"),
             ("H4I-HipFFT",    "lib/libhipfft.so"),
+            ("chipFFT",       "include/chipfft/chipfft_ext.h"),
             ("hipMM",         "include/rmm/rmm.hpp"),
         ]
 
@@ -1226,10 +1248,11 @@ def main():
         args.all = False
     
     if args.all:
-        # Enable all components
-        for comp in COMPONENTS:
-            comp.enabled = True
-        components_to_install = COMPONENTS[:]
+        # Enable all components that are on by default. Components with
+        # enabled=False (e.g. mutually-exclusive alternatives like chipfft
+        # vs H4I-HipFFT — both install lib/libhipfft.so) stay opt-in and
+        # require an explicit --components selection.
+        components_to_install = [c for c in COMPONENTS if c.enabled]
     elif args.components:
         # Parse component list
         component_names = [c.strip() for c in args.components.split(",")]
