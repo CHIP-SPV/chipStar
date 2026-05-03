@@ -1244,10 +1244,11 @@ def main():
         args.all = False
     
     if args.all:
-        # Enable all components
-        for comp in COMPONENTS:
-            comp.enabled = True
-        components_to_install = COMPONENTS[:]
+        # Enable all components that are on by default. Components with
+        # enabled=False (e.g. mutually-exclusive alternatives like chipfft
+        # vs H4I-HipFFT — both install lib/libhipfft.so) stay opt-in and
+        # require an explicit --components selection.
+        components_to_install = [c for c in COMPONENTS if c.enabled]
     elif args.components:
         # Parse component list
         component_names = [c.strip() for c in args.components.split(",")]
