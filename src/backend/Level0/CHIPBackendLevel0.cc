@@ -226,6 +226,20 @@ createSampler(CHIPDeviceLevel0 *ChipDev, const hipResourceDesc *PResDesc,
 void CHIPEventLevel0::reset() {
   logTrace("CHIPEventLevel0::reset() {} msg: {} handle: {}", (void *)this, Msg,
            (void *)Event_);
+
+  // If the event is still in flight (RECORDING), block until it completes
+  // before resetting the underlying L0 event. Otherwise zeEventHostReset
+  // races with the kernel/copy that's still signalling this event, the
+  // event's dependents see "ready" before the dependency actually
+  // completes, and downstream kernels read stale memory — surfaced by
+  // LAMMPS unit tests as NaN forces/stresses on every PairStyle.gpu case.
+  // (~CHIPEventLevel0 already does the same for destruction; mirror that
+  // for reuse.)
+  if (EventStatus_ == EVENT_STATUS_RECORDING) {
+    logTrace("CHIPEventLevel0::reset(): waiting for in-flight recording");
+    wait();
+  }
+
   {
     LOCK(DependsOnListMtx);
     DependsOnList.clear();
