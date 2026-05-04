@@ -5873,10 +5873,25 @@ hipError_t hipModuleGetGlobal(hipDeviceptr_t *Dptr, size_t *Bytes,
   LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Dptr, Bytes, Hmod, Name);
-  auto ChipModule = static_cast<chipstar::Module *>(Hmod);
+  auto *ChipModule = static_cast<chipstar::Module *>(Hmod);
 
   chipstar::DeviceVar *Var = ChipModule->getGlobalVar(Name);
+  ERROR_IF(!Var, hipErrorNotFound);
+
+  // Variables registered from a module-loaded SPIR-V (hipModuleLoadDataEx)
+  // are not allocated until something forces it. hipMemcpyToSymbol calls
+  // prepareDeviceVariables for this exact reason; do the same here so the
+  // returned device address is non-null. Without this, getDevAddr()
+  // returns nullptr and consumers (e.g. LAMMPS' hipMemcpyHtoD into a
+  // __device__ pointer slot) fail with hipErrorInvalidHandle.
+  {
+    auto *Device = Backend->getActiveDevice();
+    LOCK(Device->DeviceVarMtx);
+    ChipModule->prepareDeviceVariablesNoLock(Device, Device->getDefaultQueue());
+  }
+
   *Dptr = Var->getDevAddr();
+  if (Bytes) *Bytes = Var->getSize();
 
   RETURN(hipSuccess);
   CHIP_CATCH
