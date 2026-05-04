@@ -615,8 +615,16 @@ EXPORT long __chip_ctz_li(long var) { return ctz(var); }
                                    memory_scope_##SCOPE);                     \
   }
 
+// CUDA's atomicAdd / atomicSub / atomicMin / ... provide atomicity only,
+// not ordering — see CUDA C Programming Guide "Atomic Functions". ROCm/HIP
+// matches that on AMD. Default chipStar atomics here used memory_order_seq_cst,
+// which forces full device-scope acquire+release fences per atomic op on
+// Intel GPU (level0/opencl), serializing every contended atomic. Switch to
+// memory_order_relaxed to match CUDA/ROCm semantics (atomicity, no fences) —
+// drastically faster on hot, contended atomics. The _system and _block
+// variants keep seq_cst for now.
 #define DEF_CHIP_ATOMIC2(NAME, OP)                                            \
-  DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME, OP, seq_cst, device)                    \
+  DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME, OP, relaxed, device)                    \
   DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME##_system, OP, seq_cst, all_svm_devices)  \
   DEF_CHIP_ATOMIC2_ORDER_SCOPE (NAME##_block, OP, seq_cst, work_group)
 
