@@ -28,3 +28,11 @@ add_hip_test(TestHiprtcOptions.cc)
 add_hip_test(TestShellMetacharacters.cc)
 add_hip_test(TestConstantMemory.cc)
 add_hip_test(TestProjectionBasisKernel.cc)
+add_hip_test(TestHiprtcCacheNameExpressions.cc)
+# This test exercises the HIPRTC SPIR-V cache, so it needs CHIP_MODULE_CACHE_DIR
+# set in the environment at libCHIP static-init time. Use a private directory
+# under the build tree so the test does not collide with the default cache
+# location. The test itself clears any stale `hiprtc/` subdir at startup so
+# repeat ctest invocations always start from a known-empty cache.
+set_tests_properties(TestHiprtcCacheNameExpressions PROPERTIES
+  ENVIRONMENT "CHIP_MODULE_CACHE_DIR=${CMAKE_CURRENT_BINARY_DIR}/test_cache_TestHiprtcCacheNameExpressions")
