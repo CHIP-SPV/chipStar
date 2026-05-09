@@ -3197,6 +3197,20 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   auto Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
                                             : ChipEnvVars.getJitFlags() + " " +
                                                   Backend->getDefaultJitFlags();
+  // On Intel GPUs, IGC's RetryManager can convert high-register-pressure
+  // kernels into stack-call functions and merge them into a single
+  // Intel_Symbol_Table_Void_Program "kernel", making the originals invisible
+  // to zeModuleGetKernelNames / clCreateKernels. Disable IGC recompilation
+  // to keep all OpEntryPoint Kernel entries as standalone kernels.
+  ze_device_properties_t DevProps{};
+  DevProps.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+  bool IsIntelGPU = false;
+  if (zeDeviceGetProperties(LzDev->get(), &DevProps) == ZE_RESULT_SUCCESS) {
+    IsIntelGPU = (DevProps.vendorId == 0x8086) &&
+                 (DevProps.type == ZE_DEVICE_TYPE_GPU);
+  }
+  if (IsIntelGPU && Flags.find("DisableRecompilation") == std::string::npos)
+    Flags += " -igc_opts 'DisableRecompilation=1'";
   logInfo("JIT flags: {}", Flags);
   std::vector<const char *> BuildFlags(1, Flags.c_str());
 

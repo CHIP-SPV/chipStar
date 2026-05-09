@@ -918,6 +918,16 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   auto Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
                                             : ChipEnvVars.getJitFlags() + " " +
                                                   Backend->getDefaultJitFlags();
+  // See note in CHIPModuleOpenCL::compile() — disable IGC recompilation on
+  // Intel GPUs to prevent the RetryManager from collapsing high-register-
+  // pressure kernels into Intel_Symbol_Table_Void_Program (stack-call ABI),
+  // which makes them invisible to clCreateKernels.
+  std::string IlVendor = ChipDev.get()->getInfo<CL_DEVICE_VENDOR>();
+  bool IlIsIntelGPU =
+      (IlVendor.find("Intel") != std::string::npos) &&
+      (ChipDev.get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
+  if (IlIsIntelGPU && Flags.find("DisableRecompilation") == std::string::npos)
+    Flags += " -igc_opts 'DisableRecompilation=1'";
   logInfo("JIT flags: {}", Flags);
   Err = clCompileProgram(Prog.get(), 1, &DevId, Flags.c_str(), 0, nullptr,
                          nullptr, nullptr, nullptr);
@@ -1260,6 +1270,19 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
                        ? ChipEnvVars.getJitFlagsOverride()
                        : ChipEnvVars.getJitFlags() + " " +
                              Backend->getDefaultJitFlags();
+      // On Intel GPUs (IGC), if a kernel has high register pressure (e.g.,
+      // very large argument lists), IGC's RetryManager may recompile it with
+      // a stack-call ABI. The recompiled kernels are then merged into a
+      // single Intel_Symbol_Table_Void_Program section and are no longer
+      // exposed via clCreateKernels, causing host-side launch lookups to
+      // fail. Disable IGC recompilation to keep all OpEntryPoint Kernel
+      // entries as standalone, callable OpenCL kernels.
+      std::string Vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
+      bool IsIntelGPU =
+          (Vendor.find("Intel") != std::string::npos) &&
+          (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
+      if (IsIntelGPU && Flags.find("DisableRecompilation") == std::string::npos)
+        Flags += " -igc_opts 'DisableRecompilation=1'";
       Err = clBuildProgram(Program_.get(), 1, &DevId, Flags.c_str(),
                            nullptr, nullptr);
       dumpProgramLog(*ChipDevOcl, Program_);
