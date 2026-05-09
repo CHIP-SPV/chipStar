@@ -230,6 +230,17 @@ void CHIPEventLevel0::reset() {
     LOCK(DependsOnListMtx);
     DependsOnList.clear();
   }
+  // hipStreamSynchronize waits for the queue to drain but does not poll any
+  // particular event's status. The host-side EventStatus_ only transitions
+  // RECORDING -> RECORDED via zeEventQueryStatus (called from
+  // hipEventQuery/hipEventSynchronize), so an event recorded on a stream that
+  // has since been synchronized stays in RECORDING here even though the
+  // underlying L0 event has completed. Demote it before warning so the warn
+  // line only fires on a truly in-flight record.
+  if (EventStatus_ == EVENT_STATUS_RECORDING &&
+      zeEventQueryStatus(Event_) == ZE_RESULT_SUCCESS)
+    EventStatus_ = EVENT_STATUS_RECORDED;
+
   zeStatus = zeEventHostReset(Event_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostReset);
   TrackCalled_ = false;
