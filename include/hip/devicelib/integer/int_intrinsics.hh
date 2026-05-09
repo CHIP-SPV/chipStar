@@ -99,9 +99,23 @@ __brevll(unsigned long long int x) {
 
 extern "C" __device__ unsigned int
 __chip_byte_perm(unsigned int x, unsigned int y, unsigned int s); // Custom
+// Inline implementation of CUDA's __byte_perm. Forms an 8-byte array
+// from {x, y} (x = bytes 0-3, y = bytes 4-7); each nibble of selector
+// 's' (low 3 bits used) picks one source byte for the corresponding
+// output byte. Implemented inline to allow the compiler to constant-
+// fold and avoid the device-library function call overhead, which is
+// significant when used inside a tight kernel loop (e.g. f16 max).
 extern "C++" inline __device__ unsigned int
 __byte_perm(unsigned int x, unsigned int y, unsigned int s) {
-  return __chip_byte_perm(x, y, s);
+  unsigned int result = 0;
+#pragma unroll
+  for (int i = 0; i < 4; ++i) {
+    unsigned int sel = (s >> (i * 4)) & 0x7u;
+    unsigned int src = (sel < 4u) ? x : y;
+    unsigned int byte = (src >> ((sel & 0x3u) * 8u)) & 0xffu;
+    result |= byte << (i * 8u);
+  }
+  return result;
 }
 
 extern "C++" inline __device__ int __clz(int x) { return __builtin_clz(x); }
