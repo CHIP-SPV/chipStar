@@ -52,6 +52,19 @@ std::atomic_ulong CHIPNumRegisteredFatBinaries;
 
 EnvVars ChipEnvVars;
 
+// Best-effort: enable Intel Compute Runtime (NEO) "unrestricted size"
+// allocations so that single OpenCL/L0 allocations larger than the device's
+// reported maxMemAllocSize (e.g. the 4 GiB cap on Arc / Data Center GPUs)
+// succeed when sufficient device memory is available. These env vars are
+// honored only by Intel's NEO driver and ignored elsewhere; setting them
+// before any OpenCL/L0 driver call (via a static initializer) is required
+// so that the driver picks them up at load time. Using setenv with
+// overwrite=0 preserves any user-provided override.
+__attribute__((constructor(101))) static void chipEnableNeoLargeAlloc() {
+  setenv("NEOReadDebugKeys", "1", /*overwrite=*/0);
+  setenv("AllowUnrestrictedSize", "1", /*overwrite=*/0);
+}
+
 // CUDA Driver API: "If cuInit() has not been called, any function
 // from the driver API will return CUDA_ERROR_NOT_INITIALIZED".
 //

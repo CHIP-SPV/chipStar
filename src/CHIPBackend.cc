@@ -1360,13 +1360,20 @@ void *chipstar::Context::allocate(size_t Size, size_t Alignment,
     return HostPtr;
   }
 
+  // NOTE: Drivers (Intel L0/OpenCL on discrete GPUs) commonly report a
+  // conservative CL_DEVICE_MAX_MEM_ALLOC_SIZE / ze_device_properties.maxMemAllocSize
+  // (often 4 GiB) even though larger single allocations are achievable via
+  // Level Zero relaxed allocation limits or Intel USM. Rather than rejecting
+  // the request up-front, log a warning when exceeding the reported cap and
+  // let the backend allocator attempt the allocation. The backend
+  // (CHIPContextLevel0::allocateImpl / CHIPContextOpenCL::allocateImpl) will
+  // pass the appropriate relaxed flags and surface a real OOM if the driver
+  // truly cannot satisfy the request.
   if (Size > ChipDev->getMaxMallocSize()) {
-    logCritical("Requested allocation of {} exceeds the maximum size of a "
-                "single allocation of {}",
-                Size, ChipDev->getMaxMallocSize());
-    CHIPERR_LOG_AND_THROW(
-        "Allocation size exceeds limits for a single allocation",
-        hipErrorOutOfMemory);
+    logWarn("Requested allocation of {} exceeds the device-reported maximum "
+            "single-allocation size of {}; attempting with relaxed allocation "
+            "limits.",
+            Size, ChipDev->getMaxMallocSize());
   }
   assert(ChipDev->getContext() == this);
 

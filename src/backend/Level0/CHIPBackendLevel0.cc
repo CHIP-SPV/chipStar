@@ -2435,9 +2435,20 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
   ze_device_mem_alloc_flags_t DeviceFlags =
       ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED;
 
+  // Always opt into the relaxed allocation limits extension so single
+  // allocations larger than ze_device_properties.maxMemAllocSize (e.g. the
+  // 4 GiB cap reported by Intel Arc / Data Center GPU drivers) succeed when
+  // sufficient device memory is available. The descriptor is harmless for
+  // smaller allocations.
+  ze_relaxed_allocation_limits_exp_desc_t RelaxedDesc{
+      /* stype = */ ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC,
+      /* pNext = */ nullptr,
+      /* flags = */ ZE_RELAXED_ALLOCATION_LIMITS_EXP_FLAG_MAX_SIZE,
+  };
+
   ze_device_mem_alloc_desc_t DmaDesc{
       /* DmaDesc.stype   = */ ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
-      /* DmaDesc.pNext   = */ nullptr,
+      /* DmaDesc.pNext   = */ &RelaxedDesc,
       /* DmaDesc.flags   = */ DeviceFlags,
       /* DmaDesc.ordinal = */ 0,
   };
@@ -2446,7 +2457,7 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     HostFlags += ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED;
   ze_host_mem_alloc_desc_t HmaDesc{
       /* HmaDesc.stype = */ ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
-      /* HmaDesc.pNext = */ nullptr,
+      /* HmaDesc.pNext = */ &RelaxedDesc,
       /* HmaDesc.flags = */ HostFlags,
   };
   if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
