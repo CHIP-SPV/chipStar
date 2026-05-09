@@ -1392,10 +1392,23 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   if (!ModInfo.HasNoIGBAs) {
     // skpiing this check because PVC has a hardcoded value for this flag even though it's not supported:
     // if (!LzDev->hasOnDemandPaging())
-    zeStatus = zeKernelSetIndirectAccess(
-        KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
-                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetIndirectAccess);
+    // The L0 driver appears to serialize zeKernelSetIndirectAccess across
+    // threads (it can deadlock or extreme-slow under back-to-back launches).
+    // The flag is a property of the kernel handle and only needs to be set
+    // once per kernel, not per launch. Cache the result and skip the call
+    // if it has already been performed for this kernel.
+    bool Expected = false;
+    if (ChipKernel->IndirectAccessSet_.compare_exchange_strong(
+            Expected, true, std::memory_order_acq_rel)) {
+      zeStatus = zeKernelSetIndirectAccess(
+          KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
+                        ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
+      if (zeStatus != ZE_RESULT_SUCCESS) {
+        // Reset the flag so a future launch can retry.
+        ChipKernel->IndirectAccessSet_.store(false, std::memory_order_release);
+      }
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelSetIndirectAccess);
+    }
   }
 
   // if there's a spill buffer, we must use an event so we can track when
