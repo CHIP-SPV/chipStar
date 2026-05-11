@@ -2038,6 +2038,7 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
                    AllocInfo.DevPtr);
           return;
         }
+      }
       void *Src = PreKernel ? AllocInfo.HostPtr : AllocInfo.DevPtr;
       void *Dst = PreKernel ? AllocInfo.DevPtr : AllocInfo.HostPtr;
       logDebug("Sync managed memory {} -> {} ({})", Src, Dst,
