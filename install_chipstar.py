@@ -201,14 +201,14 @@ COMPONENTS = [
         # requires a credential helper for github.com.)
         repo="git@github.com:CHIP-SPV/chipFFT.git",
         depends_on=["chipstar"],
-        description=("Portable hipFFT API on chipStar + VkFFT (OpenCL). "
+        description=("Portable hipFFT API on chipStar + VkFFT (Level Zero). "
                      "Mutually exclusive with H4I-HipFFT — both install "
                      "lib/libhipfft.so. Disabled by default; opt in via "
                      "-c chipfft."),
         enabled=False,  # opt-in; conflicts with H4I-HipFFT
         cmake_flags=[
             "-DCHIPFFT_BUILD_TESTS=OFF",
-            "-DCHIPFFT_BACKEND=OPENCL",
+            "-DCHIPFFT_BACKEND=LEVEL_ZERO",
         ],
         test_cmake_flags=["-DCHIPFFT_BUILD_TESTS=ON"],
         git_submodule_update=True,  # third_party/VkFFT is a submodule
