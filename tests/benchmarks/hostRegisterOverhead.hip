@@ -74,7 +74,7 @@ int main() {
             << without_ms << " ms  (" << without_ms / N_KERNELS << " ms/kernel)\n";
   std::cout << "overhead factor: " << with_ms / without_ms << "x\n";
 
-  if(  with_ms / without_ms > 10 ) {
+  if(  with_ms / without_ms > 5 ) {
       printf( "Fail");
       return 1;
   }
