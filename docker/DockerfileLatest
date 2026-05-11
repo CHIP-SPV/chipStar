@@ -10,6 +10,11 @@ SHELL ["/bin/bash", "-ci"]
 #//                                                                                                                                        //
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+# Fail fast if the base image isn't what we expect (LLVM 22 native + OneAPI 2025.3.2).
+# A prior `;`-chained DockerfileBase silently shipped without /apps/llvm/22.0-native populated.
+RUN test -x /apps/llvm/22.0-native/bin/clang || { echo "ERROR: /apps/llvm/22.0-native/bin/clang missing — base image is stale, rebuild pveleskopglc/chipstar:base"; exit 1; }
+RUN test -d /apps/conda/envs/oneapi-2025.3.2 || { echo "ERROR: oneapi-2025.3.2 conda env missing — base image is stale, rebuild pveleskopglc/chipstar:base"; exit 1; }
+
 RUN clinfo -l
 
 ENV CHIP_BE=opencl
@@ -18,17 +23,24 @@ ENV CHIP_LOGLEVEL=info
 ENV NEOReadDebugKeys=1
 ENV OverrideGpuAddressSpace=48
 
-RUN module unload pocl && module load oneapi/2024.1.0 &&  module load pocl && clinfo -l
+RUN module unload pocl && module load oneapi/2025.3.2 && module load llvm/22.0-native && module load pocl && clinfo -l
 
-RUN module unload pocl; module load oneapi/2024.1.0 && which icpx && git clone https://github.com/CHIP-SPV/chipStar.git && \
+# Re-load llvm/22.0-native AFTER oneapi so /apps/llvm/22.0-native/bin/clang wins in PATH
+# (oneapi ships its own icx/clang). With LLVM >=22 + the native target,
+# chipStar auto-enables CHIP_LLVM_USE_INTERGRATED_SPIRV.
+RUN module unload pocl; module load oneapi/2025.3.2 && module load llvm/22.0-native && which clang && which icpx && \
+    git clone https://github.com/CHIP-SPV/chipStar.git && \
     cd chipStar && \
     git submodule update --init --recursive && \
     mkdir build && \
     cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON && \
     make -j$(nproc) && \
-    /home/chipStarUser/chipStar/build/samples/0_MatrixMultiply/MatrixMultiply && \
-    sudo make install 
+    sudo make install
+# Note: the MatrixMultiply smoke-test that used to run here was removed —
+# `docker build` has no /dev/dri/* passthrough on the CI runner (or anywhere
+# else by default), so CHIP_DEVICE_TYPE=gpu finds no devices and aborts.
+# End-users run samples after `docker run --device /dev/dri/...` per docker.md.
 
 #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #//                                                                                                                                        //
