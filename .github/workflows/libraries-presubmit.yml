@@ -353,6 +353,24 @@ jobs:
           export HIP_PATH=$CHIP_INSTALL
           export HIP_PLATFORM=spirv
           export CHIP_LOGLEVEL=err
+          # Mali-G52 lacks native fp64. CLBlast returns kNoDoublePrecision
+          # (-2044) for every d*/z* test and chipFFT's z2z/d2z plans abort
+          # at first kernel build. Skip those via the existing per-library
+          # exclude.txt convention; single-precision + complex-single cover
+          # the API surface this lane is meant to gate.
+          mkdir -p $STAGING/staging/chipBLAS/.ci
+          {
+            echo "^l[123]:d"
+            echo "^l3:z"
+            echo "^conformance:d"
+            echo "^conformance:zgemm"
+            echo "^api_surface$"
+          } > $STAGING/staging/chipBLAS/.ci/exclude.txt
+          mkdir -p $STAGING/staging/chipFFT/.ci
+          {
+            echo "z2z"
+            echo "d2z"
+          } > $STAGING/staging/chipFFT/.ci/exclude.txt
 
           failed=0
           for lib_staging in $STAGING/staging/*/; do
