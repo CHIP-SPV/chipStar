@@ -74,7 +74,18 @@ jobs:
           export OverrideDefaultFP64Settings=1
 
           failed=0
-          for lib_staging in $STAGING/staging/*/; do
+          # H4I-MKLShim's batch_correctness_test SEGFAULTs when run after
+          # H4I-HipBLAS/FFT/SOLVER because those tests leave dirty SYCL/L0
+          # context state on the GPU. Run H4I-MKLShim first (clean GPU state).
+          all_libs=$(ls -d $STAGING/staging/*/ 2>/dev/null || true)
+          mklshim_dir=$(echo "$all_libs" | grep "H4I-MKLShim" || true)
+          other_libs=$(echo "$all_libs" | grep -v "H4I-MKLShim" || true)
+          ordered_libs=$(
+            [ -n "$mklshim_dir" ] && echo "$mklshim_dir"
+            [ -n "$other_libs" ] && echo "$other_libs"
+          )
+          while IFS= read -r lib_staging; do
+            [ -z "$lib_staging" ] && continue
             lib=$(basename $lib_staging)
             lib_build="$lib_staging/build"
             if [ ! -d "$lib_build" ]; then
@@ -100,7 +111,7 @@ jobs:
             else
               echo "=== $lib: no CTest tests ==="
             fi
-          done
+          done <<< "$ordered_libs"
           if [ $failed -gt 0 ]; then
             echo "::error::$failed libraries had test failures"
             exit 1
