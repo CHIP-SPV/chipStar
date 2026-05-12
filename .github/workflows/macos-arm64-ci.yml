@@ -146,6 +146,15 @@ jobs:
           export SPIRV_TOOLS_PREFIX=$(brew --prefix spirv-tools)
           export CMAKE_PREFIX_PATH="${SPIRV_TOOLS_PREFIX}:${CMAKE_PREFIX_PATH:-}"
 
+          # Steer find_package(OpenCL) at chipFFT/chipBLAS configure time:
+          # both set CMAKE_FIND_FRAMEWORK=NEVER on Apple to avoid the
+          # OpenCL.framework, which means CMake won't auto-discover
+          # libOpenCL.dylib unless we point at the ocl-icd-loader prefix.
+          # OpenCL_ROOT is honored via CMP0074; CMAKE_LIBRARY_PATH /
+          # CMAKE_INCLUDE_PATH cover older FindOpenCL paths.
+          export OpenCL_ROOT=/Users/paulius/install/ocl-icd-loader
+          export CMAKE_LIBRARY_PATH=${OpenCL_ROOT}/lib:${CMAKE_LIBRARY_PATH:-}
+          export CMAKE_INCLUDE_PATH=${OpenCL_ROOT}/include:${CMAKE_INCLUDE_PATH:-}
           STAGING=${{ runner.temp }}/chipfft-chipblas-staging
           rm -rf $STAGING
 
