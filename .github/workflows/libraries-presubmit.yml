@@ -42,6 +42,11 @@ jobs:
           module load oneapi/2025.0.4 llvm/22.0-native level-zero/dgpu
           module list
 
+          # rocSPARSE/hipSPARSE clients/tests require GTest >= 1.11; it lives
+          # in the meatloaf miniconda env. Login shells activate it, but GH
+          # Actions runs non-login, so put it on CMAKE_PREFIX_PATH explicitly.
+          export CMAKE_PREFIX_PATH="/home/pvelesko/miniconda3:${CMAKE_PREFIX_PATH:-}"
+
           STAGING=/tmp/chipstar-ci-staging/${{ github.event.pull_request.number }}
           rm -rf $STAGING
 
