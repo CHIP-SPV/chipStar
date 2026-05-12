@@ -247,6 +247,10 @@ jobs:
           export HIP_PATH=$CHIP_INSTALL
           export HIP_PLATFORM=spirv
           export CHIP_LOGLEVEL=err
+          # PoCL on Apple Silicon (CPU device) has no fp16 OpenCL kernels, so
+          # CLBlast errors out on hipblasH* calls. The chipBLAS api_surface
+          # test honors this env var to skip the half-precision section.
+          export CHIPBLAS_SKIP_HALF_API_SURFACE=1
 
           failed=0
           for lib_staging in $STAGING/staging/*/; do
