@@ -9,7 +9,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Meatloaf runs the negative test first (cheap: a single dry-run that
+  # asserts the LZ refusal). If chipfft/chipblas suddenly become installable
+  # on a Level Zero host, fail before spending 30+ minutes on the --all
+  # build-and-test. Pastrami and salami have no dependency and run in
+  # parallel since they don't share runners or policy concerns with meatloaf.
   build-and-test-libraries-meatloaf:
+    needs: refuse-chipfft-chipblas-on-level-zero
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
