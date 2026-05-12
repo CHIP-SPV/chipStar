@@ -201,17 +201,30 @@ COMPONENTS = [
         # requires a credential helper for github.com.)
         repo="git@github.com:CHIP-SPV/chipFFT.git",
         depends_on=["chipstar"],
-        description=("Portable hipFFT API on chipStar + VkFFT (Level Zero). "
+        description=("Portable hipFFT API on chipStar + VkFFT (OpenCL). "
                      "Mutually exclusive with H4I-HipFFT — both install "
-                     "lib/libhipfft.so. Disabled by default; opt in via "
-                     "-c chipfft."),
+                     "lib/libhipfft.so. Refuses to configure on Level Zero "
+                     "systems (use H4I-HipFFT there). Disabled by default; "
+                     "opt in via -c chipfft."),
         enabled=False,  # opt-in; conflicts with H4I-HipFFT
-        cmake_flags=[
-            "-DCHIPFFT_BUILD_TESTS=OFF",
-            "-DCHIPFFT_BACKEND=LEVEL_ZERO",
-        ],
+        cmake_flags=["-DCHIPFFT_BUILD_TESTS=OFF"],
         test_cmake_flags=["-DCHIPFFT_BUILD_TESTS=ON"],
         git_submodule_update=True,  # third_party/VkFFT is a submodule
+    ),
+    Component(
+        name="chipblas",
+        display_name="chipBLAS",
+        repo="git@github.com:CHIP-SPV/chipBLAS.git",
+        depends_on=["chipstar"],
+        description=("Portable hipBLAS API on chipStar + CLBlast (OpenCL). "
+                     "Mutually exclusive with H4I-HipBLAS — both install "
+                     "lib/libhipblas.so. Refuses to configure on Level Zero "
+                     "systems (use H4I-HipBLAS there). Disabled by default; "
+                     "opt in via -c chipblas."),
+        enabled=False,  # opt-in; conflicts with H4I-HipBLAS
+        cmake_flags=["-DCHIPBLAS_BUILD_TESTS=OFF"],
+        test_cmake_flags=["-DCHIPBLAS_BUILD_TESTS=ON"],
+        git_submodule_update=True,  # third_party/CLBlast is a submodule
     ),
     Component(
         name="hipmm",
@@ -224,6 +237,41 @@ COMPONENTS = [
         with_hip_include_flag=True,
     ),
 ]
+
+
+# ============================================================================
+# System Capability Detection
+# ============================================================================
+
+# Components that require an OpenCL-only / Level-Zero-free environment.
+# Their upstream CMake (chipFFT, chipBLAS) hard-errors when Level Zero is
+# present, directing users to the H4I-* MKL-backed alternatives. We mirror
+# that policy here so the installer never even tries — it shows them as
+# unavailable in --list / the interactive menu and refuses --components
+# requests with a clear message.
+LZ_INCOMPATIBLE_COMPONENTS = {"chipfft", "chipblas"}
+
+
+def detect_level_zero() -> Optional[str]:
+    """Return a short reason string if Level Zero is detected, else None.
+
+    Matches the find_path/find_library probes used by chipFFT and chipBLAS:
+    presence of <level_zero/ze_api.h> or libze_loader on standard paths.
+    """
+    header_hints = ["/usr/local/include", "/usr/include"]
+    lib_hints = [
+        "/usr/local/lib", "/usr/lib",
+        "/usr/lib/x86_64-linux-gnu", "/usr/lib/aarch64-linux-gnu",
+        "/usr/lib64",
+    ]
+    for d in header_hints:
+        if (Path(d) / "level_zero" / "ze_api.h").exists():
+            return f"found {d}/level_zero/ze_api.h"
+    for d in lib_hints:
+        for soname in ("libze_loader.so", "libze_loader.so.1"):
+            if (Path(d) / soname).exists():
+                return f"found {d}/{soname}"
+    return None
 
 
 # ============================================================================
@@ -808,6 +856,7 @@ class Builder:
             ("H4I-HipSOLVER", "lib/libhipsolver.so"),
             ("H4I-HipFFT",    "lib/libhipfft.so"),
             ("chipFFT",       "include/chipfft/chipfft_ext.h"),
+            ("chipBLAS",      "include/chipblas/chipblas_ext.h"),
             ("hipMM",         "include/rmm/rmm.hpp"),
         ]
 
@@ -1202,11 +1251,20 @@ Examples:
 def list_components():
     """Print list of available components."""
     print(f"\n{Colors.BOLD}Available Components:{Colors.NC}\n")
-    
+
+    lz_reason = detect_level_zero()
+    if lz_reason:
+        print(f"  {Colors.YELLOW}Note:{Colors.NC} Level Zero detected ({lz_reason}). "
+              f"Components {sorted(LZ_INCOMPATIBLE_COMPONENTS)} are disabled on this "
+              f"system — use the H4I-* equivalents instead.\n")
+
     for comp in COMPONENTS:
         deps = f" (requires: {', '.join(comp.depends_on)})" if comp.depends_on else ""
-        print(f"  {Colors.CYAN}{comp.name:12}{Colors.NC} {comp.display_name:16} {comp.description}{deps}")
-    
+        disabled_tag = ""
+        if lz_reason and comp.name in LZ_INCOMPATIBLE_COMPONENTS:
+            disabled_tag = f" {Colors.RED}[disabled: Level Zero present]{Colors.NC}"
+        print(f"  {Colors.CYAN}{comp.name:12}{Colors.NC} {comp.display_name:16} {comp.description}{deps}{disabled_tag}")
+
     print()
 
 
@@ -1247,6 +1305,12 @@ def main():
         print(f"{Colors.YELLOW}[WARNING]{Colors.NC} Both --all and -c specified. Using -c (ignoring --all).")
         args.all = False
     
+    # Refuse to build components that need an OpenCL-only environment if
+    # Level Zero is detected on this host. Their upstream CMake errors out
+    # with the same policy; we surface it earlier here so users (and CI)
+    # get a single, actionable error instead of a half-built dependency tree.
+    lz_reason = detect_level_zero()
+
     if args.all:
         # Enable all components that are on by default. Components with
         # enabled=False (e.g. mutually-exclusive alternatives like chipfft
@@ -1257,11 +1321,23 @@ def main():
         # Parse component list
         component_names = [c.strip() for c in args.components.split(",")]
         component_map = {c.name: c for c in COMPONENTS}
-        
+
+        if lz_reason:
+            blocked = [n for n in component_names if n in LZ_INCOMPATIBLE_COMPONENTS]
+            if blocked:
+                print(f"{Colors.RED}[ERROR]{Colors.NC} Level Zero was detected on this "
+                      f"system ({lz_reason}).")
+                print(f"  Refusing to install: {', '.join(blocked)}")
+                print(f"  These components target the OpenCL stack only. On Level Zero "
+                      f"hosts use the H4I-* equivalents:")
+                print(f"    chipfft  -> H4I-HipFFT  (component: hipfft)")
+                print(f"    chipblas -> H4I-HipBLAS (component: hipblas)")
+                return 1
+
         # First disable all components, then enable only requested ones + deps
         for comp in COMPONENTS:
             comp.enabled = False
-        
+
         # Enable requested components and their dependencies
         installer = InteractiveInstaller(COMPONENTS, config)
         for name in component_names:
@@ -1271,7 +1347,7 @@ def main():
                 print(f"{Colors.RED}[ERROR]{Colors.NC} Unknown component: {name}")
                 print(f"Use --list to see available components.")
                 return 1
-        
+
         components_to_install = installer.get_enabled_components()
     else:
         # Interactive mode
