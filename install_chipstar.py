@@ -48,6 +48,11 @@ class Component:
       test_cmake_flags: -D flags appended only when --with-tests is passed.
       with_clang_compiler_path: append -DCLANG_COMPILER_PATH=<llvm_clang>.
       with_hip_include_flag: append -DCMAKE_CXX_FLAGS=-I<HIP_PATH>/include.
+      with_plain_clang_compiler: append -DCMAKE_CXX_COMPILER=<llvm_clang>,
+                       overriding the default hipcc. Needed for components
+                       that bundle a non-HIP C++ subdirectory (e.g. chipBLAS
+                       + CLBlast); hipcc auto-injects -include spirv_fixups.h
+                       which collides with std::complex<float> typedefs.
       use_cwd_if_chipstar_repo / git_submodule_update: chipStar-only source
                        handling (reuse in-tree checkout, init submodules).
     """
@@ -58,6 +63,7 @@ class Component:
                  test_cmake_flags=None,
                  with_clang_compiler_path=False,
                  with_hip_include_flag=False,
+                 with_plain_clang_compiler=False,
                  use_cwd_if_chipstar_repo=False,
                  git_submodule_update=False):
         self.name = name
@@ -72,6 +78,7 @@ class Component:
         self.test_cmake_flags = list(test_cmake_flags) if test_cmake_flags else []
         self.with_clang_compiler_path = with_clang_compiler_path
         self.with_hip_include_flag = with_hip_include_flag
+        self.with_plain_clang_compiler = with_plain_clang_compiler
         self.use_cwd_if_chipstar_repo = use_cwd_if_chipstar_repo
         self.git_submodule_update = git_submodule_update
     
@@ -224,6 +231,14 @@ COMPONENTS = [
         enabled=False,  # opt-in; conflicts with H4I-HipBLAS
         cmake_flags=["-DCHIPBLAS_BUILD_TESTS=OFF"],
         test_cmake_flags=["-DCHIPBLAS_BUILD_TESTS=ON"],
+        # chipBLAS bundles CLBlast via add_subdirectory; CLBlast is pure
+        # OpenCL C++ and must not be built with hipcc — hipcc auto-includes
+        # spirv_fixups.h which redefines float2/double2 as HIP vector types
+        # and collides with CLBlast's std::complex<float> aliases. Use plain
+        # clang++ + HIP_PATH/include so chipBLAS itself still sees the HIP
+        # headers via __HIP_PLATFORM_SPIRV__ without dragging the fixups in.
+        with_plain_clang_compiler=True,
+        with_hip_include_flag=True,
         git_submodule_update=True,  # third_party/CLBlast is a submodule
     ),
     Component(
@@ -1070,6 +1085,10 @@ class Builder:
             f"-DCMAKE_INSTALL_PREFIX={install_dir}",
             *self._compiler_cmake_flags(component),
         ]
+        if component.with_plain_clang_compiler:
+            # Later -D wins in the CMake cache, so this overrides the default
+            # -DCMAKE_CXX_COMPILER=<hipcc> from _compiler_cmake_flags.
+            cmake_args.append(f"-DCMAKE_CXX_COMPILER={self.llvm_clang}")
         if component.with_clang_compiler_path:
             cmake_args.append(f"-DCLANG_COMPILER_PATH={self.llvm_clang}")
         cmake_args.extend(component.cmake_flags)
