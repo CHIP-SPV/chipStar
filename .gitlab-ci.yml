@@ -215,7 +215,7 @@ performance_hoMusic:
   script:
     - cd ${GENESIS_CI_PROJECT_DIR}
     - |
-      TIME_STR=$(grep "real" output | awk '{print $2}')
+      TIME_STR=$(grep "real" output | tail -n 1 | awk '{print $2}')
       echo "Extracted time: $TIME_STR"
 
       # Convert to total seconds using awk (handles 1m50.315s -> 110.315)
