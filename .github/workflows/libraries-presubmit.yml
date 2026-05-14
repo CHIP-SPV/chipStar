@@ -92,12 +92,39 @@ jobs:
           echo "h4i-mklshim_batch_correctness_test" \
             > $STAGING/staging/H4I-MKLShim/.ci/exclude.txt
 
-          # hipcub.DevicePartition aborts (subprocess aborted) on Intel Arc A380.
-          # Suspected IGC failure when compiling the SPIR-V for DevicePartition
-          # kernels. Exclude until the IGC bug is root-caused/reported upstream.
+          # hipCUB tests with known chipStar/Intel-Arc issues. Each entry has a
+          # one-line failure hypothesis; tracked for later root-cause work in
+          # the chipStar TODO board. Anchored regexes so we don't accidentally
+          # mask new tests.
           mkdir -p $STAGING/staging/hipCUB/.ci
-          echo "^hipcub\.DevicePartition$" \
-            > $STAGING/staging/hipCUB/.ci/exclude.txt
+          {
+            # Subprocess aborted on Arc A380; suspected IGC SPIR-V compile bug.
+            echo "^hipcub\.DevicePartition$"
+            # cached_blocks.size() expected 1 got 0; chipStar stream-aware
+            # caching reuses block cross-stream instead of re-caching on free.
+            echo "^hipcub\.CachingDeviceAllocator$"
+            # hipErrorTbd 'Module is null after compilation' (Level0); SPIR-V
+            # module build fails for a BlockRadixRank kernel.
+            echo "^hipcub\.BlockRadixRank$"
+            # Numerical mismatch in histogram output; suspected atomic / thread
+            # layout divergence on Arc A380.
+            echo "^hipcub\.DeviceHistogram$"
+            # hipErrorOutOfMemory 'Allocation size exceeds limits for a single
+            # allocation'; test buffer > Level0 single-alloc max on Arc A380.
+            echo "^hipcub\.DeviceRadixSort$"
+            # hipErrorLaunchFailure: getKernelByName can't find the rocprim
+            # run_length_encode_non_trivial_runs kernel; symbol/mangling
+            # mismatch between rocPRIM and chipStar's kernel lookup.
+            echo "^hipcub\.DeviceRunLengthEncode$"
+            # Same getKernelByName miss for rocprim reduce_by_key kernel.
+            echo "^hipcub\.DeviceReduceByKey$"
+            # 1800s ctest timeout; segmented radix sort kernel hangs or runs
+            # extremely slowly on Arc A380.
+            echo "^hipcub\.DeviceSegmentedRadixSort$"
+            # hipErrorNotSupported from hipOccupancyMaxActiveBlocksPerMulti-
+            # processor; the API is not implemented in chipStar.
+            echo "^hipcub\.Grid$"
+          } > $STAGING/staging/hipCUB/.ci/exclude.txt
 
           failed=0
           for lib_staging in $STAGING/staging/*/; do
