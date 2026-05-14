@@ -92,6 +92,13 @@ jobs:
           echo "h4i-mklshim_batch_correctness_test" \
             > $STAGING/staging/H4I-MKLShim/.ci/exclude.txt
 
+          # hipcub.DevicePartition aborts (subprocess aborted) on Intel Arc A380.
+          # Suspected IGC failure when compiling the SPIR-V for DevicePartition
+          # kernels. Exclude until the IGC bug is root-caused/reported upstream.
+          mkdir -p $STAGING/staging/hipCUB/.ci
+          echo "^hipcub\.DevicePartition$" \
+            > $STAGING/staging/hipCUB/.ci/exclude.txt
+
           failed=0
           for lib_staging in $STAGING/staging/*/; do
             lib=$(basename $lib_staging)
