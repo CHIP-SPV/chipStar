@@ -59,6 +59,9 @@ if grep -qF "''-fPIC''" build.log; then
 fi
 if [ ! -f CMakeFiles/foo.dir/foo_generated_foo.hip.o ]; then
     echo "FAIL: foo_generated_foo.hip.o was not produced — compilation failed"
+    exit 1
+fi
+echo "Success"
 echo "### check CMake-CUDA"
 setup-test-dir
 
