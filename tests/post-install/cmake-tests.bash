@@ -62,6 +62,36 @@ if [ ! -f CMakeFiles/foo.dir/foo_generated_foo.hip.o ]; then
     exit 1
 fi
 echo "Success"
+echo
+
+echo "### Regression test (#1212): HIP_CLANG_PATH must not be exported when invalid"
+# After the spirv platform was routed through the clang branch in run_hipcc.cmake,
+# set(ENV{HIP_CLANG_PATH} ...) now fires for spirv. FindHIP.cmake's fallback for
+# HIP_CLANG_PATH is "$HIP_PATH/../llvm/bin" which is not a real LLVM dir for a
+# typical chipStar install layout. hipcc.bin then aborts with "HIP_CLANG_PATH was
+# set in the environment ... but llvm-config was not found".
+setup-test-dir
+unset HIP_CLANG_PATH
+# Use g++ as host compiler — this is the GENESIS scenario. When CMAKE_CXX_COMPILER
+# is clang++, FindHIP.cmake derives HIP_CLANG_PATH from its real path and the bug
+# does not trigger. With g++, FindHIP falls back to "$HIP_PATH/../llvm/bin".
+HIP_PATH=@CMAKE_INSTALL_PREFIX@ \
+cmake @CMAKE_CURRENT_SOURCE_DIR@/FindHIPLegacySpirvTarget \
+      -DCMAKE_PREFIX_PATH=@CMAKE_INSTALL_PREFIX@ \
+      -DCMAKE_MODULE_PATH=@CMAKE_INSTALL_PREFIX@/lib/cmake/hip \
+      -DCMAKE_CXX_COMPILER=g++
+ninja -v "CMakeFiles/foo.dir/foo_generated_foo.hip.o" 2>&1 | tee build.log || true
+if grep -qF "HIP_CLANG_PATH was set in the environment" build.log; then
+    echo "FAIL: hipcc.bin rejected the auto-fallback HIP_CLANG_PATH (issue #1212)"
+    exit 1
+fi
+if [ ! -f CMakeFiles/foo.dir/foo_generated_foo.hip.o ]; then
+    echo "FAIL: foo_generated_foo.hip.o was not produced"
+    exit 1
+fi
+echo "Success"
+echo
+
 echo "### check CMake-CUDA"
 setup-test-dir
 
