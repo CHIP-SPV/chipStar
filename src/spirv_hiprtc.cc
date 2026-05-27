@@ -116,7 +116,9 @@ static bool processOptions(chipstar::Program &Program, int NumOptions,
     if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") ||
         Match(OptionIn, "-I.*") || Match(OptionIn, "-g") ||
         Match(OptionIn, "-fno-eliminate-unused-debug-types") ||
-        Match(OptionIn, "-fno-eliminate-unused-debug-symbols")) {
+        Match(OptionIn, "-fno-eliminate-unused-debug-symbols") ||
+        Match(OptionIn, "-ffast-math") ||
+        Match(OptionIn, "-munsafe-fp-atomics")) {
       logDebug("hiprtc: accept option '{}'", std::string(OptionIn));
       OptionsOut.Options.emplace_back(OptionIn);
       continue;
