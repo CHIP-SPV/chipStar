@@ -59,16 +59,20 @@ static bool internalizeSPIRVFunctions(const GlobalValue &GV) {
   return !(F && F->getCallingConv() == CallingConv::SPIR_FUNC);
 }
 
-// A pass that removes optnone attributes from functions.  The noinline
-// attribute is intentionally preserved so that user-annotated
-// __attribute__((noinline)) functions propagate to SPIR-V
-// FunctionControl=DontInline.
+// Strip compiler-generated optnone+noinline pairs (debug builds) but
+// preserve user-annotated __attribute__((noinline)) so it propagates
+// to SPIR-V FunctionControl=DontInline.  When both optnone and
+// noinline are present, they came from the compiler; noinline alone
+// means the user asked for it explicitly.
 class RemoveNoInlineOptNoneAttrsPass
     : public PassInfoMixin<RemoveNoInlineOptNoneAttrsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
     for (auto &F : M) {
-      F.removeFnAttr(Attribute::OptimizeNone);
+      if (F.hasFnAttribute(Attribute::OptimizeNone)) {
+        F.removeFnAttr(Attribute::NoInline);
+        F.removeFnAttr(Attribute::OptimizeNone);
+      }
     }
     return PreservedAnalyses::none();
   }
