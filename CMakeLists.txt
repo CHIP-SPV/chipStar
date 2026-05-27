@@ -944,6 +944,10 @@ install(EXPORT hip-targets FILE hip-targets.cmake NAMESPACE hip:: DESTINATION li
 install(FILES ${CMAKE_SOURCE_DIR}/cmake/hip-lang/hip-lang-config.cmake
   DESTINATION ${CONFIG_LANG_PACKAGE_INSTALL_DIR})
 
+# Install hipfft-config.cmake so find_package(hipfft) works
+install(FILES ${CMAKE_SOURCE_DIR}/cmake/hipfft-config.cmake
+  DESTINATION ${LIB_INSTALL_DIR}/cmake/hipfft)
+
 # Generate hip_version.h
 set(_pchStatus 0)
 set(_versionInfoHeader
