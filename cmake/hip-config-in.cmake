@@ -148,6 +148,13 @@ endif()
 
 include( "${CMAKE_CURRENT_LIST_DIR}/hip-targets.cmake" )
 
+# AMD HIP exports hiprtc::hiprtc; create an alias so consumers
+# (e.g. OpenMM) that do find_package(hiprtc) / target_link_libraries(... hiprtc::hiprtc)
+# work with chipStar's hip::hiprtc-lib target.
+if(NOT TARGET hiprtc::hiprtc)
+  add_library(hiprtc::hiprtc ALIAS hip::hiprtc-lib)
+endif()
+
 # Required for Threads::Threads target used by hip::CHIP
 find_dependency(Threads)
 
