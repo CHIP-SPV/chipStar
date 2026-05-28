@@ -278,7 +278,10 @@ jobs:
           make FC= CC=hipcc CXX=hipcc \
             BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j
 
-          make prove -j4
+          # Pass BACKENDS to prove too — otherwise it defaults to CPU
+          # backends (/cpu/self/ref/serial, avx, memcheck, ...) that we
+          # did not build, so every test fails fast trying to load them.
+          make prove BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j4
 
       - uses: actions/upload-artifact@v4
         if: failure()
