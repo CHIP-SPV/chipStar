@@ -89,6 +89,7 @@ add_hip_runtime_test(TestThreadDetachCleanup.cpp)
 add_shell_test(TestAssert.bash)
 add_shell_test(TestAssertFail.bash)
 add_shell_test(TestForgottenModuleUnload.bash)
+add_shell_test(TestLinkHiprtc.bash)
 
 add_hip_runtime_test(TestIndirectCall.hip)
 add_hip_runtime_test(TestStructWithFnPtr.hip)
