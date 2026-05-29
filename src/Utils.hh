@@ -93,6 +93,10 @@ std::optional<std::string> readFromFile(const fs::path Path);
 /// Locate hipcc tool. Return an absolute path to it if found.
 std::optional<fs::path> getHIPCCPath();
 
+/// Locate chip-kernel-verify tool. Return absolute path if installed; else
+/// nullopt (e.g. during chipStar's own bootstrap build before install).
+std::optional<fs::path> getChipKernelVerifyPath();
+
 /// Convert "extra" kernel argument passing style to pointer array
 /// style (an array of pointers to the arguments).
 std::vector<void *> convertExtraArgsToPointerArray(void *ExtraArgBuf,

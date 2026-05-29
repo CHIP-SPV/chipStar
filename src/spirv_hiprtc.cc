@@ -639,6 +639,39 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
     logDebug("hiprtc: Temp directory: '{}'", TmpDir->string());
     hiprtcResult Result = compile(Program, NumOptions, Options, *TmpDir);
 
+    // HIPCC_VERIFY: run chip-kernel-verify on the produced ELF. Same modes
+    // as the hipcc front-end hook in HIPCC/src/hipBin_spirv.h:
+    //   unset / fail-mode  -> nonzero verifier exit becomes HIPRTC_ERROR_COMPILATION
+    //   "warn"             -> print only
+    //   "0" / "off"        -> skip entirely
+    // Built-in default comes from CMake (HIPCC_VERIFY option, ON by default).
+#ifndef HIPCC_VERIFY_DEFAULT
+#define HIPCC_VERIFY_DEFAULT 1
+#endif
+    if (Result == HIPRTC_SUCCESS) {
+      const char *VerifyEnv = std::getenv("HIPCC_VERIFY");
+      bool Run = HIPCC_VERIFY_DEFAULT != 0;
+      if (VerifyEnv) {
+        std::string V(VerifyEnv);
+        Run = !(V == "0" || V == "off" || V == "OFF");
+      }
+      if (Run) {
+        if (auto Verifier = getChipKernelVerifyPath()) {
+          auto OutputFile = *TmpDir / "program.o";
+          // Quote both paths to survive spaces in temp dirs.
+          auto Cmd = "'" + Verifier->string() + "' '" + OutputFile.string() + "'";
+          int VRc = std::system(Cmd.c_str());
+          bool Warn = VerifyEnv && std::string(VerifyEnv) == "warn";
+          if (VRc != 0 && !Warn) {
+            logError("hiprtc: chip-kernel-verify reported a mismatch on '{}' "
+                     "(rc={}); IGC likely dropped one or more kernels. See "
+                     "https://github.com/intel/intel-graphics-compiler/issues/403",
+                     OutputFile.string(), VRc);
+            Result = HIPRTC_ERROR_COMPILATION;
+          }
+        }
+      }
+    }
     if (!ChipEnvVars.getSaveTemps()) {
       assert(!TmpDir->empty() && *TmpDir != TmpDir->root_path() &&
              "Attempted to delete a root directory!");

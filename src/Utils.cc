@@ -210,6 +210,31 @@ std::optional<fs::path> getHIPCCPath() {
   return HIPCCPath;
 }
 
+std::optional<fs::path> getChipKernelVerifyPath() {
+  std::string LibCHIPPath("/dev/null");
+#ifdef __APPLE__
+  Dl_info info;
+  if (dladdr((void*)getChipKernelVerifyPath, &info) && info.dli_fname) {
+    std::string DlName(info.dli_fname);
+    size_t Pos = DlName.find("/libCHIP.dylib");
+    if (Pos != std::string::npos) {
+      DlName.erase(Pos);
+      LibCHIPPath = DlName;
+    }
+  }
+#else
+  dl_iterate_phdr(dlIterateCallback, static_cast<void *>(&LibCHIPPath));
+#endif
+  for (const auto &Cand : {fs::path(LibCHIPPath) / "bin/chip-kernel-verify",
+                           fs::path(CHIP_INSTALL_DIR) / "bin/chip-kernel-verify",
+                           fs::path(CHIP_BUILD_DIR) / "bin/chip-kernel-verify"}) {
+    std::error_code Ec;
+    if (fs::is_regular_file(Cand, Ec) && access(Cand.c_str(), X_OK) == 0)
+      return Cand;
+  }
+  return std::nullopt;
+}
+
 std::vector<void *>
 convertExtraArgsToPointerArray(void *ExtraArgBuf, const SPVFuncInfo &FuncInfo) {
   auto *BaseAddr = (uint8_t *)ExtraArgBuf;
