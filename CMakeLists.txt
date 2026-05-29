@@ -904,7 +904,8 @@ endif()
 
 add_library(hip::host ALIAS host)
 add_library(hip::device ALIAS device)
-add_library(hiprtc-lib INTERFACE)
+add_library(hiprtc-lib SHARED src/stubs/hiprtc_stub.c)
+set_target_properties(hiprtc-lib PROPERTIES OUTPUT_NAME hiprtc)
 add_library(hiprtc::hiprtc ALIAS hiprtc-lib)
 
 INSTALL(TARGETS CHIP host device deviceRDC hiprtc-lib
