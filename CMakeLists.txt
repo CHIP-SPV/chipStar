@@ -450,8 +450,10 @@ add_subdirectory(HIPCC)
 
 if(HIPCC_VERIFY)
   target_compile_definitions(hipcc.bin PRIVATE HIPCC_VERIFY_DEFAULT=1)
+  target_compile_definitions(CHIP PRIVATE HIPCC_VERIFY_DEFAULT=1)
 else()
   target_compile_definitions(hipcc.bin PRIVATE HIPCC_VERIFY_DEFAULT=0)
+  target_compile_definitions(CHIP PRIVATE HIPCC_VERIFY_DEFAULT=0)
 endif()
 
 # Override stale version set by HIPCC subdirectory with values from HIP/VERSION
