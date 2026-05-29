@@ -221,6 +221,13 @@ public:
 };
 
 class EnvVars {
+public:
+  /// Post-compile verifier mode for hipcc and hiprtc paths.
+  /// Off  = skip verifier
+  /// Warn = run, log result, never fail
+  /// Fail = run, return HIPRTC_ERROR_COMPILATION on mismatch
+  enum class HipccVerifyMode { Off, Warn, Fail };
+
 private:
   int PlatformIdx_ = 0;
   DeviceType Device_{DeviceType::GPU};
@@ -230,6 +237,13 @@ private:
   bool SaveTemps_ = false;
   bool SkipUninit_ = false;
   bool LazyJit_ = true;
+  // Built-in default from CMake -DHIPCC_VERIFY (ON -> Fail, OFF -> Off).
+  HipccVerifyMode HipccVerify_ =
+#if defined(HIPCC_VERIFY_DEFAULT) && HIPCC_VERIFY_DEFAULT != 0
+      HipccVerifyMode::Fail;
+#else
+      HipccVerifyMode::Off;
+#endif
   std::string JitFlags_ = "";
   std::string JitFlagsOverride_ = "";
   unsigned long L0EventTimeout_ = 0;
@@ -279,6 +293,7 @@ public:
   const std::optional<std::string> &getDumpProcessedSpirvDir() const {
     return DumpProcessedSpirvDir_;
   }
+  HipccVerifyMode getHipccVerify() const { return HipccVerify_; }
 
   bool isManualDeviceSelection() const {
     return PlatformIdxSet_ || DeviceIdxSet_;
@@ -352,6 +367,15 @@ private:
     SaveTemps_ = readEnvVar("CHIP_RTC_SAVE_TEMPS", value, true)
                   ? parseBoolean(value)
                   : SaveTemps_;
+
+    if (readEnvVar("HIPCC_VERIFY", value, true)) {
+      if (value == "0" || value == "off" || value == "OFF")
+        HipccVerify_ = HipccVerifyMode::Off;
+      else if (value == "warn" || value == "WARN")
+        HipccVerify_ = HipccVerifyMode::Warn;
+      else
+        HipccVerify_ = HipccVerifyMode::Fail;
+    }
   }
 
   int parseInt(const std::string &value) {
@@ -413,6 +437,10 @@ private:
     logInfo("CHIP_DUMP_PROCESSED_SPIRV={}",
             DumpProcessedSpirvDir_.has_value() ? DumpProcessedSpirvDir_.value()
                                                : "off");
+    logInfo("HIPCC_VERIFY={}",
+            HipccVerify_ == HipccVerifyMode::Off    ? "off"
+            : HipccVerify_ == HipccVerifyMode::Warn ? "warn"
+                                                    : "fail");
   }
 };
 
