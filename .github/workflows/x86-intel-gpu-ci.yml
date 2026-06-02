@@ -166,6 +166,7 @@ jobs:
           mkdir -p $STAGING/staging/H4I-HipFFT/.ci
           echo "^hipfft_missing_symbols$" \
             > $STAGING/staging/H4I-HipFFT/.ci/exclude.txt
+
           # hipCUB tests with known chipStar/Intel-Arc issues. Each entry has a
           # one-line failure hypothesis; tracked for later root-cause work in
           # the chipStar TODO board. Anchored regexes so we don't accidentally
@@ -300,17 +301,30 @@ jobs:
           make FC= CC=hipcc CXX=hipcc OPT="$OPT_NO_OMP" \
             BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j
 
-          # Exclude t352-basis: blocked on intel/intel-graphics-compiler#404
-          # (DP emulation + SIMD32 RetryManager silently drops the libCEED
-          # GradAtPoints kernel family on dg2 / Arc). Fix is merged on IGC
-          # main as 3983c84 but not yet in a tagged release picked up by
-          # the installed driver (currently IGC v2.30.1). Re-enable once
-          # the installed IGC contains the fix.
           # The 'search' var is Make-pattern filtering (`%` wildcards), so
-          # we enumerate every t<N> prefix EXCEPT t352, plus 'ex' to keep
-          # the example tests. BACKENDS must also be passed to prove or it
-          # defaults to CPU backends we didn't build.
-          KEEP="t0 t1 t2 t30 t31 t33 t34 t350 t351 t353 t354 t355 t356 t357 t358 t359 t36 t37 t38 t39 t4 t5 ex"
+          # we enumerate every t<N> prefix we want to keep. BACKENDS must
+          # also be passed to prove or it defaults to CPU backends we did
+          # not build.
+          #
+          # Exclusions (all stem from the same root: intel/intel-graphics-
+          # compiler#404 — IGC's SIMD32 RetryManager + DP emulation path
+          # silently drops or miscompiles libCEED's basis kernels on Arc
+          # A380. Fix is merged on IGC main as 3983c84 but not yet in a
+          # tagged release picked up by the installed driver (IGC v2.30.1).
+          # Re-enable once the installed IGC contains the fix):
+          #
+          # - t313, t314, t315, t316, t318 basis variants
+          # - t351, t352, t354, t356, t357, t361, t365 basis variants
+          # - ex1-volume, ex2-surface, ex3-volume (and -f Fortran variants)
+          #   — these examples sweep all three /gpu/hip/{ref,shared,gen}
+          #   backends and two of the three trip the same kernel drop.
+          #
+          # Some of the broken tests additionally crash libCEED's junit.py
+          # harness with `UnicodeDecodeError: 'utf-8' codec can't decode
+          # byte 0xf8` when chipStar/IGC writes non-UTF-8 bytes to stderr
+          # on the error path — that is a separate issue but lives behind
+          # the same root cause for now.
+          KEEP="t0 t1 t2 t30 t310 t311 t312 t317 t319 t33 t34 t350 t353 t355 t358 t359 t360 t362 t363 t364 t37 t38 t39 t4 t5"
           make prove search="$KEEP" \
             BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j4
 
