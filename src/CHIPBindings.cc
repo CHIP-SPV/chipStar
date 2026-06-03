@@ -4477,6 +4477,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
   if (SizeBytes >= FreeMem)
     RETURN(hipErrorInvalidValue);
 
+  // TODO fixOpenCLTests - make this a class
   // First 4 bits are valid flag bits. This includes flags from CUDA which are
   // not supported or documented in HIP.
   constexpr unsigned FlagMask = (1u << 4u) - 1u;
@@ -4487,6 +4488,7 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
     CHIPERR_LOG_AND_THROW("Unsupported hipHostRegisterIoMemory flag",
                           hipErrorInvalidValue);
 
+  // TODO fixOpenCLTests - use recordAllocation()
   // Record the registration without allocating device memory. Device memory
   // is allocated lazily the first time hipHostGetDevicePointer is called.
   Dev->AllocTracker->registerHostPointerDeferred(
