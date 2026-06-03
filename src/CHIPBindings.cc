@@ -4405,15 +4405,30 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
   if (!HostPtr)
     RETURN(hipErrorInvalidValue);
 
-  auto Device = Backend->getActiveDevice();
-  auto AllocInfo = Device->AllocTracker->getAllocInfo(HostPtr);
+  auto *Device = Backend->getActiveDevice();
+  auto *AllocInfo = Device->AllocTracker->getAllocInfo(HostPtr);
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("Host pointer is not allocated by hipHostMalloc or "
                           "registered with hipHostRegister!",
                           hipErrorInvalidValue);
 
-  *DevPtr = AllocInfo->DevPtr;
+  if (AllocInfo->DevPtr == nullptr) {
+    // First call: erase the deferred placeholder and allocate backing device
+    // memory now.
+    size_t Size = AllocInfo->Size;
+    Device->AllocTracker->eraseRecord(AllocInfo);
 
+    void *DevPtr_internal;
+    CHIP_TRY
+    if (hipMallocInternal(&DevPtr_internal, Size) != hipSuccess)
+      RETURN(hipErrorInvalidValue);
+    CHIP_CATCH_RETURN_CODE(hipErrorInvalidValue)
+
+    Device->AllocTracker->registerHostPointer(HostPtr, DevPtr_internal);
+    AllocInfo = Device->AllocTracker->getAllocInfo(HostPtr);
+  }
+
+  *DevPtr = AllocInfo->DevPtr;
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -4462,35 +4477,20 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
   if (SizeBytes >= FreeMem)
     RETURN(hipErrorInvalidValue);
 
-  // TODO fixOpenCLTests - make this a class
-  if (Flags) {
-    // Currently, the flags are ignored. This only exists to satisfy hip-tests.
+  // First 4 bits are valid flag bits. This includes flags from CUDA which are
+  // not supported or documented in HIP.
+  constexpr unsigned FlagMask = (1u << 4u) - 1u;
+  if (Flags & ~FlagMask)
+    CHIPERR_LOG_AND_THROW("Invalid hipHostRegister flags passed",
+                          hipErrorInvalidValue);
+  if (Flags & hipHostRegisterIoMemory)
+    CHIPERR_LOG_AND_THROW("Unsupported hipHostRegisterIoMemory flag",
+                          hipErrorInvalidValue);
 
-    // First 4 bits are valid flag bits. This includes flags from CUDA which are
-    // not supported or documented in HIP.
-    constexpr unsigned FlagMask = (1u << 4u) - 1u;
-
-    if (Flags & ~FlagMask) // Has invalid flags
-      CHIPERR_LOG_AND_THROW("Invalid hipHostRegister flags passed",
-                            hipErrorInvalidValue);
-
-    if (Flags & hipHostRegisterIoMemory)
-      CHIPERR_LOG_AND_THROW("Unsupported hipHostRegisterIoMemory flag",
-                            hipErrorInvalidValue);
-  }
-
-  void *DevPtr;
-  CHIP_TRY
-  if (hipMallocInternal(&DevPtr, SizeBytes) != hipSuccess)
-    // Translate hipOutOfMemory to hipErrorInvalidValue. The latter is
-    // the one hip-tests suite expects in case of OoM.
-    RETURN(hipErrorInvalidValue);
-  CHIP_CATCH_RETURN_CODE(hipErrorInvalidValue)
-
-  // Associate the pointer
-  auto Device = Backend->getActiveDevice();
-  // TODO fixOpenCLTests - use recordAllocation()
-  Device->AllocTracker->registerHostPointer(HostPtr, DevPtr);
+  // Record the registration without allocating device memory. Device memory
+  // is allocated lazily the first time hipHostGetDevicePointer is called.
+  Dev->AllocTracker->registerHostPointerDeferred(
+      HostPtr, Dev->getDeviceId(), SizeBytes, chipstar::HostAllocFlags());
 
   RETURN(hipSuccess);
 
@@ -4509,6 +4509,13 @@ hipError_t hipHostUnregister(void *HostPtr) {
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("Host pointer is not registered!",
                           hipErrorHostMemoryNotRegistered);
+
+  if (AllocInfo->DevPtr == nullptr) {
+    // hipHostGetDevicePointer was never called; no device memory to free.
+    Device->AllocTracker->eraseRecord(AllocInfo);
+    RETURN(hipSuccess);
+  }
+
   auto Err = hipFreeInternal(AllocInfo->DevPtr);
   RETURN(Err);
 
@@ -5241,10 +5248,12 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
           AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
       memset(AllocInfo->HostPtr, Value, SizeBytes);
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
-    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged) {
+    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged && AllocInfo->DevPtr) {
       // For managed memory (from hipHostRegister), we need to memset both
       // device and host sides. Device memset is already done above.
       // Host memset ensures the host-accessible memory is also updated.
+      // DevPtr will be null if hipHostGetDevicePointer was never called, in
+      // which case there is no device backing and only the host side exists.
       logDebug("AllocInfo->MemoryType == hipMemoryTypeManaged - executing "
                "memset on host");
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(

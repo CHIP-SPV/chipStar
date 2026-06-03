@@ -540,6 +540,30 @@ public:
     NumManagedAllocations_ += 1;
   }
 
+  /**
+   * @brief Record a hipHostRegister'd pointer without yet allocating device
+   * memory. DevPtr is left null and filled in lazily by hipHostGetDevicePointer.
+   *
+   * @param HostPtr  User-provided host pointer (malloc'd by the caller)
+   * @param Device   Device ID the registration is associated with
+   * @param Size     Byte size of the host allocation
+   * @param Flags    Host allocation flags from the hipHostRegister call
+   */
+  void registerHostPointerDeferred(void *HostPtr, hipDevice_t Device,
+                                   size_t Size, chipstar::HostAllocFlags Flags) {
+    CHIPASSERT(HostPtr && "HostPtr is null");
+    LOCK(AllocationTrackerMtx);
+    if (PtrToAllocInfo_.count(HostPtr))
+      CHIPERR_LOG_AND_THROW("Host memory is already registered!",
+                            hipErrorHostMemoryAlreadyRegistered);
+    chipstar::AllocationInfo *AllocInfo = new chipstar::AllocationInfo{
+        nullptr, HostPtr, Size, Flags, Device, false, hipMemoryTypeManaged};
+    AllocInfo->IsHostRegistered = true;
+    AllocInfos_.insert(AllocInfo);
+    PtrToAllocInfo_[HostPtr] = AllocInfo;
+    NumManagedAllocations_ += 1;
+  }
+
   size_t GlobalMemSize, TotalMemSize, MaxMemUsed;
   /**
    * @brief Construct a new chipstar::AllocationTracker object

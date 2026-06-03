@@ -25,3 +25,10 @@ set_target_properties(hostRegisterOverhead PROPERTIES CXX_STANDARD_REQUIRED ON)
 target_link_libraries(hostRegisterOverhead CHIP deviceInternal)
 target_include_directories(hostRegisterOverhead
   PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+set_source_files_properties(hostRegisterMemcpyOverhead.hip PROPERTIES LANGUAGE CXX)
+add_executable(hostRegisterMemcpyOverhead hostRegisterMemcpyOverhead.hip)
+set_target_properties(hostRegisterMemcpyOverhead PROPERTIES CXX_STANDARD_REQUIRED ON)
+target_link_libraries(hostRegisterMemcpyOverhead CHIP deviceInternal)
+target_include_directories(hostRegisterMemcpyOverhead
+  PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
