@@ -547,7 +547,7 @@ public:
    * @param HostPtr  User-provided host pointer (malloc'd by the caller)
    * @param Device   Device ID the registration is associated with
    * @param Size     Byte size of the host allocation
-   * @param Flags    Host allocation flags from the hipHostRegister call
+   * @param Flags    Host allocation flags
    */
   void registerHostPointerDeferred(void *HostPtr, hipDevice_t Device,
                                    size_t Size, chipstar::HostAllocFlags Flags) {
