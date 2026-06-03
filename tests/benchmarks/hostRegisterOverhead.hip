@@ -2,6 +2,9 @@
 #include <cstring>
 #include <cstdlib>
 #include <iostream>
+#include <vector>
+#include <numeric>
+#include <algorithm>
 #include "hip/hip_runtime.h"
 
 #define CHECK(cmd)                                                             \
@@ -29,7 +32,10 @@ __global__ void bench_kernel() {}
 
 int main() {
   CHECK(hipSetDevice(0));
-
+  
+  std::vector<double> timings_registered(N_KERNELS);
+  std::vector<double> timings_unregistered(N_KERNELS);
+  
   double *HostBuf = (double *)malloc(BUF_SIZE);
   memset(HostBuf, 0, BUF_SIZE);
 
@@ -43,36 +49,45 @@ int main() {
   CHECK(hipHostRegister(HostBuf, BUF_SIZE, 0));
 
   CHECK(hipDeviceSynchronize());
-  auto t0 = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < N_KERNELS; ++i) {
+    auto t0 = std::chrono::high_resolution_clock::now();
     KERNEL_LAUNCH(DevPtrPtr);
     CHECK(hipDeviceSynchronize());
+    auto t1 = std::chrono::high_resolution_clock::now();
+    timings_registered[i] = std::chrono::duration<double, std::milli>(t1 - t0).count();
   }
-  auto t1 = std::chrono::high_resolution_clock::now();
 
   CHECK(hipHostUnregister(HostBuf));
 
   // --- without hipHostRegister ---
   CHECK(hipDeviceSynchronize());
-  auto t2 = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < N_KERNELS; ++i) {
+    auto t0 = std::chrono::high_resolution_clock::now();
     KERNEL_LAUNCH(DevPtrPtr);
     CHECK(hipDeviceSynchronize());
+    auto t1 = std::chrono::high_resolution_clock::now();
+    timings_unregistered[i] = std::chrono::duration<double, std::milli>(t1 - t0).count();
   }
-  auto t3 = std::chrono::high_resolution_clock::now();
 
   free(HostBuf);
   CHECK(hipFree(DevBuf));
   CHECK(hipFree(DevPtrPtr));
 
-  double with_ms    = std::chrono::duration<double, std::milli>(t1 - t0).count();
-  double without_ms = std::chrono::duration<double, std::milli>(t3 - t2).count();
+  double with_ms    = std::accumulate(timings_registered.begin(),timings_registered.end(),0.0);
+  double without_ms = std::accumulate(timings_unregistered.begin(),timings_unregistered.end(),0.0);
+
+  double min_with_ms    = *std::min_element(timings_registered.begin(),timings_registered.end());
+  double min_without_ms = *std::min_element(timings_unregistered.begin(),timings_unregistered.end());
+  double max_with_ms    = *std::max_element(timings_registered.begin(),timings_registered.end());
+  double max_without_ms = *std::max_element(timings_unregistered.begin(),timings_unregistered.end());
 
   std::cout << N_KERNELS << " " KERNEL_LABEL " WITH    hipHostRegister: "
-            << with_ms << " ms  (" << with_ms / N_KERNELS << " ms/kernel)\n";
+            << with_ms << " ms  (avg,min,max: " << with_ms / N_KERNELS
+	    << ", " << min_with_ms << ", " << max_with_ms << " ms)\n";
   std::cout << N_KERNELS << " " KERNEL_LABEL " WITHOUT hipHostRegister: "
-            << without_ms << " ms  (" << without_ms / N_KERNELS << " ms/kernel)\n";
-  std::cout << "overhead factor: " << with_ms / without_ms << "x\n";
+            << without_ms << " ms  (avg,min,max: " << without_ms / N_KERNELS
+	    << ", " << min_without_ms << ", " << max_without_ms << " ms)\n";
+  std::cout << "overhead factor (avg): " << with_ms / without_ms << "x\n";
 
   if(  with_ms / without_ms > 5 ) {
       printf( "Fail");

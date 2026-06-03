@@ -84,6 +84,8 @@ add_hip_runtime_test(TestStlFunctionsDouble.hip)
 add_hip_runtime_test(TestHIPMathFunctions.hip)
 add_hip_runtime_test(TestAtomics.hip)
 add_hip_runtime_test(TestIndirectMappedHostAlloc.hip)
+add_hip_runtime_test(TestHostRegisterGetDevicePointer.hip)
+add_hip_runtime_test(TestHostRegisterLazyAlloc.hip)
 add_hip_runtime_test(TestThreadDetachCleanup.cpp)
 
 add_shell_test(TestAssert.bash)

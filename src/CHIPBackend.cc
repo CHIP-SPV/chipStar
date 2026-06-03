@@ -2015,7 +2015,10 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
         MemUnmap(&AllocInfo);
       else
         MemMap(&AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_READ_WRITE);
-    } else if (AllocInfo.HostPtr &&
+    } else if (AllocInfo.HostPtr && AllocInfo.DevPtr &&
+               // DevPtr will be null if hipHostRegister was called but
+               // hipHostGetDevicePointer was never called, meaning no device
+               // backing exists yet and there is nothing to sync.
                AllocInfo.MemoryType == hipMemoryTypeManaged) {
       // If the module has no indirect global buffer accesses, only sync
       // allocations whose DevPtr is explicitly passed as a kernel argument.
