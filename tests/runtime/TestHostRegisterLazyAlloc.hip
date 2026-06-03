@@ -40,7 +40,7 @@ int main() {
   // --- 1. hipHostGetDevicePointer called twice returns the same pointer ------
   {
     int *host = (int *)malloc(sizeof(int));
-    CHECK(hipHostRegister(host, sizeof(int), hipHostRegisterMapped));
+    CHECK(hipHostRegister(host, sizeof(int), 0));
 
     int *devA, *devB;
     CHECK(hipHostGetDevicePointer((void **)&devA, host, 0));
@@ -55,7 +55,7 @@ int main() {
   // --- 2. Unregister without GetDevicePointer (no device allocation) ---------
   {
     int *host = (int *)malloc(sizeof(int));
-    CHECK(hipHostRegister(host, sizeof(int), hipHostRegisterMapped));
+    CHECK(hipHostRegister(host, sizeof(int), 0));
     CHECK(hipHostUnregister(host));
     free(host);
     printf("%-55s %s\n", "Unregister without GetDevicePointer", "PASSED");
@@ -65,7 +65,7 @@ int main() {
   {
     int *host = (int *)malloc(sizeof(int));
     *host = 99;
-    CHECK(hipHostRegister(host, sizeof(int), hipHostRegisterMapped));
+    CHECK(hipHostRegister(host, sizeof(int), 0));
 
     int *device;
     CHECK(hipHostGetDevicePointer((void **)&device, host, 0));
