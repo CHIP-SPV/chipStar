@@ -30,7 +30,7 @@ int main() {
   int *host = (int *)malloc(sizeof(int));
   *host = 0;
 
-  CHECK(hipHostRegister(host, sizeof(int), hipHostRegisterMapped));
+  CHECK(hipHostRegister(host, sizeof(int), 0));
 
   int *device;
   CHECK(hipHostGetDevicePointer((void **)&device, host, 0));
