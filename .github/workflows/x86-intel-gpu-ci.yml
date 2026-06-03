@@ -279,6 +279,13 @@ jobs:
           export HIP_PLATFORM=spirv
           export IGC_EnableDPEmulation=1
           export OverrideDefaultFP64Settings=1
+          # Work around intel/intel-graphics-compiler#404: IGC's SIMD32
+          # RetryManager interacts with DP emulation to silently drop
+          # entry-point kernels (observed on Arc A380 with libCEED's
+          # AtPoints kernels). Disabling recompilation skips the retry
+          # stage so IGC commits to its first SIMD-width pick and every
+          # OpEntryPoint survives. Fixed upstream by IGC commit 3983c84.
+          export IGC_DisableRecompilation=1
           # libCEED's Makefile only enables the HIP backend when ROCM_DIR
           # points at a prefix containing hipconfig + libCHIP.so + hipblas.
           # install_chipstar.py --all stages all three into $CHIP_INSTALL.
