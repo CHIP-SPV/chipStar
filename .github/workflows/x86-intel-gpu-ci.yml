@@ -312,6 +312,15 @@ jobs:
           sed -i 's|#include "ceed-f64.h"|#include "ceed-f32.h"|' \
               include/ceed/types.h
 
+          # t360-basis (interpolation ApplyAdd in 1D/2D/3D) hardcodes a
+          # 5E-6 tolerance on a sum of magnitude 16 — that is ~3e-7
+          # relative, below fp32 machine epsilon. The 3D case accumulates
+          # rounding from a 5x5x5 tensor-product basis plus a doubled
+          # ApplyAdd, easily exceeding 5E-6. Loosen to 5E-4 to match what
+          # libCEED itself ships for other fp32-sensitive tests (it never
+          # parameterised this one on CEED_EPSILON).
+          sed -i 's|fabs(area - 2.0 \* CeedIntPow(2, dim)) > 5E-6|fabs(area - 2.0 * CeedIntPow(2, dim)) > 5E-4|' \
+              tests/t360-basis.c
           # libCEED's default OPT adds -fopenmp-simd; on chipStar's SPIR-V
           # target that trips clang's
           #   "OpenMP AMDGPU/NVPTX/SPIRV is only prepared to deal with
