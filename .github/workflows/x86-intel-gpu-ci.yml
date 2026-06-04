@@ -300,27 +300,12 @@ jobs:
           git clone https://github.com/CEED/libCEED.git
           cd libCEED
 
-          # Build + test libCEED in single precision (CeedScalar = float).
-          # The Arc A380 in this CI has no native fp64; IGC's DP-emulation
-          # path collides with the SIMD32 RetryManager (intel/intel-
-          # graphics-compiler#404) and silently drops a long list of
-          # libCEED's basis/operator kernels. Running fp32 sidesteps the
-          # entire emulation path so every kernel survives and prove
-          # reaches 100 % pass without any test exclusions.
-          # libCEED selects scalar precision via a header swap in
-          # include/ceed/types.h; switch ceed-f64.h -> ceed-f32.h.
-          sed -i 's|#include "ceed-f64.h"|#include "ceed-f32.h"|' \
-              include/ceed/types.h
+          # Build + test libCEED in double precision (default).
+          # Arc A380 has no native fp64 — IGC_EnableDPEmulation=1 plus
+          # IGC_DisableRecompilation=1 (set above) provides correct
+          # fp64 semantics while sidestepping intel/intel-graphics-
+          # compiler#404 (the SIMD32 RetryManager kernel drop).
 
-          # t360-basis (interpolation ApplyAdd in 1D/2D/3D) hardcodes a
-          # 5E-6 tolerance on a sum of magnitude 16 — that is ~3e-7
-          # relative, below fp32 machine epsilon. The 3D case accumulates
-          # rounding from a 5x5x5 tensor-product basis plus a doubled
-          # ApplyAdd, easily exceeding 5E-6. Loosen to 5E-4 to match what
-          # libCEED itself ships for other fp32-sensitive tests (it never
-          # parameterised this one on CEED_EPSILON).
-          sed -i 's|fabs(area - 2.0 \* CeedIntPow(2, dim)) > 5E-6|fabs(area - 2.0 * CeedIntPow(2, dim)) > 5E-4|' \
-              tests/t360-basis.c
           # libCEED's default OPT adds -fopenmp-simd; on chipStar's SPIR-V
           # target that trips clang's
           #   "OpenMP AMDGPU/NVPTX/SPIRV is only prepared to deal with
@@ -328,10 +313,9 @@ jobs:
           # Override OPT (without -fopenmp-simd) for the HIP build.
           OPT_NO_OMP="-O -march=native -g -ffp-contract=fast -fPIC"
 
-          # FC= must be passed to BOTH the build and prove invocations.
-          # Fortran tests do not support single precision (per libCEED's
-          # doc/sphinx/source/precision.md), and prove's matched-list is
-          # recomputed on each make call.
+          # FC= disables Fortran tests — this runner does not have a
+          # Fortran compiler configured. Must be passed to BOTH build
+          # and prove (prove's matched-list is recomputed each call).
           # BACKENDS must be passed to prove too or it defaults to CPU
           # backends we did not build.
           make FC= CC=hipcc CXX=hipcc OPT="$OPT_NO_OMP" \
