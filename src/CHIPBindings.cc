@@ -4425,10 +4425,11 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
     CHIP_CATCH_RETURN_CODE(hipErrorInvalidValue)
 
     Device->AllocTracker->registerHostPointer(HostPtr, DevPtr_internal);
-    AllocInfo = Device->AllocTracker->getAllocInfo(HostPtr);
+    *DevPtr = DevPtr_internal;
   }
-
-  *DevPtr = AllocInfo->DevPtr;
+  else {
+    *DevPtr = AllocInfo->DevPtr;
+  }
   RETURN(hipSuccess);
   CHIP_CATCH
 }
