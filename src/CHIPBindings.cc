@@ -4495,6 +4495,8 @@ hipError_t hipHostRegister(void *HostPtr, size_t SizeBytes,
   Dev->AllocTracker->registerHostPointerDeferred(
       HostPtr, Dev->getDeviceId(), SizeBytes, chipstar::HostAllocFlags());
 
+  Backend->getActiveContext()->importHostMemory(HostPtr, SizeBytes);
+
   RETURN(hipSuccess);
 
   CHIP_CATCH
@@ -4512,6 +4514,8 @@ hipError_t hipHostUnregister(void *HostPtr) {
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("Host pointer is not registered!",
                           hipErrorHostMemoryNotRegistered);
+
+  Backend->getActiveContext()->releaseHostMemory(HostPtr);
 
   if (AllocInfo->DevPtr == nullptr) {
     // hipHostGetDevicePointer was never called; no device memory to free.

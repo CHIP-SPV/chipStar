@@ -270,6 +270,9 @@ public:
       size_t Size, size_t Alignment, hipMemoryType MemType,
       chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) override;
 
+  void importHostMemory(void *HostPtr, size_t SizeBytes) override { return; }
+  void releaseHostMemory(void *HostPtr) override { return; }
+  
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
   virtual void freeImpl(void *Ptr) override;
   cl::Context *get();
