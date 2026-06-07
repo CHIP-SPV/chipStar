@@ -6274,27 +6274,22 @@ hipError_t hipModuleLoad(hipModule_t *Module, const char *FuncName) {
   CHIPInitialize();
   NULLCHECK(Module, FuncName);
 
-#if 0
-  // TODO: This is likely bit-rotted (due to lack of testing).
-  //       Reimplement this again.
-
+  // The file is a Clang offload bundle, identical in format to the image
+  // accepted by hipModuleLoadData, so read it and reuse the same load path.
+  // (Previously this function was a no-op stub: it returned hipSuccess
+  // without initializing *Module, leaving callers with a garbage module
+  // handle that produced a "kernel not found" error or a segfault.)
   std::ifstream ModuleFile(FuncName,
                            std::ios::in | std::ios::binary | std::ios::ate);
   ERROR_IF((ModuleFile.fail()), hipErrorFileNotFound);
 
   size_t Size = ModuleFile.tellg();
-  char *MemBlock = new char[Size];
+  std::string Content(Size, '\0');
   ModuleFile.seekg(0, std::ios::beg);
-  ModuleFile.read(MemBlock, Size);
+  ModuleFile.read(&Content[0], Size);
   ModuleFile.close();
-  std::string Content(MemBlock, Size);
-  delete[] MemBlock;
 
-  // chipstar::Module *chip_module = new Module(std::move(content));
-  for (auto &Dev : Backend->getDevices())
-    Dev->addModule(&Content);
-#endif
-  RETURN(hipSuccess);
+  RETURN(hipModuleLoadDataInternal(Module, Content.data()));
   CHIP_CATCH
 }
 

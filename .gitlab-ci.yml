@@ -221,8 +221,8 @@ performance_hoMusic:
       # Convert to total seconds using awk (handles 1m50.315s -> 110.315)
       ACTUAL_TIME=$(echo $TIME_STR | awk -F'[ms]' '{print ($1 * 60) + $2}')
       
-      # Define baseline (1m50.315s = 110.315s) and 6% threshold
-      BASELINE=110.315
+      # Define baseline and 6% threshold
+      BASELINE=90.0
       THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
       LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
       UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)

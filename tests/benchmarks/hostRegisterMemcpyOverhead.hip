@@ -60,8 +60,9 @@ int main() {
 
   free(HostBuf);
   CHECK(hipFree(DevBuf));
-
-  if (avg_with / avg_without > 5) {
+// with hiphost register it should be faster, but as long as it's not slower
+// it's ok
+  if (avg_with / avg_without > 1.1) {
     printf("Fail\n");
     return 1;
   }
