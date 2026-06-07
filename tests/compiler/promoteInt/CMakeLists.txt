@@ -62,6 +62,7 @@ foreach(IR_FILE ${TEST_IR_FILES})
       LLVM_OPT=${LLVM_TOOLS_BINARY_DIR}/opt
       LLVM_SPIRV=${LLVM_TOOLS_BINARY_DIR}/llvm-spirv
       LLVM_DIS=${LLVM_TOOLS_BINARY_DIR}/llvm-dis
+      CLANG=${LLVM_TOOLS_BINARY_DIR}/clang
       HIP_SPV_PASSES_LIB=${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
       ${CMAKE_CURRENT_BINARY_DIR}/run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME}
   )
