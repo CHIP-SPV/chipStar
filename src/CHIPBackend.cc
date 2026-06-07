@@ -916,6 +916,9 @@ int chipstar::Device::getAttr(hipDeviceAttribute_t Attr) const {
   case hipDeviceAttributeMemoryPoolsSupported:
     return Prop.memoryPoolsSupported;
     break;
+  case hipDeviceAttributeHostNativeAtomicSupported:
+    return Prop.hostNativeAtomicSupported;
+    break;
   default:
     CHIPERR_LOG_AND_THROW("Device::getAttr asked for an unkown attribute",
                           hipErrorInvalidValue);
