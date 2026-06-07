@@ -14,13 +14,19 @@
 # When ocloc is unavailable (e.g. macOS / aarch64 CI) the verifier prints
 # "ocloc not found" and exits 0; SKIP_REGULAR_EXPRESSION marks the test as
 # Skipped so it doesn't get flagged as an unexpected pass.
+#
+# IGC_EnableDPEmulation=1 lets fp64-less dg2 (e.g. Aurora) compile the
+# fixture's double kernels instead of hard-erroring; the dropped ff/ii/jj
+# kernels aren't fp64, so the #403 drop is unchanged. The extra
+# SKIP_REGULAR_EXPRESSION term Skips rather than fails if ocloc still can't
+# compile the fixture.
 add_test(NAME hipcc_verify_detects_dropped_kernels
   COMMAND ${CMAKE_BINARY_DIR}/bin/chip-kernel-verify
           ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/lookback_set_ops.spv)
 set_tests_properties(hipcc_verify_detects_dropped_kernels PROPERTIES
-  ENVIRONMENT "HIPCC_VERIFY_DEVICES=dg2"
+  ENVIRONMENT "HIPCC_VERIFY_DEVICES=dg2;IGC_EnableDPEmulation=1"
   WILL_FAIL TRUE
-  SKIP_REGULAR_EXPRESSION "ocloc not found"
+  SKIP_REGULAR_EXPRESSION "ocloc not found;skipping verification for this device"
   TIMEOUT 120)
 
 # Sanity: off mode must produce no output and exit 0 regardless of input.
