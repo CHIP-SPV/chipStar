@@ -1,3 +1,5 @@
 add_hip_test(test_stream_wait_event_sync.cpp)
 add_hip_test(test_hipMemcpyHtoD_link.cpp)
 add_hip_test(test_atomicmax_unsigned.cpp)
+add_hip_test(TestFixCoalescedThreadsAtomicAggInc.hip)
+set_tests_properties(TestFixCoalescedThreadsAtomicAggInc PROPERTIES PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
