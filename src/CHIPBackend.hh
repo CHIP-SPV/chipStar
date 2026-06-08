@@ -1800,6 +1800,10 @@ public:
   allocateImpl(size_t Size, size_t Alignment, hipMemoryType MemType,
                chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) = 0;
 
+
+  virtual void importHostMemory(void *HostPtr, size_t SizeBytes) = 0;
+  virtual void releaseHostMemory(void *HostPtr) = 0;
+
   /**
    * @brief Returns true if the pointer is mapped to virtual memory with
    * updates synchronized to it automatically at synchronization points.

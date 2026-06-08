@@ -33,6 +33,48 @@
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
 
+using zexDriverImportExternalPointer_t =
+    ze_result_t (*)(ze_driver_handle_t, void *, size_t);
+using zexDriverReleaseImportedPointer_t =
+    ze_result_t (*)(ze_driver_handle_t, void *);
+
+void CHIPContextLevel0::importHostMemory(void *HostPtr, size_t SizeBytes) {
+  // --- resolve import/release ---
+  void *fnPtr = nullptr;
+  zeDriverGetExtensionFunctionAddress(ZeDriver, "zexDriverImportExternalPointer", &fnPtr);
+  auto importFn = reinterpret_cast<zexDriverImportExternalPointer_t>(fnPtr);
+
+  // if importFn is null, this is not available. we warn and continue
+  if (importFn) {
+    // if this fails, it means the extension was available but it is not working. so we fail.
+    if (importFn(ZeDriver, HostPtr, SizeBytes) != ZE_RESULT_SUCCESS) {
+      CHIPERR_LOG_AND_THROW("zexDriverImportExternalPointer failed", hipErrorUnknown); 
+    }
+  }
+  else {
+    logWarn("zexDriverImportExternalPointer not available in this driver — skipping host memory import");
+  }
+}
+
+void CHIPContextLevel0::releaseHostMemory(void *HostPtr) {
+   // --- resolve import/release ---
+  void *fnPtr = nullptr;
+  zeDriverGetExtensionFunctionAddress(ZeDriver, "zexDriverReleaseImportedPointer", &fnPtr);
+  auto releaseFn = reinterpret_cast<zexDriverReleaseImportedPointer_t>(fnPtr);
+
+  // if releaseFn is null, this is not available. we warn and continue       
+  if (releaseFn) {
+    // if this fails, it means the extension was available but it is not working. so we fail.
+    if (releaseFn(ZeDriver, HostPtr) != ZE_RESULT_SUCCESS) {
+      CHIPERR_LOG_AND_THROW("zexDriverReleaseExternalPointer failed", hipErrorUnknown); 
+    }
+  }
+  else {
+    logWarn("zexDriverReleaseExternalPointer not available in this driver — skipping host memory release");
+  }
+  
+}
+
 /// Converts driver version queried from zeDriverGetProperties to string.
 static std::string driverVersionToString(uint32_t DriverVersion) noexcept {
   uint32_t Build = DriverVersion & 0xffffu;

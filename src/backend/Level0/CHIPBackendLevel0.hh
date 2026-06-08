@@ -560,6 +560,9 @@ public:
       size_t Size, size_t Alignment, hipMemoryType MemTy,
       chipstar::HostAllocFlags Flags = chipstar::HostAllocFlags()) override;
 
+  void importHostMemory(void *HostPtr, size_t SizeBytes) override;
+  void releaseHostMemory(void *HostPtr) override;
+  
   bool isAllocatedPtrMappedToVM(void *Ptr) override { return false; } // TODO
   void freeImpl(void *Ptr) override;
   ze_context_handle_t &get() { return ZeCtx; }
