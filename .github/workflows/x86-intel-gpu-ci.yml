@@ -118,6 +118,13 @@ jobs:
           # Actions runs non-login, so put it on CMAKE_PREFIX_PATH explicitly.
           export CMAKE_PREFIX_PATH="/home/pvelesko/miniconda3:${CMAKE_PREFIX_PATH:-}"
 
+          # Enable IGC software fp64 emulation on Intel Arc (Alchemist lacks
+          # native fp64). Library kernels that use doubles (e.g. rocRAND's
+          # poisson/xorwow generators) are compiled here at build time, so the
+          # emulation flags must be set for the build, not just the test step.
+          export IGC_EnableDPEmulation=1
+          export OverrideDefaultFP64Settings=1
+
           STAGING=/tmp/chipstar-ci-staging/${{ github.event.pull_request.number }}
           rm -rf $STAGING
 
