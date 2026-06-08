@@ -132,7 +132,7 @@ NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 if [ "$VERSION" == "23" ]; then
   # LLVM 23: use CHIP-SPV forks with patches pre-applied
   LLVM_REPO="https://github.com/CHIP-SPV/llvm-project.git"
-  LLVM_BRANCH="chipStar-llvm-23"
+  LLVM_BRANCH="chipstar-native-spirv"
   TRANSLATOR_REPO="https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git"
   TRANSLATOR_BRANCH="chipStar-llvm-23"
   SKIP_PATCHES=true
