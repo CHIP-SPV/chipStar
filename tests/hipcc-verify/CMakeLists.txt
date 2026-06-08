@@ -15,7 +15,7 @@
 # "ocloc not found" and exits 0; SKIP_REGULAR_EXPRESSION marks the test as
 # Skipped so it doesn't get flagged as an unexpected pass.
 #
-# IGC_EnableDPEmulation=1 lets fp64-less dg2 (e.g. Aurora) compile the
+# IGC_EnableDPEmulation=1 lets fp64-less (e.g. dg2) compile the
 # fixture's double kernels instead of hard-erroring; the dropped ff/ii/jj
 # kernels aren't fp64, so the #403 drop is unchanged. The extra
 # SKIP_REGULAR_EXPRESSION term Skips rather than fails if ocloc still can't
