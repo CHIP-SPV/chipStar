@@ -34,6 +34,7 @@
 
 #include <hip/driver_types.h>
 #include <hip/spirv_hip_host_defines.h>
+#include "chipStarConfig.hh"
 
 #if defined(__clang__) && defined(__HIP__)
 #include "spirv_hip_devicelib.hh"
@@ -52,8 +53,13 @@ extern "C" {
 // abort request.
 __attribute__((weak)) __device__ int32_t __chipspv_abort_called;
  
-// Global pointer for the device heap for device-side malloc/free
+// Global pointer for the device heap for device-side malloc/free.
+// Gated behind CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS: this is a program-scope
+// global which some OpenCL drivers (e.g. rusticl/radeonsi) cannot consume
+// (issue #1279).
+#ifdef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
 __attribute__((weak)) __device__ void* __chipspv_device_heap;
+#endif
 
 __device__ void __chipspv_abort(int32_t *abort_flag);
 

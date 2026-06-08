@@ -80,6 +80,10 @@ __device__ inline void operator delete[](void*, void*) noexcept {}
 
 
 
+// Device-side dynamic allocation. Gated behind CHIP_ENABLE_DEVICE_MALLOC
+// because the underlying heap is a program-scope global that some OpenCL
+// drivers (e.g. rusticl/radeonsi) cannot consume (issue #1279).
+#ifdef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
 extern "C" __device__ void * __chip_malloc(unsigned int size);
 extern "C" __device__ void __chip_free(void *ptr);
 extern "C" __device__ void __chip_init_device_heap(void* device_heap);
@@ -90,6 +94,7 @@ EXPORT void * malloc(unsigned int size) {
 EXPORT void free(void *ptr) {
     __chip_free(ptr);
 }
+#endif
 
 // __hip_enable_if::type is a type function which returns __T if __B is true.
 template <bool __B, class __T = void> struct __hip_enable_if {};
@@ -204,6 +209,11 @@ __HIP_OVERLOAD1(double, tan);
 
 /**********************************************************************/
 
+// Device-side clock. Gated behind CHIP_ENABLE_DEVICE_CLOCK because the
+// monotonic counter is a program-scope global that some OpenCL drivers
+// (e.g. rusticl/radeonsi) cannot consume (issue #1279). When disabled, the
+// clock* functions remain callable but return 0 (no global is emitted).
+#ifdef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
 // TODO: This is a temporary implementation of clock64(),
 //       in future it will be changed with more reliable implementation.
 __device__ static unsigned long long __chip_clk_counter = 0;
@@ -226,6 +236,12 @@ EXPORT unsigned long long wall_clock64() {
 //       It is encouraged to use clock64() over clock() so that chance of data
 //       loss can be avoided.
 EXPORT long wall_clock() { return (long)wall_clock64(); }
+#else
+EXPORT unsigned long long clock64() { return 0; }
+EXPORT long clock() { return 0; }
+EXPORT unsigned long long wall_clock64() { return 0; }
+EXPORT long wall_clock() { return 0; }
+#endif
 
 #include <hip/spirv_hip_runtime.h>
 
