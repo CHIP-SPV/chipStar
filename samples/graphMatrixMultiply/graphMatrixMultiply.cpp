@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
 
   std::cout << "Device name " << devProp.name << std::endl;
 
-  hipEvent_t events[ITERS * 2];
+  hipEvent_t *events = (hipEvent_t *)malloc(ITERS * 2 * sizeof(hipEvent_t));
   for (uint w = 0; w < (ITERS * 2); w++) {
     err = hipEventCreate(&events[w]);
     ERR_CHECK;
@@ -174,6 +174,8 @@ int main(int argc, char **argv) {
     err = hipEventDestroy(events[w]);
     ERR_CHECK;
   }
+
+  free(events);
 
   // free the resources on device side
   err = hipFree(gpuMatrix1);

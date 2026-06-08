@@ -118,7 +118,7 @@ float matrixMultiplyGraphBasic(float *gpuMatrix1, float *gpuMatrix2,
                                 hipMemcpyHostToDevice);
   ERR_CHECK;
 
-  hipGraphNode_t kernelNodes[ITERS];
+  hipGraphNode_t *kernelNodes = (hipGraphNode_t *)malloc(ITERS * sizeof(hipGraphNode_t));
   for (int i = 0; i < ITERS; ++i) {
     // TODO
     // err = hipEventRecord(events[i * 2], NULL);
@@ -178,5 +178,6 @@ float matrixMultiplyGraphBasic(float *gpuMatrix1, float *gpuMatrix2,
 
   auto timeGPU2 = std::chrono::high_resolution_clock::now();
   std::chrono::duration<float, std::milli> gpu_fp_ms = timeGPU2 - timeGPU1;
+  free(kernelNodes);
   return gpu_fp_ms.count();
 }

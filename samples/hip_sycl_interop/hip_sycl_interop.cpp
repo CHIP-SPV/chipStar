@@ -112,7 +112,7 @@ int main() {
   int numHandles;
   error = (hipError_t)hipGetBackendNativeHandles(0, 0, &numHandles);
   CHECK(error);
-  uintptr_t nativeHandlers[numHandles];
+  uintptr_t* nativeHandlers = (uintptr_t*) malloc(sizeof(uintptr_t)*numHandles);
   error = (hipError_t)hipGetBackendNativeHandles((uintptr_t)stream,
                                                  nativeHandlers, 0);
   CHECK(error);
@@ -121,6 +121,7 @@ int main() {
   oneMKLGemmTest(nativeHandlers, A, B, C, m, m, k, ldA, ldB, ldC,
                  alpha, beta);
 
+  free(nativeHandlers);
   // check results
   std::cout << "Verify results between OneMKL & Serial: ";
   bool MismatchFound=VerifyResult(C, C_serial);
