@@ -21,12 +21,15 @@ num_tries=1
 # deafult timeout is 30 minutes
 timeout=1800
 build_only=false
+# When true, build with program-scope device globals disabled so user
+# __device__/__constant__ globals are lowered to kernel arguments instead.
+psg_off=false
 
 rm -rf ~/.cache/chipStar
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-20|llvm-21|llvm-22> [--variant=translator|native] [--skip-build] [--build-only] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
+  echo "Usage: $0 <debug|release> <llvm-20|llvm-21|llvm-22> [--variant=translator|native] [--skip-build] [--build-only] [--no-psg] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
   exit 1
 fi
 
@@ -89,6 +92,10 @@ do
       build_only=true
       shift
       ;;
+    --no-psg)
+      psg_off=true
+      shift
+      ;;
     --timeout=*)
       timeout="${arg#*=}"
       shift
@@ -142,6 +149,7 @@ echo "num_tries   = ${num_tries}"
 echo "num_threads = ${num_threads}"
 echo "skip_build  = ${skip_build}"
 echo "build_only  = ${build_only}"
+echo "psg_off     = ${psg_off}"
 echo "timeout     = ${timeout}"
 
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
@@ -198,6 +206,13 @@ else
     CHIP_OPTIONS="-DCHIP_MALI_GPU_WORKAROUNDS=ON -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON"
   else
     CHIP_OPTIONS="-DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON"
+  fi
+  # Exercise the kernel-argument lowering path for device globals: with
+  # program-scope globals OFF, user __device__/__constant__ globals become
+  # implicit kernel pointer arguments instead of program-scope CrossWorkgroup
+  # globals (issue #1279).
+  if [ "$psg_off" = true ]; then
+    CHIP_OPTIONS="${CHIP_OPTIONS} -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF"
   fi
   # Build the project
   echo "Building project..."
