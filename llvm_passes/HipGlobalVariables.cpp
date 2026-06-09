@@ -631,14 +631,53 @@ static bool isShadowKernel(const Function &F) {
          N.starts_with("__chip_module") || N.starts_with(ChipGVarArgPrefix);
 }
 
+// A lowered address-holder global can be safely converted to kernel arguments
+// only if every use is either a load inside a user (SPIR_KERNEL) kernel, a load
+// inside its OWN init shadow kernel, or the store inside its OWN bind shadow
+// kernel. Anything else — the address taken (ptrtoint/GEP/constexpr), a load in
+// a non-kernel device function, or a cross-reference from another global's init
+// kernel (e.g. mutually-referencing pointers `Foo=&Bar; Bar=&Foo`) — cannot be
+// expressed as a per-global trailing argument, so we leave such globals as
+// program-scope (which still works on drivers that support them).
+static bool isConvertibleGlobal(GlobalVariable *GV) {
+  std::string OrigName = originalNameOf(GV);
+  std::string OwnInit = (Twine(ChipVarInitPrefix) + OrigName).str();
+  std::string OwnBind = (Twine(ChipVarBindPrefix) + OrigName).str();
+  for (User *U : GV->users()) {
+    auto *I = dyn_cast<Instruction>(U);
+    if (!I)
+      return false; // constant expression use, etc.
+    Function *F = I->getFunction();
+    StringRef FN = F->getName();
+    if (isa<LoadInst>(I)) {
+      if (FN == OwnInit)
+        continue;
+      if (F->getCallingConv() == CallingConv::SPIR_KERNEL && !isShadowKernel(*F))
+        continue; // load in a user kernel
+      return false; // cross-ref init, or load in a non-kernel function
+    }
+    if (isa<StoreInst>(I)) {
+      if (FN == OwnBind)
+        continue; // own bind kernel's store
+      return false;
+    }
+    return false; // any other use kind
+  }
+  return true;
+}
+
 static bool lowerGlobalsToKernelArgs(Module &M, GVarMapT &GVarMap) {
   if (GVarMap.empty())
     return false;
 
-  // The lowered i64 address-holder globals to eliminate.
+  // The lowered address-holder globals we can safely convert to kernel args.
+  // Non-convertible ones are left as program-scope globals (driver fallback).
   SmallVector<GlobalVariable *, 8> GVs;
   for (auto &Kv : GVarMap)
-    GVs.push_back(Kv.second);
+    if (isConvertibleGlobal(Kv.second))
+      GVs.push_back(Kv.second);
+  if (GVs.empty())
+    return false;
 
   // 1) Rework each `__chip_var_init_<G>` shadow kernel to take the storage
   //    address as a trailing pointer arg instead of loading the global.
