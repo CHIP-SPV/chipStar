@@ -159,7 +159,11 @@ add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # using it are not hiding errors.
 add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)
 add_hipcc_test(TestDim3Cast.hip HIPCC_OPTIONS -fsyntax-only)
-add_hipcc_test(TestPlacement.hip)
+# TestPlacement uses device-side new[]/delete[], which require device malloc
+# (the device heap program-scope global). Skip when that feature is disabled.
+if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+  add_hipcc_test(TestPlacement.hip)
+endif()
 
 # Test for math header conflicts between system cmath and HIP device math
 add_hipcc_test(TestMathHeaderConsolidated.hip HIPCC_OPTIONS -fsyntax-only)
