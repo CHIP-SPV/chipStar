@@ -555,6 +555,9 @@ class SPIRVmodule {
   std::map<InstWord, std::string_view> LinkNames_;
   std::map<std::string_view, std::vector<std::pair<uint16_t, uint16_t>>>
       SpilledArgAnnotations_;
+  // Kernel-name -> ordered device-global names feeding the trailing implicit
+  // DeviceGlobal arguments (rusticl globals-as-kernel-args lowering).
+  std::map<std::string_view, std::vector<std::string>> GVarArgAnnotations_;
 
   // This flag indicates if the module is known not to have indirect
   // global buffer accesses (IGBA) in any kernel. This is told by a
@@ -624,6 +627,21 @@ public:
         for (auto &Kv : SpilledArgAnnotations_[KernelName]) {
           FnInfo->ArgTypeInfo_[Kv.first].Kind = SPVTypeKind::PODByRef;
           FnInfo->ArgTypeInfo_[Kv.first].Size = Kv.second;
+        }
+      }
+
+      // Mark the trailing implicit DeviceGlobal arguments (rusticl
+      // globals-as-kernel-args lowering). They are appended after the user
+      // args, in annotation order.
+      if (GVarArgAnnotations_.count(KernelName)) {
+        auto &Names = GVarArgAnnotations_[KernelName];
+        size_t Total = FnInfo->ArgTypeInfo_.size();
+        if (Names.size() <= Total) {
+          size_t Base = Total - Names.size();
+          for (size_t J = 0; J < Names.size(); ++J) {
+            FnInfo->ArgTypeInfo_[Base + J].Kind = SPVTypeKind::DeviceGlobal;
+            FnInfo->ArgTypeInfo_[Base + J].DevGlobalName = Names[J];
+          }
         }
       }
 
@@ -790,6 +808,34 @@ private:
             uint16_t ArgSize = Annotation >> 16u;
             SpillAnnotation.push_back(std::make_pair(ArgIndex, ArgSize));
           }
+        }
+
+        auto GVarArgPrefix = std::string_view("__chip_gvararg_");
+        if (startsWith(Name, GVarArgPrefix) && Inst->size() >= 5) {
+          auto KernelName = Name.substr(GVarArgPrefix.size());
+          // Initializer is an OpConstantComposite of uchar constants holding
+          // the NUL-separated original global names.
+          auto *Init = getInstruction(Inst->getWord(4));
+          std::string Bytes;
+          if (Init) {
+            auto *Type = TypeMap_[Init->getResultTypeID()];
+            if (Type && dynamic_cast<SPIRVtypeArray *>(Type)) {
+              auto ArrLen = static_cast<SPIRVtypeArray *>(Type)->elementCount();
+              for (auto EltID : getWordRange(&Init->getWord(3), ArrLen)) {
+                auto *ConstByte = getInstruction(EltID);
+                Bytes.push_back(static_cast<char>(ConstByte->getWord(3) & 0xff));
+              }
+            }
+          }
+          // Split on NUL.
+          auto &Names = GVarArgAnnotations_[KernelName];
+          size_t Start = 0;
+          for (size_t I = 0; I <= Bytes.size(); ++I)
+            if (I == Bytes.size() || Bytes[I] == '\0') {
+              if (I > Start)
+                Names.emplace_back(Bytes.substr(Start, I - Start));
+              Start = I + 1;
+            }
         }
 
         if (Name == "__chip_module_has_no_IGBAs" && Inst->size() >= 5) {
@@ -1018,7 +1064,8 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
       // for mesa/rusticl that does not support them yet. Also, the
       // variables are essentially dead code for the driver.
       if (LinkName == "__chip_module_has_no_IGBAs" ||
-          startsWith(LinkName, "__chip_spilled_args_"))
+          startsWith(LinkName, "__chip_spilled_args_") ||
+          startsWith(LinkName, "__chip_gvararg_"))
         InstructionsToErase.insert(Insn.getWord(1));
     }
   }
