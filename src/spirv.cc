@@ -439,15 +439,18 @@ public:
           logWarn("SPIR-V Parser: MemberId {} not found in type map", MemberId);
           continue;
         }
-        // Compute actual size as in spv::Op::OpTypeArray branch
-        // except don't account the tail padding. C analogy as
-        // example: 'struct { char a; int b; char c}' takes 9 bytes.
         size_t MemberAlignment = Type->alignment();
         TotalSize = roundUp(TotalSize, MemberAlignment);
         TotalSize += Type->size();
         if (MemberAlignment > MaxAlignment)
           MaxAlignment = MemberAlignment;
       }
+      // Account for tail padding so the struct size matches the C/C++ ABI
+      // sizeof (e.g. 'struct { int; char; }' is 8, not 5). Strict OpenCL
+      // drivers (e.g. rusticl) require clSetKernelArg's size for a by-value
+      // struct argument to equal the fully-padded size, otherwise the arg is
+      // rejected with CL_INVALID_ARG_SIZE.
+      TotalSize = roundUp(TotalSize, MaxAlignment);
       return new SPIRVtypePOD(getWord(1), TotalSize, MaxAlignment);
     }
 
