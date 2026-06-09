@@ -78,9 +78,14 @@ static void queueVariableBindShadowKernel(chipstar::Queue *Q,
   assert(M && Var);
   auto *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Space has not be allocated for a variable.");
-  auto *K = M->getKernelByName(std::string(ChipVarBindPrefix) +
-                               std::string(Var->getName()));
-  assert(K && "chipstar::Module is missing a shadow kernel?");
+  // Use the non-throwing findKernel(): when device globals are lowered to
+  // kernel arguments (rusticl path), the bind shadow kernels are removed
+  // because there is no program-scope global to bind — the address travels as
+  // an implicit kernel argument instead.
+  auto *K = M->findKernel(std::string(ChipVarBindPrefix) +
+                          std::string(Var->getName()));
+  if (!K)
+    return;
   void *Args[] = {&DevPtr};
   queueKernel(Q, K, Args);
 }
@@ -92,7 +97,15 @@ static void queueVariableInitShadowKernel(chipstar::Queue *Q,
   auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) +
                                std::string(Var->getName()));
   assert(K && "chipstar::Module is missing a shadow kernel?");
+#ifdef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
   queueKernel(Q, K);
+#else
+  // rusticl path: the init kernel takes the storage address as its argument
+  // instead of reading a program-scope global.
+  auto *DevPtr = Var->getDevAddr();
+  void *Args[] = {&DevPtr};
+  queueKernel(Q, K, Args);
+#endif
 }
 
 static void initDeviceHeap(chipstar::Queue *Q, chipstar::Module *M) {

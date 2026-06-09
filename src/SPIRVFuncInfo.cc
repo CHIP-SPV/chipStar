@@ -152,19 +152,26 @@ void SPVFuncInfo::visitKernelArgsImpl(void **ClientArgList,
     if (ArgKind == SPVTypeKind::Sampler)
       ArgListIndex--;
 
+    // DeviceGlobal args are implicit (provided by the runtime, not the client),
+    // so they don't consume an entry from the client argument list.
+    bool IsImplicit =
+        ArgTI.isWorkgroupPtr() || ArgKind == SPVTypeKind::DeviceGlobal;
+
     const void *ArgData = nullptr;
-    if (ClientArgList && !ArgTI.isWorkgroupPtr()) {
+    if (ClientArgList && !IsImplicit) {
       ArgData = ClientArgList[ArgListIndex];
 
       // Clang geerated  argument list should not have nullptrs in it.
       assert(ArgData && "nullptr in the argument list");
     }
 
-    KernelArg KArg{{{ArgKind, ArgTI.StorageClass, ArgSize}, ArgIndex, ArgData}};
+    KernelArg KArg{{{ArgKind, ArgTI.StorageClass, ArgSize, ArgTI.DevGlobalName},
+                    ArgIndex, ArgData}};
     Visitor(KArg);
 
     ArgIndex++;
-    ArgListIndex++;
+    if (ArgKind != SPVTypeKind::DeviceGlobal)
+      ArgListIndex++;
   }
 }
 
