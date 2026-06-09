@@ -131,8 +131,13 @@ set(SAMPLES
     ccompat
     hipComplex
     hipHostMallocSample
-    hipDeviceMalloc
 )
+
+# hipDeviceMalloc uses device-side malloc/free, which require the device heap
+# program-scope global. Only build it when that feature is enabled.
+if (CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+  list(APPEND SAMPLES hipDeviceMalloc)
+endif()
 
 if (NOT "${DETECTED_ARCHITECTURE}" STREQUAL "riscv64")
   list(APPEND SAMPLES hipDeviceLink)
