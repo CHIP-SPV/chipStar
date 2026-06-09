@@ -25,10 +25,15 @@
 
 add_hip_test(implicitCasts.cpp)
 
+# Device-side malloc requires the device heap program-scope global, which is
+# omitted when CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS is OFF. Only register
+# this compile test when the feature is enabled.
 # Add this as a hipcc otherwise the `make all` will fail which is not convenient indicator for test failure
-add_test(NAME "deviceMallocCompile"
-  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
-  ${CMAKE_CURRENT_SOURCE_DIR}/deviceMallocCompile.cpp)
+if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+  add_test(NAME "deviceMallocCompile"
+    COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
+    ${CMAKE_CURRENT_SOURCE_DIR}/deviceMallocCompile.cpp)
+endif()
 
 add_hip_test(sincospifSpotTest.cc)
 add_hip_test(shfl_sync.cpp)

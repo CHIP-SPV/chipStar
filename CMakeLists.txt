@@ -268,6 +268,11 @@ set(HIPCC_VERIFY_DEVICES "dg2" CACHE STRING "Comma-separated ocloc -device targe
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
+option(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS "Enable device-side features that emit program-scope \
+CrossWorkgroup globals: dynamic memory allocation (malloc/free, via __chipspv_device_heap) and \
+clock()/clock64()/wall_clock() (via __chip_clk_counter). Some OpenCL drivers (e.g. rusticl/radeonsi) \
+cannot consume program-scope globals; disable this to omit them, at the cost of device-side malloc/free \
+(unavailable) and clock* (return 0). See issue #1279." ON)
 option(CATCH2_DISCOVER_TESTS_COMPILE_TIME "Discover the tests at compile time" ON)
 option(CHIP_SKIP_TESTS_WITH_DOUBLES "Skip tests where kernels use doubles." OFF)
 

@@ -125,14 +125,22 @@ set(SAMPLES
     hip-cuda
     printf
     shuffles
-    clock
     graphMatrixMultiply
     graphs
     ccompat
     hipComplex
     hipHostMallocSample
-    hipDeviceMalloc
 )
+
+# hipDeviceMalloc uses device-side malloc/free and the clock sample busy-waits
+# on clock64(); both require program-scope device globals (the device heap and
+# the clock counter). When CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS is OFF those
+# are omitted (clock* returns 0, so the clock sample would spin forever), so
+# only build these samples when the feature is enabled.
+if (CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+  list(APPEND SAMPLES hipDeviceMalloc)
+  list(APPEND SAMPLES clock)
+endif()
 
 if (NOT "${DETECTED_ARCHITECTURE}" STREQUAL "riscv64")
   list(APPEND SAMPLES hipDeviceLink)

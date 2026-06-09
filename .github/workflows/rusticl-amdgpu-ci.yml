@@ -1,0 +1,116 @@
+name: rusticl AMD GPU CI
+
+# Builds chipStar (+ all tests) on the self-hosted rusticl runner (AMD Radeon Pro
+# W6400, navi24/radeonsi/ACO) and verifies the GPU is visible to chipStar via
+# hipInfo. This gates the rusticl-amdgpu work (PR #1285): program-scope device
+# globals must stay gated OFF for rusticl, so the runtime is configured with
+# -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF.
+#
+# The runner is a container that bind-mounts the host GPU userspace at
+# /space/pvelesko/install (rusticl + LLVM 21 toolchain + libdrm + oneAPI) and
+# passes /dev/dri/renderD128. It carries ONLY the custom labels (no defaults).
+
+on:
+  pull_request:
+    paths-ignore: "docs/**"
+  # No `push:` trigger: it would double-fire alongside `pull_request` for branches
+  # with an open PR, producing duplicate runs that compete for the single
+  # self-hosted runner. PRs are covered by `pull_request`; use the manual
+  # dispatch for branches without a PR.
+  workflow_dispatch:
+
+concurrency:
+  group: rusticl-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-hipinfo:
+    runs-on: [rusticl]
+    timeout-minutes: 120
+    env:
+      # LLVM 21 toolchain used to build chipStar (matches the rusticl-amdgpu build).
+      LLVM_PREFIX: /space/pvelesko/install/llvm/21.0
+      # rusticl runtime: dedicated AMDGPU LLVM 22 + libdrm 2.4.134 + oneAPI + ocl-icd
+      # loader (ahead of oneAPI's so OCL_ICD_VENDORS is honoured). Mirrors the
+      # working host invocation / the container's /etc/profile.d/00-rusticl.sh.
+      RUSTICL_ENABLE: radeonsi
+      OCL_ICD_VENDORS: /home/runner/.rusticl-icd
+      LD_LIBRARY_PATH: /space/pvelesko/install/ocl-icd-loder/lib:/space/pvelesko/install/llvm/22.0-native-amd/lib:/space/pvelesko/install/libdrm/2.4.134/lib/x86_64-linux-gnu:/space/pvelesko/install/oneapi/2025.3.2/lib:/space/pvelesko/install/oneapi/2025.3.2/lib64
+      # chipStar OpenCL device selection: rusticl is the only ICD on this runner
+      # (OCL_ICD_VENDORS is rusticl-only), so it is platform 0, device 0.
+      CHIP_BE: opencl
+      CHIP_PLATFORM: "0"
+      CHIP_DEVICE: "0"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up LLVM 21 toolchain on PATH
+        shell: bash
+        run: echo "$LLVM_PREFIX/bin" >> "$GITHUB_PATH"
+
+      - name: Show rusticl device (clinfo)
+        shell: bash
+        run: |
+          echo "PATH toolchain: $LLVM_PREFIX"
+          clang++ --version | head -1
+          which llvm-spirv xxd
+          clinfo -l
+
+      - name: Configure chipStar (program-scope globals OFF for rusticl)
+        shell: bash
+        run: |
+          set -e
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="$LLVM_PREFIX/bin/clang" \
+            -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++" \
+            -DLLVM_CONFIG_BIN="$LLVM_PREFIX/bin/llvm-config" \
+            -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF \
+            -DCMAKE_INSTALL_PREFIX=build/install
+
+      - name: Build chipStar runtime + hipInfo
+        shell: bash
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Build all tests
+        shell: bash
+        run: cmake --build build --target build_tests -j"$(nproc)"
+
+      - name: Verify rusticl AMD GPU via hipInfo
+        shell: bash
+        run: |
+          set -e
+          cd build
+          echo "=== hipInfo ==="
+          ./hipInfo | tee hipinfo.out
+          echo "=== assert an AMD Radeon device is present ==="
+          if ! grep -qiE "Radeon|gfx10|navi" hipinfo.out; then
+            echo "::error::hipInfo did not report an AMD Radeon device — rusticl GPU not visible to chipStar"
+            exit 1
+          fi
+          echo "OK: chipStar sees the rusticl AMD GPU"
+
+      - name: Run check.py test suite on rusticl
+        shell: bash
+        run: |
+          set -e
+          cd build
+          # 4 GB W6400: keep parallelism low to avoid VRAM contention flakiness.
+          # check.py exits non-zero unless every test passes (no known-failure
+          # exclusions for this backend), so this step gates on 100% pass.
+          ../scripts/check.py ./ dgpu opencl --num-threads 4 --timeout 180
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rusticl-check-logs
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/checkpy_*.txt
+          if-no-files-found: ignore
