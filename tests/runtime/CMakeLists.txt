@@ -69,6 +69,7 @@ set_tests_properties(TestRecordEventBlocking PROPERTIES
 
 add_hip_runtime_test(TestLazyModuleInit.cpp)
 add_hip_runtime_test(TestKernelArgs.hip)
+add_hip_runtime_test(TestFixByvalStructArgSize.hip)
 add_hip_runtime_test(TestUndefKernelArg.hip)
 add_hip_runtime_test(RegressionTest302.hip)
 add_hip_runtime_test(TestLargeGlobalVar.hip)
