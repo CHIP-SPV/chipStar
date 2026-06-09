@@ -13,8 +13,10 @@ name: rusticl AMD GPU CI
 on:
   pull_request:
     paths-ignore: "docs/**"
-  push:
-    branches: [rusticl-ci, rusticl-amdgpu]
+  # No `push:` trigger: it would double-fire alongside `pull_request` for branches
+  # with an open PR, producing duplicate runs that compete for the single
+  # self-hosted runner. PRs are covered by `pull_request`; use the manual
+  # dispatch for branches without a PR.
   workflow_dispatch:
 
 concurrency:
