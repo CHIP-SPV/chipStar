@@ -344,6 +344,7 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
   OPENCL_CPU:
   OPENCL_POCL:
   OPENCL_GPU:
+    TestHiprtcOptions: 'flaky/unreliable on rusticl: hiprtc runtime compilation intermittently fails/hangs'
     cuda-asyncAPI: 'rusticl/radeonsi: CL_INVALID_WORK_GROUP_SIZE / driver gaps on these CUDA-sample ports'
     cuda-binomialoptions: 'rusticl/radeonsi: CL_INVALID_WORK_GROUP_SIZE / driver gaps on these CUDA-sample ports'
     cuda-convolutionSeparable: 'rusticl/radeonsi: CL_INVALID_WORK_GROUP_SIZE / driver gaps on these CUDA-sample ports'
