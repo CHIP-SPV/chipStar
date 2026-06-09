@@ -107,6 +107,10 @@ void SPVFuncInfo::visitClientArgsImpl(void **ClientArgList,
     // <<<>>>-syntax - not in a kernel parameter list.
     if (ArgTI.isWorkgroupPtr())
       continue;
+    // Implicit device-global address argument (rusticl globals-as-kernel-args
+    // lowering): provided by the runtime, not visible to the HIP client.
+    if (ArgKind == SPVTypeKind::DeviceGlobal)
+      continue;
 
     // Map kernel argument types to types as defined in HIP source code.
     if (ArgKind == SPVTypeKind::Image)
