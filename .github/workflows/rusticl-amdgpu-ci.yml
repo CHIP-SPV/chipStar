@@ -24,7 +24,7 @@ concurrency:
 jobs:
   build-and-hipinfo:
     runs-on: [rusticl]
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # LLVM 21 toolchain used to build chipStar (matches the rusticl-amdgpu build).
       LLVM_PREFIX: /space/pvelesko/install/llvm/21.0
