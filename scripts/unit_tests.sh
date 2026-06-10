@@ -244,12 +244,23 @@ fi
 
 module unload opencl/dgpu
 
+# Tests that busy-wait on clock64() in device code (e.g. Unit_hipHostMalloc_CoherentAccess
+# spins `do { cur = clock64()/clkRate - start; } while (cur < wait_sec);`). With program-scope
+# device globals OFF the clock counter (__chip_clk_counter) is omitted and clock64() returns 0,
+# so the loop never terminates: the kernel hangs and the GPU watchdog aborts the queue with
+# CL_OUT_OF_RESOURCES. These tests use a feature that is intentionally unavailable in the
+# --no-psg build, so skip them there only; they run normally with program-scope globals ON.
+PSG_OFF_EXCLUDE=""
+if [ "$psg_off" = true ]; then
+  PSG_OFF_EXCLUDE='--regex-exclude=Unit_hipHostMalloc_CoherentAccess$'
+fi
+
 # Function to run tests
 run_tests() {
     local device=$1
     local backend=$2
     echo "begin ${device}_${backend}_failed_tests"
-    ../scripts/check.py ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries | tee ${device}_${backend}_make_check_result.txt
+    ../scripts/check.py ./ $device $backend ${PSG_OFF_EXCLUDE} --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries | tee ${device}_${backend}_make_check_result.txt
     echo "end ${device}_${backend}_failed_tests"
 }
 
