@@ -317,6 +317,7 @@ opensn_build:
    - module load frameworks/2025.3.1
    - export ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
    - export ONEAPI_DEVICE_SELECTOR=level_zero:gpu
+   - module use /soft/modulefiles
    - module use ${WRK_DIR}/modulefiles
    - module load chipStar/llvm19 cmake
    - export BASE=$PWD
@@ -345,9 +346,9 @@ opensn_run:
    - cd ${WRK_DIR}/opensn/build_debug
    - cp /home/bertoni/projects/p102.opensn/opensn/build_sycl_version/strong_scaling.* .
    - cp /home/bertoni/projects/p102.opensn/opensn/build_sycl_version/xs_168g.xs .
-   - module restore
+   - module use ${WRK_DIR}/modulefiles
    - module use /soft/modulefiles
-   - module load chipStar/llvm19/20260325-19/release
+   - module load chipStar/llvm19
    - module load hdf5
    - rm -rf ~/.cache/chipStar/
    - rm -f output
