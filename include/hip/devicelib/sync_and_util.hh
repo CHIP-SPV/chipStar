@@ -29,6 +29,14 @@
 
 #include <cstddef>
 #include <cstdint>
+// This header declares device-side overloads of memset()/memcpy() at global
+// scope (below). Without the host <cstring> declarations also in scope, host
+// code that calls memset/memcpy/strcmp/etc. (e.g. rocPRIM device headers
+// compiled for the host) sees only the __device__ overload and fails with
+// "call to __device__ function from __host__ function" or "use of undeclared
+// identifier 'strcmp'". Include <cstring> so the host overloads are always
+// visible; HIP host/device overloading keeps the two sets distinct.
+#include <cstring>
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
 
