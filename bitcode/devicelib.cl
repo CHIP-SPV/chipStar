@@ -590,29 +590,29 @@ EXPORT long __chip_ctz_li(long var) { return ctz(var); }
 */
 
 #define DEF_CHIP_ATOMIC2_ORDER_SCOPE(NAME, OP, ORDER, SCOPE)                  \
-  int OVLD atomic_##OP##_explicit (volatile __generic int *, int,             \
+  int OVLD atomic_##OP##_explicit (volatile __generic atomic_int *, int,      \
                                    memory_order order, memory_scope scope);   \
-  uint OVLD atomic_##OP##_explicit (volatile __generic uint *, uint,          \
+  uint OVLD atomic_##OP##_explicit (volatile __generic atomic_uint *, uint,   \
                                     memory_order order, memory_scope scope);  \
-  ulong OVLD atomic_##OP##_explicit (volatile __generic ulong *, ulong,       \
+  ulong OVLD atomic_##OP##_explicit (volatile __generic atomic_ulong *, ulong,\
                                      memory_order order, memory_scope scope); \
   int __chip_atomic_##NAME##_i (DEFAULT_AS int *address, int i)               \
   {                                                                           \
-    return atomic_##OP##_explicit ((volatile __generic int *)address, i,      \
-                                   memory_order_##ORDER,                      \
-                                   memory_scope_##SCOPE);                     \
+    return atomic_##OP##_explicit (                                           \
+        (volatile __generic atomic_int *)address, i,                          \
+        memory_order_##ORDER, memory_scope_##SCOPE);                          \
   }                                                                           \
   uint __chip_atomic_##NAME##_u (DEFAULT_AS uint *address, uint ui)           \
   {                                                                           \
-    return atomic_##OP##_explicit ((volatile __generic uint *)address, ui,    \
-                                   memory_order_##ORDER,                      \
-                                   memory_scope_##SCOPE);                     \
+    return atomic_##OP##_explicit (                                           \
+        (volatile __generic atomic_uint *)address, ui,                        \
+        memory_order_##ORDER, memory_scope_##SCOPE);                          \
   }                                                                           \
   ulong __chip_atomic_##NAME##_l (DEFAULT_AS ulong *address, ulong ull)       \
   {                                                                           \
-    return atomic_##OP##_explicit ((volatile __generic ulong *)address, ull,  \
-                                   memory_order_##ORDER,                      \
-                                   memory_scope_##SCOPE);                     \
+    return atomic_##OP##_explicit (                                           \
+        (volatile __generic atomic_ulong *)address, ull,                      \
+        memory_order_##ORDER, memory_scope_##SCOPE);                          \
   }
 
 // CUDA's atomicAdd / atomicSub / atomicMin / ... provide atomicity only,

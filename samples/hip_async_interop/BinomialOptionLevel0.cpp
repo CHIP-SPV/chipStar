@@ -121,12 +121,13 @@ void* runLevel0Kernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHan
     assert(Err == ZE_RESULT_SUCCESS);
     std::cout << "Level0: Found " << KernelCount << " kernels in this module." << std::endl;
 
-    const char *KernelNames[KernelCount];
+    const char **KernelNames = (const char **)malloc(KernelCount * sizeof(const char *));
     Err = zeModuleGetKernelNames(Program, &KernelCount, KernelNames);
     assert(Err == ZE_RESULT_SUCCESS);
     for (uint32_t i = 0; i < KernelCount; ++i) {
       std::cout << "Level0: kernel " << i << " : " << KernelNames[i] << std::endl;
     }
+    free(KernelNames);
 
     ze_kernel_desc_t KernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
                                    0, // flags

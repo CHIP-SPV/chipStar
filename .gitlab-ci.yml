@@ -166,7 +166,6 @@ chipStar_aurora_script_test_run:
     - CHIP_BE=level0 make build_tests -j
     - module load cmake
     - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-  allow_failure: true
 
 chipStar_aurora_script_test_llvm22:
   stage: builds_chipstar_aurora_script_llvm22

@@ -39,7 +39,7 @@ int main() {
   }
 
   // Second call: get the actual handles.
-  uintptr_t handles[numHandles];
+  uintptr_t *handles = (uintptr_t*) malloc(sizeof(uintptr_t)*numHandles);
   ret = hipGetBackendNativeHandles(0, handles, nullptr);
   if (ret != hipSuccess) {
     printf("FAIL: hipGetBackendNativeHandles(handles) returned %d\n", ret);
@@ -54,7 +54,8 @@ int main() {
   }
 
   printf("INFO: backend name from NativeHandles[0] = \"%s\"\n", backendName);
-
+  free(handles);
+  
   if (strcmp(backendName, "opencl") != 0 && strcmp(backendName, "level0") != 0) {
     printf("FAIL: NativeHandles[0] is \"%s\", expected \"opencl\" or "
            "\"level0\" (never \"default\")\n",

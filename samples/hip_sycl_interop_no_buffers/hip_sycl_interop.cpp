@@ -81,7 +81,7 @@ int main() {
   int numItems;
   auto Error = hipGetBackendNativeHandles(0, 0, &numItems);
   assert(Error == hipSuccess);
-  uintptr_t nativeHandlers[numItems];
+  uintptr_t *nativeHandlers = (uintptr_t*)malloc(sizeof(uintptr_t)*numItems);
   Error = hipGetBackendNativeHandles((uintptr_t)stream, nativeHandlers, 0);
   assert(Error == hipSuccess);
 
