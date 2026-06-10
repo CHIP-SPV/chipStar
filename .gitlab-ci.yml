@@ -35,6 +35,9 @@ stages:
     - builds_zeroRK
     - runs_zeroRK
     - perforamce_zeroRK
+    - builds_opensn
+    - runs_opensn
+    - performance_opensn
     - cleanup
 
 setup:
@@ -302,6 +305,88 @@ zeroRK_performance:
       exit 1
     fi
   allow_failure: true  
+
+# OpenSn application build and run
+opensn_build:
+  stage: builds_opensn
+  resource_group: aurora_pipeline
+  extends: .aurora-shell-runner
+  script:
+   - cd ${WRK_DIR}
+   - module load frameworks/2025.3.1
+   - export ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
+   - export ONEAPI_DEVICE_SELECTOR=level_zero:gpu
+   - module use /soft/modulefiles
+   - module use ${WRK_DIR}/modulefiles
+   - module load chipStar/llvm19 cmake
+   - export BASE=$PWD
+   - git clone git@github.com:Open-Sn/opensn.git
+   - cd opensn
+   - git checkout d0644cd9c633c6ae5e7110d3f8721641e5ef2982
+   - mkdir -p build_deps
+   - cd build_deps
+   - cmake -DCMAKE_INSTALL_PREFIX=$BASE/dependencies ../tools/dependencies
+   - make -j
+   - cd ..
+   - module use /home/pvelesko/modulefiles
+   - module load cmake/4.3.2.lua
+   - source $BASE/dependencies/bin/set_opensn_env.sh
+   - mkdir build_debug
+   - cd build_debug
+   - CC=hipcc CXX=hipcc cmake -DOPENSN_WITH_HIP=ON -DCMAKE_HIP_ARCHITECTURES=spirv -DCMAKE_HIP_PLATFORM=spirv -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+   - make -j
+  allow_failure: true
+
+opensn_run:
+  stage: runs_opensn
+  resource_group: aurora_pipeline
+  extends: .aurora-batch-runner
+  script:
+   - cd ${WRK_DIR}/opensn/build_debug
+   - cp ${WRK_DIR}/chipStar/tests/apps/OpenSn/strong_scaling.* .
+   - cp ${WRK_DIR}/chipStar/tests/apps/OpenSn/xs_168g.xs .
+   - module use ${WRK_DIR}/modulefiles
+   - module use /soft/modulefiles
+   - module load chipStar/llvm19
+   - module load hdf5
+   - rm -rf ~/.cache/chipStar/
+   - rm -f output
+   # first run populates the cache
+   - CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 gpu_tile_compact.sh python/opensn -i strong_scaling.py |& tee -a output
+   # second (timed) run uses the cache
+   - CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 gpu_tile_compact.sh python/opensn -i strong_scaling.py |& tee -a output
+  allow_failure: true
+
+opensn_performance:
+  stage: performance_opensn
+  resource_group: aurora_pipeline
+  extends: .aurora-shell-runner
+  script:
+  - cd ${WRK_DIR}/opensn/build_debug
+  - |
+    # use the last (cached) run's timing; format is "Elapsed execution time: HH:MM:SS.s"
+    TIME_STR=$(grep "Elapsed execution time" output | tail -n 1 | awk '{print $NF}')
+    ACTUAL_TIME=$(echo $TIME_STR | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
+    echo "Extracted time: $TIME_STR -> $ACTUAL_TIME s"
+
+    # Define baseline and 6% threshold
+    BASELINE=28
+    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
+    LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
+    UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
+
+    echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
+
+    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME >= $LOWER_BOUND && $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
+
+    if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
+      echo "Performance check passed: $ACTUAL_TIME is within 6% of $BASELINE"
+      exit 0
+    else
+      echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+      exit 1
+    fi
+  allow_failure: true
 
 cleanup:
   stage: cleanup
