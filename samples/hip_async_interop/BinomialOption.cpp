@@ -374,7 +374,7 @@ int BinomialOption::runKernels(unsigned iterations) {
   int NumHandles;
   int Err = hipGetBackendNativeHandles(0, 0, &NumHandles);
   assert(Err == 0);
-  uintptr_t NativeHandles[NumHandles];
+  uintptr_t *NativeHandles = (uintptr_t *)malloc(NumHandles * sizeof(uintptr_t));
   Err = hipGetBackendNativeHandles((uintptr_t)0, NativeHandles, 0);
   assert(Err == 0);
 
@@ -418,6 +418,7 @@ int BinomialOption::runKernels(unsigned iterations) {
   hipMemcpy(output, dout, samplesPerVectorWidth * sizeof(float4),
             hipMemcpyDeviceToHost);
 
+  free(NativeHandles);
   return SDK_SUCCESS;
 }
 

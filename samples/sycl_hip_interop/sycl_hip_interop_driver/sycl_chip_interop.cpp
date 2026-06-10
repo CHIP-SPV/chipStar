@@ -31,7 +31,7 @@
 
 #include <stdint.h>
 #include "ze_api.h"
-#include <CL/sycl.hpp>
+#include <sycl/sycl.hpp>
 
 #include "sycl_chip_interop.h"
 
@@ -70,7 +70,7 @@ int main() {
   int NumHandles;
   int Err = hipGetBackendNativeHandles(0, 0, &NumHandles);
   assert(Err == 0);
-  uintptr_t NativeHandles[NumHandles];
+  uintptr_t* NativeHandles = (uintptr_t*)malloc(NumHandles*sizeof(uintptr_t));
   Err = hipGetBackendNativeHandles((uintptr_t)0, NativeHandles, 0);
   assert(Err == 0);
   std::string BackendName((char*)NativeHandles[0]);
