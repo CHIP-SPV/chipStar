@@ -148,6 +148,18 @@ extern "C++" inline __device__ void *memcpy(void *dest, const void *src, size_t 
   return __chip_memcpy(dest, src, n);
 }
 
+// Expose device-side memset/memcpy in std:: namespace so that std::memset /
+// std::memcpy in device kernels (e.g. rocPRIM) resolve to the __device__
+// overloads rather than the __host__ ones injected by <cstring> above.
+namespace std {
+inline __device__ void *memset(void *ptr, int value, size_t size) {
+  return __chip_memset(ptr, value, size);
+}
+inline __device__ void *memcpy(void *dest, const void *src, size_t n) {
+  return __chip_memcpy(dest, src, n);
+}
+}
+
 extern "C++" inline __device__ unsigned __activemask()
     __attribute__((unavailable("unsupported in chipStar.")));
 
