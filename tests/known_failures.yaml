@@ -798,7 +798,7 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
   OPENCL_GPU:
     Unit_kernel_chkConstantViaKernel_KernelTest: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (device/__constant__ globals, symbols, static vars): "Initializer for CrossWorkgroup variable not yet supported in Mesa"'
     Unit_kernel_chkGlobalArrAndGlobalVaribleViaKernelFn_KernelTest: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (device/__constant__ globals, symbols, static vars): "Initializer for CrossWorkgroup variable not yet supported in Mesa"'
-    Unit___threadfence(_block)?_Positive_Basic_Shared_ThreadfenceTest: 'rusticl/radeonsi: __threadfence/__threadfence_block hangs the GPU (amdgpu CS cancelled / hard recovery / context lost) on the shared-memory path'
+    Unit___threadfence(_block)?_Positive_Basic_Shared(_ThreadfenceTest)?: 'rusticl/radeonsi: __threadfence/__threadfence_block hangs the GPU (amdgpu CS cancelled / hard recovery / context lost) on the shared-memory path'
     TestHiprtcOptions: 'flaky/unreliable on rusticl: hiprtc runtime compilation intermittently fails/hangs'
     cuda-asyncAPI: 'rusticl/radeonsi: CL_INVALID_WORK_GROUP_SIZE / driver gaps on these CUDA-sample ports'
     cuda-binomialoptions: 'rusticl/radeonsi: CL_INVALID_WORK_GROUP_SIZE / driver gaps on these CUDA-sample ports'
