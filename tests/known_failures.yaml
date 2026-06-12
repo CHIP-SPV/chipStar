@@ -859,6 +859,20 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
     Unit_hipMemPrefetchAsync_NonPageSz: 'rusticl is coarse-grain-SVM only; no managed/unified memory (hipMallocManaged/prefetch/advise)'
 'x4\d\d\dc\ds\db0n0': # aurora
   ALL:
+    # Stress/perf tests are resource- and timing-sensitive; on a single-tile
+    # PVC run (ZE_AFFINITY_MASK=0.0) they time out, OOM, or exercise
+    # capabilities chipStar does not support on Aurora. Not gated in CI.
+    'Stress_hipMemcpy_multiDevice.*': 'multi-device memcpy stress: timeout under single-tile ZE_AFFINITY_MASK on Aurora PVC'
+    'Stress_hipMallocManaged.*': 'managed-memory (coarse-grain SVM) stress: timeout/failure on Aurora PVC'
+    'Stress_HMM_.*': 'HMM oversubscription unsupported on Aurora PVC (segfault)'
+    'Stress_hipMemPrefetchAsync.*': 'prefetch stress fails on Aurora PVC'
+    'Stress_hipHostMalloc_MaxAllocation.*': 'max-allocation OOM under single-tile Aurora run'
+    'Stress_hipStreamCreate.*': 'stream-create stress fails on Aurora PVC'
+    'Stress_hipModuleLoadUnload.*': 'module load/unload stress times out on Aurora PVC'
+    'Perf_hipPerfMem.*': 'memory performance benchmarks (timing-sensitive) not gated on Aurora'
+    'Perf_hipPerfHostNumaAlloc.*': 'HostNumaAlloc segfaults; NUMA host alloc unsupported on Aurora'
+    'Perf_hipPerfDispatchSpeed.*': 'dispatch-speed perf benchmark not gated on Aurora'
+    TestPositiveHasNoIGBAs: 'IGBA detection platform-sensitive on Aurora (both L0 and OpenCL; also a known failure on macOS PoCL)'
   LEVEL0_GPU:
     firstTouch: 'Runtime bug'
     TestIndirectMappedHostAlloc: '*OutH = 0'
