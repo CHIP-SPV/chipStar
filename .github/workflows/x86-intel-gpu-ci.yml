@@ -3,9 +3,14 @@ name: x86 Intel GPU CI
 on:
   pull_request:
     paths-ignore: "docs/**"
+  # Manual trigger runs the FULL matrix (all LLVM versions + debug/release +
+  # native/translator). Automatic PR runs are trimmed to llvm-22 native-release
+  # and llvm-22 translator-release only — see the per-job `if:` guards on the
+  # Stage 4 extended-coverage jobs below.
+  workflow_dispatch:
 
 concurrency:
-  group: meatloaf-${{ github.event.pull_request.number }}
+  group: meatloaf-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -17,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
 
@@ -72,7 +77,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
@@ -88,7 +93,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
 
@@ -251,7 +256,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
 
@@ -331,16 +336,20 @@ jobs:
           path: ${{ runner.temp }}/libCEED/
           if-no-files-found: ignore
 
-  # Stage 4: All other LLVM version tests (fan out in parallel)
+  # Stage 4: Extended compiler coverage — older LLVM versions (20, 21) and
+  # debug builds. These run ONLY on a manual workflow_dispatch, not on every
+  # PR, to keep automatic CI fast. Automatic PRs cover llvm-22 native-release
+  # (Stage 1, above) and llvm-22 translator-release (below).
   unit-tests-llvm-20-debug:
     needs: build-and-test-libceed
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
@@ -349,13 +358,14 @@ jobs:
 
   unit-tests-llvm-20-release:
     needs: build-and-test-libceed
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
@@ -364,13 +374,14 @@ jobs:
 
   unit-tests-llvm-21-debug:
     needs: build-and-test-libceed
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
@@ -379,13 +390,14 @@ jobs:
 
   unit-tests-llvm-21-release:
     needs: build-and-test-libceed
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
@@ -394,13 +406,14 @@ jobs:
 
   unit-tests-llvm-22-translator-debug:
     needs: build-and-test-libceed
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
@@ -415,7 +428,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
@@ -424,13 +437,14 @@ jobs:
 
   unit-tests-llvm-22-native-debug:
     needs: build-and-test-libceed
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
       - name: Run unit test checking script
