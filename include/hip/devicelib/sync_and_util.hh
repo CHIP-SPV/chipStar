@@ -29,13 +29,16 @@
 
 #include <cstddef>
 #include <cstdint>
-// This header declares device-side overloads of memset()/memcpy() at global
-// scope (below). Without the host <cstring> declarations also in scope, host
-// code that calls memset/memcpy/strcmp/etc. (e.g. rocPRIM device headers
-// compiled for the host) sees only the __device__ overload and fails with
-// "call to __device__ function from __host__ function" or "use of undeclared
-// identifier 'strcmp'". Include <cstring> so the host overloads are always
-// visible; HIP host/device overloading keeps the two sets distinct.
+// Include <cstring> unconditionally. Library headers (e.g. rocPRIM) reference
+// strcmp/memset/memcpy/etc. in __host__ functions (e.g. device-property setup),
+// and in single-source HIP those bodies are still parsed during the device
+// pass -- so the host declarations must be visible in BOTH passes. Guarding
+// <cstring> out of device compilation leaves those identifiers undeclared and
+// breaks the device pass. This only brings in declarations, not definitions, so
+// it does not enlarge the SPIR-V module; the __device__ memset/memcpy overloads
+// declared below (surfaced into std:: via using-declarations) ensure device
+// callers still resolve to the __chip_* implementations rather than the host
+// ones.
 #include <cstring>
 
 __device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
@@ -148,16 +151,19 @@ extern "C++" inline __device__ void *memcpy(void *dest, const void *src, size_t 
   return __chip_memcpy(dest, src, n);
 }
 
-// Expose device-side memset/memcpy in std:: namespace so that std::memset /
-// std::memcpy in device kernels (e.g. rocPRIM) resolve to the __device__
-// overloads rather than the __host__ ones injected by <cstring> above.
+// Expose the device-side memset/memcpy overloads (declared at global scope
+// above) in std:: so that std::memset / std::memcpy in device kernels (e.g.
+// rocPRIM) resolve to the __device__ overloads. We use using-declarations
+// rather than redefining std::memset/std::memcpy: <cstring> (pulled in
+// unconditionally by other host headers such as spdlog, in both host and
+// device passes) already does `using ::memset/::memcpy`, and a *second*
+// definition of std::memset/std::memcpy collides with it ("target of using
+// declaration conflicts with declaration already in scope"). A duplicate
+// using-declaration of the same ::memset/::memcpy is harmless, and because it
+// appears after the __device__ overloads above it also pulls those into std.
 namespace std {
-inline __device__ void *memset(void *ptr, int value, size_t size) {
-  return __chip_memset(ptr, value, size);
-}
-inline __device__ void *memcpy(void *dest, const void *src, size_t n) {
-  return __chip_memcpy(dest, src, n);
-}
+using ::memcpy;
+using ::memset;
 }
 
 extern "C++" inline __device__ unsigned __activemask()
