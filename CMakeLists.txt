@@ -266,7 +266,7 @@ option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(HIPCC_VERIFY "Run ocloc kernel-coverage verification after hipcc compiles (detects IGC dropped kernels)" ON)
 set(HIPCC_VERIFY_DEVICES "dg2" CACHE STRING "Comma-separated ocloc -device targets used when HIPCC_VERIFY is ON")
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
-option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" OFF)
+option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" ON)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
 option(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS "Enable device-side features that emit program-scope \
 CrossWorkgroup globals: dynamic memory allocation (malloc/free, via __chipspv_device_heap) and \

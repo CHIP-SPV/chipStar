@@ -6553,7 +6553,17 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   //        early. Should find the causes, fix them and then and then remove the
   //        CHIPInitialize() call.
   LOCK(ApiMtx);
-  try { CHIPInitialize(); } catch (...) {}
+  // Attempt backend initialization at most once across all fat-binary
+  // registrations, and tolerate a missing device. This lets test discovery
+  // (e.g. Catch2 --list-tests) run on machines without a GPU. Without the
+  // guard, a no-device failure (which now throws rather than aborts) would be
+  // retried for every registered module -- one per kernel TU -- because
+  // std::call_once does not latch when its callable throws, hanging startup.
+  static bool BackendInitTried = false;
+  if (!BackendInitTried) {
+    BackendInitTried = true;
+    try { CHIPInitialize(); } catch (...) {}
+  }
 
   const __CudaFatBinaryWrapper *Wrapper =
       reinterpret_cast<const __CudaFatBinaryWrapper *>(Data);

@@ -152,7 +152,13 @@ void CHIPInitializeCallOnce() {
     Backend->initialize();
   } catch (...) {
     if (Backend) delete Backend, Backend = nullptr;
-    CHIPERR_LOG_AND_ABORT("Backend initialization failed. No device available.");
+    // Throw (don't abort) so callers that tolerate a missing device can recover.
+    // __hipRegisterFatBinary() deliberately swallows this to allow test
+    // discovery (e.g. Catch2 --list-tests) on machines without a GPU; an abort
+    // here escapes that catch and kills discovery. Real HIP API calls still
+    // surface the failure as hipErrorInitializationError on the next call.
+    CHIPERR_LOG_AND_THROW("Backend initialization failed. No device available.",
+                          hipErrorInitializationError);
   }
 }
 
