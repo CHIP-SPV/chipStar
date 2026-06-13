@@ -933,6 +933,7 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
     Unit_hipMallocManaged_TwoPointers - int: 'rusticl is coarse-grain-SVM only; no managed/unified memory (hipMallocManaged/prefetch/advise)'
     Unit_hipMemAdvise_TstAccessedByFlg4: 'rusticl is coarse-grain-SVM only; no managed/unified memory (hipMallocManaged/prefetch/advise)'
     Unit_hipMemcpyFromToSymbol_Negative: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (device/__constant__ globals, symbols, static vars): "Initializer for CrossWorkgroup variable not yet supported in Mesa"'
+    Unit_hipMemcpyFromToSymbol_Negative_MemoryTest2: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (same root cause as Unit_hipMemcpyFromToSymbol_Negative); negative test aborts with "Destination is nullptr". Surfaced by narrowing the over-broad _MemoryTest exclusion.'
     Unit_hipMemcpyToFromSymbol_SyncAndAsync: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (device/__constant__ globals, symbols, static vars): "Initializer for CrossWorkgroup variable not yet supported in Mesa"'
     Unit_hipMemFaultStackAllocation_Check: 'unsupported on rusticl/radeonsi (driver gap; see rusticl AMD GPU CI)'
     Unit_hipMemPrefetchAsync_NonPageSz: 'rusticl is coarse-grain-SVM only; no managed/unified memory (hipMallocManaged/prefetch/advise)'
