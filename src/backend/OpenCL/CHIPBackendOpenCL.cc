@@ -2469,6 +2469,23 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
       break;
     }
+    case SPVTypeKind::DeviceGlobal: {
+      // Implicit arg carrying the device address of a __device__/__constant__
+      // global (rusticl globals-as-kernel-args lowering). Bind it to the
+      // global's allocated storage.
+      auto *Var = Kernel->getModule()->getGlobalVar(Arg.DevGlobalName.c_str());
+      if (!Var || !Var->getDevAddr())
+        CHIPERR_LOG_AND_THROW(
+            "DeviceGlobal kernel arg references an unallocated global: " +
+                Arg.DevGlobalName,
+            hipErrorLaunchFailure);
+      logTrace("clSetKernelArgSVMPointer {} for device global '{}' -> {}",
+               Arg.Index, Arg.DevGlobalName, Var->getDevAddr());
+      Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index,
+                                       Var->getDevAddr());
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
+      break;
+    }
     }
   };
   FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);
