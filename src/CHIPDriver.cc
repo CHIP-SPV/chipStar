@@ -39,6 +39,9 @@ std::mutex ApiMtx;
 
 #include <string>
 #include <memory>
+#include <cstdlib>
+#include <cstdio>
+#include <unistd.h>
 
 #include "backend/backends.hh"
 #include "Utils.hh"
@@ -52,6 +55,37 @@ std::atomic_ulong CHIPNumRegisteredFatBinaries;
 
 EnvVars ChipEnvVars;
 
+// Workaround for Intel OpenCL ICD (libigdrcl.so) shutdown hang. On Intel
+// Arc / NEO drivers, the ICD's DT_FINI handlers can deadlock inside the
+// dynamic linker's _dl_call_fini phase after main() returns, even after
+// chipStar has cleanly released all its OpenCL objects. This causes the
+// process to appear to hang for 60-120s post "Average kernel execution
+// time" until the OS or test harness kills it.
+//
+// The fix: register an atexit() handler that runs the chipStar uninitializer
+// (idempotent via std::call_once), flushes stdio, and then calls _exit(0)
+// to bypass _dl_fini entirely. atexit handlers registered from this
+// constructor run before _dl_fini begins, so we get past chipStar's own
+// teardown but skip the ICD's broken fini.
+//
+// Set CHIP_SKIP_FINI=0 to opt out (e.g. for sanitizer / coverage runs that
+// rely on shared-library destructors).
+extern void CHIPUninitialize();
+static void chipFastExitHandler() {
+  std::fflush(stdout);
+  std::fflush(stderr);
+  if (Backend)
+    CHIPUninitialize();
+  std::fflush(stdout);
+  std::fflush(stderr);
+  _exit(0);
+}
+__attribute__((constructor(150))) static void chipInstallFastExit() {
+  const char *opt = std::getenv("CHIP_SKIP_FINI");
+  if (opt && opt[0] == '0')
+    return;
+  std::atexit(chipFastExitHandler);
+}
 // CUDA Driver API: "If cuInit() has not been called, any function
 // from the driver API will return CUDA_ERROR_NOT_INITIALIZED".
 //
