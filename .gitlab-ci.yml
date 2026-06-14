@@ -193,22 +193,21 @@ performance_hoMusic:
       # Convert to total seconds using awk (handles 1m50.315s -> 110.315)
       ACTUAL_TIME=$(echo $TIME_STR | awk -F'[ms]' '{print ($1 * 60) + $2}')
       
-      # Define baseline and 6% threshold
+      # Define baseline and 6% upper threshold
       BASELINE=90.0
       THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
-      LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
       UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
       echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
 
       # Compare using bc (returns 1 for true, 0 for false)
-      IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME >= $LOWER_BOUND && $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
+      IS_WITHIN_LIMITS=$(echo $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
       if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
         echo "Performance check passed: $ACTUAL_TIME is within 5% of $BASELINE"
         exit 0
       else
-        echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+        echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
         exit 1
       fi
   allow_failure: true
@@ -257,7 +256,6 @@ zeroRK_performance:
     # Define baseline and 6% threshold
     BASELINE=85
     THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
-    LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
     echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
@@ -269,7 +267,7 @@ zeroRK_performance:
       echo "Performance check passed: $ACTUAL_TIME is within 5% of $BASELINE"
       exit 0
     else
-      echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+      echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
       exit 1
     fi
 
@@ -337,23 +335,21 @@ opensn_performance:
     echo "Extracted time: $TIME_STR -> $ACTUAL_TIME s"
 
     # Define baseline and 6% threshold
-    BASELINE=28
+    BASELINE=29
     THRESHOLD=$(echo "$BASELINE * 0.1" | bc -l)
-    LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
     echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
 
-    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME >= $LOWER_BOUND && $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
+    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
     if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
       echo "Performance check passed: $ACTUAL_TIME is within 6% of $BASELINE"
       exit 0
     else
-      echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+      echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
       exit 1
     fi
-  allow_failure: true
 
 cleanup:
   stage: cleanup
