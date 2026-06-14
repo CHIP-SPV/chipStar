@@ -150,9 +150,19 @@ include(mkl_and_icpx)
 # Add samples that depend on Intel's oneAPI compiler - if available.
 if (SYCL_AVAILABLE)
   list(APPEND SAMPLES sycl_hip_interop)
-  if (LevelZero_LIBRARY)
+  # The hip_sycl_interop[_no_buffers] samples link their executables with
+  # -fsycl using chipStar's clang++ (not icpx). Starting with LLVM 23 the
+  # upstream -fsycl driver makes clang-linker-wrapper pull in libLLVMSYCL.so,
+  # which is only produced by an LLVM build that enables the SYCL project.
+  # chipStar's LLVM is built with LLVM_ENABLE_PROJECTS="clang;clang-tools-extra"
+  # (no SYCL), so the library does not exist and the link fails. Only build
+  # these -fsycl-linked samples on LLVM < 23.
+  if (LevelZero_LIBRARY AND LLVM_VERSION_MAJOR LESS 23)
       list(APPEND SAMPLES hip_sycl_interop)
       list(APPEND SAMPLES hip_sycl_interop_no_buffers)
+  elseif (LevelZero_LIBRARY)
+      message(STATUS "LLVM ${LLVM_VERSION_MAJOR}: not building hip_sycl_interop[_no_buffers] "
+                     "(-fsycl link requires libLLVMSYCL.so, not provided by chipStar's LLVM build)")
   endif()
 
 else()
