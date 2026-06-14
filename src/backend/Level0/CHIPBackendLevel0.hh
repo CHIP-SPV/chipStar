@@ -386,11 +386,53 @@ public:
   /// is finished. Without this, checkEvents() may recycle their underlying
   /// ze_events while GPU operations on this queue still reference them.
   std::vector<std::shared_ptr<chipstar::Event>> PendingCrossQueueDeps_;
+
+  // this mutex is necessary to avoid a race in the isEmptyQueue
+  // routine. to improve performance of ZeroRK we now added a
+  // check where if the atomic is false (queue not empty), we
+  // check if it really is with a LZ call. however, then there
+  // can be a race due to the gap between the LZ call and the store/load of
+  // the atomic, where another thread could start submitting but isEmptyQueue
+  // incorrectly returns true.
+  // this is held by submitters from just before the store(false) to the finish of submission
+  // so the atomic cannot be updated while a submit is underway but not completed.
+  //
+  // Every submit site should do at the start of critical sections:
+  //
+  //   LOCK(UpdateEmptyQueueViaLZMtx_);          // acquire lock first
+  //   IsEmptyQueue_.store(false);   // then mark queue busy
+  std::mutex UpdateEmptyQueueViaLZMtx_;
+
+  // this returns whether or not a queue is empty.
+  // if the per-queue atomic tracking isEmpty is true, return
+  // true since it is only true at initial state or after we've confirmed via L0 call.
+  // if it is false, the queue may be busy or it may have finished
+  // all work, so we check with a call to zeCommandListHostSynchronize(ZeCmdListImm_, 0).
+  // because there is a possible race due to the gap between reading this value and returning
+  // (a concurrent submitter could IsEmptyQueue_.store(false) between the L0 check
+  // and a IsEmptyQueue_.store(true)
+  // resulting in setting IsEmptyQueue_ true while there actually is work in the queue)
+  // we have to use a lock (UpdateEmptyQueueViaLZMtx_)
+  // if we can't get the lock, someone is submitting, so return false.
+  // if we get the lock, check if it's really busy with zeCommandListHostSynchronize.
+  // if it's true (not busy), update IsEmptyQueue_ and return true. else, return false.
   bool isEmptyQueue() override {
-#ifndef CHIP_LZ_API_QUERY_QUEUE_EMPTY
-    return IsEmptyQueue_.load();
-#else
+#ifdef CHIP_LZ_API_QUERY_QUEUE_EMPTY
     return (zeCommandListHostSynchronize(ZeCmdListImm_, 0) == ZE_RESULT_SUCCESS);
+#else
+    bool is_empty = IsEmptyQueue_.load(std::memory_order_relaxed);
+    if (is_empty) return true;
+    std::unique_lock<std::mutex> lock_guard(UpdateEmptyQueueViaLZMtx_, std::try_to_lock);
+    if (!lock_guard.owns_lock()) {
+      // Submitter holds the lock; conservatively say busy.
+      return false;
+    }
+    // Re-check under lock (another thread may have just updated to true while waiting for the lock)
+    is_empty = IsEmptyQueue_.load(std::memory_order_relaxed);
+    if (is_empty) return true;
+    is_empty = (zeCommandListHostSynchronize(ZeCmdListImm_, 0) == ZE_RESULT_SUCCESS);
+    if (is_empty) IsEmptyQueue_.store(true, std::memory_order_relaxed);
+    return is_empty;
 #endif
   }
 

@@ -400,6 +400,7 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       EventPoolHandle_(nullptr), EventPoolIndex(0) {}
 
 void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
+  LOCK(UpdateEmptyQueueViaLZMtx_);
   IsEmptyQueue_.store(false);
   auto ChipEventLz = static_cast<CHIPEventLevel0 *>(ChipEvent);
 
@@ -651,6 +652,8 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto ChipQueueLz = static_cast<CHIPQueueLevel0 *>(ChipQueue);
   auto ChipContextLz =
       static_cast<CHIPContextLevel0 *>(ChipQueue->getContext());
+  LOCK(ChipQueueLz->UpdateEmptyQueueViaLZMtx_);
+  ChipQueueLz->IsEmptyQueue_.store(false);
 
   // Use dedicated events for callbacks (not from shared pool).
   // Workaround for Intel Data Center GPU Max driver bug where events used on
@@ -961,9 +964,11 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     
     // Signal this marker in the other queue's command list
     auto OtherQueue = static_cast<CHIPQueueLevel0 *>(q);
+    // move IsEmptyQueue_ above CommandListMtx lock
+    LOCK(OtherQueue->UpdateEmptyQueueViaLZMtx_);
+    OtherQueue->IsEmptyQueue_.store(false);
     LOCK(OtherQueue->CommandListMtx);
     auto OtherCommandList = OtherQueue->getCmdListImm();
-    OtherQueue->IsEmptyQueue_.store(false);
 
     zeStatus = zeCommandListAppendSignalEvent(OtherCommandList, MarkerEventLz->peek());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
@@ -1351,6 +1356,7 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
+  LOCK(UpdateEmptyQueueViaLZMtx_);
   IsEmptyQueue_.store(false);
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   CHIPKernelLevel0 *ChipKernel = (CHIPKernelLevel0 *)ExecItem->getKernel();
@@ -1432,6 +1438,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
+  LOCK(UpdateEmptyQueueViaLZMtx_);
   IsEmptyQueue_.store(false);
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemFillEvent =
@@ -1483,6 +1490,7 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
                                     const void *Src, size_t Spitch,
                                     size_t Sspitch, size_t Width, size_t Height,
                                     size_t Depth, hipMemcpyKind Kind) {
+  LOCK(UpdateEmptyQueueViaLZMtx_);
   IsEmptyQueue_.store(false);
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyRegionEvent =
@@ -1529,7 +1537,10 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
                                      hipExtent Extent) {
   logTrace("CHIPQueueLevel0::memFillAsync3D - using "
            "zeCommandListAppendMemoryCopyRegion implementation");
-  IsEmptyQueue_.store(false);
+  // NOTE: the IsEmptyQueue_ store is not at the top anymore here.
+  // it is moved below to near the zeCommandListAppendMemoryCopyRegion call. 
+  // the other paths of this routine calls memFillAsyncImpl
+  // (which has the lock and IsEmptyQueue_ inside it already and so would deadlock)
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
 
   size_t Width = Extent.width;
@@ -1594,6 +1605,9 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   std::shared_ptr<chipstar::Event> CopyEvent =
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipCtxZe, chipstar::EventFlags(), "memFillAsync3D_region");
+
+  LOCK(UpdateEmptyQueueViaLZMtx_);
+  IsEmptyQueue_.store(false);
 
   // Get dependencies before acquiring command list lock to avoid deadlock
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(CopyEvent);
@@ -1676,6 +1690,7 @@ std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
                                 const chipstar::RegionDesc &SrcRegion) {
   logTrace("CHIPQueueLevel0::memCopyToImage");
+  LOCK(UpdateEmptyQueueViaLZMtx_);
   IsEmptyQueue_.store(false);
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> ImageCopyEvent =
@@ -1837,6 +1852,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                                   hipMemcpyKind Kind) {
+  LOCK(UpdateEmptyQueueViaLZMtx_);
+  IsEmptyQueue_.store(false);
   logTrace("CHIPQueueLevel0::memCopyAsync");
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
   std::shared_ptr<chipstar::Event> MemCopyEvent =
@@ -1864,6 +1881,8 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
+  LOCK(UpdateEmptyQueueViaLZMtx_);
+  IsEmptyQueue_.store(false);
   logTrace("CHIPQueueLevel0::memPrefetchImpl");
   
   // Level0 doesn't support explicit CPU prefetch - zeCommandListAppendMemoryPrefetch
