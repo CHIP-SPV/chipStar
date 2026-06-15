@@ -30,6 +30,7 @@
 #include "../src/common.hh"
 #include "zeHipErrorConversion.hh"
 #include <algorithm>
+#include <atomic>
 
 static thread_local ze_result_t
     zeStatus; // instantiated in CHIPBackendLevel0.cc
@@ -655,6 +656,12 @@ protected:
   CHIPDeviceLevel0 *Device;
 
 public:
+  // Tracks whether zeKernelSetIndirectAccess has already been called on
+  // this kernel handle. The L0 driver appears to serialize this call
+  // globally; calling it once per kernel instead of once per launch
+  // avoids contention/deadlocks with high launch rates.
+  std::atomic<bool> IndirectAccessSet_{false};
+
   CHIPKernelLevel0();
 
   virtual ~CHIPKernelLevel0() {
