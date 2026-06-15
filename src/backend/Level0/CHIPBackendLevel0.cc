@@ -700,7 +700,6 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   // Lock before using immediate command list
   LOCK(ChipQueueLz->CommandListMtx);
   ze_command_list_handle_t CommandList = ChipQueueLz->getCmdListImm();
-  ChipQueueLz->IsEmptyQueue_.store(false);
 
   // Add a barrier so that it signals
   zeStatus = zeCommandListAppendBarrier(
@@ -952,7 +951,8 @@ CHIPQueueLevel0::createMarkerEventWithLock(CHIPContextLevel0* Ctx, const std::st
 std::pair<std::vector<ze_event_handle_t>, chipstar::LockGuardVector>
 CHIPQueueLevel0::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
-  IsEmptyQueue_.store(false);
+  // Caller must hold UpdateEmptyQueueViaLZMtx_; IsEmptyQueue_ is expected
+  // to be false on entry (set by the caller's submit-site LOCK + store).
   auto Ctx = static_cast<CHIPContextLevel0 *>(ChipCtxLz_);
   auto BackendLz = static_cast<CHIPBackendLevel0 *>(Backend);
 
@@ -1972,6 +1972,7 @@ void CHIPQueueLevel0::finish() {
   // All GPU work on this queue has completed. Release cross-queue dependency
   // marker events so their ze_events can be recycled by the event pool.
   PendingCrossQueueDeps_.clear();
+  LOCK(UpdateEmptyQueueViaLZMtx_);
   IsEmptyQueue_.store(true);
   return;
 }
