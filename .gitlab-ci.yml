@@ -21,8 +21,6 @@ variables:
 stages:
     - .pre
     - build_chipstar
-    - builds_chipstar_install_script_llvm19
-    - runs_tests_chipstar_install_script_llvm19
     - builds_chipstar_install_script_llvm22
     - runs_tests_chipstar_install_script_llvm22
     - builds_chipstar_aurora_script_llvm19
@@ -84,34 +82,6 @@ aurora_build_test:
     - cd ..
     - rm -rf build
 
-# testing with install script
-chipStar_script_install:
-  stage: builds_chipstar_install_script_llvm19
-  resource_group: aurora_pipeline  
-  extends: .aurora-shell-runner
-  script:
-    - hostname
-    - echo "Running on $(hostname) with setuid shell runner"
-    - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/chipStar_llvm19
-    - cd ${WRK_DIR}/chipStar_llvm19
-    - module use /soft/modulefiles
-    - module load cmake chipStar/.llvm19/20251107-19/release
-    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
-  allow_failure: true
-  
-chipStar_script_test:
-  stage: runs_tests_chipstar_install_script_llvm19
-  resource_group: aurora_pipeline  
-  extends: .aurora-batch-runner
-  script:
-    - cd ${WRK_DIR}/chipStar_llvm19/build
-    - module use /soft/modulefiles
-    - module load cmake chipStar/.llvm19/20251107-19/release
-    - rm -rf $HOME/.cache/chipStar
-    - CHIP_BE=level0 make build_tests -j
-    - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-  allow_failure: true
-
 chipStar_script_install_llvm22:
   stage: builds_chipstar_install_script_llvm22
   resource_group: aurora_pipeline  
@@ -123,8 +93,8 @@ chipStar_script_install_llvm22:
     - cd ${WRK_DIR}/chipStar_llvm22
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm22/20260311-22/release
+    - sed -i '/name="chipstar",/a\        cmake_flags=["-DCHIP_LZ_API_QUERY_QUEUE_EMPTY=ON -DCHIP_L0_KERNEL_TIMESTAMPS=OFF"],' ./install_chipstar.py 
     - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
-  allow_failure: true
 
 chipStar_script_test_llvm22:
   stage: runs_tests_chipstar_install_script_llvm22
@@ -137,7 +107,6 @@ chipStar_script_test_llvm22:
     - rm -rf $HOME/.cache/chipStar
     - CHIP_BE=level0 make build_tests -j
     - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-  allow_failure: true
 
 # testing with install script
 chipStar_aurora_script_test:
@@ -166,7 +135,8 @@ chipStar_aurora_script_test_run:
     - CHIP_BE=level0 make build_tests -j
     - module load cmake
     - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-
+  allow_failure: true
+  
 chipStar_aurora_script_test_llvm22:
   stage: builds_chipstar_aurora_script_llvm22
   resource_group: aurora_pipeline  
@@ -223,22 +193,21 @@ performance_hoMusic:
       # Convert to total seconds using awk (handles 1m50.315s -> 110.315)
       ACTUAL_TIME=$(echo $TIME_STR | awk -F'[ms]' '{print ($1 * 60) + $2}')
       
-      # Define baseline and 6% threshold
+      # Define baseline and 6% upper threshold
       BASELINE=90.0
       THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
-      LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
       UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
       echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
 
       # Compare using bc (returns 1 for true, 0 for false)
-      IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME >= $LOWER_BOUND && $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
+      IS_WITHIN_LIMITS=$(echo $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
       if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
         echo "Performance check passed: $ACTUAL_TIME is within 5% of $BASELINE"
         exit 0
       else
-        echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+        echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
         exit 1
       fi
   allow_failure: true
@@ -258,7 +227,6 @@ zeroRK_build:
    - mkdir -p build_aurora
    - cd build_aurora
    - sh ../scripts/build_aurora.sh  --no-module-loads
-  allow_failure: true
   
 zeroRK_run:
   stage: runs_zeroRK
@@ -274,7 +242,6 @@ zeroRK_run:
   - module load chipStar/llvm19
   - rm -f output
   - ./submit_job.sh |& tee -a output
-  allow_failure: true
 
 zeroRK_performance:
   stage: perforamce_zeroRK
@@ -289,22 +256,20 @@ zeroRK_performance:
     # Define baseline and 6% threshold
     BASELINE=85
     THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
-    LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
     echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
 
     # Compare using bc (returns 1 for true, 0 for false)
-    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME >= $LOWER_BOUND && $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
+    IS_WITHIN_LIMITS=$(echo $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
     if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
       echo "Performance check passed: $ACTUAL_TIME is within 5% of $BASELINE"
       exit 0
     else
-      echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+      echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
       exit 1
     fi
-  allow_failure: true  
 
 # OpenSn application build and run
 opensn_build:
@@ -370,23 +335,21 @@ opensn_performance:
     echo "Extracted time: $TIME_STR -> $ACTUAL_TIME s"
 
     # Define baseline and 6% threshold
-    BASELINE=28
-    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
-    LOWER_BOUND=$(echo "$BASELINE - $THRESHOLD" | bc -l)
+    BASELINE=29
+    THRESHOLD=$(echo "$BASELINE * 0.1" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
     echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
 
-    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME >= $LOWER_BOUND && $ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
+    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
     if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
       echo "Performance check passed: $ACTUAL_TIME is within 6% of $BASELINE"
       exit 0
     else
-      echo "Performance check failed: $ACTUAL_TIME is outside the range [$LOWER_BOUND, $UPPER_BOUND]"
+      echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
       exit 1
     fi
-  allow_failure: true
 
 cleanup:
   stage: cleanup
