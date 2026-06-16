@@ -1891,12 +1891,13 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
         static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
             ChipCtxZe, chipstar::EventFlags(), "memPrefetch");
     
+    auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
+
     // For CPU prefetch, just create an event that's already complete
     // The memory will be accessible on CPU by default for managed memory
     LOCK(CommandListMtx);
     IsEmptyQueue_.store(false);
     auto CommandList = this->getCmdListImmCopy();
-    auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
     
     // Append a barrier to signal completion (no actual prefetch command)
     zeStatus = zeCommandListAppendBarrier(
@@ -1915,10 +1916,11 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
       static_cast<CHIPBackendLevel0 *>(Backend)->createEventShared(
           ChipCtxZe, chipstar::EventFlags(), "memPrefetch");
   
+  auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
+
   LOCK(CommandListMtx);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImmCopy();
-  auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
   
   // Append memory prefetch command to the command list
   zeStatus = zeCommandListAppendMemoryPrefetch(

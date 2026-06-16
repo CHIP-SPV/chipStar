@@ -32,7 +32,7 @@ stages:
     - performance_hoMusic
     - builds_zeroRK
     - runs_zeroRK
-    - perforamce_zeroRK
+    - performance_zeroRK
     - builds_opensn
     - runs_opensn
     - performance_opensn
@@ -244,7 +244,7 @@ zeroRK_run:
   - ./submit_job.sh |& tee -a output
 
 zeroRK_performance:
-  stage: perforamce_zeroRK
+  stage: performance_zeroRK
   resource_group: aurora_pipeline  
   extends: .aurora-shell-runner
   script:
