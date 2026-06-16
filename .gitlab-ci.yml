@@ -339,7 +339,7 @@ opensn_performance:
     THRESHOLD=$(echo "$BASELINE * 0.1" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
-    echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
+    echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
 
     IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
