@@ -93,7 +93,7 @@ chipStar_script_install_llvm22:
     - cd ${WRK_DIR}/chipStar_llvm22
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm22/20260311-22/release
-    - sed -i '/name="chipstar",/a\        cmake_flags=["-DCHIP_LZ_API_QUERY_QUEUE_EMPTY=ON","-DCHIP_L0_KERNEL_TIMESTAMPS=OFF"],' ./install_chipstar.py 
+    - sed -i '/name="chipstar",/a\        cmake_flags=["-DCHIP_LZ_API_QUERY_QUEUE_EMPTY=ON","-DCHIP_L0_KERNEL_TIMESTAMPS=OFF","-DHIPCC_VERIFY_DEVICES=pvc"],' ./install_chipstar.py 
     - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
 
 chipStar_script_test_llvm22:
