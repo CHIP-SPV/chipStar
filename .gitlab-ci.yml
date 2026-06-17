@@ -196,7 +196,7 @@ performance_hoMusic:
       THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
       UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
-      echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
+      echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
 
       # Compare using bc (returns 1 for true, 0 for false)
       IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
@@ -255,7 +255,7 @@ zeroRK_performance:
     THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
-    echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
+    echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
 
     # Compare using bc (returns 1 for true, 0 for false)
     IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
