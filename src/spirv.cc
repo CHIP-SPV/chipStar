@@ -297,6 +297,8 @@ public:
   InstWord getFunctionRetType() const { return getWord(1); }
 
   bool isType() const {
+    if ((InstWord)Opcode_ == (InstWord)spv::Op::OpTypeUntypedPointerKHR)
+      return true;
     return ((InstWord)Opcode_ >= (InstWord)spv::Op::OpTypeVoid) &&
            ((InstWord)Opcode_ <= (InstWord)spv::Op::OpTypeForwardPointer);
   }
@@ -478,7 +480,7 @@ public:
 
     // SPV_KHR_untyped_pointers extension: OpTypeUntypedPointerKHR
     // This is essentially a void* - a pointer without a specific pointee type
-    if ((InstWord)Opcode_ == 4417) { // SpvOpTypeUntypedPointerKHR
+    if ((InstWord)Opcode_ == (InstWord)spv::Op::OpTypeUntypedPointerKHR) {
       // OpTypeUntypedPointerKHR has: Result <id>, Storage Class
       // We treat it like a regular pointer with no pointee type
       return new SPIRVtypePointer(getWord(1), getWord(2), PointerSize,
@@ -669,11 +671,18 @@ private:
     if (ByValParams_.count(Inst.getResultID())) {
       // ByVal attribute may only be attached on pointer parameters.
       auto *PtrType = static_cast<SPIRVtypePointer *>(ParamType);
-      SPIRVtype *PointeeType = TypeMap_[PtrType->getPointeeTypeID()];
-      assert(PointeeType && "Can't calculate parameter size due to missing "
-                            "pointee type info!");
-      // Backends treat the ByVal attributes pointer parameters as POD.
-      ParamSize = PointeeType->size();
+      auto PointeeTypeID = PtrType->getPointeeTypeID();
+      if (PointeeTypeID == 0) {
+        // Untyped pointer (SPV_KHR_untyped_pointers): pointee size unknown.
+        logWarn("SPIR-V Parser: ByVal parameter with untyped pointer — "
+                "pointee size unknown, using pointer size as fallback.");
+        ParamSize = PtrType->size();
+      } else {
+        SPIRVtype *PointeeType = TypeMap_[PointeeTypeID];
+        assert(PointeeType && "Can't calculate parameter size due to missing "
+                              "pointee type info!");
+        ParamSize = PointeeType->size();
+      }
       TypeKind = SPVTypeKind::POD;
     } else {
       ParamSize = ParamType->size();
