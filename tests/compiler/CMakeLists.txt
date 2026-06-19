@@ -102,6 +102,10 @@ add_hipcc_test(TestHipComplexInclude.hip HIPCC_OPTIONS)
 add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
 add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
 
+# HIP device kernel + host (CPU) OpenMP in one TU must compile and link with
+# -fopenmp.
+add_hipcc_test(TestHipccFopenmp.cc HIPCC_OPTIONS -fopenmp)
+
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
 add_test(NAME "TestHipccNeedsDashO"
