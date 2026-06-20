@@ -158,6 +158,13 @@ add_test(NAME "TestHipccMultiSource" COMMAND
   ${CMAKE_BINARY_DIR}/bin/hipcc ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
 add_shell_test(TestPrintfStaticString.bash)
 
+# Regression test for llvm-patches/spirv-translator/0005 (coalesce
+# duplicate-predecessor OpPhi). Translates to SPIR-V and run spirv-val;
+# without 0005 the writer emits an invalid OpPhi and validation fails. This skips
+# when the in-tree SPIR-V backend is used (LLVM_SPIRV=NOT_NEEDED), since 0005
+# patches the external translator. 
+add_shell_test(TestSpirvDuplicatePhiHip.bash)
+
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
