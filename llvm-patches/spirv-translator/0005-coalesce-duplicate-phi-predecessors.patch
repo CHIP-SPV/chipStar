@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: chipStar <noreply@chip-spv>
+Date: Wed, 18 Jun 2026 00:00:00 +0000
+Subject: [PATCH] Coalesce duplicate predecessors when emitting OpPhi
+
+LLVM IR allows a PHI to list the same predecessor block more than once
+(e.g. a switch with several cases branching to the same block); the LLVM
+verifier guarantees the duplicate entries carry identical incoming values.
+SPIR-V's OpPhi requires exactly one (value, parent block) pair per
+predecessor, so emitting the duplicates verbatim yields invalid SPIR-V
+("OpPhi's number of incoming blocks does not match block's predecessor
+count"), which IGC then mis-handles (nondeterministic crash / miscompile).
+
+Skip duplicate predecessor entries when building the OpPhi operand list.
+---
+ lib/SPIRV/SPIRVWriter.cpp | 13 +++++++++++--
+ 1 file changed, 11 insertions(+)
+
+diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
+index b3cb24b..eb14297 100644
+--- a/lib/SPIRV/SPIRVWriter.cpp
++++ b/lib/SPIRV/SPIRVWriter.cpp
+@@ -2546,7 +2546,18 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
+     std::vector<SPIRVValue *> IncomingPairs;
+     SPIRVType *Ty = transScavengedType(Phi);
+ 
++    // SPIR-V requires OpPhi to have exactly one (value, parent block) pair per
++    // predecessor block. LLVM IR, however, permits a PHI to list the same
++    // predecessor multiple times (e.g. a switch with several cases branching
++    // to this block); the LLVM verifier guarantees those duplicate entries
++    // carry identical incoming values. Emitting them verbatim produces an
++    // invalid OpPhi (more parent blocks than the block has predecessors), so
++    // coalesce duplicate predecessors to a single entry.
++    SmallPtrSet<const BasicBlock *, 8> SeenPreds;
+     for (size_t I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
++      const BasicBlock *IncomingBB = Phi->getIncomingBlock(I);
++      if (!SeenPreds.insert(IncomingBB).second)
++        continue; // duplicate predecessor; value is identical, skip it
+       SPIRVValue *Val = transValue(Phi->getIncomingValue(I), BB, true,
+                                    FuncTransMode::Pointer);
+       if (Val->getType() != Ty)
