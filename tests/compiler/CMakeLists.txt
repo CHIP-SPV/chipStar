@@ -104,7 +104,10 @@ add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
 
 # HIP device kernel + host (CPU) OpenMP in one TU must compile and link with
 # -fopenmp.
-add_hipcc_test(TestHipccFopenmp.cc HIPCC_OPTIONS -fopenmp)
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  add_hipcc_test(TestHipccFopenmp.cc HIPCC_OPTIONS -fopenmp)
+endif()
 
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
