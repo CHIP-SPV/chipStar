@@ -71,6 +71,10 @@ include(LLVMCheck)
 include(chip_spv_cmake_macros)
 enable_testing()
 
+# Exclude ROCm-Device-Libs tests that target amdgcn (not applicable to SPIR-V builds).
+file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake"
+  "set(CTEST_CUSTOM_TESTS_IGNORE \"constant_fold_lgamma_r\")\n")
+
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "..." FORCE)
 endif()
@@ -236,7 +240,7 @@ set(CONFIG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip CACHE PATH "cmake co
 set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang CACHE PATH "cmake lang install dir")
 
 set(HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
-if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 23 AND NOT APPLE)
   # LLVM-22: The new offload driver exists on this version but HIPSPV
   # toolchain doesn't support it.
   #
@@ -246,6 +250,13 @@ if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
   # link steps.
   #
   # LLVM-23+: the old offload driver may be removed.
+  #
+  # macOS (APPLE): the new offload driver crashes clang while building the
+  # offload compilation jobs. Constructing the host (Darwin) toolchain args
+  # for the SPIR-V offload kind re-enters Darwin::AddDeploymentTarget, which
+  # asserts in setTarget() ("Target already initialized!", Darwin.h:453).
+  # Until that upstream Darwin driver bug is fixed, fall back to the old
+  # offload driver on macOS (adds --no-offload-new-driver below).
   set(HAVE_CLANG_NEW_OFFLOAD_DRIVER ON)
 endif()
 

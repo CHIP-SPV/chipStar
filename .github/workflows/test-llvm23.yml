@@ -1,0 +1,276 @@
+name: Test LLVM 23 (Fork-based)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  step1-configure-linux:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: 'Step 1: Configure LLVM 23 (${{ matrix.variant }})'
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure LLVM 23 (${{ matrix.variant }})
+        run: |
+          BUILD_DIR="$HOME/llvm-builds/23-${{ matrix.variant }}"
+          rm -rf "$BUILD_DIR"
+          mkdir -p "$BUILD_DIR"
+          cd "$BUILD_DIR"
+          rm -rf scripts llvm-patches
+          cp -r ${{ github.workspace }}/scripts .
+          cp -r ${{ github.workspace }}/llvm-patches .
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 23 \
+            --install-dir $HOME/install/llvm/23.0-${{ matrix.variant }} \
+            --variant ${{ matrix.variant }} --configure-only
+
+  step2-build-test-linux:
+    needs: step1-configure-linux
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: Build LLVM 23 (${{ matrix.variant }}) and test chipStar
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+    env:
+      IGC_EnableDPEmulation: 1
+      OverrideDefaultFP64Settings: 1
+      CHIP_LOGLEVEL: err
+      CHIP_MODULE_CACHE_DIR: ""
+      POCL_KERNEL_CACHE: 0
+      CHIP_L0_EVENT_TIMEOUT: 1790
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Build LLVM 23 (${{ matrix.variant }})
+        id: build_llvm
+        continue-on-error: true
+        run: |
+          BUILD_DIR="$HOME/llvm-builds/23-${{ matrix.variant }}/llvm-project/llvm/build_23"
+          if [ ! -d "$BUILD_DIR" ]; then
+            echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
+            exit 1
+          fi
+          cd "$BUILD_DIR"
+          make -j$(nproc)
+        timeout-minutes: 300
+      - name: Build chipStar with LLVM 23 (${{ matrix.variant }})
+        id: build_chipstar
+        if: steps.build_llvm.outcome == 'success'
+        run: |
+          # Source modules for device drivers
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local
+            source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then
+            source /etc/profile.d/lmod.sh &> /dev/null
+          else
+            source /etc/profile.d/modules.sh &> /dev/null
+          fi
+          module use ~/modulefiles
+          module load oneapi/2025.0.4 opencl/dgpu
+
+          LLVM_BIN="$HOME/llvm-builds/23-${{ matrix.variant }}/llvm-project/llvm/build_23/bin"
+          test -f "${LLVM_BIN}/clang" || exit 1
+          cd ${{ github.workspace }}
+          rm -rf build-llvm23-${{ matrix.variant }}
+          mkdir -p build-llvm23-${{ matrix.variant }}
+          cd build-llvm23-${{ matrix.variant }}
+          cmake .. -DLLVM_CONFIG_BIN=${LLVM_BIN}/llvm-config -GNinja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON
+          ninja all install -j$(nproc)
+          ninja build_tests install -j$(nproc)
+        timeout-minutes: 60
+      - name: Test chipStar (iGPU OpenCL)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load opencl/igpu
+          cd ${{ github.workspace }}/build-llvm23-${{ matrix.variant }}
+          ../scripts/check.py ./ igpu opencl
+        timeout-minutes: 60
+      - name: Test chipStar (iGPU Level0)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load level-zero/igpu
+          cd ${{ github.workspace }}/build-llvm23-${{ matrix.variant }}
+          ../scripts/check.py ./ igpu level0
+        timeout-minutes: 60
+      - name: Test chipStar (dGPU Level0)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load level-zero/dgpu
+          cd ${{ github.workspace }}/build-llvm23-${{ matrix.variant }}
+          ../scripts/check.py ./ dgpu level0
+        timeout-minutes: 60
+      - name: Test chipStar (dGPU OpenCL)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load opencl/dgpu
+          cd ${{ github.workspace }}/build-llvm23-${{ matrix.variant }}
+          ../scripts/check.py ./ dgpu opencl
+        timeout-minutes: 60
+      - name: Test chipStar (CPU OpenCL)
+        if: always() && steps.build_chipstar.outcome == 'success'
+        run: |
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local; source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
+          else source /etc/profile.d/modules.sh &> /dev/null; fi
+          module use ~/modulefiles
+          module load opencl/cpu
+          cd ${{ github.workspace }}/build-llvm23-${{ matrix.variant }}
+          ../scripts/check.py ./ cpu opencl --num-tries=3
+        timeout-minutes: 60
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-llvm23-${{ matrix.variant }}
+          path: |
+            ${{ github.workspace }}/build-llvm23-${{ matrix.variant }}/checkpy_*.txt
+            ${{ github.workspace }}/build-llvm23-${{ matrix.variant }}/Testing/Temporary/LastTest.log
+
+  step1-configure-macos:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: 'Step 1: Configure LLVM 23 (macOS ${{ matrix.variant }})'
+    runs-on: [self-hosted, ARM64, MacOS]
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Configure LLVM 23 (${{ matrix.variant }})
+        shell: /bin/bash {0}
+        run: |
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          BUILD_DIR="$HOME/llvm-builds/23-${{ matrix.variant }}"
+          rm -rf "$BUILD_DIR"
+          mkdir -p "$BUILD_DIR"
+          cd "$BUILD_DIR"
+          rm -rf scripts llvm-patches
+          cp -r ${{ github.workspace }}/scripts .
+          cp -r ${{ github.workspace }}/llvm-patches .
+          chmod +x scripts/configure_llvm.sh
+          ./scripts/configure_llvm.sh --version 23 \
+            --install-dir $HOME/install/llvm/23.0-${{ matrix.variant }} \
+            --variant ${{ matrix.variant }} --configure-only
+
+  step2-build-test-macos:
+    needs: step1-configure-macos
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: Build LLVM 23 (${{ matrix.variant }}) (macOS) and test chipStar
+    runs-on: [self-hosted, ARM64, MacOS]
+    env:
+      CHIP_DEVICE_TYPE: pocl
+      CHIP_MODULE_CACHE_DIR: ""
+    strategy:
+      matrix:
+        variant: [translator, native]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+      - name: Build LLVM 23 (${{ matrix.variant }})
+        id: build_llvm
+        shell: /bin/bash {0}
+        continue-on-error: true
+        run: |
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          BUILD_DIR="$HOME/llvm-builds/23-${{ matrix.variant }}/llvm-project/llvm/build_23"
+          if [ ! -d "$BUILD_DIR" ]; then
+            echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
+            exit 1
+          fi
+          cd "$BUILD_DIR"
+          cmake --build . -j$(sysctl -n hw.ncpu)
+        timeout-minutes: 300
+      - name: Test chipStar with LLVM 23 (${{ matrix.variant }}) (PoCL OpenCL)
+        if: steps.build_llvm.outcome == 'success'
+        shell: /bin/bash {0}
+        run: |
+          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
+          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
+          module load pocl
+
+          LLVM_BIN="$HOME/llvm-builds/23-${{ matrix.variant }}/llvm-project/llvm/build_23/bin"
+          test -f "${LLVM_BIN}/clang" || exit 1
+
+          export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          export CHIP_DEVICE_TYPE=pocl
+          export OCL_ICD_VENDORS=/Users/paulius/install/pocl/etc/OpenCL/vendors/
+          export SPIRV_TOOLS_PREFIX=$(brew --prefix spirv-tools)
+          export CMAKE_PREFIX_PATH="${SPIRV_TOOLS_PREFIX}:${CMAKE_PREFIX_PATH}"
+
+          cd ${{ github.workspace }}
+          rm -rf build-23-${{ matrix.variant }}
+          mkdir -p build-23-${{ matrix.variant }}
+          cd build-23-${{ matrix.variant }}
+          /opt/homebrew/bin/cmake .. \
+            -DLLVM_CONFIG_BIN=${LLVM_BIN}/llvm-config \
+            -DOpenCL_LIBRARY=/Users/paulius/install/pocl/lib/libpocl.dylib \
+            -GNinja -DCMAKE_BUILD_TYPE=Debug
+          ninja CHIP
+          ninja build_tests
+          ninja
+          ../scripts/check.py ./ pocl opencl
+        timeout-minutes: 60
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-macos-llvm23-${{ matrix.variant }}
+          path: |
+            build-23-${{ matrix.variant }}/checkpy_*.txt
+            build-23-${{ matrix.variant }}/Testing/Temporary/LastTest.log

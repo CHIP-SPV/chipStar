@@ -158,9 +158,10 @@ set(RTDEVLIB_SOURCES_v1_2
 set(RTDEVLIB_SOURCES_v1_3
   ballot_native)
 
-# Set rtdevlib compile triples. With integrated SPIR-V (LLVM 22+), use chipstar
-# triples. With external translator, use OFFLOAD_TRIPLE (spirv64).
-if(LLVM_VERSION_MAJOR GREATER_EQUAL 22 AND CHIP_LLVM_USE_INTERGRATED_SPIRV)
+# Set rtdevlib compile triples. LLVM 23+ and integrated SPIR-V builds know the
+# chipstar triples (spirv64v1.X-unknown-chipstar). Otherwise fall back to
+# OFFLOAD_TRIPLE (spirv64).
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 23 OR CHIP_LLVM_USE_INTERGRATED_SPIRV)
   set(RTDEVLIB_TRIPLE_v1_2 spirv64v1.2-unknown-chipstar)
   set(RTDEVLIB_TRIPLE_v1_3 spirv64v1.3-unknown-chipstar)
 else()

@@ -133,11 +133,7 @@ getFormatStringPieces(Value *FmtStrArg, unsigned &NumberOfFormatSpecs) {
       dyn_cast<ConstantDataSequential>(OrigFmtStr->getInitializer());
 
   if (FmtStrData == nullptr) {
-#if LLVM_VERSION_MAJOR >= 23
     assert(OrigFmtStr->getInitializer()->isNullValue());
-#else
-    assert(OrigFmtStr->getInitializer()->isZeroValue());
-#endif
     FmtStrPieces.push_back("");
     NumberOfFormatSpecs = 0;
     return FmtStrPieces;
@@ -430,9 +426,22 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
   GlobalValue *Printf = Mod.getNamedValue("printf");
   GlobalValue *HipPrintf = Mod.getNamedValue(ORIG_PRINTF_FUNC_NAME);
 
-  // No printf decl in the module, no printf calls to handle.
-  // 1 use if the "printf" is only used by "_cl_printf"
-  if (Printf == nullptr || Printf->getNumUses() == 1)
+  // No printf decl in the module: no printf calls to handle.
+  if (Printf == nullptr)
+    return PreservedAnalyses::all();
+
+  // If the pass already ran on this module it created the "_cl_print_str"
+  // helper, whose body contains the only remaining printf("%c", ...) call.
+  // In that case the single printf use is already in the lowered (constant
+  // address space) form and there is nothing more to do. We must NOT use a
+  // bare "getNumUses() == 1" test here: a module with exactly one *genuine*
+  // printf call and no _cl_print_str yet (e.g. only the device-side
+  // __assert_fail printf) also has a single use, and skipping it would leave
+  // the format string in a non-constant address space. That forces the
+  // SPIR-V translator to emit SPV_EXT_relaxed_printf_string_address_space,
+  // which the consumer (e.g. IGC) then rejects at module load time.
+  if (Mod.getNamedValue(ORIG_PRINT_STRING_FUNC_NAME) != nullptr &&
+      Printf->getNumUses() == 1)
     return PreservedAnalyses::all();
   LLVM_DEBUG(dbgs() << "Found printf decl: "; Printf->dump());
 
