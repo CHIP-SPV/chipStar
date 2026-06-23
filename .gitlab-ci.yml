@@ -176,6 +176,7 @@ hoMusic_run:
   resource_group: aurora_pipeline  
   extends: .aurora-batch-runner
   script:
+    - set -o pipefail
     - rm -f ${GENESIS_CI_PROJECT_DIR}/output
     - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci.sh run chipStar/llvm19 |& tee -a ${GENESIS_CI_PROJECT_DIR}/output
 
@@ -238,6 +239,7 @@ zeroRK_run:
   - module use ${WRK_DIR}/modulefiles
   - module load chipStar/llvm19
   - rm -f output
+  - set -o pipefail
   - ./submit_job.sh |& tee -a output
 
 zeroRK_performance:
@@ -312,6 +314,7 @@ opensn_run:
    - module load hdf5
    - rm -rf ~/.cache/chipStar/
    - rm -f output
+   - set -o pipefail
    # first run populates the cache
    - CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 gpu_tile_compact.sh python/opensn -i strong_scaling.py |& tee -a output
    # second (timed) run uses the cache
