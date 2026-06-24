@@ -31,3 +31,32 @@ void _cl_print_str(__generic const char *S) {
     ++Pos;
   }
 }
+
+/*
+ * Prints a device-side assertion-failure message:
+ *
+ *   <file>:<line>: <function>: Device-side assertion `<assertion>' failed.
+ *
+ * Implemented here in OpenCL C (rather than directly in the HIP C++
+ * __assert_fail in spirv_hip.hh) so the printf *format* string literals live
+ * in the constant address space. A HIP C++ definition places the literals in
+ * the generic address space, which forces the SPIR-V translator to emit
+ * SPV_EXT_relaxed_printf_string_address_space -- an extension the Intel
+ * compute runtime rejects at clBuildProgram. CUDA and ROCm likewise keep
+ * assert message handling in their device libraries for this reason.
+ *
+ * The user-visible assertion/file/function strings are generic pointers, so
+ * they are printed via _cl_print_str (one %c at a time with a constant format
+ * string) instead of being passed to a %s conversion. Aborting is left to the
+ * caller (HIP's abort(), handled by the HipAbort pass).
+ */
+void _cl_assert_fail_print(__generic const char *file, unsigned int line,
+                           __generic const char *function,
+                           __generic const char *assertion) {
+  _cl_print_str(file);
+  printf(":%u: ", line);
+  _cl_print_str(function);
+  printf(": Device-side assertion `");
+  _cl_print_str(assertion);
+  printf("' failed.\n");
+}

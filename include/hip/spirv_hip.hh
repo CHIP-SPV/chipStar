@@ -168,6 +168,16 @@ extern "C" __device__ void abort();
 // compiler may give obscure warnings about it.
 
 extern "C" {
+// Message printing is delegated to _cl_assert_fail_print in chipStar's device
+// library (bitcode/_cl_print_str.cl). Printing there (OpenCL C) keeps the
+// printf format strings in the constant address space; emitting them from a
+// HIP C++ device function would place the literals in the generic address
+// space and force SPV_EXT_relaxed_printf_string_address_space, which the Intel
+// runtime rejects at clBuildProgram. Aborting stays here so abort() resolves
+// to the flag-based __chipspv_abort path (handled by the HipAbort pass).
+__device__ void _cl_assert_fail_print(const char *file, unsigned int line,
+                                      const char *function,
+                                      const char *assertion);
 #if defined(_WIN32) || defined(_WIN64)
 __device__ __attribute__((noinline)) __attribute__((weak)) void
 _wassert(const wchar_t *_msg, const wchar_t *_file, unsigned _line)
@@ -181,16 +191,14 @@ _wassert(const wchar_t *_msg, const wchar_t *_file, unsigned _line)
 __device__ __attribute__((noinline)) __attribute__((weak)) void
 __assert_rtn(const char *function, const char *file, int line,
              const char *assertion) {
-  printf("%s:%d: %s: Device-side assertion `%s' failed.\n", file, line,
-         function, assertion);
+  _cl_assert_fail_print(file, line, function, assertion);
   abort();
 }
 #else  // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
 __device__ __attribute__((noinline)) __attribute__((weak)) void
 __assert_fail(const char *assertion, const char *file, unsigned int line,
               const char *function) {
-  printf("%s:%u: %s: Device-side assertion `%s' failed.\n", file, line,
-         function, assertion);
+  _cl_assert_fail_print(file, line, function, assertion);
   abort();
 }
 #endif // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
