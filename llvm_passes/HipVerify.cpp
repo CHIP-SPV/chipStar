@@ -466,7 +466,7 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   SmallVector<StringRef, 8> Args{
     LLVMSpirvPath,
     "--spirv-max-version=1.2",
-    "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add,+SPV_EXT_relaxed_printf_string_address_space",
+    "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add",
     "-o", SPVTempFile,
     BCTempFile
   };

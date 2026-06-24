@@ -7,7 +7,7 @@ index 69816057d72c..5785786aec2d 100644
    // operations, but it's not supported by any target yet.
    llvm::opt::ArgStringList TrArgs{"--spirv-max-version=1.2",
 -                                  "--spirv-ext=+all"};
-+                                  "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add,+SPV_EXT_relaxed_printf_string_address_space"};
++                                  "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add"};
    InputInfo TrInput = InputInfo(types::TY_LLVM_BC, TempFile, "");
    SPIRV::constructTranslateCommand(C, *this, JA, Output, TrInput, TrArgs);
  }
