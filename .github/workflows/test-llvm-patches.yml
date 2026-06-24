@@ -369,8 +369,14 @@ jobs:
           export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
           module load pocl
 
-          LLVM_BIN="$HOME/llvm-builds/22-${{ matrix.variant }}/llvm-project/llvm/build_22/bin"
+          # Build/test against the INSTALLED LLVM toolchain (staged above), not
+          # the build tree, which lacks install-only runtime headers such as
+          # omp.h (breaks TestHipccFopenmp with "'omp.h' file not found").
+          LLVM_PREFIX="$HOME/install/llvm/22.0-${{ matrix.variant }}"
+          LLVM_BIN="$HOME/llvm-stage/22-${{ matrix.variant }}${LLVM_PREFIX}/bin"
           test -f "${LLVM_BIN}/clang" || exit 1
+          test -f "${LLVM_BIN}/../lib/clang/22/include/omp.h" \
+            || { echo "ERROR: omp.h missing from LLVM install toolchain at ${LLVM_BIN}"; exit 1; }
 
           export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           export CHIP_DEVICE_TYPE=pocl
