@@ -352,6 +352,102 @@ jobs:
           path: ${{ runner.temp }}/libCEED/
           if-no-files-found: ignore
 
+  # Stage 3b: Build and test Zero-RK (chemical kinetics CFD plugin) against the
+  # staged chipStar install. Mirrors the Aurora gitlab-ci.yml zeroRK stages but
+  # for a single local Intel GPU: builds with the HIP/GPU backend, runs the
+  # ctest suite, then runs the random-reactors GPU integration on the device.
+  build-and-test-zerork:
+    needs: build-and-test-libceed
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: 'recursive'
+
+      - name: Build and test Zero-RK
+        shell: bash
+        timeout-minutes: 45
+        run: |
+          set -e
+          if [ -f "$HOME/.local/init/bash" ]; then
+            export MODULESHOME=$HOME/.local
+            source "$MODULESHOME/init/bash"
+          elif [ -f /etc/profile.d/lmod.sh ]; then
+            source /etc/profile.d/lmod.sh
+          else
+            source /etc/profile.d/modules.sh
+          fi
+          module use /space/pvelesko/modulefiles
+          module load oneapi/2025.0.4 llvm/22.0-native level-zero/dgpu
+
+          STAGING=/tmp/chipstar-ci-staging/${{ github.event.pull_request.number }}
+          CHIP_INSTALL=$(ls -d $STAGING/chipStar/*/ | head -1)
+          export PATH=$CHIP_INSTALL/bin:$PATH
+          export LD_LIBRARY_PATH=$CHIP_INSTALL/lib:${LD_LIBRARY_PATH:-}
+          export HIP_PATH=$CHIP_INSTALL
+          export HIP_PLATFORM=spirv
+          # chipStar's hipBLAS/hipSOLVER and the rocThrust/hipCUB headers Zero-RK
+          # links against are staged into $CHIP_INSTALL by install_chipstar.py --all.
+          export CMAKE_PREFIX_PATH=$CHIP_INSTALL:${CMAKE_PREFIX_PATH:-}
+          export CPATH=$CHIP_INSTALL/include:${CPATH:-}
+          # MPICH wrappers compile device code with chipStar's hipcc.
+          export MPICH_CXX=hipcc
+          export MPICH_CC=hipcc
+          export CHIP_LOGLEVEL=err
+          # Intel Arc (Alchemist) has no native fp64; Zero-RK's chemistry
+          # integrator is double precision, so enable IGC software emulation.
+          export IGC_EnableDPEmulation=1
+          export OverrideDefaultFP64Settings=1
+          # Sidestep intel/intel-graphics-compiler#404 (SIMD32 RetryManager
+          # silently dropping entry-point kernels under DP emulation), same as
+          # the libCEED stage.
+          export IGC_DisableRecompilation=1
+          # The locally available MKL is runtime-only, so use system BLAS/LAPACK
+          # for Zero-RK's CPU path (-DZERORK_HAVE_MKL=OFF below). Zero-RK's
+          # fetched externals (yaml-cpp/superlu) predate CMake's 3.5 policy
+          # floor; the local CMake is 4.x, so relax it for the nested configures.
+          export CMAKE_POLICY_VERSION_MINIMUM=3.5
+          unset MKLROOT ONEAPI_ROOT
+
+          cd ${{ runner.temp }}
+          rm -rf zero-rk
+          git clone https://github.com/CHIP-SPV/zero-rk.git -b hip-chipStar zero-rk
+          cd zero-rk
+
+          mkdir -p build_local && cd build_local
+          cmake -GNinja \
+            -DENABLE_GPU=ON -DENABLE_MAGMA=OFF -DZERORK_TESTS=ON \
+            -DZERORK_HAVE_MKL=OFF \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_CXX_COMPILER=hipcc -DCMAKE_C_COMPILER=hipcc \
+            ../
+          ninja
+
+          # Unit/library test suite — expect 100% pass.
+          ctest --output-on-failure --timeout 1800
+
+          # GPU integration test: 76,336 reactors x 1000 steps on the device.
+          cd ../running_test_aurora
+          mkdir -p logs
+          export CHIP_JIT_FLAGS_OVERRIDE="-ze-opt-enable-auto-large-GRF-mode"
+          mpiexec -np 1 \
+            ../build_local/applications/cfd_plugin/zerork_random_reactors_test_gpu.x \
+            | tee zerork_gpu_run.log
+          grep -q "End of computation!" zerork_gpu_run.log
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: zerork-test-logs
+          path: |
+            ${{ runner.temp }}/zero-rk/build_local/Testing/**/LastTest*.log
+            ${{ runner.temp }}/zero-rk/running_test_aurora/zerork_gpu_run.log
+          if-no-files-found: ignore
+
   # Stage 4: Extended compiler coverage — older LLVM versions (20, 21) and
   # debug builds. These run ONLY on a manual workflow_dispatch, not on every
   # PR, to keep automatic CI fast. Automatic PRs cover llvm-22 native-release
