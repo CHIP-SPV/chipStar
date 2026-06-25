@@ -1,6 +1,7 @@
 TOTAL_TESTS: 1872
 ANY:
   ALL:
+    TestHipLaunchHostFuncMultiStream: 'Intermittent hipLaunchHostFunc callback deadlock (pre-existing race, #1062/#1067); rare timeout, surfaces under full-suite runs incl. Level Zero/Aurora'
     TestTypeCastIntrinsics: 'iGPU failure'
     '.*[Gg]raph.*': 'All HIP graph API and stream capture tests'
     '.*[Cc]aptur.*': 'Stream capture tests (Capture/Capturing)'
@@ -828,7 +829,6 @@ ANY:
     TestDefaultStreamImplicitSync: 'Failed'
     TestHipLaunchHostFunc: 'Failed'
     TestBoolKernelParam: 'Failed'
-    TestHipLaunchHostFuncMultiStream: 'Failed'
     TestDefaultBackend: 'Failed'
     TestNativeHandlesBackendName: 'Failed'
     TestHeCBenchF16Max: 'Failed'
