@@ -422,7 +422,9 @@ jobs:
 
   unit-tests-llvm-22-translator-debug:
     needs: build-and-test-libceed
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
+    # Run on PRs too (not just manual dispatch): Debug llvm-22 exercises code
+    # paths (e.g. device-side assert) that Release optimizes differently.
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }}
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
@@ -453,7 +455,9 @@ jobs:
 
   unit-tests-llvm-22-native-debug:
     needs: build-and-test-libceed
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
+    # Run on PRs too (not just manual dispatch): Debug llvm-22 exercises code
+    # paths (e.g. device-side assert) that Release optimizes differently.
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }}
     runs-on: [self-hosted, Linux, X64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
