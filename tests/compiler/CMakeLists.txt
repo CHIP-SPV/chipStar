@@ -162,8 +162,10 @@ add_shell_test(TestPrintfStaticString.bash)
 # duplicate-predecessor OpPhi). Translates to SPIR-V and run spirv-val;
 # without 0005 the writer emits an invalid OpPhi and validation fails. This skips
 # when the in-tree SPIR-V backend is used (LLVM_SPIRV=NOT_NEEDED), since 0005
-# patches the external translator. 
+# patches the external translator.
 add_shell_test(TestSpirvDuplicatePhiHip.bash)
+
+add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
