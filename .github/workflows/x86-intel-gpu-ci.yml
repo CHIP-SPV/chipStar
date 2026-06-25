@@ -394,9 +394,13 @@ jobs:
           # links against are staged into $CHIP_INSTALL by install_chipstar.py --all.
           export CMAKE_PREFIX_PATH=$CHIP_INSTALL:${CMAKE_PREFIX_PATH:-}
           export CPATH=$CHIP_INSTALL/include:${CPATH:-}
-          # MPICH wrappers compile device code with chipStar's hipcc.
+          # MPI wrappers compile device code with chipStar's hipcc. Aurora uses
+          # cray-mpich (MPICH_*), this x86 Intel GPU runner uses OpenMPI (OMPI_*);
+          # set both so the underlying compiler override applies on either stack.
           export MPICH_CXX=hipcc
           export MPICH_CC=hipcc
+          export OMPI_CXX=hipcc
+          export OMPI_CC=hipcc
           export CHIP_LOGLEVEL=err
           # Intel Arc (Alchemist) has no native fp64; Zero-RK's chemistry
           # integrator is double precision, so enable IGC software emulation.
@@ -419,9 +423,15 @@ jobs:
           cd zero-rk
 
           mkdir -p build_local && cd build_local
+          # Point FindMPI straight at the system OpenMPI wrappers. The oneAPI
+          # module injects Intel MPI ahead of the system MPI and an older CMake
+          # whose FindMPI then falls back to a pkg-config probe that cannot see
+          # the system mpi-c/mpi-cxx .pc files, so MPI is reported missing.
+          # Naming the wrappers explicitly skips that fragile auto-detection.
           cmake -GNinja \
             -DENABLE_GPU=ON -DENABLE_MAGMA=OFF -DZERORK_TESTS=ON \
             -DZERORK_HAVE_MKL=OFF \
+            -DMPI_C_COMPILER=/usr/bin/mpicc -DMPI_CXX_COMPILER=/usr/bin/mpicxx \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_CXX_COMPILER=hipcc -DCMAKE_C_COMPILER=hipcc \
             ../
