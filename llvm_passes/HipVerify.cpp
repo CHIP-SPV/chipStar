@@ -101,9 +101,16 @@ std::string HipVerifyPass::getVerificationMode() {
   // Check environment variable
   const char* env = std::getenv("CHIP_VERIFY_MODE");
 
-  // Default to "off" due to pathological compilation time issue
-  // (CHIP-SPV/chipStar#1047).
+  // Default to "off" in release builds due to the pathological compilation
+  // time issue (CHIP-SPV/chipStar#1047). In debug builds default to "failures"
+  // so the IR/SPIR-V validation pipeline runs and surfaces invalid SPIR-V
+  // (e.g. the duplicate-predecessor OpPhi from CHIP-SPV/chipStar#1306) without
+  // requiring CHIP_VERIFY_MODE to be set manually.
+#ifdef CHIP_DEBUG_BUILD
+  const std::string DefaultMode = "failures";
+#else
   const std::string DefaultMode = "off";
+#endif
 
   if (!env)
     return DefaultMode;
