@@ -135,6 +135,12 @@ if(APPLE)
   target_link_libraries(LLVMHipDefrost PRIVATE LLVM)
 endif()
 
+# In Debug builds, default HipVerify to "failures" mode so the IR/SPIR-V
+# validation pipeline runs automatically (see HipVerify.cpp::getVerificationMode).
+# Release builds keep it off due to the compile-time cost (CHIP-SPV/chipStar#1047).
+target_compile_definitions(LLVMHipPasses PRIVATE
+  $<$<CONFIG:Debug>:CHIP_DEBUG_BUILD>)
+
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
 target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipStripUsedIntrinsics PRIVATE -I/${LLVM_INCLUDE_DIRS})
