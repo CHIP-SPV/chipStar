@@ -11,3 +11,5 @@ add_hip_test(TestFixUmul64hi.hip)
 set_tests_properties(TestFixUmul64hi PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS"
   TIMEOUT 60)
+
+add_hip_test(test_shutdown_crossqueue_dep.cpp)
