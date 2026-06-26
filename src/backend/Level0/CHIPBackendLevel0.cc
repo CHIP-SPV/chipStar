@@ -2485,14 +2485,21 @@ CHIPContextLevel0::~CHIPContextLevel0() {
     Backend->Events.clear();  // This releases all shared_ptr, triggering returnEvent()
   }
 
-  // delete all event pools
+  // Delete the device (and thus its queues) BEFORE deleting the event pools.
+  // Queues hold shared_ptr<Event> in PendingCrossQueueDeps_ whose custom
+  // deleter (LZEventPool::returnEvent) pushes the raw event back onto the
+  // owning pool. At shutdown finish() may be skipped or throw before clearing
+  // those refs, so they are released only when ~CHIPQueueLevel0 destroys its
+  // event vector. If the pools were freed first, returnEvent would push onto
+  // freed memory, corrupting the heap (issue #1311).
+  delete static_cast<CHIPDeviceLevel0 *>(ChipDevice_);
+
+  // Now that all queues are gone and have returned their events, the pools
+  // can be safely deleted.
   for (LZEventPool *Pool : EventPools_)
     delete Pool;
 
   EventPools_.clear();
-
-  // delete all devicesA
-  delete static_cast<CHIPDeviceLevel0 *>(ChipDevice_);
 
   while (!this->FencedCmdListsPool_.empty())
     this->FencedCmdListsPool_.pop();
