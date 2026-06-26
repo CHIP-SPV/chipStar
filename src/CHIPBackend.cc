@@ -1495,9 +1495,10 @@ void *chipstar::Context::allocate(size_t Size, size_t Alignment,
     return HostPtr;
   }
 
-  if (Size > ChipDev->getMaxMallocSize()) {
+  if (Size > ChipDev->getMaxMallocSize() && !chipUnrestrictedAllocSize()) {
     logCritical("Requested allocation of {} exceeds the maximum size of a "
-                "single allocation of {}",
+                "single allocation of {} (set CHIP_UNRESTRICTED_ALLOC_SIZE=1 "
+                "to allow larger allocations)",
                 Size, ChipDev->getMaxMallocSize());
     CHIPERR_LOG_AND_THROW(
         "Allocation size exceeds limits for a single allocation",

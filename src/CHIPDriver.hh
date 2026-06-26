@@ -109,6 +109,13 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles);
 
 /**
+ * True when CHIP_UNRESTRICTED_ALLOC_SIZE=1, i.e. the user has opted in to
+ * allocating a single buffer larger than the device's reported
+ * maxMemAllocSize. Applies to both the OpenCL and Level Zero backends.
+ */
+bool chipUnrestrictedAllocSize();
+
+/**
  * Number of fat binaries registerer through __hipRegisterFatBinary(). On
  * program exit this value (non-zero) will postpone chipStar runtime
  * uninitialization until the all the registered binaries have been

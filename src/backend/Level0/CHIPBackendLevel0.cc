@@ -2508,6 +2508,18 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
       /* DmaDesc.flags   = */ DeviceFlags,
       /* DmaDesc.ordinal = */ 0,
   };
+
+  // Opt-in: permit a single allocation larger than the device's reported
+  // maxMemAllocSize via the ze_relaxed_allocation_limits extension. This is
+  // the Level Zero equivalent of NEO's AllowUnrestrictedSize for OpenCL.
+  ze_relaxed_allocation_limits_exp_desc_t RelaxedDesc{
+      /* RelaxedDesc.stype = */
+      ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC,
+      /* RelaxedDesc.pNext = */ nullptr,
+      /* RelaxedDesc.flags = */ ZE_RELAXED_ALLOCATION_LIMITS_EXP_FLAG_MAX_SIZE,
+  };
+  if (chipUnrestrictedAllocSize())
+    DmaDesc.pNext = &RelaxedDesc;
   ze_host_mem_alloc_flags_t HostFlags = ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED;
   if (Flags.isWriteCombined())
     HostFlags += ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED;
