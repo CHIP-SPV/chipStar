@@ -24,6 +24,7 @@
 #include "Utils.hh"
 
 #include <chrono>
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 
@@ -2005,7 +2006,17 @@ void CHIPQueueLevel0::finish() {
 
   // All GPU work on this queue has completed. Release cross-queue dependency
   // marker events so their ze_events can be recycled by the event pool.
-  PendingCrossQueueDeps_.clear();
+  //
+  // Test-only fault injection for issue #1311: when the environment variable
+  // CHIP_L0_TEST_RETAIN_CROSSQUEUE_DEPS is set, skip clearing the markers. This
+  // deterministically reproduces the production condition (seen with Zero-RK on
+  // Aurora) where finish() does not reach this point at shutdown -- e.g. one of
+  // the Level Zero synchronize calls above throws -- leaving the marker events
+  // alive until the queue is destroyed during context teardown.
+  static const bool RetainCrossQueueDepsForTest =
+      std::getenv("CHIP_L0_TEST_RETAIN_CROSSQUEUE_DEPS") != nullptr;
+  if (!RetainCrossQueueDepsForTest)
+    PendingCrossQueueDeps_.clear();
   IsEmptyQueue_.store(true);
   CmdListInitialized_.store(true);
   return;
