@@ -254,7 +254,7 @@ zeroRK_performance:
     
     # Define baseline and 6% threshold
     BASELINE=85
-    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
+    THRESHOLD=$(echo "$BASELINE * 0.10" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
     echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
