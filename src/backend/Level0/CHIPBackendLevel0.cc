@@ -361,11 +361,13 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       EventPoolHandle_(nullptr), EventPoolIndex(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
+  // Do not set ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP: chipStar computes
+  // hipEventElapsedTime from an explicit global-timestamp write (see
+  // recordEvent()), never calls zeEventQueryKernelTimestamp, so the kernel
+  // timestamps this flag produces were never read. The flag only made
+  // zeEventQueryStatus expensive (~0.4ms/call), inflating checkEvents(). Precise
+  // per-kernel device timing remains available out-of-band via iprof/unitrace.
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-#ifdef CHIP_L0_KERNEL_TIMESTAMPS
-  if (!Flags.isDisableTiming())
-    PoolFlags = PoolFlags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
-#endif
 
   ze_event_pool_desc_t EventPoolDesc = {
       ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
@@ -1057,10 +1059,9 @@ void CHIPContextLevel0::checkEvents() {
 
 std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
   // Fast path: try to get an event without calling checkEvents().
-  // checkEvents() calls zeEventQueryStatus on every tracked event, which can
-  // take ~0.4ms per call when ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP is set.
-  // Calling it on every getEventFromPool() invocation would add N×0.4ms
-  // overhead for N kernel dispatches, even when the pool has free events.
+  // checkEvents() calls zeEventQueryStatus on every tracked event -- an O(N)
+  // scan. Calling it on every getEventFromPool() invocation would add O(N)
+  // overhead per event acquisition, even when the pool has free events.
   {
     LOCK(ContextMtx); // Context::EventPool
     EventsRequested_++;
@@ -2109,12 +2110,10 @@ void CHIPQueueLevel0::executeCommandList(
 LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
     : Ctx_(Ctx), Size_(Size), AllocatedCount_(0) {
 
+  // No ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP (see CHIPEventLevel0 ctor): chipStar
+  // times events via an explicit global-timestamp write, never reads kernel
+  // timestamps, and the flag only made zeEventQueryStatus expensive.
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-#ifdef CHIP_L0_KERNEL_TIMESTAMPS
-  // Enable kernel timestamps by default since most events need timing.
-  // Events with timing disabled will still work but won't use timestamps.
-  PoolFlags = PoolFlags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
-#endif
 
   ze_event_pool_desc_t EventPoolDesc = {
       ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
