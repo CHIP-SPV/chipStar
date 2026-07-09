@@ -2474,6 +2474,17 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
       break;
     }
+    case SPVTypeKind::DeviceGlobal: {
+      // Implicit arg carrying the device address of a __device__/__constant__
+      // global (rusticl globals-as-kernel-args lowering). Bind it to the
+      // global's allocated storage.
+      void *DevPtr = chipstar::getDeviceGlobalArgAddr(Kernel, Arg);
+      logTrace("clSetKernelArgSVMPointer {} for device global '{}' -> {}",
+               Arg.Index, Arg.DevGlobalName, DevPtr);
+      Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, DevPtr);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
+      break;
+    }
     }
   };
   FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);

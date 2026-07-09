@@ -86,6 +86,14 @@ constexpr char ChipNonSymbolResetKernelName[] = "__chip_reset_non_symbols";
 /// variables is '<ChipSpilledArgsVarPrefix><kernel-name>'
 constexpr char ChipSpilledArgsVarPrefix[] = "__chip_spilled_args_";
 
+/// The prefix for global-scope annotation variables recording which device
+/// globals feed a kernel's implicit trailing DeviceGlobal arguments
+/// (globals-as-kernel-args lowering, used when program-scope globals are
+/// disabled). The variable '<ChipGVarArgPrefix><kernel-name>' holds the
+/// NUL-separated original global names in trailing-argument order. See
+/// HipGlobalVariables.cpp for details.
+constexpr char ChipGVarArgPrefix[] = "__chip_gvararg_";
+
 /// The name of a global variable which indicates, when non-zero, if
 /// the abort() function was called by a kernel.
 constexpr char ChipDeviceAbortFlagName[] = "__chipspv_abort_called";

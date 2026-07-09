@@ -3562,6 +3562,17 @@ void CHIPExecItemLevel0::setupAllArgs() {
                                           sizeof(void *), &SpillSlot);
       break;
     }
+    case SPVTypeKind::DeviceGlobal: {
+      // Implicit arg carrying the device address of a __device__/__constant__
+      // global (globals-as-kernel-args lowering). Bind it to the global's
+      // allocated storage.
+      void *DevPtr = chipstar::getDeviceGlobalArgAddr(Kernel, Arg);
+      logTrace("setArg {} for device global '{}' -> {}", Arg.Index,
+               Arg.DevGlobalName, DevPtr);
+      zeStatus = zeKernelSetArgumentValue(Kernel->get(), Arg.Index,
+                                          sizeof(void *), &DevPtr);
+      break;
+    }
     default:
       CHIPERR_LOG_AND_ABORT(
           "Internal chipStar error: CHIPExecItemLevel0::setupAllArgs Unknown "
