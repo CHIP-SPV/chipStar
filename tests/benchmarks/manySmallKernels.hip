@@ -84,11 +84,11 @@ static double measureLaunchNs(int numIdleStreams, int warmup, int iters) {
 
 // Maximum ratio of any measurement to the 0-stream baseline before the
 // test fails.  The fixed implementation shows ~1x flat; the broken one
-// shows 6-45x at 8+ idle streams.  With the best-of-SWEEPS p10 measurement
-// above, a ratio near 1x is expected even on runners with a tiny sub-2us
-// baseline (e.g. rusticl); under a fully CPU-saturated host the worst
-// observed ratio was ~2.8x.  4x keeps comfortable margin against residual
-// jitter while still cleanly catching the >=6x O(N) regression.
+// shows 6-45x at 8+ idle streams.  With the p10 measurement above, a ratio
+// near 1x is expected even on runners with a tiny sub-2us baseline (e.g.
+// rusticl); under a fully CPU-saturated host the worst observed ratio was
+// ~2.8x.  4x keeps comfortable margin against residual jitter while still
+// cleanly catching the >=6x O(N) regression.
 static const double SCALE_FAIL_THRESHOLD = 4.0;
 
 int main(int argc, char **argv) {
@@ -99,22 +99,11 @@ int main(int argc, char **argv) {
   const int N        = sizeof(counts) / sizeof(counts[0]);
   const int WARMUP   = 20;
   const int ITERS    = 100;
-  // Repeat the whole sweep several times and keep the minimum p10 per point.
-  // Each point is thus measured in SWEEPS independent time windows spread
-  // across the run. A transient system-load window (the dominant source of
-  // flakiness on shared CI runners) inflates one sweep's p10 but not the
-  // others, so the per-point minimum reflects the least-contended window --
-  // this defeats the cross-window bias that a single sweep suffers when the
-  // machine happens to be busy while the high-stream-count points (measured
-  // last) are timed. A genuine O(N) launch-overhead regression is present in
-  // every sweep, so the minimum still exposes it.
-  const int SWEEPS   = 7;
 
   if (!csv) {
-    printf("hipLaunchKernel overhead benchmark  (%d samples x %d sweeps per point)\n",
-           ITERS, SWEEPS);
+    printf("hipLaunchKernel overhead benchmark  (%d samples per point)\n", ITERS);
     printf("Null-stream launch + sync while N idle blocking streams exist\n\n");
-    printf("  Idle streams | p10 ns/launch (best of %d sweeps)\n", SWEEPS);
+    printf("  Idle streams | p10 ns/launch\n");
     printf("  -------------|------------------\n");
   } else {
     printf("idle_streams,p10_ns_per_launch\n");
@@ -122,14 +111,7 @@ int main(int argc, char **argv) {
 
   double results[N];
   for (int i = 0; i < N; ++i)
-    results[i] = -1.0;
-  for (int s = 0; s < SWEEPS; ++s) {
-    for (int i = 0; i < N; ++i) {
-      double v = measureLaunchNs(counts[i], WARMUP, ITERS);
-      if (results[i] < 0.0 || v < results[i])
-        results[i] = v;
-    }
-  }
+    results[i] = measureLaunchNs(counts[i], WARMUP, ITERS);
 
   double base = results[0];
   for (int i = 0; i < N; ++i) {

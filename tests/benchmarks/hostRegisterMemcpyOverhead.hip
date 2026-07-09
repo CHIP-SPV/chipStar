@@ -32,15 +32,6 @@ int main() {
   auto bench = [&](const char *label) {
     std::vector<double> timings(N_ITERS);
     CHECK(hipDeviceSynchronize());
-    // Untimed warmup so neither measurement pays one-off setup costs (first-touch
-    // paging, staging-buffer allocation, DMA-engine/queue init). Without it the
-    // bench that runs first (WITH register) is timed colder than the second,
-    // producing a spurious ~10% "slowdown" on GPUs where hipHostRegister gives
-    // no speedup (no zexDriverImportExternalPointer) to mask the ordering bias.
-    const int WARMUP = 200;
-    for (int i = 0; i < WARMUP; ++i)
-      CHECK(hipMemcpy(DevBuf, HostBuf, BUF_SIZE, hipMemcpyHostToDevice));
-    CHECK(hipDeviceSynchronize());
     for (int i = 0; i < N_ITERS; ++i) {
       auto t0 = std::chrono::high_resolution_clock::now();
       CHECK(hipMemcpy(DevBuf, HostBuf, BUF_SIZE, hipMemcpyHostToDevice));
@@ -54,11 +45,12 @@ int main() {
     double mx    = *std::max_element(timings.begin(), timings.end());
     // Use the MINIMUM for the pass/fail comparison. A 4 MB H2D copy is
     // bandwidth-bound, so its fastest observed time is a true physical floor:
-    // OS-scheduling noise and the warmup bias of whichever bench runs first
+    // OS-scheduling noise and the cold-start of whichever bench runs first
     // can only ADD time (see how avg/median/max blow up while min stays put),
     // so both the average and the median make the with/without ratio flaky on
-    // shared CI runners. hipHostRegister adding a real per-copy cost would
-    // raise even the floor, so the minimum still catches a genuine regression.
+    // shared CI runners -- taking the min removes the need for a warmup pass.
+    // hipHostRegister adding a real per-copy cost would raise even the floor,
+    // so the minimum still catches a genuine regression.
     std::sort(timings.begin(), timings.end());
     double med   = timings[N_ITERS / 2];
     std::cout << N_ITERS << " hipMemcpy H2D (" << BUF_SIZE / (1024 * 1024)
