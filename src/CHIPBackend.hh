@@ -1163,6 +1163,12 @@ public:
   virtual const chipstar::Module *getModule() const = 0;
 };
 
+/// Resolve the storage address of the device global backing an implicit
+/// DeviceGlobal kernel argument (globals-as-kernel-args lowering). Throws
+/// hipErrorLaunchFailure if the global's storage is not allocated.
+void *getDeviceGlobalArgAddr(chipstar::Kernel *Kernel,
+                             const SPVFuncInfo::KernelArg &Arg);
+
 class ArgSpillBuffer {
   chipstar::Context *Ctx_; ///< A context to allocate device space from.
   std::unique_ptr<char[]> HostBuffer_;

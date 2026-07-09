@@ -68,7 +68,10 @@ jobs:
           fi
           echo "OK: refused as expected"
 
-  # Stage 1: Build and test chipStar with latest LLVM native
+  # Stage 1: Build and test chipStar with latest LLVM native.
+  # Runs the suite twice: once with program-scope device globals ON (default)
+  # and once OFF. The OFF build lowers user __device__/__constant__ globals to
+  # kernel arguments (issue #1279); a single native run gates both code paths.
   chipstar-llvm22-native-release:
     needs: refuse-chipfft-chipblas-on-level-zero
     runs-on: [self-hosted, Linux, X64]
@@ -80,8 +83,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
-      - name: Run unit test checking script
+      - name: Run unit test checking script (program-scope globals ON)
         run: ./scripts/unit_tests.sh release llvm-22 --variant=native
+        shell: bash
+      - name: Run unit test checking script (program-scope globals OFF / kernel-arg path)
+        run: ./scripts/unit_tests.sh release llvm-22 --variant=native --no-psg
         shell: bash
 
   # Stage 2: Build chipStar + all libraries, run library tests

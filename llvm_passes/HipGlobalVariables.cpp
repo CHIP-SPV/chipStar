@@ -530,6 +530,215 @@ bool emitNonSymbolInitializerKernel(const std::vector<GlobalVariable *> GVs,
   return true;
 }
 
+#ifndef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
+// ===========================================================================
+// rusticl/radeonsi path: lower device globals to implicit kernel arguments.
+//
+// Some OpenCL drivers (rusticl/radeonsi on Mesa/ACO) cannot consume
+// program-scope CrossWorkgroup globals. The default lowering above leaves an
+// i64 `__chip_var_<name>` address-holder global which trips them. Here we run a
+// post-transform that removes those globals and instead passes each global's
+// device address as an implicit trailing kernel pointer argument:
+//
+//   * every kernel that loads `__chip_var_<G>` gets a trailing
+//     `i8 addrspace(1)*` parameter per distinct G it uses; the load is replaced
+//     by ptrtoint(param).
+//   * a `__chip_gvararg_<kernel>` annotation (NUL-separated original global
+//     names, in parameter order) tells the runtime which global feeds each
+//     trailing arg. spirv.cc strips this annotation before the driver sees it.
+//   * the `__chip_var_init_<G>` shadow kernel is reworked to take the storage
+//     address as its argument (instead of reading the global), and the
+//     `__chip_var_bind_<G>` shadow kernel (which only stored into the global)
+//     is removed. `__chip_var_info_<G>` is left intact.
+//
+// The appended args must remain the TRAILING kernel args: the runtime marks
+// the last N args as DeviceGlobal by position. HipKernelArgSpiller — the only
+// later pass modifying kernel parameter lists — replaces args in place
+// without changing their count or positions.
+// ===========================================================================
+
+// Replace, inside function F, all LoadInst that load `GV` with ptrtoint(NewPtr).
+static void replaceGlobalLoadsWith(Function &F, GlobalVariable *GV,
+                                   Value *NewPtr) {
+  IRBuilder<> B(F.getContext());
+  SmallVector<LoadInst *, 4> Loads;
+  for (User *U : GV->users())
+    if (auto *LD = dyn_cast<LoadInst>(U))
+      if (LD->getFunction() == &F)
+        Loads.push_back(LD);
+  for (auto *LD : Loads) {
+    B.SetInsertPoint(LD);
+    Value *AsInt = B.CreatePtrToInt(NewPtr, LD->getType());
+    LD->replaceAllUsesWith(AsInt);
+    LD->eraseFromParent();
+  }
+}
+
+// Clone F into a new function with `NumExtra` extra trailing i8 addrspace(1)*
+// parameters, moving the body over. Returns the new function (old one erased).
+// The caller is responsible for wiring the extra args.
+static Function *appendPtrArgs(Function *F, unsigned NumExtra) {
+  LLVMContext &C = F->getContext();
+  auto *PtrTy = PointerType::get(C, SpirvCrossWorkGroupAS);
+  SmallVector<Type *> ArgTys;
+  for (auto &A : F->args())
+    ArgTys.push_back(A.getType());
+  for (unsigned i = 0; i < NumExtra; ++i)
+    ArgTys.push_back(PtrTy);
+  auto *NewFT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
+  auto *NF = Function::Create(NewFT, F->getLinkage(), F->getAddressSpace(), "",
+                              F->getParent());
+  NF->setCallingConv(F->getCallingConv());
+  NF->setVisibility(F->getVisibility());
+  NF->setAttributes(F->getAttributes()); // function + existing-arg attributes
+  NF->copyMetadata(F, 0); // function-level metadata (!dbg, !reqd_* etc.)
+  NF->takeName(F);
+  // Move the body across and rewire the original arguments.
+  NF->splice(NF->begin(), F);
+  for (unsigned i = 0; i < F->arg_size(); ++i) {
+    F->getArg(i)->replaceAllUsesWith(NF->getArg(i));
+    NF->getArg(i)->takeName(F->getArg(i));
+  }
+  F->eraseFromParent();
+  return NF;
+}
+
+// Emit the `__chip_gvararg_<kernel>` annotation: a constant i8 array holding the
+// NUL-separated original global names in trailing-argument order.
+static void emitGVarArgAnnotation(Module &M, StringRef KernelName,
+                                  ArrayRef<std::string> GlobalNames) {
+  std::string Buf;
+  for (auto &N : GlobalNames) {
+    Buf += N;
+    Buf += '\0';
+  }
+  auto *Init = ConstantDataArray::getString(M.getContext(), Buf,
+                                             /*AddNull=*/false);
+  auto Name = (Twine(ChipGVarArgPrefix) + KernelName).str();
+  new GlobalVariable(M, Init->getType(), /*isConstant=*/true,
+                     GlobalValue::ExternalLinkage, Init, Name, nullptr,
+                     GlobalValue::NotThreadLocal, SpirvCrossWorkGroupAS);
+}
+
+// Original device-global name from a `__chip_var_<name>` address holder.
+static std::string originalNameOf(const GlobalVariable *NewGV) {
+  StringRef N = NewGV->getName();
+  N.consume_front(ChipVarPrefix);
+  return N.str();
+}
+
+// Returns true if F is a chipStar-generated shadow kernel (info/bind/init or
+// the non-symbol reset kernel).
+static bool isShadowKernel(const Function &F) {
+  StringRef N = F.getName();
+  return N.starts_with(ChipVarInfoPrefix) || N.starts_with(ChipVarBindPrefix) ||
+         N.starts_with(ChipVarInitPrefix) || N == ChipNonSymbolResetKernelName;
+}
+
+// A lowered address-holder global can be safely converted to kernel arguments
+// only if every use is either a load inside a user (SPIR_KERNEL) kernel, a load
+// inside its OWN init shadow kernel, or the store inside its OWN bind shadow
+// kernel. Anything else — the address taken (ptrtoint/GEP/constexpr), a load in
+// a non-kernel device function, or a cross-reference from another global's init
+// kernel (e.g. mutually-referencing pointers `Foo=&Bar; Bar=&Foo`) — cannot be
+// expressed as a per-global trailing argument, so we leave such globals as
+// program-scope (which still works on drivers that support them).
+static bool isConvertibleGlobal(GlobalVariable *GV) {
+  std::string OrigName = originalNameOf(GV);
+  std::string OwnInit = (Twine(ChipVarInitPrefix) + OrigName).str();
+  std::string OwnBind = (Twine(ChipVarBindPrefix) + OrigName).str();
+  for (User *U : GV->users()) {
+    auto *I = dyn_cast<Instruction>(U);
+    if (!I)
+      return false; // constant expression use, etc.
+    Function *F = I->getFunction();
+    StringRef FN = F->getName();
+    if (isa<LoadInst>(I)) {
+      if (FN == OwnInit)
+        continue;
+      if (F->getCallingConv() == CallingConv::SPIR_KERNEL && !isShadowKernel(*F))
+        continue; // load in a user kernel
+      return false; // cross-ref init, or load in a non-kernel function
+    }
+    if (isa<StoreInst>(I)) {
+      if (FN == OwnBind)
+        continue; // own bind kernel's store
+      return false;
+    }
+    return false; // any other use kind
+  }
+  return true;
+}
+
+static bool lowerGlobalsToKernelArgs(Module &M, GVarMapT &GVarMap) {
+  if (GVarMap.empty())
+    return false;
+
+  // The lowered address-holder globals we can safely convert to kernel args.
+  // Non-convertible ones are left as program-scope globals (driver fallback).
+  SmallVector<GlobalVariable *, 8> GVs;
+  for (auto &Kv : GVarMap)
+    if (isConvertibleGlobal(Kv.second))
+      GVs.push_back(Kv.second);
+  if (GVs.empty())
+    return false;
+
+  // 1) Rework each `__chip_var_init_<G>` shadow kernel to take the storage
+  //    address as a trailing pointer arg instead of loading the global.
+  for (auto *GV : GVs) {
+    std::string OrigName = originalNameOf(GV);
+    auto *InitF = M.getFunction((Twine(ChipVarInitPrefix) + OrigName).str());
+    if (!InitF || InitF->isDeclaration())
+      continue;
+    Function *NInit = appendPtrArgs(InitF, 1);
+    replaceGlobalLoadsWith(*NInit, GV, NInit->getArg(NInit->arg_size() - 1));
+  }
+
+  // 2) Transform user kernels: append a pointer arg per global they load.
+  SmallVector<Function *, 16> UserKernels;
+  for (auto &F : M)
+    if (F.getCallingConv() == CallingConv::SPIR_KERNEL && !F.isDeclaration() &&
+        !isShadowKernel(F))
+      UserKernels.push_back(&F);
+
+  for (Function *F : UserKernels) {
+    // Collect, in deterministic order, the globals this kernel loads (GVs is
+    // duplicate-free, so Used is too).
+    SmallVector<GlobalVariable *, 4> Used;
+    for (auto *GV : GVs)
+      for (User *U : GV->users())
+        if (auto *LD = dyn_cast<LoadInst>(U))
+          if (LD->getFunction() == F) {
+            Used.push_back(GV);
+            break;
+          }
+    if (Used.empty())
+      continue;
+
+    Function *NF = appendPtrArgs(F, Used.size());
+    unsigned Base = NF->arg_size() - Used.size();
+    std::vector<std::string> Names;
+    for (unsigned j = 0; j < Used.size(); ++j) {
+      replaceGlobalLoadsWith(*NF, Used[j], NF->getArg(Base + j));
+      Names.push_back(originalNameOf(Used[j]));
+    }
+    emitGVarArgAnnotation(M, NF->getName(), Names);
+  }
+
+  // 3) Remove the `__chip_var_bind_<G>` shadow kernels (now pointless) and the
+  //    address-holder globals themselves. Erasing the bind kernel first drops
+  //    the only remaining use of the global.
+  for (auto *GV : GVs) {
+    std::string OrigName = originalNameOf(GV);
+    if (auto *BindF = M.getFunction((Twine(ChipVarBindPrefix) + OrigName).str()))
+      BindF->eraseFromParent();
+    GV->replaceAllUsesWith(PoisonValue::get(GV->getType()));
+    GV->eraseFromParent();
+  }
+  return true;
+}
+#endif // !CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
+
 static bool lowerGlobalVariables(Module &M) {
   bool Changed = false;
 
@@ -552,6 +761,11 @@ static bool lowerGlobalVariables(Module &M) {
     replaceGlobalVariableUses(GVarMap);
     eraseMappedGlobalVariables(GVarMap);
     Changed |= true;
+#ifndef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
+    // rusticl path: convert the lowered address-holder globals to implicit
+    // kernel arguments (the globals themselves are removed here).
+    lowerGlobalsToKernelArgs(M, GVarMap);
+#endif
   }
 
   // Lower global device variables which are not accessible by the host but

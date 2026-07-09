@@ -28,6 +28,7 @@
 #include <memory>
 #include <vector>
 #include <functional>
+#include <string>
 #include <string_view>
 
 enum class SPVTypeKind : unsigned {
@@ -44,6 +45,10 @@ enum class SPVTypeKind : unsigned {
             // a device buffer.
   Image,    // The type is a image.
   Sampler,  // The type is a sample.
+  DeviceGlobal, // An implicit trailing pointer argument carrying the device
+                // address of a __device__/__constant__ global variable (used on
+                // drivers that can't consume program-scope globals, e.g.
+                // rusticl). DevGlobalName names the global; no client arg.
 
   // Should not appear in kernel parameter lists.
   Opaque, // The type is an unresolved, special SPIR-V type.
@@ -62,6 +67,9 @@ struct SPVArgTypeInfo {
   SPVTypeKind Kind;
   SPVStorageClass StorageClass;
   size_t Size;
+  /// For Kind==DeviceGlobal: the name of the device global whose address this
+  /// implicit argument carries. Empty otherwise.
+  std::string DevGlobalName;
 
   bool isWorkgroupPtr() const {
     return Kind == SPVTypeKind::Pointer &&
