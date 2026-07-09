@@ -26,11 +26,11 @@ extern "C" {
 }
 
 // Trigonometric functions
-inline float cospi(float x) { return __ocml_cospi_f32(x); }
-inline float cospif(float x) { return __ocml_cospi_f32(x); }
+inline float cospi(float x) noexcept { return __ocml_cospi_f32(x); }
+extern "C" inline float cospif(float x) noexcept { return __ocml_cospi_f32(x); }
 
-inline float sinpi(float x) { return __ocml_sinpi_f32(x); }
-inline float sinpif(float x) { return __ocml_sinpi_f32(x); }
+inline float sinpi(float x) noexcept { return __ocml_sinpi_f32(x); }
+extern "C" inline float sinpif(float x) noexcept { return __ocml_sinpi_f32(x); }
 
 // Error functions
 inline double erfcinv(double x) { return __ocml_erfcinv_f64(x); }
@@ -71,9 +71,9 @@ inline void sincospif(float x, float* psin, float* pcos) {
 // Sign bit
 inline int signbit(double x) { return __ocml_signbit_f64(x); }
 
-inline double rsqrt(double x) { return __ocml_rsqrt_f64(x); }
+extern "C" inline double rsqrt(double x) noexcept { return __ocml_rsqrt_f64(x); }
 
-inline float rsqrtf(float x) { return __ocml_rsqrt_f32(x); }
+extern "C" inline float rsqrtf(float x) noexcept { return __ocml_rsqrt_f32(x); }
 
 
 #endif // HIP_INCLUDE_DEVICELIB_HOST_MATH_FUNCS_H
