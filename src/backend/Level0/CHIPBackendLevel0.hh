@@ -413,13 +413,10 @@ public:
   // if it's true (not busy), update IsEmptyQueue_ and return true. else, return false.
   bool isEmptyQueue() override {
 #ifdef CHIP_LZ_API_QUERY_QUEUE_EMPTY
-    // Fast path: a queue that never received work (or was already observed
-    // empty and not resubmitted) has IsEmptyQueue_ == true and is definitively
-    // empty -- return immediately without a Level Zero round-trip. Without this,
-    // a null-stream launch that scans N idle blocking streams issues N
-    // zeCommandListHostSynchronize() calls, making per-launch cost O(N) in the
-    // number of idle streams (see tests/benchmarks/manySmallKernels). The driver
-    // query below stays authoritative for queues that actually have work.
+    // Fast path: an idle queue (IsEmptyQueue_ == true) is definitively empty,
+    // so return without a Level Zero round-trip. This keeps a null-stream launch
+    // that scans N idle streams at O(1) per stream instead of O(N)
+    // zeCommandListHostSynchronize() calls (see tests/benchmarks/manySmallKernels).
     if (IsEmptyQueue_.load(std::memory_order_relaxed))
       return true;
     return (zeCommandListHostSynchronize(ZeCmdListImm_, 0) == ZE_RESULT_SUCCESS);
