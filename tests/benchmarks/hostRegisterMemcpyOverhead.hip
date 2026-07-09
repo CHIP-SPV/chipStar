@@ -75,8 +75,8 @@ int main() {
 // same import genuinely makes H2D copies ~13% SLOWER -- a real, order-independent
 // driver behavior, confirmed with a pure Level Zero reproducer across PVC/A380/
 // B570 (see CHIP-SPV/chipStar#1324), not a chipStar or measurement artifact. So a
-// modest slowdown is expected here; only fail on a pathological regression (>50%).
-  if (min_with / min_without > 1.5) {
+// modest slowdown is expected here; only fail on a pathological regression (>30%).
+  if (min_with / min_without > 1.3) {
     printf("Fail\n");
     return 1;
   }
