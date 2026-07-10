@@ -2157,7 +2157,12 @@ hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   logTrace("CHIPQueueOpenCL::memPrefetchImpl");
-  
+
+  // Mark queue as having work submitted so isEmptyQueue() stays accurate:
+  // the migrate paths below enqueue real commands that later default-stream
+  // launches must synchronize against.
+  IsEmptyQueue_.store(false);
+
   std::shared_ptr<chipstar::Event> PrefetchEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "memPrefetch");
