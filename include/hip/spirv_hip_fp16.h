@@ -1747,6 +1747,66 @@ THE SOFTWARE.
             }
         } // Anonymous namespace.
 
+        // Warp shuffle overloads for __half / __half2 (CHIP-SPV/chipStar#797).
+        // sync_and_util.hh only declares integer/float/double __shfl* overloads,
+        // so a __half argument was ambiguous (it converts to several of them).
+        // Implement the half variants by shuffling the raw bits through the
+        // existing integer __shfl* overloads, which is bit-exact and therefore
+        // value-preserving.
+        #define __CHIP_DEF_HALF_SHFL(OP_, SEL_T_)                              \
+          __device__ inline __half OP_(__half var, SEL_T_ selector,           \
+                                       int width = CHIP_DEFAULT_WARP_SIZE) {  \
+            unsigned short bits;                                               \
+            __builtin_memcpy(&bits, &var, sizeof(bits));                      \
+            int shuffled = OP_(static_cast<int>(bits), selector, width);      \
+            unsigned short out = static_cast<unsigned short>(shuffled);       \
+            __half result;                                                    \
+            __builtin_memcpy(&result, &out, sizeof(out));                     \
+            return result;                                                    \
+          }                                                                   \
+          __device__ inline __half2 OP_(__half2 var, SEL_T_ selector,         \
+                                        int width = CHIP_DEFAULT_WARP_SIZE) { \
+            int bits;                                                         \
+            __builtin_memcpy(&bits, &var, sizeof(bits));                     \
+            int shuffled = OP_(bits, selector, width);                       \
+            __half2 result;                                                   \
+            __builtin_memcpy(&result, &shuffled, sizeof(shuffled));          \
+            return result;                                                    \
+          }
+        __CHIP_DEF_HALF_SHFL(__shfl, int)
+        __CHIP_DEF_HALF_SHFL(__shfl_xor, int)
+        __CHIP_DEF_HALF_SHFL(__shfl_up, unsigned int)
+        __CHIP_DEF_HALF_SHFL(__shfl_down, unsigned int)
+        #undef __CHIP_DEF_HALF_SHFL
+
+        #define __CHIP_DEF_HALF_SHFL_SYNC(OP_, SEL_T_)                         \
+          __device__ inline __half OP_(unsigned mask, __half var,             \
+                                       SEL_T_ selector,                       \
+                                       int width = CHIP_DEFAULT_WARP_SIZE) {  \
+            unsigned short bits;                                               \
+            __builtin_memcpy(&bits, &var, sizeof(bits));                      \
+            int shuffled = OP_(mask, static_cast<int>(bits), selector, width);\
+            unsigned short out = static_cast<unsigned short>(shuffled);       \
+            __half result;                                                    \
+            __builtin_memcpy(&result, &out, sizeof(out));                     \
+            return result;                                                    \
+          }                                                                   \
+          __device__ inline __half2 OP_(unsigned mask, __half2 var,           \
+                                        SEL_T_ selector,                      \
+                                        int width = CHIP_DEFAULT_WARP_SIZE) { \
+            int bits;                                                         \
+            __builtin_memcpy(&bits, &var, sizeof(bits));                     \
+            int shuffled = OP_(mask, bits, selector, width);                 \
+            __half2 result;                                                   \
+            __builtin_memcpy(&result, &shuffled, sizeof(shuffled));          \
+            return result;                                                    \
+          }
+        __CHIP_DEF_HALF_SHFL_SYNC(__shfl_sync, int)
+        __CHIP_DEF_HALF_SHFL_SYNC(__shfl_xor_sync, int)
+        __CHIP_DEF_HALF_SHFL_SYNC(__shfl_up_sync, unsigned int)
+        __CHIP_DEF_HALF_SHFL_SYNC(__shfl_down_sync, unsigned int)
+        #undef __CHIP_DEF_HALF_SHFL_SYNC
+
         #if !defined(HIP_NO_HALF)
             using half = __half;
             using half2 = __half2;
