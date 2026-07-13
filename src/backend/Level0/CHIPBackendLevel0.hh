@@ -95,6 +95,13 @@ private:
   ze_event_handle_t Event_;
   ze_event_pool_handle_t EventPoolHandle_;
 
+  // Per-record "slots" (fixes #1258): each hipEventRecord re-record allocates a
+  // fresh L0 event handle and retires the previous (pool, event) pair here,
+  // kept alive until its signal completes, instead of zeEventHostReset-ing one
+  // shared handle that may still be referenced by in-flight barriers from a
+  // circular stream-wait dependency (that reset SEGVs inside the L0 driver).
+  std::vector<std::pair<ze_event_pool_handle_t, ze_event_handle_t>> RetiredSlots_;
+
   std::vector<ActionFn> Actions_;
 
 public:
@@ -124,6 +131,12 @@ public:
   virtual void hostSignal() override;
 
   void reset();
+
+  /// Re-record path (fixes #1258): retire the current L0 event handle (kept
+  /// alive in RetiredSlots_) and swap in a fresh one instead of resetting the
+  /// shared handle in place. Reaps already-completed retired slots. Used by
+  /// CHIPQueueLevel0::recordEvent for hipEventRecord re-records.
+  void reRecordReset();
 
   ze_event_handle_t &peek();
 
