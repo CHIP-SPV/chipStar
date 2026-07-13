@@ -734,9 +734,12 @@ protected:
    *
    */
   Event() : TrackCalled_(false), UserEvent_(false) {}
-  virtual ~Event() { logTrace("~Event() {}", (void *)this); };
 
 public:
+  // Public so hipEventDestroy can delete through chipstar::Event* and reach this
+  // virtual destructor (see hipEventDestroy).
+  virtual ~Event() { logTrace("~Event() {}", (void *)this); };
+
   std::vector<std::shared_ptr<chipstar::Event>> DependsOnList;
   void setRecording() {
     isDeletedSanityCheck();
