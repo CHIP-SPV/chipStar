@@ -3980,7 +3980,10 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
-  delete Event;
+  // Delete through chipstar::Event*: hipEvent_t is ihipEvent_t*, a
+  // non-polymorphic empty base, so `delete Event` would skip the virtual
+  // destructor and leak the backend cl_event/ze_event handle.
+  delete static_cast<chipstar::Event *>(Event);
 
   RETURN(hipSuccess);
 
