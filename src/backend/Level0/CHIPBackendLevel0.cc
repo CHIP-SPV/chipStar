@@ -300,6 +300,86 @@ void CHIPEventLevel0::reset() {
   markDeleted(false);
 }
 
+void CHIPEventLevel0::reRecordReset() {
+  logTrace("CHIPEventLevel0::reRecordReset() {} msg: {} handle: {}",
+           (void *)this, Msg, (void *)Event_);
+  {
+    LOCK(DependsOnListMtx);
+    DependsOnList.clear();
+  }
+
+  // Reap retired slots whose signal has already completed: once signaled, the
+  // barrier that referenced the handle is done and nothing else refers to it
+  // (nobody waits on this event's handle directly), so it is safe to destroy.
+  // This bounds RetiredSlots_ to the in-flight window across many re-records.
+  for (auto It = RetiredSlots_.begin(); It != RetiredSlots_.end();) {
+    if (zeEventQueryStatus(It->second) == ZE_RESULT_SUCCESS) {
+      zeEventDestroy(It->second);
+      if (It->first)
+        zeEventPoolDestroy(It->first);
+      It = RetiredSlots_.erase(It);
+    } else {
+      ++It;
+    }
+  }
+
+  // On a re-record, do NOT zeEventHostReset the shared handle: it may still be
+  // referenced by an in-flight barrier from a circular stream-wait dependency,
+  // and host-resetting an in-use L0 event is UB (SEGVs in libze_intel_gpu).
+  // Instead retire the current handle (kept alive above until its signal fires)
+  // and allocate a fresh handle for the new recording. A never-recorded handle
+  // (fresh from the constructor) is reused as-is.
+  //
+  // Only fresh-slot for user events, which own a dedicated single-slot pool
+  // (retiring/destroying that pool is safe). Pooled events share a pool owned by
+  // LZEventPool, so fall back to the in-place reset there (safe: pooled events
+  // are only recycled once RECORDED with no remaining dependents).
+  if (EventStatus_ != EVENT_STATUS_INIT) {
+    if (isUserEvent() && Event_) {
+      // Build the fresh pool+event into locals FIRST; only commit the swap
+      // (retire the old pair + adopt the new) once both allocations succeed.
+      // Otherwise a throw from zeEventPoolCreate/zeEventCreate would leave
+      // Event_/EventPoolHandle_ still aliasing a handle already pushed into
+      // RetiredSlots_, double-freeing it at destruction.
+      CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
+      ze_event_pool_desc_t EventPoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC,
+                                            nullptr,
+                                            ZE_EVENT_POOL_FLAG_HOST_VISIBLE, 1};
+      ze_event_pool_handle_t FreshPool = nullptr;
+      zeStatus =
+          zeEventPoolCreate(ZeCtx->get(), &EventPoolDesc, 0, nullptr, &FreshPool);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventPoolCreate);
+      ze_event_desc_t EventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0,
+                                   ZE_EVENT_SCOPE_FLAG_HOST,
+                                   ZE_EVENT_SCOPE_FLAG_HOST};
+      ze_event_handle_t FreshEvent = nullptr;
+      zeStatus = zeEventCreate(FreshPool, &EventDesc, &FreshEvent);
+      if (zeStatus != ZE_RESULT_SUCCESS)
+        zeEventPoolDestroy(FreshPool); // don't leak the pool if event fails
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventCreate);
+
+      // Both allocations succeeded: retire the old handle and adopt the new.
+      RetiredSlots_.emplace_back(EventPoolHandle_, Event_);
+      EventPoolHandle_ = FreshPool;
+      Event_ = FreshEvent;
+      EventPoolIndex = 0;
+    } else {
+      if (EventStatus_ == EVENT_STATUS_RECORDING)
+        wait();
+      zeStatus = zeEventHostReset(Event_);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostReset);
+    }
+  }
+
+  TrackCalled_ = false;
+  EventStatus_ = EVENT_STATUS_INIT;
+  Timestamp_ = 0;
+  HostTimestamp_ = 0;
+  DeviceTimestamp_ = 0;
+  SignalEnqueued_ = false;
+  markDeleted(false);
+}
+
 ze_event_handle_t &CHIPEventLevel0::peek() {
   isDeletedSanityCheck();
   return Event_;
@@ -313,6 +393,19 @@ CHIPEventLevel0::~CHIPEventLevel0() {
     logTrace("~CHIPEventLevel0({}) waiting for event to finish", (void *)this);
     wait();
   }
+
+  // Free handles retired by reRecordReset() that never got reaped (their
+  // signal may not have fired). Synchronize first so we don't destroy a handle
+  // still referenced by an in-flight barrier. Use the same bounded timeout as
+  // wait() rather than an infinite wait so a stuck queue can't hang teardown.
+  uint64_t RetireTimeout = ChipEnvVars.getL0EventTimeout() * 1e9;
+  for (auto &Slot : RetiredSlots_) {
+    zeEventHostSynchronize(Slot.second, RetireTimeout);
+    zeEventDestroy(Slot.second);
+    if (Slot.first)
+      zeEventPoolDestroy(Slot.first);
+  }
+  RetiredSlots_.clear();
 
   zeStatus = zeEventDestroy(Event_);
   assert(zeStatus == ZE_RESULT_SUCCESS);
@@ -404,7 +497,12 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
 
   {
     LOCK(::Backend->EventsMtx);
-    ChipEventLz->reset();
+    // Re-record with a fresh event slot (issue #1258): re-recording an event
+    // that is still referenced by an in-flight barrier (e.g. a circular
+    // stream-wait dependency) must NOT host-reset the shared handle in place —
+    // that SEGVs the L0 driver. reRecordReset retires the old handle and
+    // allocates a fresh one instead.
+    ChipEventLz->reRecordReset();
   }
 
   auto TimestampWriteCompleteLz = std::static_pointer_cast<CHIPEventLevel0>(
