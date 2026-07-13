@@ -1228,17 +1228,18 @@ Value*processInstruction(Instruction *I, Type *NonStdType, Type *PromotedTy,
 }
 
 /// Check if a kernel argument type needs promotion to i32 for SPIR-V
-/// conformance. OpenCL requires kernel arguments to be at least 32 bits wide.
+/// conformance. The SPIR-V OpTypeInt supported widths are 8, 16, 32 and 64,
+/// so i8/i16/i32/i64 kernel arguments are already conformant. Only i1 (bool)
+/// maps to OpTypeBool, which is not a valid kernel argument type, so it is the
+/// only integer type that must be promoted to i32.
 static bool needsKernelArgPromotion(Type *T) {
-  if (auto *IntTy = dyn_cast<IntegerType>(T)) {
-    unsigned BW = IntTy->getBitWidth();
-    return BW < 32; // i1 (bool), i8 (char), i16 (short)
-  }
+  if (auto *IntTy = dyn_cast<IntegerType>(T))
+    return IntTy->getBitWidth() == 1; // i1 (bool) only
   return false;
 }
 
-/// Promote narrow (< i32) integer kernel arguments to i32 for SPIR-V/OpenCL
-/// conformance. Modifies the kernel function in-place: replaces narrow
+/// Promote i1 (bool) integer kernel arguments to i32 for SPIR-V/OpenCL
+/// conformance. Modifies the kernel function in-place: replaces bool
 /// params with i32 and inserts trunc instructions at the entry block.
 ///
 /// Previous implementation created a wrapper+unpromoted-function pattern
@@ -1322,7 +1323,7 @@ static bool promoteKernelArgs(Module &M) {
 PreservedAnalyses HipPromoteIntsPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
 
-  // Promote narrow (i1, i8, i16) kernel arguments to i32 for SPIR-V/OpenCL
+  // Promote i1 (bool) kernel arguments to i32 for SPIR-V/OpenCL
   // conformance before doing anything else.
   bool Changed = promoteKernelArgs(M);
 
