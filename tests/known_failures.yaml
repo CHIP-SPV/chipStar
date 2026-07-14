@@ -824,7 +824,6 @@ ANY:
     TestNegativeHasNoIGBAs2: 'Failed'
     TestPositiveHasNoIGBAs: 'Failed'
     TestIGCCaching: 'Failed'
-    TestEventRecordCircularDep: 'Failed'
     TestDefaultStreamImplicitSync: 'Failed'
     TestHipLaunchHostFunc: 'Failed'
     TestBoolKernelParam: 'Failed'
