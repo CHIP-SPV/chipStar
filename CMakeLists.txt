@@ -44,6 +44,11 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+# Resolve symlinks first: on distros where `gcc` is a ccache shim
+# (e.g. Fedora's /usr/lib64/ccache/gcc -> /usr/bin/ccache), the unresolved
+# path yields a wrong --gcc-toolchain base (issue #937).
+get_filename_component(GCC_PATH "${GCC_PATH}" REALPATH)
+
 # Extract the base path (removing /bin/gcc from the end)
 get_filename_component(GCC_BASE_PATH ${GCC_PATH} DIRECTORY)
 get_filename_component(GCC_BASE_PATH ${GCC_BASE_PATH} DIRECTORY)
