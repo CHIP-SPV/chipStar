@@ -102,6 +102,7 @@ add_hip_runtime_test(TestHipInit.hip)
 add_shell_test(TestRuntimeWarnings.bash)
 
 add_hip_runtime_test(TestAPIs.hip)
+add_hip_runtime_test(TestFix499ErrorType.hip)
 add_hip_runtime_test(TestHipPointerAttributesMemoryType.hip)
 add_hip_runtime_test(TestMemFunctions.hip)
 add_hip_runtime_test(TestAlignAttrRuntime.hip)
