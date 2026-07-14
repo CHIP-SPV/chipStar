@@ -16,12 +16,16 @@ find_package(MKL CONFIG
 	PATHS /opt/intel/oneapi/mkl/latest/lib/cmake/mkl)
 
 # Manually include MKL dirs so that they get cached
-if(MKL_FOUND) 
+if(MKL_FOUND)
   include_directories(${MKL_INCLUDE})
-  add_link_options(-L${MKL_ROOT}/lib/${MKL_ARCH})
+  # Do NOT use add_link_options() here: it is directory-scoped and would brutally
+  # inject the MKL library search path into the link line of *every* target in the
+  # samples tree, not just the SYCL interop samples (issue #656). Fold it into
+  # INTEL_LIBS instead so it is applied per-target via target_link_options().
+  set(MKL_LINK_DIR -L${MKL_ROOT}/lib/${MKL_ARCH})
 endif()
 
-set(INTEL_LIBS -L${ICPX_CORE_LIBDIR} -lsvml -lintlc -lirng -limf -lsycl)
+set(INTEL_LIBS ${MKL_LINK_DIR} -L${ICPX_CORE_LIBDIR} -lsvml -lintlc -lirng -limf -lsycl)
 
 if(ICPX_EXECUTABLE AND MKL_FOUND)
   message(STATUS "Found both MLK and ICPX")
