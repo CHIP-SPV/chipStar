@@ -1153,7 +1153,11 @@ int chipstar::Device::getPeerAccess(chipstar::Device *PeerDevice) {
   UNIMPLEMENTED(0);
 }
 
-void chipstar::Device::setCacheConfig(hipFuncCache_t Cfg) { UNIMPLEMENTED(); }
+void chipstar::Device::setCacheConfig(hipFuncCache_t Cfg) {
+  // No reconfigurable cache on chipStar targets; store the hint so
+  // hipDeviceGetCacheConfig can round-trip it, and report success.
+  CacheConfig_ = Cfg;
+}
 
 void chipstar::Device::setFuncCacheConfig(const void *Func,
                                           hipFuncCache_t Cfg) {
@@ -1161,7 +1165,10 @@ void chipstar::Device::setFuncCacheConfig(const void *Func,
 }
 
 hipFuncCache_t chipstar::Device::getCacheConfig() {
-  UNIMPLEMENTED(hipFuncCachePreferNone);
+  // HIP contract: hipDeviceGetCacheConfig returns hipSuccess and the cache
+  // hint is simply ignored on architectures without a reconfigurable cache.
+  // Echo back the last hint set via setCacheConfig (default PreferNone).
+  return CacheConfig_;
 }
 
 hipSharedMemConfig chipstar::Device::getSharedMemConfig() {
