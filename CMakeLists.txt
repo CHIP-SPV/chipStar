@@ -956,7 +956,11 @@ install(
   DESTINATION
   ${CONFIG_PACKAGE_INSTALL_DIR}
 )
-install(EXPORT hip-targets FILE hip-targets.cmake NAMESPACE hip:: DESTINATION lib/cmake/hip COMPONENT binary)
+# NOTE: hip-targets is exported once above (see INSTALL(EXPORT hip-targets ...))
+# to ${CONFIG_PACKAGE_INSTALL_DIR} in the default component. Do not add a second
+# install(EXPORT hip-targets ...) with a different component (e.g. COMPONENT
+# binary): a component/partial install (ccmake, cpack, --component) would then
+# ship hip-targets.cmake without hip-config.cmake, breaking find_package(hip).
 
 # Install hip-lang-config.cmake for CMake's native HIP language support
 install(FILES ${CMAKE_SOURCE_DIR}/cmake/hip-lang/hip-lang-config.cmake
