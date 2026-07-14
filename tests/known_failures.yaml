@@ -473,24 +473,11 @@ ANY:
     Unit_hipMemcpyToSymbolAsync_ToNFrom_UnitDeviceTests: 'Failed'
     'Unit_Thread_Block_Sync_Positive_Basic.*': 'coopGrp sync fails'
     hipMemset_Unit_hipMemsetAsync_SetMemoryWithOffset_Helgrind: 'Helgrind false positives from OpenCL runtime threads'
-    cuda-reduction: 'IGC compiler crash'
-    host-math-funcs: 'IGC compiler crash'
-    implicitCasts: 'IGC compiler crash'
-    RegressionTest302: 'IGC compiler crash'
-    TestAtomicMinMaxFloat: 'IGC compiler crash'
-    TestAtomics: 'IGC compiler crash'
-    TestHeCBenchLebesgue: 'IGC compiler crash'
-    TestMemcpyAsyncPageable: 'IGC compiler crash'
-    TestTemplatedConstantMemcpy: 'IGC compiler crash'
-    Unit_FloatMathPrecise_UnitDeviceTests: 'IGC compiler crash'
-    Unit_ldg_UnitDeviceTests: 'IGC compiler crash'
-    Unit_SinglePrecisionMathDevice_UnitDeviceTests: 'IGC compiler crash'
+    # Kept: its hipFloatComplex variant still fails. The sibling 'IGC compiler
+    # crash' entries here were resolved by the IGC 2.36.3 driver upgrade and
+    # removed after verifying they pass on Level0 + OpenCL, on both the CI
+    # runner's Arc A380 (25 ctest cases, 100% pass) and an Arc B570.
     'Unit_Device_Complex_Binary_Device_Sanity_Positive.*': 'IGC compiler crash'
-    'Unit_Device_Complex_Cast_Device_Sanity_Positive.*': 'IGC compiler crash'
-    'Unit_Device_Complex_hipCfma_Device_Sanity_Positive.*': 'IGC compiler crash'
-    'Unit_Device_Complex_Unary_Device_Sanity_Positive.*': 'IGC compiler crash'
-    'Unit_Device_make_Complex_Device_Positive.*': 'IGC compiler crash'
-    'ABM_AddKernel_MultiTypeMultiSize.*': 'IGC compiler crash'
     Unit_hipDynamicShared_KernelTest: 'Kernel execution fails'
     Unit_hipGridLaunch_KernelTest: 'Kernel execution fails'
     Unit_hipLaunchParm_KernelTest: 'Kernel execution fails'
