@@ -176,6 +176,34 @@ make all build_tests install -j8
 
 NOTE: If you don't have libOpenCL.so (for example from the `ocl-icd-opencl-dev` package), but only libOpenCL.so.1 installed, CMake fails to find it and disables the OpenCL backend. This [issue](https://github.com/CHIP-SPV/chipStar/issues/542) describes a workaround.
 
+### Build Options
+
+#### `CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS` (default: `ON`)
+
+Controls whether chipStar emits program-scope (SPIR-V `CrossWorkgroup`) global
+variables for device-side features that require them:
+
+* device-side dynamic memory allocation (`malloc`/`free`, backed by the
+  `__chipspv_device_heap` global), and
+* `clock()` / `clock64()` / `wall_clock()` / `wall_clock64()` (backed by the
+  `__chip_clk_counter` global).
+
+Program-scope globals are initialized at module load through shadow kernels, and
+some OpenCL drivers (for example rusticl/radeonsi) cannot consume them at all
+([#1279](https://github.com/CHIP-SPV/chipStar/issues/1279)). Disabling this
+option omits those globals, which avoids their per-module initialization
+overhead ([#582](https://github.com/CHIP-SPV/chipStar/issues/582)) and restores
+compatibility with such drivers, at the following cost:
+
+* device-side `malloc`/`free` become unavailable, and
+* `clock*` / `wall_clock*` remain callable but return `0`.
+
+To build with these features disabled:
+
+```bash
+cmake .. -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF ...
+```
+
 ### Building on ARM + Mali
 
 To build chipStar for use with an ARM Mali G52 GPU, use these steps:
