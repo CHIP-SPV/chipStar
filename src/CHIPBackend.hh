@@ -1353,6 +1353,11 @@ protected:
   hipDeviceAttribute_t Attrs_;
   hipDeviceProp_t HipDeviceProps_;
 
+  /// Device-wide cache configuration hint. chipStar has no reconfigurable
+  /// cache, so this is stored and echoed back (a no-op hint) to match the
+  /// HIP set/get round-trip contract.
+  hipFuncCache_t CacheConfig_ = hipFuncCachePreferNone;
+
   size_t TotalUsedMem_;
   size_t MaxUsedMem_;
   size_t MaxMallocSize_ = 0;
