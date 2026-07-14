@@ -106,6 +106,16 @@ if(NOT DEFINED OpenCL_LIBRARY)
   else()
     message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
     find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
+    if(NOT OpenCL_LIBRARY)
+      # Fall back to ld.so.conf-registered locations (e.g. vendor ICD loaders
+      # not on LD_LIBRARY_PATH nor CMake's default paths). Issue #542.
+      execute_process(COMMAND ldconfig -p OUTPUT_VARIABLE _ldconfig_out ERROR_QUIET)
+      string(REGEX MATCH "libOpenCL\\.so\\.1[^\n]* => ([^\n]+)" _unused "${_ldconfig_out}")
+      if(CMAKE_MATCH_1)
+        string(STRIP "${CMAKE_MATCH_1}" OpenCL_LIBRARY)
+        message(STATUS "Found libOpenCL via ldconfig: ${OpenCL_LIBRARY}")
+      endif()
+    endif()
   endif()
 endif()
 
