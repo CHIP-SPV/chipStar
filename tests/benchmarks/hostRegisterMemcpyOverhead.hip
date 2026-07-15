@@ -43,26 +43,40 @@ int main() {
     double avg   = total / N_ITERS;
     double mn    = *std::min_element(timings.begin(), timings.end());
     double mx    = *std::max_element(timings.begin(), timings.end());
+    // Use the MINIMUM for the pass/fail comparison. A 4 MB H2D copy is
+    // bandwidth-bound, so its fastest observed time is a true physical floor:
+    // OS-scheduling noise and the cold-start of whichever bench runs first
+    // can only ADD time (see how avg/median/max blow up while min stays put),
+    // so both the average and the median make the with/without ratio flaky on
+    // shared CI runners -- taking the min removes the need for a warmup pass.
+    // hipHostRegister adding a real per-copy cost would raise even the floor,
+    // so the minimum still catches a genuine regression.
+    std::sort(timings.begin(), timings.end());
+    double med   = timings[N_ITERS / 2];
     std::cout << N_ITERS << " hipMemcpy H2D (" << BUF_SIZE / (1024 * 1024)
               << " MB) " << label << ": "
-              << "avg=" << avg << " ms  min=" << mn << " ms  max=" << mx
-              << " ms\n";
-    return avg;
+              << "median=" << med << " ms  avg=" << avg << " ms  min=" << mn
+              << " ms  max=" << mx << " ms\n";
+    return mn;
   };
 
   CHECK(hipHostRegister(HostBuf, BUF_SIZE, 0));
-  double avg_with = bench("WITH    hipHostRegister");
+  double min_with = bench("WITH    hipHostRegister");
   CHECK(hipHostUnregister(HostBuf));
 
-  double avg_without = bench("WITHOUT hipHostRegister");
+  double min_without = bench("WITHOUT hipHostRegister");
 
-  std::cout << "overhead factor (avg): " << avg_with / avg_without << "x\n";
+  std::cout << "overhead factor (min): " << min_with / min_without << "x\n";
 
   free(HostBuf);
   CHECK(hipFree(DevBuf));
-// with hiphost register it should be faster, but as long as it's not slower
-// it's ok
-  if (avg_with / avg_without > 1.1) {
+// hipHostRegister only speeds copies up on datacenter GPUs (~2x on Aurora/PVC
+// via zexDriverImportExternalPointer). On client Arc (Alchemist/Battlemage) the
+// same import genuinely makes H2D copies ~13% SLOWER -- a real, order-independent
+// driver behavior, confirmed with a pure Level Zero reproducer across PVC/A380/
+// B570 (see CHIP-SPV/chipStar#1324), not a chipStar or measurement artifact. So a
+// modest slowdown is expected here; only fail on a pathological regression (>30%).
+  if (min_with / min_without > 1.3) {
     printf("Fail\n");
     return 1;
   }

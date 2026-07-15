@@ -1166,6 +1166,12 @@ public:
   virtual const chipstar::Module *getModule() const = 0;
 };
 
+/// Resolve the storage address of the device global backing an implicit
+/// DeviceGlobal kernel argument (globals-as-kernel-args lowering). Throws
+/// hipErrorLaunchFailure if the global's storage is not allocated.
+void *getDeviceGlobalArgAddr(chipstar::Kernel *Kernel,
+                             const SPVFuncInfo::KernelArg &Arg);
+
 class ArgSpillBuffer {
   chipstar::Context *Ctx_; ///< A context to allocate device space from.
   std::unique_ptr<char[]> HostBuffer_;
@@ -1349,6 +1355,11 @@ protected:
 
   hipDeviceAttribute_t Attrs_;
   hipDeviceProp_t HipDeviceProps_;
+
+  /// Device-wide cache configuration hint. chipStar has no reconfigurable
+  /// cache, so this is stored and echoed back (a no-op hint) to match the
+  /// HIP set/get round-trip contract.
+  hipFuncCache_t CacheConfig_ = hipFuncCachePreferNone;
 
   size_t TotalUsedMem_;
   size_t MaxUsedMem_;

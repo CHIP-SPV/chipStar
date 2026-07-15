@@ -24,6 +24,7 @@
 #include "Utils.hh"
 
 #include <chrono>
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 
@@ -453,11 +454,13 @@ CHIPEventLevel0::CHIPEventLevel0(CHIPContextLevel0 *ChipCtx,
       EventPoolHandle_(nullptr), EventPoolIndex(0) {
   CHIPContextLevel0 *ZeCtx = (CHIPContextLevel0 *)ChipContext_;
 
+  // Do not set ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP: chipStar computes
+  // hipEventElapsedTime from an explicit global-timestamp write (see
+  // recordEvent()), never calls zeEventQueryKernelTimestamp, so the kernel
+  // timestamps this flag produces were never read. The flag only made
+  // zeEventQueryStatus expensive (~0.4ms/call), inflating checkEvents(). Precise
+  // per-kernel device timing remains available out-of-band via iprof/unitrace.
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-#ifdef CHIP_L0_KERNEL_TIMESTAMPS
-  if (!Flags.isDisableTiming())
-    PoolFlags = PoolFlags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
-#endif
 
   ze_event_pool_desc_t EventPoolDesc = {
       ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
@@ -525,7 +528,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
                                          &ChipEventLz->getDeviceTimestamp());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetGlobalTimestamps);
 
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImm();
   auto CommandListCopy = this->getCmdListImmCopy();
@@ -793,7 +796,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   }
 
   // Lock before using immediate command list
-  LOCK(ChipQueueLz->CommandListMtx);
+  LOCK(*ChipQueueLz->CmdListMtx_);
   ChipQueueLz->IsEmptyQueue_.store(false);
   ze_command_list_handle_t CommandList = ChipQueueLz->getCmdListImm();
 
@@ -901,7 +904,10 @@ void CHIPEventMonitorLevel0::monitor() {
   while (true) {
     usleep(200);
     checkCallbacks();
-    // checkEvents();
+    // checkEvents() is handled in getEventFromPool() to avoid L0 driver
+    // lock contention: zeEventQueryStatus can hold an L0-internal lock for
+    // hundreds of milliseconds, which blocks zeCommandQueueSynchronize on
+    // the main thread when called from this 200µs hot-loop.
     checkCmdLists();
     checkExit();
   } // endless loop
@@ -984,17 +990,11 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
     PatternBuffer3D_ = nullptr;
   }
 
-  bool isSameCmdList = ZeCmdListImm_ == ZeCmdListImmCopy_;
-
-  zeStatus = zeCommandListDestroy(ZeCmdListImm_);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListDestroy);
+  // The immediate CL is shared across all streams that map to the same hardware
+  // queue. It is owned by CHIPDeviceLevel0::SharedImmCLs_ and must not be
+  // destroyed per-stream.
   ZeCmdListImm_ = nullptr;
-
-  if (!isSameCmdList) {
-    zeStatus = zeCommandListDestroy(ZeCmdListImmCopy_);
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListDestroy);
-    ZeCmdListImmCopy_ = nullptr;
-  }
+  ZeCmdListImmCopy_ = nullptr;
 
   // From destructor post query only when queue is owned by CHIP
   // Non-owned command queues can be destroyed independently by the owner
@@ -1058,7 +1058,7 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     
     // Signal this marker in the other queue's command list
     auto OtherQueue = static_cast<CHIPQueueLevel0 *>(q);
-    LOCK(OtherQueue->CommandListMtx);
+    LOCK(*OtherQueue->CmdListMtx_);
     OtherQueue->IsEmptyQueue_.store(false);
     auto OtherCommandList = OtherQueue->getCmdListImm();
 
@@ -1156,23 +1156,37 @@ void CHIPContextLevel0::checkEvents() {
 }
 
 std::shared_ptr<CHIPEventLevel0> CHIPContextLevel0::getEventFromPool() {
-  // Perform maintenance tasks that were previously done by EventMonitor thread
-  checkEvents();
-  
-  // go through all pools and try to get an allocated event
-  LOCK(ContextMtx); // Context::EventPool
-  EventsRequested_++;
-  std::shared_ptr<CHIPEventLevel0> Event;
+  // Fast path: try to get an event without calling checkEvents().
+  // checkEvents() calls zeEventQueryStatus on every tracked event -- an O(N)
+  // scan. Calling it on every getEventFromPool() invocation would add O(N)
+  // overhead per event acquisition, even when the pool has free events.
+  {
+    LOCK(ContextMtx); // Context::EventPool
+    EventsRequested_++;
+    for (auto EventPool : EventPools_) {
+      auto Event = EventPool->getEvent();
+      if (Event) {
+        EventsReused_++;
+        return Event;
+      }
+    }
+  }
 
+  // Pool is exhausted. Recycle completed events (may call zeEventQueryStatus)
+  // before allocating a new pool slot.
+  checkEvents();
+
+  LOCK(ContextMtx); // Context::EventPool (re-acquire after checkEvents)
+  std::shared_ptr<CHIPEventLevel0> Event;
   for (auto EventPool : EventPools_) {
-    auto Event = EventPool->getEvent();
+    Event = EventPool->getEvent();
     if (Event) {
       EventsReused_++;
       return Event;
     }
   }
 
-  // no events available, create new pool, get event from there and return
+  // No events after recycling: create new pool
   logTrace("No available events found in {} event pools. Creating a new "
            "event pool",
            EventPools_.size());
@@ -1314,9 +1328,15 @@ void CHIPQueueLevel0::ensurePatternBufferAllocated() {
 }
 
 void CHIPQueueLevel0::initializeCmdListImm() {
-  zeStatus = zeCommandListCreateImmediate(ZeCtx_, ZeDev_, &QueueDescriptor_,
-                                          &ZeCmdListImm_);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
+  // Reuse a shared immediate CL for this hardware queue (ordinal, index).
+  // On devices with numQueues==1 (e.g. Intel Arc B570), all HIP streams map to
+  // the same hardware queue and share one CL handle. This avoids the ~0.45ms
+  // per-call overhead of zeCommandListAppendLaunchKernel when switching between
+  // different immediate CL handles on Intel Arc (driver dispatches each CL to
+  // the hardware command processor independently, whereas consecutive appends
+  // to the same CL handle are batched and take ~0.013ms each).
+  ZeCmdListImm_ = ChipDevLz_->getOrCreateSharedImmCL(ZeCtx_, QueueDescriptor_,
+                                                      CmdListMtx_);
 
   // TODO: Using separate copy command lists requires fixing inter-queue
   // synchronization. For now, always reuse the compute command list.
@@ -1446,6 +1466,23 @@ ze_command_queue_desc_t CHIPDeviceLevel0::getNextCopyQueueDesc(int Priority) {
   return CommandQueueCopyDesc;
 }
 
+ze_command_list_handle_t CHIPDeviceLevel0::getOrCreateSharedImmCL(
+    ze_context_handle_t ZeCtx, const ze_command_queue_desc_t &QDesc,
+    std::shared_ptr<std::mutex> &OutMtx) {
+  // Key encodes both ordinal and index so streams on different hardware queues
+  // (multi-queue devices) each get their own shared CL.
+  uint64_t Key = ((uint64_t)QDesc.ordinal << 32) | (uint64_t)QDesc.index;
+  LOCK(SharedImmCLsMapMtx_);
+  auto &Entry = SharedImmCLs_[Key];
+  if (!Entry.Handle) {
+    Entry.Mutex = std::make_shared<std::mutex>();
+    zeStatus = zeCommandListCreateImmediate(ZeCtx, ZeDev_, &QDesc, &Entry.Handle);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListCreateImmediate);
+  }
+  OutMtx = Entry.Mutex;
+  return Entry.Handle;
+}
+
 std::shared_ptr<chipstar::Event>
 CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   CHIPContextLevel0 *ChipCtxZe = (CHIPContextLevel0 *)ChipContext_;
@@ -1475,7 +1512,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   auto [EventHandles, EventLocks] = addDependenciesQueueSync({});
 
   // if using immediate command lists, lock the mutex
-  LOCK(CommandListMtx); // TODO this is probably not needed when using RCL
+  LOCK(*CmdListMtx_); // TODO this is probably not needed when using RCL
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImm();
 
@@ -1531,7 +1568,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
 
   // This function may not be called from simultaneous threads with the same
   // command list handle.
-  // Done via LOCK(CommandListMtx)
+  // Done via LOCK(*CmdListMtx_)
   zeStatus = zeCommandListAppendLaunchKernel(
       CommandList, KernelZe, &LaunchArgs, nullptr,
       EventHandles.size(), EventHandles.data());
@@ -1564,12 +1601,12 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemFillEvent);
   
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  // Done via LOCK(CommandListMtx)
+  // Done via LOCK(*CmdListMtx_)
   zeStatus = zeCommandListAppendMemoryFill(
       CommandList, Dst, Pattern, PatternSize, Size,
       std::static_pointer_cast<CHIPEventLevel0>(MemFillEvent)->peek(),
@@ -1617,12 +1654,12 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
   auto [EventHandles, EventLocks] =
       addDependenciesQueueSync(MemCopyRegionEvent);
   
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  // Done via LOCK(CommandListMtx)
+  // Done via LOCK(*CmdListMtx_)
 
   zeStatus = zeCommandListAppendMemoryCopyRegion(
       CommandList, Dst, &DstRegion, Dpitch, Dspitch, Src, &SrcRegion, Spitch,
@@ -1708,7 +1745,7 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   // Get dependencies before acquiring command list lock to avoid deadlock
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(CopyEvent);
 
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImmCopy();
 
@@ -1793,12 +1830,12 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
           ChipCtxZe, chipstar::EventFlags(), "memCopyToImage");
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(ImageCopyEvent);
   if (!SrcRegion.isPitched()) {
-    LOCK(CommandListMtx);
+    LOCK(*CmdListMtx_);
     IsEmptyQueue_.store(false);
     auto CommandList = this->getCmdListImm();
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
-    // Done via LOCK(CommandListMtx)
+    // Done via LOCK(*CmdListMtx_)
     zeStatus = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, Src, 0,
         std::static_pointer_cast<CHIPEventLevel0>(ImageCopyEvent)->peek(),
@@ -1813,7 +1850,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
   CHIPASSERT(SrcRegion.getNumDims() == 2 &&
              "UNIMPLEMENTED: 3D pitched image copy.");
   const char *SrcRow = (const char *)Src;
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImm();
   for (size_t Row = 0; Row < SrcRegion.Size[1]; Row++) {
@@ -1828,7 +1865,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
 
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
-    // Done via LOCK(CommandListMtx)
+    // Done via LOCK(*CmdListMtx_)
     zeStatus = zeCommandListAppendImageCopyFromMemory(
         CommandList, Image, SrcRow, &DstZeRegion,
         LastRow
@@ -1884,12 +1921,12 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
   // Get dependencies BEFORE locking CommandListMtx to avoid deadlock
   addDependenciesQueueSync(MarkerEvent);
   
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImm();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  // Done via LOCK(CommandListMtx)
+  // Done via LOCK(*CmdListMtx_)
   zeStatus = zeCommandListAppendSignalEvent(
       CommandList,
       std::static_pointer_cast<CHIPEventLevel0>(MarkerEvent)->peek());
@@ -1931,12 +1968,12 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
   } // done gather Event_ handles to wait on
 
   // TODO Should this be memory or compute?
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImm();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
-  // Done via LOCK(CommandListMtx)
+  // Done via LOCK(*CmdListMtx_)
   zeStatus = zeCommandListAppendBarrier(CommandList, SignalEventHandle,
                                         NumEventsToWaitFor, EventHandles);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
@@ -1961,12 +1998,12 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   // (addDependenciesQueueSync may lock other queue's CommandListMtx)
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemCopyEvent);
   
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from simultaneous threads with
   // the same command list handle
-  // Done via LOCK(CommandListMtx)
+  // Done via LOCK(*CmdListMtx_)
   zeStatus = zeCommandListAppendMemoryCopy(
       CommandList, Dst, Src, Size,
       std::static_pointer_cast<CHIPEventLevel0>(MemCopyEvent)->peek(),
@@ -1993,7 +2030,7 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
 
     // For CPU prefetch, just create an event that's already complete
     // The memory will be accessible on CPU by default for managed memory
-    LOCK(CommandListMtx);
+    LOCK(*CmdListMtx_);
     IsEmptyQueue_.store(false);
     auto CommandList = this->getCmdListImmCopy();
     
@@ -2016,7 +2053,7 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
 
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
   IsEmptyQueue_.store(false);
   auto CommandList = this->getCmdListImmCopy();
   
@@ -2038,28 +2075,49 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
 }
 
 void CHIPQueueLevel0::finish() {
+  // zeCommandListHostSynchronize on an empty immediate command list has a
+  // fixed ~0.4ms overhead on Intel Arc B570. When N streams are created,
+  // hipDeviceSynchronize() calls finish() on all N+default queues, making
+  // the cost O(N×0.4ms).
+  //
+  // However, the Intel Arc L0 driver requires at least one full blocking sync
+  // on each command list to transition it to "idle" state — a prerequisite for
+  // parallel kernel execution across multiple command lists. Skip the blocking
+  // wait only after the first sync has already been performed.
+  if (IsEmptyQueue_.load() && CmdListInitialized_.load()) return;
 
   if (zeCmdQOwnership_) {
     zeStatus = zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout() * 1e9);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
                                       "zeCommandQueueSynchronize timeout out");
   }
-  LOCK(CommandListMtx);
+  LOCK(*CmdListMtx_);
 
   // host wait for command list to complete
   if( ZeCmdListImmCopy_ != ZeCmdListImm_) {
     zeStatus = zeCommandListHostSynchronize(ZeCmdListImmCopy_, UINT64_MAX);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
   }
-  
+
   // host wait for command list to complete
   zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, UINT64_MAX);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
 
   // All GPU work on this queue has completed. Release cross-queue dependency
   // marker events so their ze_events can be recycled by the event pool.
-  PendingCrossQueueDeps_.clear();
+  //
+  // Test-only fault injection for issue #1311: when the environment variable
+  // CHIP_L0_TEST_RETAIN_CROSSQUEUE_DEPS is set, skip clearing the markers. This
+  // deterministically reproduces the production condition (seen with Zero-RK on
+  // Aurora) where finish() does not reach this point at shutdown -- e.g. one of
+  // the Level Zero synchronize calls above throws -- leaving the marker events
+  // alive until the queue is destroyed during context teardown.
+  static const bool RetainCrossQueueDepsForTest =
+      std::getenv("CHIP_L0_TEST_RETAIN_CROSSQUEUE_DEPS") != nullptr;
+  if (!RetainCrossQueueDepsForTest)
+    PendingCrossQueueDeps_.clear();
   IsEmptyQueue_.store(true);
+  CmdListInitialized_.store(true);
   return;
 }
 
@@ -2150,12 +2208,10 @@ void CHIPQueueLevel0::executeCommandList(
 LZEventPool::LZEventPool(CHIPContextLevel0 *Ctx, unsigned int Size)
     : Ctx_(Ctx), Size_(Size), AllocatedCount_(0) {
 
+  // No ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP (see CHIPEventLevel0 ctor): chipStar
+  // times events via an explicit global-timestamp write, never reads kernel
+  // timestamps, and the flag only made zeEventQueryStatus expensive.
   unsigned int PoolFlags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
-#ifdef CHIP_L0_KERNEL_TIMESTAMPS
-  // Enable kernel timestamps by default since most events need timing.
-  // Events with timing disabled will still work but won't use timestamps.
-  PoolFlags = PoolFlags | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
-#endif
 
   ze_event_pool_desc_t EventPoolDesc = {
       ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, // stype
@@ -2526,14 +2582,21 @@ CHIPContextLevel0::~CHIPContextLevel0() {
     Backend->Events.clear();  // This releases all shared_ptr, triggering returnEvent()
   }
 
-  // delete all event pools
+  // Delete the device (and thus its queues) BEFORE deleting the event pools.
+  // Queues hold shared_ptr<Event> in PendingCrossQueueDeps_ whose custom
+  // deleter (LZEventPool::returnEvent) pushes the raw event back onto the
+  // owning pool. At shutdown finish() may be skipped or throw before clearing
+  // those refs, so they are released only when ~CHIPQueueLevel0 destroys its
+  // event vector. If the pools were freed first, returnEvent would push onto
+  // freed memory, corrupting the heap (issue #1311).
+  delete static_cast<CHIPDeviceLevel0 *>(ChipDevice_);
+
+  // Now that all queues are gone and have returned their events, the pools
+  // can be safely deleted.
   for (LZEventPool *Pool : EventPools_)
     delete Pool;
 
   EventPools_.clear();
-
-  // delete all devicesA
-  delete static_cast<CHIPDeviceLevel0 *>(ChipDevice_);
 
   while (!this->FencedCmdListsPool_.empty())
     this->FencedCmdListsPool_.pop();
@@ -2560,6 +2623,18 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
       /* DmaDesc.flags   = */ DeviceFlags,
       /* DmaDesc.ordinal = */ 0,
   };
+
+  // Opt-in: permit a single allocation larger than the device's reported
+  // maxMemAllocSize via the ze_relaxed_allocation_limits extension. This is
+  // the Level Zero equivalent of NEO's AllowUnrestrictedSize for OpenCL.
+  ze_relaxed_allocation_limits_exp_desc_t RelaxedDesc{
+      /* RelaxedDesc.stype = */
+      ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC,
+      /* RelaxedDesc.pNext = */ nullptr,
+      /* RelaxedDesc.flags = */ ZE_RELAXED_ALLOCATION_LIMITS_EXP_FLAG_MAX_SIZE,
+  };
+  if (chipUnrestrictedAllocSize())
+    DmaDesc.pNext = &RelaxedDesc;
   ze_host_mem_alloc_flags_t HostFlags = ZE_DEVICE_MEM_ALLOC_FLAG_BIAS_CACHED;
   if (Flags.isWriteCombined())
     HostFlags += ZE_HOST_MEM_ALLOC_FLAG_BIAS_WRITE_COMBINED;
@@ -3583,6 +3658,17 @@ void CHIPExecItemLevel0::setupAllArgs() {
       assert(SpillSlot);
       zeStatus = zeKernelSetArgumentValue(Kernel->get(), Arg.Index,
                                           sizeof(void *), &SpillSlot);
+      break;
+    }
+    case SPVTypeKind::DeviceGlobal: {
+      // Implicit arg carrying the device address of a __device__/__constant__
+      // global (globals-as-kernel-args lowering). Bind it to the global's
+      // allocated storage.
+      void *DevPtr = chipstar::getDeviceGlobalArgAddr(Kernel, Arg);
+      logTrace("setArg {} for device global '{}' -> {}", Arg.Index,
+               Arg.DevGlobalName, DevPtr);
+      zeStatus = zeKernelSetArgumentValue(Kernel->get(), Arg.Index,
+                                          sizeof(void *), &DevPtr);
       break;
     }
     default:

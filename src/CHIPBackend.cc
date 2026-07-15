@@ -78,9 +78,14 @@ static void queueVariableBindShadowKernel(chipstar::Queue *Q,
   assert(M && Var);
   auto *DevPtr = Var->getDevAddr();
   assert(DevPtr && "Space has not be allocated for a variable.");
-  auto *K = M->getKernelByName(std::string(ChipVarBindPrefix) +
-                               std::string(Var->getName()));
-  assert(K && "chipstar::Module is missing a shadow kernel?");
+  // Use the non-throwing findKernel(): when device globals are lowered to
+  // kernel arguments (rusticl path), the bind shadow kernels are removed
+  // because there is no program-scope global to bind — the address travels as
+  // an implicit kernel argument instead.
+  auto *K = M->findKernel(std::string(ChipVarBindPrefix) +
+                          std::string(Var->getName()));
+  if (!K)
+    return;
   void *Args[] = {&DevPtr};
   queueKernel(Q, K, Args);
 }
@@ -92,7 +97,25 @@ static void queueVariableInitShadowKernel(chipstar::Queue *Q,
   auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) +
                                std::string(Var->getName()));
   assert(K && "chipstar::Module is missing a shadow kernel?");
-  queueKernel(Q, K);
+  if (K->getFuncInfo()->getNumKernelArgs() == 1) {
+    // Globals-as-kernel-args lowering: the init kernel takes the storage
+    // address as its argument instead of reading a program-scope global.
+    auto *DevPtr = Var->getDevAddr();
+    void *Args[] = {&DevPtr};
+    queueKernel(Q, K, Args);
+  } else
+    queueKernel(Q, K);
+}
+
+void *chipstar::getDeviceGlobalArgAddr(chipstar::Kernel *Kernel,
+                                       const SPVFuncInfo::KernelArg &Arg) {
+  auto *Var = Kernel->getModule()->getGlobalVar(Arg.DevGlobalName.c_str());
+  if (!Var || !Var->getDevAddr())
+    CHIPERR_LOG_AND_THROW(
+        "DeviceGlobal kernel arg references an unallocated global: " +
+            Arg.DevGlobalName,
+        hipErrorLaunchFailure);
+  return Var->getDevAddr();
 }
 
 static void initDeviceHeap(chipstar::Queue *Q, chipstar::Module *M) {
@@ -1130,7 +1153,11 @@ int chipstar::Device::getPeerAccess(chipstar::Device *PeerDevice) {
   UNIMPLEMENTED(0);
 }
 
-void chipstar::Device::setCacheConfig(hipFuncCache_t Cfg) { UNIMPLEMENTED(); }
+void chipstar::Device::setCacheConfig(hipFuncCache_t Cfg) {
+  // No reconfigurable cache on chipStar targets; store the hint so
+  // hipDeviceGetCacheConfig can round-trip it, and report success.
+  CacheConfig_ = Cfg;
+}
 
 void chipstar::Device::setFuncCacheConfig(const void *Func,
                                           hipFuncCache_t Cfg) {
@@ -1138,7 +1165,10 @@ void chipstar::Device::setFuncCacheConfig(const void *Func,
 }
 
 hipFuncCache_t chipstar::Device::getCacheConfig() {
-  UNIMPLEMENTED(hipFuncCachePreferNone);
+  // HIP contract: hipDeviceGetCacheConfig returns hipSuccess and the cache
+  // hint is simply ignored on architectures without a reconfigurable cache.
+  // Echo back the last hint set via setCacheConfig (default PreferNone).
+  return CacheConfig_;
 }
 
 hipSharedMemConfig chipstar::Device::getSharedMemConfig() {
@@ -1495,9 +1525,10 @@ void *chipstar::Context::allocate(size_t Size, size_t Alignment,
     return HostPtr;
   }
 
-  if (Size > ChipDev->getMaxMallocSize()) {
+  if (Size > ChipDev->getMaxMallocSize() && !chipUnrestrictedAllocSize()) {
     logCritical("Requested allocation of {} exceeds the maximum size of a "
-                "single allocation of {}",
+                "single allocation of {} (set CHIP_UNRESTRICTED_ALLOC_SIZE=1 "
+                "to allow larger allocations)",
                 Size, ChipDev->getMaxMallocSize());
     CHIPERR_LOG_AND_THROW(
         "Allocation size exceeds limits for a single allocation",

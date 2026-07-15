@@ -97,6 +97,7 @@ add_hipcc_test(TestFloat128Macros.hip TEST_NAME TestFloat128gnupp14
   HIPCC_OPTIONS -std=gnu++14 -fsyntax-only)
 
 add_hipcc_test(TestDoubleShuffleOverloads.hip HIPCC_OPTIONS -fsyntax-only)
+add_hipcc_test(TestFix797ShflHalf.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestHipComplexInclude.hip HIPCC_OPTIONS)
 
 add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
@@ -104,7 +105,10 @@ add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
 
 # HIP device kernel + host (CPU) OpenMP in one TU must compile and link with
 # -fopenmp.
-add_hipcc_test(TestHipccFopenmp.cc HIPCC_OPTIONS -fopenmp)
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  add_hipcc_test(TestHipccFopenmp.cc HIPCC_OPTIONS -fopenmp)
+endif()
 
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
@@ -154,6 +158,15 @@ add_subdirectory(rdcLink)
 add_test(NAME "TestHipccMultiSource" COMMAND 
   ${CMAKE_BINARY_DIR}/bin/hipcc ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
 add_shell_test(TestPrintfStaticString.bash)
+
+# Regression test for llvm-patches/spirv-translator/0005 (coalesce
+# duplicate-predecessor OpPhi). Translates to SPIR-V and run spirv-val;
+# without 0005 the writer emits an invalid OpPhi and validation fails. This skips
+# when the in-tree SPIR-V backend is used (LLVM_SPIRV=NOT_NEEDED), since 0005
+# patches the external translator.
+add_shell_test(TestSpirvDuplicatePhiHip.bash)
+
+add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)

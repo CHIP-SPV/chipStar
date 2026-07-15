@@ -114,6 +114,13 @@ void CHIPGraphNodeMemcpy::execute(chipstar::Queue *Queue) const {
   }
 }
 void CHIPGraphNodeKernel::execute(chipstar::Queue *Queue) const {
+  // Ensure the kernel module's device variables are allocated before launch.
+  // The normal hipLaunchKernel path does this, but graph-node execution
+  // bypasses it — which matters when globals are lowered to kernel arguments
+  // (their device address must be bound at launch).
+  if (auto *K = ExecItem_->getKernel())
+    if (const void *HPtr = K->getHostPtr())
+      Queue->getDevice()->prepareDeviceVariables(HostPtr(HPtr));
   Queue->launch(ExecItem_);
 }
 
@@ -139,6 +146,10 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
                                       Params_.sharedMemBytes, nullptr);
   ExecItem_->setKernel(ChipKernel);
   ExecItem_->setArgs(TheParams->kernelParams);
+  // setupAllArgs() binds implicit device-global address arguments, so the
+  // module's device variables must be allocated first. The normal launch path
+  // does this, but graph-node construction happens before any launch.
+  Dev->prepareDeviceVariables(HostPtr(Params_.func));
   ExecItem_->setupAllArgs();
 }
 
@@ -165,6 +176,10 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   ExecItem_ = Backend->createExecItem(GridDim, BlockDim, SharedMem, nullptr);
   ExecItem_->setKernel(ChipKernel);
   ExecItem_->setArgs(Params_.kernelParams);
+  // setupAllArgs() binds implicit device-global address arguments, so the
+  // module's device variables must be allocated first (see the
+  // hipKernelNodeParams constructor above).
+  Dev->prepareDeviceVariables(HostPtr(HostFunction));
   ExecItem_->setupAllArgs();
 }
 

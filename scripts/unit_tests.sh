@@ -21,12 +21,15 @@ num_tries=1
 # deafult timeout is 30 minutes
 timeout=1800
 build_only=false
+# When true, build with program-scope device globals disabled so user
+# __device__/__constant__ globals are lowered to kernel arguments instead.
+psg_off=false
 
 rm -rf ~/.cache/chipStar
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <debug|release> <llvm-20|llvm-21|llvm-22> [--variant=translator|native] [--skip-build] [--build-only] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
+  echo "Usage: $0 <debug|release> <llvm-20|llvm-21|llvm-22> [--variant=translator|native] [--skip-build] [--build-only] [--no-psg] [--num-tries=$num_tries] [--num-threads=$num_threads] [--timeout=$timeout]"
   exit 1
 fi
 
@@ -89,6 +92,10 @@ do
       build_only=true
       shift
       ;;
+    --no-psg)
+      psg_off=true
+      shift
+      ;;
     --timeout=*)
       timeout="${arg#*=}"
       shift
@@ -142,6 +149,7 @@ echo "num_tries   = ${num_tries}"
 echo "num_threads = ${num_threads}"
 echo "skip_build  = ${skip_build}"
 echo "build_only  = ${build_only}"
+echo "psg_off     = ${psg_off}"
 echo "timeout     = ${timeout}"
 
 # source /opt/intel/oneapi/setvars.sh intel64 &> /dev/null
@@ -199,6 +207,13 @@ else
   else
     CHIP_OPTIONS="-DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON"
   fi
+  # Exercise the kernel-argument lowering path for device globals: with
+  # program-scope globals OFF, user __device__/__constant__ globals become
+  # implicit kernel pointer arguments instead of program-scope CrossWorkgroup
+  # globals (issue #1279).
+  if [ "$psg_off" = true ]; then
+    CHIP_OPTIONS="${CHIP_OPTIONS} -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF"
+  fi
   # Build the project
   echo "Building project..."
   rm -rf HIPCC
@@ -229,12 +244,23 @@ fi
 
 module unload opencl/dgpu
 
+# Tests that busy-wait on clock64() in device code (e.g. Unit_hipHostMalloc_CoherentAccess
+# spins `do { cur = clock64()/clkRate - start; } while (cur < wait_sec);`). With program-scope
+# device globals OFF the clock counter (__chip_clk_counter) is omitted and clock64() returns 0,
+# so the loop never terminates: the kernel hangs and the GPU watchdog aborts the queue with
+# CL_OUT_OF_RESOURCES. These tests use a feature that is intentionally unavailable in the
+# --no-psg build, so skip them there only; they run normally with program-scope globals ON.
+PSG_OFF_EXCLUDE=""
+if [ "$psg_off" = true ]; then
+  PSG_OFF_EXCLUDE='--regex-exclude=Unit_hipHostMalloc_CoherentAccess$'
+fi
+
 # Function to run tests
 run_tests() {
     local device=$1
     local backend=$2
     echo "begin ${device}_${backend}_failed_tests"
-    ../scripts/check.py ./ $device $backend --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries | tee ${device}_${backend}_make_check_result.txt
+    ../scripts/check.py ./ $device $backend ${PSG_OFF_EXCLUDE} --num-threads=${num_threads} --timeout=$timeout --num-tries=$num_tries | tee ${device}_${backend}_make_check_result.txt
     echo "end ${device}_${backend}_failed_tests"
 }
 

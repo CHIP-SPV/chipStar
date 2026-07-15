@@ -31,6 +31,7 @@
 #include "zeHipErrorConversion.hh"
 #include <algorithm>
 #include <atomic>
+#include <map>
 
 static thread_local ze_result_t
     zeStatus; // instantiated in CHIPBackendLevel0.cc
@@ -394,8 +395,17 @@ protected:
 
 public:
   void recordEvent(chipstar::Event *ChipEvent) override;
-  std::mutex CommandListMtx; /// prevent simultaneous access to ZeCmdListImm_
+  // Shared mutex for ZeCmdListImm_. On single-hardware-queue devices (e.g.
+  // Intel Arc B570, numQueues=1), all HIP streams share one L0 immediate CL
+  // handle, so they share this mutex. On multi-queue devices each stream gets
+  // its own private mutex via make_shared in initializeCmdListImm().
+  std::shared_ptr<std::mutex> CmdListMtx_;
   std::atomic<bool> IsEmptyQueue_{true};
+  // Tracks whether zeCommandListHostSynchronize has been called at least once
+  // on this queue's command list(s). Intel Arc L0 driver requires one full
+  // blocking sync to transition a command list to "idle" state that allows
+  // subsequent kernels to execute in parallel across command lists.
+  std::atomic<bool> CmdListInitialized_{false};
   /// Cross-queue sync marker events that must be kept alive until this queue
   /// is finished. Without this, checkEvents() may recycle their underlying
   /// ze_events while GPU operations on this queue still reference them.
@@ -410,17 +420,23 @@ public:
   // (a concurrent submitter could IsEmptyQueue_.store(false) between the L0 check
   // and a IsEmptyQueue_.store(true)
   // resulting in setting IsEmptyQueue_ true while there actually is work in the queue)
-  // we use the command list lock (CommandListMtx)
+  // we use the command list lock (CmdListMtx_)
   // if we can't get the lock, someone is submitting, so return false.
   // if we get the lock, check if it's really busy with zeCommandListHostSynchronize.
   // if it's true (not busy), update IsEmptyQueue_ and return true. else, return false.
   bool isEmptyQueue() override {
 #ifdef CHIP_LZ_API_QUERY_QUEUE_EMPTY
+    // Fast path: an idle queue (IsEmptyQueue_ == true) is definitively empty,
+    // so return without a Level Zero round-trip. This keeps a null-stream launch
+    // that scans N idle streams at O(1) per stream instead of O(N)
+    // zeCommandListHostSynchronize() calls (see tests/benchmarks/manySmallKernels).
+    if (IsEmptyQueue_.load(std::memory_order_relaxed))
+      return true;
     return (zeCommandListHostSynchronize(ZeCmdListImm_, 0) == ZE_RESULT_SUCCESS);
 #else
     bool is_empty = IsEmptyQueue_.load(std::memory_order_relaxed);
     if (is_empty) return true;
-    std::unique_lock<std::mutex> lock_guard(CommandListMtx, std::try_to_lock);
+    std::unique_lock<std::mutex> lock_guard(*CmdListMtx_, std::try_to_lock);
     if (!lock_guard.owns_lock()) {
       // Submitter holds the lock; conservatively say busy.
       return false;
@@ -752,8 +768,17 @@ class CHIPDeviceLevel0 : public chipstar::Device {
   ze_command_list_desc_t CommandListComputeDesc_;
   ze_command_list_desc_t CommandListCopyDesc_;
 
-  ze_command_list_handle_t ZeCmdListComputeImm_;
-  ze_command_list_handle_t ZeCmdListCopyImm_;
+  // Shared immediate command lists, one per hardware queue (ordinal, index).
+  // On devices with numQueues==1, all HIP streams map to the same hardware
+  // queue and therefore share one CL handle. This eliminates the ~0.45ms
+  // per-call overhead of zeCommandListAppendLaunchKernel when switching
+  // between different CL handles on Intel Arc.
+  struct SharedImmCL {
+    ze_command_list_handle_t Handle = nullptr;
+    std::shared_ptr<std::mutex> Mutex;
+  };
+  std::map<uint64_t, SharedImmCL> SharedImmCLs_;
+  std::mutex SharedImmCLsMapMtx_;
   void initializeQueueGroupProperties();
 
   void initializeCopyQueue_();
@@ -788,6 +813,10 @@ public:
   getNextComputeQueueDesc(int Priority = L0_DEFAULT_QUEUE_PRIORITY);
   ze_command_queue_desc_t
   getNextCopyQueueDesc(int Priority = L0_DEFAULT_QUEUE_PRIORITY);
+  ze_command_list_handle_t
+  getOrCreateSharedImmCL(ze_context_handle_t ZeCtx,
+                         const ze_command_queue_desc_t &QDesc,
+                         std::shared_ptr<std::mutex> &OutMtx);
 
   static CHIPDeviceLevel0 *create(ze_device_handle_t ZeDev,
                                   CHIPContextLevel0 *ChipCtx, int Idx);

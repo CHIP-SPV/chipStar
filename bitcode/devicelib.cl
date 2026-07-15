@@ -123,16 +123,12 @@ EXPORT int __chip__fns32(unsigned long int mask, unsigned int base, int offset) 
 EXPORT unsigned /* long */ long int
 __chip_umul64hi(unsigned /* long */ long int x,
                 unsigned /* long */ long int y) {
-  unsigned /* long */ long int mul =
-      (unsigned /* long */ long int)x * (unsigned /* long */ long int)y;
-  return (unsigned /* long */ long int)(mul >> 64);
+  return (unsigned /* long */ long int)mul_hi((ulong)x, (ulong)y);
 }
 
 EXPORT /* long */ long int __chip_mul64hi(/* long */ long int x,
                                           /* long */ long int y) {
-  unsigned /* long */ long int mul =
-      (unsigned /* long */ long int)x * (unsigned /* long */ long int)y;
-  return (/* long */ long int)(mul >> 64);
+  return (/* long */ long int)mul_hi((long)x, (long)y);
 }
 
 EXPORT unsigned int __chip_sad(int x, int y, unsigned int z) {

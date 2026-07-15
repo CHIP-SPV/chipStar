@@ -449,7 +449,7 @@ public:
                   cl_command_queue Queue = nullptr);
   virtual ~CHIPQueueOpenCL() override;
   virtual void recordEvent(chipstar::Event *ChipEvent) override;
-  bool isEmptyQueue() override {return false;}
+  bool isEmptyQueue() override { return IsEmptyQueue_.load(); }
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void addCallback(hipStreamCallback_t Callback,

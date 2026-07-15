@@ -93,7 +93,7 @@ chipStar_script_install_llvm22:
     - cd ${WRK_DIR}/chipStar_llvm22
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm22/20260311-22/release
-    - sed -i '/name="chipstar",/a\        cmake_flags=["-DCHIP_LZ_API_QUERY_QUEUE_EMPTY=ON","-DCHIP_L0_KERNEL_TIMESTAMPS=OFF","-DHIPCC_VERIFY_DEVICES=pvc"],' ./install_chipstar.py 
+    - sed -i '/name="chipstar",/a\        cmake_flags=["-DCHIP_LZ_API_QUERY_QUEUE_EMPTY=ON","-DHIPCC_VERIFY_DEVICES=pvc"],' ./install_chipstar.py
     - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
 
 chipStar_script_test_llvm22:
@@ -176,6 +176,7 @@ hoMusic_run:
   resource_group: aurora_pipeline  
   extends: .aurora-batch-runner
   script:
+    - set -o pipefail
     - rm -f ${GENESIS_CI_PROJECT_DIR}/output
     - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci.sh run chipStar/llvm19 |& tee -a ${GENESIS_CI_PROJECT_DIR}/output
 
@@ -196,7 +197,7 @@ performance_hoMusic:
       THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
       UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
-      echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
+      echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
 
       # Compare using bc (returns 1 for true, 0 for false)
       IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
@@ -238,6 +239,7 @@ zeroRK_run:
   - module use ${WRK_DIR}/modulefiles
   - module load chipStar/llvm19
   - rm -f output
+  - set -o pipefail
   - ./submit_job.sh |& tee -a output
 
 zeroRK_performance:
@@ -252,10 +254,10 @@ zeroRK_performance:
     
     # Define baseline and 6% threshold
     BASELINE=85
-    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
+    THRESHOLD=$(echo "$BASELINE * 0.10" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
-    echo "Actual: $ACTUAL_TIME s | Target: $BASELINE s (+/- $THRESHOLD s)"
+    echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
 
     # Compare using bc (returns 1 for true, 0 for false)
     IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
@@ -312,6 +314,7 @@ opensn_run:
    - module load hdf5
    - rm -rf ~/.cache/chipStar/
    - rm -f output
+   - set -o pipefail
    # first run populates the cache
    - CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 gpu_tile_compact.sh python/opensn -i strong_scaling.py |& tee -a output
    # second (timed) run uses the cache

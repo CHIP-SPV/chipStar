@@ -557,6 +557,9 @@ class SPIRVmodule {
   std::map<InstWord, std::string_view> LinkNames_;
   std::map<std::string_view, std::vector<std::pair<uint16_t, uint16_t>>>
       SpilledArgAnnotations_;
+  // Kernel-name -> ordered device-global names feeding the trailing implicit
+  // DeviceGlobal arguments (rusticl globals-as-kernel-args lowering).
+  std::map<std::string_view, std::vector<std::string>> GVarArgAnnotations_;
 
   // This flag indicates if the module is known not to have indirect
   // global buffer accesses (IGBA) in any kernel. This is told by a
@@ -629,6 +632,22 @@ public:
         }
       }
 
+      // Mark the trailing implicit DeviceGlobal arguments (rusticl
+      // globals-as-kernel-args lowering). They are appended after the user
+      // args, in annotation order.
+      auto GVarArgsIt = GVarArgAnnotations_.find(KernelName);
+      if (GVarArgsIt != GVarArgAnnotations_.end()) {
+        auto &Names = GVarArgsIt->second;
+        size_t Total = FnInfo->ArgTypeInfo_.size();
+        if (Names.size() <= Total) {
+          size_t Base = Total - Names.size();
+          for (size_t J = 0; J < Names.size(); ++J) {
+            FnInfo->ArgTypeInfo_[Base + J].Kind = SPVTypeKind::DeviceGlobal;
+            FnInfo->ArgTypeInfo_[Base + J].DevGlobalName = Names[J];
+          }
+        }
+      }
+
       ModuleInfo.FuncInfoMap.emplace(std::make_pair(i.second, FnInfo));
     }
     KernelInfoMap_.clear();
@@ -650,6 +669,22 @@ private:
   const SPIRVinst *getInstruction(InstWord ID) const {
     auto It = IdToInstMap_.find(ID);
     return It != IdToInstMap_.end() ? It->second.get() : nullptr;
+  }
+
+  /// Collect the constituent words (the literal in word 3 of each OpConstant
+  /// element) of an annotation variable's constant-array initializer.
+  /// 'VarInst' is an OpVariable with an initializer operand (word 4).
+  std::vector<uint32_t> getConstArrayElementWords(const SPIRVinst *VarInst) {
+    std::vector<uint32_t> Words;
+    auto *Init = getInstruction(VarInst->getWord(4));
+    assert(Init && "Annotation variable is missing an initializer.");
+    auto *Type = TypeMap_[Init->getResultTypeID()];
+    assert(Type && dynamic_cast<SPIRVtypeArray *>(Type) &&
+           "Could not find type for result ID.");
+    auto ArrLen = static_cast<SPIRVtypeArray *>(Type)->elementCount();
+    for (auto EltID : getWordRange(&Init->getWord(3), ArrLen))
+      Words.push_back(getInstruction(EltID)->getWord(3));
+    return Words;
   }
 
   void processKernelParameter(const SPIRVinst &Inst, SPVFuncInfo &FuncInfo) {
@@ -782,23 +817,32 @@ private:
         if (startsWith(Name, SpillArgAnnotation) && Inst->size() >= 5) {
           auto KernelName = Name.substr(SpillArgAnnotation.size());
           auto &SpillAnnotation = SpilledArgAnnotations_[KernelName];
-          // Get initializer operand (word 4, requires at least 5 words).
-          auto *Init = getInstruction(Inst->getWord(4));
-          assert(Init && "Annotation variable is missing an initializer.");
-          // Init is known to be OpConstantComposite of char array.
-          auto *Type = TypeMap_[Init->getResultTypeID()];
-          assert(Type && dynamic_cast<SPIRVtypeArray *>(Type) &&
-                 "Could not type for result ID.");
-          auto *ArrayType = static_cast<SPIRVtypeArray *>(Type);
-          auto ArrLen = ArrayType->elementCount();
-          // Iterate constituents.
-          for (auto EltID : getWordRange(&Init->getWord(3), ArrLen)) {
-            auto *ConstInt = getInstruction(EltID); // OpConstant
-            uint32_t Annotation = ConstInt->getWord(3);
+          // Annotations are 32-bit words: the lower 16 bits carry the argument
+          // index of the spilled argument and the upper 16 bits its size.
+          for (uint32_t Annotation : getConstArrayElementWords(Inst)) {
             uint16_t ArgIndex = Annotation & 0xffff;
             uint16_t ArgSize = Annotation >> 16u;
             SpillAnnotation.push_back(std::make_pair(ArgIndex, ArgSize));
           }
+        }
+
+        auto GVarArgAnnotation = std::string_view(ChipGVarArgPrefix);
+        if (startsWith(Name, GVarArgAnnotation) && Inst->size() >= 5) {
+          auto KernelName = Name.substr(GVarArgAnnotation.size());
+          // The initializer is a uchar array holding the NUL-separated
+          // original global names in trailing-argument order.
+          std::string Bytes;
+          for (uint32_t Word : getConstArrayElementWords(Inst))
+            Bytes.push_back(static_cast<char>(Word & 0xff));
+          // Split on NUL.
+          auto &Names = GVarArgAnnotations_[KernelName];
+          size_t Start = 0;
+          for (size_t I = 0; I <= Bytes.size(); ++I)
+            if (I == Bytes.size() || Bytes[I] == '\0') {
+              if (I > Start)
+                Names.emplace_back(Bytes.substr(Start, I - Start));
+              Start = I + 1;
+            }
         }
 
         if (Name == "__chip_module_has_no_IGBAs" && Inst->size() >= 5) {
@@ -1027,7 +1071,8 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
       // for mesa/rusticl that does not support them yet. Also, the
       // variables are essentially dead code for the driver.
       if (LinkName == "__chip_module_has_no_IGBAs" ||
-          startsWith(LinkName, "__chip_spilled_args_"))
+          startsWith(LinkName, "__chip_spilled_args_") ||
+          startsWith(LinkName, ChipGVarArgPrefix))
         InstructionsToErase.insert(Insn.getWord(1));
     }
   }

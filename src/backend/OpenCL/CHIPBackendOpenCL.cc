@@ -2157,7 +2157,12 @@ hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   logTrace("CHIPQueueOpenCL::memPrefetchImpl");
-  
+
+  // Mark queue as having work submitted so isEmptyQueue() stays accurate:
+  // the migrate paths below enqueue real commands that later default-stream
+  // launches must synchronize against.
+  IsEmptyQueue_.store(false);
+
   std::shared_ptr<chipstar::Event> PrefetchEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
           ChipContext_, chipstar::EventFlags(), "memPrefetch");
@@ -2466,6 +2471,17 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
       assert(SpillSlot);
       Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, SpillSlot);
+      CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
+      break;
+    }
+    case SPVTypeKind::DeviceGlobal: {
+      // Implicit arg carrying the device address of a __device__/__constant__
+      // global (rusticl globals-as-kernel-args lowering). Bind it to the
+      // global's allocated storage.
+      void *DevPtr = chipstar::getDeviceGlobalArgAddr(Kernel, Arg);
+      logTrace("clSetKernelArgSVMPointer {} for device global '{}' -> {}",
+               Arg.Index, Arg.DevGlobalName, DevPtr);
+      Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, DevPtr);
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
       break;
     }

@@ -81,6 +81,8 @@ std::string_view SPVFuncInfo::Arg::getKindAsString() const {
     return "Image";
   case SPVTypeKind::Sampler:
     return "Sampler";
+  case SPVTypeKind::DeviceGlobal:
+    return "DeviceGlobal";
   }
 }
 
@@ -106,6 +108,10 @@ void SPVFuncInfo::visitClientArgsImpl(void **ClientArgList,
     // Dynamic shared memory which is passed in hipLaunchKernel() or
     // <<<>>>-syntax - not in a kernel parameter list.
     if (ArgTI.isWorkgroupPtr())
+      continue;
+    // Implicit device-global address argument (rusticl globals-as-kernel-args
+    // lowering): provided by the runtime, not visible to the HIP client.
+    if (ArgKind == SPVTypeKind::DeviceGlobal)
       continue;
 
     // Map kernel argument types to types as defined in HIP source code.
@@ -152,19 +158,26 @@ void SPVFuncInfo::visitKernelArgsImpl(void **ClientArgList,
     if (ArgKind == SPVTypeKind::Sampler)
       ArgListIndex--;
 
+    // DeviceGlobal args are implicit (provided by the runtime, not the client),
+    // so they don't consume an entry from the client argument list.
+    bool IsImplicit =
+        ArgTI.isWorkgroupPtr() || ArgKind == SPVTypeKind::DeviceGlobal;
+
     const void *ArgData = nullptr;
-    if (ClientArgList && !ArgTI.isWorkgroupPtr()) {
+    if (ClientArgList && !IsImplicit) {
       ArgData = ClientArgList[ArgListIndex];
 
       // Clang geerated  argument list should not have nullptrs in it.
       assert(ArgData && "nullptr in the argument list");
     }
 
-    KernelArg KArg{{{ArgKind, ArgTI.StorageClass, ArgSize}, ArgIndex, ArgData}};
+    KernelArg KArg{{{ArgKind, ArgTI.StorageClass, ArgSize, ArgTI.DevGlobalName},
+                    ArgIndex, ArgData}};
     Visitor(KArg);
 
     ArgIndex++;
-    ArgListIndex++;
+    if (ArgKind != SPVTypeKind::DeviceGlobal)
+      ArgListIndex++;
   }
 }
 
@@ -184,7 +197,8 @@ unsigned SPVFuncInfo::getNumClientArgs() const {
   unsigned Count = getNumKernelArgs();
   for (const auto &ArgTI : ArgTypeInfo_) {
     auto ArgKind = ArgTI.Kind;
-    Count -= ArgKind == SPVTypeKind::Sampler || ArgTI.isWorkgroupPtr();
+    Count -= ArgKind == SPVTypeKind::Sampler || ArgTI.isWorkgroupPtr() ||
+             ArgKind == SPVTypeKind::DeviceGlobal;
   }
   return Count;
 }
