@@ -523,7 +523,14 @@ EXPORT double __chip_sincos_f64(double x, DEFAULT_AS double *cos) {
 /* other */
 
 // local_barrier
-EXPORT void __chip_syncthreads() { barrier(CLK_LOCAL_MEM_FENCE); }
+EXPORT void __chip_syncthreads() {
+  // __syncthreads() must order GLOBAL memory as well as local/shared memory
+  // (CUDA/HIP semantics): writes to global memory before the barrier must be
+  // visible to all threads in the block afterwards. Omitting
+  // CLK_GLOBAL_MEM_FENCE causes rare wrong results for kernels that hand data
+  // between threads through global memory across __syncthreads() (issue #632).
+  barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+}
 
 // local_fence
 EXPORT void __chip_threadfence_block() { mem_fence(CLK_LOCAL_MEM_FENCE); }
