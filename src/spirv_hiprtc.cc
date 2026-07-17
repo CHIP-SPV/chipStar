@@ -159,7 +159,8 @@ static std::string escapeWithSingleQuotes(const std::string &Str) {
 static std::string createCompileCommand(const CompileOptions &Options,
                                         const fs::path &WorkingDirectory,
                                         const fs::path &SourceFile,
-                                        const fs::path &OutputFile) {
+                                        const fs::path &OutputFile,
+                                        bool PreprocessOnly = false) {
 
   std::string CompileCommand;
 
@@ -209,7 +210,21 @@ static std::string createCompileCommand(const CompileOptions &Options,
   if (!Options.HasO)
     Append("-O2");
 
-  Append("-c");
+  if (PreprocessOnly) {
+    Append("-E");
+    // Preprocess-only with options for determinism:
+    //  -P suppresses line markers, which would otherwise embed absolute
+    //     temp paths and make the output non-deterministic.
+    Append("-P"); 
+    // The source lives in a per-run (random) temp dir. This maps the
+    // temp dir to "." so those expand deterministically. assert() macro
+    // expansion to __FILE__ is probably the most likely case where this mapping
+    // is needed. (Supported by Clang >= 10 / GCC >= 8, within chipStar's
+    // toolchain baseline.)
+    Append("-ffile-prefix-map=" + WorkingDirectory.string() + "=.");
+  } else {
+    Append("-c");
+  }
 
   Append(SourceFile.string());
   Append("-o");
@@ -246,6 +261,55 @@ static bool executeCommand(const fs::path &WorkingDirectory,
   int ReturnCode = std::system(ShellCommand.c_str());
   logDebug("Return code: {}", ReturnCode);
   return ReturnCode == 0;
+}
+
+// Runs the compiler in preprocess-only mode over the user program so the cache
+// key can reflect the *content* of #included headers in the RTC source.
+// Returns the preprocessed translation unit, or nullopt if preprocessing
+// did not succeed.
+static std::optional<std::string>
+preprocessForCacheKey(const chipstar::Program &Program,
+                      const CompileOptions &Options,
+                      const fs::path &WorkingDirectory) {
+  auto SourceFile = WorkingDirectory / "pp_input.hip";
+  auto OutputFile = WorkingDirectory / "pp_output.i";
+  auto LogFile = WorkingDirectory / "pp.log";
+
+  // Write the in-memory headers and the raw user source. Name-expression
+  // injection is intentionally omitted: templates are not instantiated by the
+  // preprocessor, and name expressions are already hashed separately.
+  if (!createHeaderFiles(Program, WorkingDirectory))
+    return std::nullopt;
+  {
+    std::ofstream F(SourceFile);
+    F << Program.getSource() << "\n";
+    if (!F.good())
+      return std::nullopt;
+  }
+
+  std::string Cmd = createCompileCommand(Options, WorkingDirectory, SourceFile,
+                                         OutputFile, /*PreprocessOnly=*/true);
+  if (!executeCommand(WorkingDirectory, Cmd, LogFile))
+    return std::nullopt;
+
+  return readFromFile(OutputFile);
+}
+
+// Conservative test for whether the source may pull in external header content
+// via a preprocessor directive. When it can't, the raw source fully determines
+// the compilation output (in-memory headers are hashed separately; toolchain
+// headers are covered by the compiler-version component of the key), so we can
+// skip the costly preprocess pass and key on the raw source.
+//
+// This MUST NOT produce false negatives: missing a real directive would let a
+// header edit go unnoticed (stale cache). It errs the other way — a match
+// inside a comment or string literal merely triggers an unnecessary preprocess,
+// which is harmless. Backslash-newline continuations are stripped first so a
+// directive split across lines (e.g. "#\\\ninclude") is still detected.
+static bool sourceMayIncludeHeaders(const std::string &Source) {
+  std::string Spliced = std::regex_replace(Source, std::regex(R"(\\\n)"), "");
+  static const std::regex Directive(R"(#[ \t]*(include|import))");
+  return std::regex_search(Spliced, Directive);
 }
 
 static void getLoweredNameExpressions(chipstar::Program &Program,
@@ -410,11 +474,16 @@ static uint64_t fnv1a64(const std::string &s) {
 /// source/options but a different set of registered name expressions would
 /// alias to the same cache entry, leaving some lowered-name lookups unmapped
 /// on cache hit.
-static std::string computeHiprtcCacheKey(const chipstar::Program &Program,
-                                         int NumOptions,
-                                         const char *const *Options) {
+static std::string
+computeHiprtcCacheKey(const chipstar::Program &Program, int NumOptions,
+                      const char *const *Options,
+                      const std::optional<std::string> &PreprocessedSource =
+                          std::nullopt) {
   std::string combined;
-  combined += Program.getSource();
+  // When available, hash the preprocessed translation unit instead of the raw
+  // source: it embeds the content of every #included header (including ones
+  // resolved from -I filesystem paths), so header edits invalidate the cache.
+  combined += PreprocessedSource ? *PreprocessedSource : Program.getSource();
   combined += "\n---headers---\n";
   // std::map is sorted by key, so iteration order is deterministic
   for (auto &[name, content] : Program.getHeaders()) {
@@ -632,22 +701,63 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
   try {
     auto &Program = *(chipstar::Program *)Prog;
 
-    // Check HIPRTC output cache before invoking clang.
-    auto cacheKey = computeHiprtcCacheKey(Program, NumOptions, Options);
-    auto t0 = std::chrono::steady_clock::now();
-    if (loadHiprtcCache(Program, cacheKey)) {
-      auto t1 = std::chrono::steady_clock::now();
-      double elapsed = std::chrono::duration<double>(t1 - t0).count();
-      logInfo("hiprtc: Cache hit — skipped clang compilation ({:.3f}s saved)", elapsed);
-      return HIPRTC_SUCCESS;
+    // Only preprocess when the source may pull in header content. For a
+    // self-contained kernel (no #include/#import) the raw source is a complete
+    // cache key, so we keep the original zero-I/O fast path: no temp dir, no
+    // preprocess subprocess. Sources that do include headers pay a preprocess so
+    // the key reflects header content reached via -I filesystem paths.
+    std::optional<fs::path> TmpDir;
+    std::optional<std::string> Preprocessed;
+    bool CacheUsable = true;
+    if (sourceMayIncludeHeaders(Program.getSource())) {
+      TmpDir = createTemporaryDirectory();
+      if (!TmpDir) {
+        logError(
+            "hiprtc: Failed to create a temporary directory for compilation.");
+        return HIPRTC_ERROR_COMPILATION;
+      }
+      CompileOptions PPOptions;
+      processOptions(Program, NumOptions, Options, PPOptions);
+      Preprocessed = preprocessForCacheKey(Program, PPOptions, *TmpDir);
+      if (!Preprocessed) {
+        // We could not build a key that reflects #include content. Keying on
+        // the raw source instead would ignore header edits and could serve
+        // stale SPIR-V — the exact bug #1335 is about — so disable the cache
+        // for this compilation entirely: no lookup, and no new entry written.
+        logWarn("hiprtc: could not preprocess source for the cache key; "
+                "compiling without caching for this program.");
+        CacheUsable = false;
+      }
     }
 
-    // Create temporary directory for compilation I/O.
-    auto TmpDir = createTemporaryDirectory();
+    // Check the HIPRTC output cache before invoking clang, unless caching was
+    // disabled above because we have no trustworthy key.
+    std::string cacheKey;
+    if (CacheUsable) {
+      cacheKey = computeHiprtcCacheKey(Program, NumOptions, Options,
+                                       Preprocessed);
+      auto t0 = std::chrono::steady_clock::now();
+      if (loadHiprtcCache(Program, cacheKey)) {
+        auto t1 = std::chrono::steady_clock::now();
+        double elapsed = std::chrono::duration<double>(t1 - t0).count();
+        logInfo("hiprtc: Cache hit — skipped clang compilation ({:.3f}s saved)",
+                elapsed);
+        if (TmpDir && !ChipEnvVars.getSaveTemps()) {
+          std::error_code IgnoreErrors;
+          fs::remove_all(*TmpDir, IgnoreErrors);
+        }
+        return HIPRTC_SUCCESS;
+      }
+    }
+
+    // Miss: ensure a temp dir exists for the real compilation.
     if (!TmpDir) {
-      logError(
-          "hiprtc: Failed to create a temporary directory for compilation.");
-      return HIPRTC_ERROR_COMPILATION;
+      TmpDir = createTemporaryDirectory();
+      if (!TmpDir) {
+        logError(
+            "hiprtc: Failed to create a temporary directory for compilation.");
+        return HIPRTC_ERROR_COMPILATION;
+      }
     }
 
     logDebug("hiprtc: Temp directory: '{}'", TmpDir->string());
@@ -682,8 +792,9 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
       fs::remove_all(*TmpDir, IgnoreErrors);
     }
 
-    // Cache the compiled SPIRV for future runs.
-    if (Result == HIPRTC_SUCCESS)
+    // Cache the compiled SPIRV for future runs, unless caching was disabled
+    // because we could not compute a reliable key for this program.
+    if (Result == HIPRTC_SUCCESS && CacheUsable)
       saveHiprtcCache(Program, cacheKey);
 
     return Result;
