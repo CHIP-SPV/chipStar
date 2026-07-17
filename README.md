@@ -75,9 +75,9 @@ If you want to build everything yourself, you can follow a detailed [Getting Sta
 
 ## Development Status and Maturity
 
-While chipStar 1.1 can already be used to run various large HPC applications successfully, it is still heavily in development mode with plenty of known issues and unimplemented features. There are also known low-performance optimizations that are still to be done. However, we consider chipStar ready for wider-range testing and welcome community contributions in form of reproducible bug reports and good quality pull requests.
+While chipStar 1.3 can already be used to run various large HPC applications successfully, it is still heavily in development mode with plenty of known issues and unimplemented features. There are also known low-performance optimizations that are still to be done. However, we consider chipStar ready for wider-range testing and welcome community contributions in form of reproducible bug reports and good quality pull requests.
 
-Release notes for [1.1](docs/release_notes/chipStar_1.1.rst), [1.0](docs/release_notes/chipStar_1.0.rst) and [0.9](docs/release_notes/release-0.9.txt).
+Release notes for [1.3](docs/release_notes/chipStar_1.3.rst), [1.2](docs/release_notes/chipStar_1.2.rst), [1.1](docs/release_notes/chipStar_1.1.rst), [1.0](docs/release_notes/chipStar_1.0.rst) and [0.9](docs/release_notes/release-0.9.txt).
 
 ## Prerequisites
 
