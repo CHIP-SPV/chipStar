@@ -29,6 +29,11 @@
 
 #cmakedefine CHIPSTAR_VERSION "@CHIPSTAR_VERSION@"
 
+// Full version string of the LLVM/Clang toolchain chipStar was built against
+// (from `llvm-config --version`). Used as part of the hipRTC compilation cache
+// key so that an LLVM/Clang upgrade invalidates cached SPIR-V.
+#cmakedefine CHIP_LLVM_VERSION_STRING "@CHIP_LLVM_VERSION_STRING@"
+
 // not implemented yet
 #undef OCML_BASIC_ROUNDED_OPERATIONS
 

@@ -819,6 +819,8 @@ set(CHIP_DEBUG_BUILD 0)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   set(CHIP_DEBUG_BUILD 1)
 endif()
+# Toolchain version for the hipRTC compilation cache key (see spirv_hiprtc.cc).
+set(CHIP_LLVM_VERSION_STRING "${LLVM_VERSION}")
 configure_file(chipStarConfig.hh.in include/chipStarConfig.hh @ONLY)
 
 # PROJECT CONFIGURATION HEADER
