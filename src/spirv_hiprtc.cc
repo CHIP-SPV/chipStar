@@ -23,6 +23,7 @@ THE SOFTWARE.
 
 #include <hip/hiprtc.h>
 // #include "macros.hh"
+#include "chipStarConfig.hh"
 #include "CHIPBackend.hh"
 #include "Utils.hh"
 #include "logging.hh"
@@ -431,6 +432,19 @@ static std::string computeHiprtcCacheKey(const chipstar::Program &Program,
   for (auto &[expr, lowered] : Program.getNameExpressionMap()) {
     combined += expr + "\n";
   }
+
+  // Compiler identity. An LLVM/Clang or chipStar upgrade changes the produced
+  // SPIR-V (frontend codegen, optimizations); without this, a warm cache would
+  // silently serve SPIR-V compiled by the old toolchain after an upgrade.
+  combined += "\n---compiler---\n";
+#ifdef CHIP_LLVM_VERSION_STRING
+  combined += CHIP_LLVM_VERSION_STRING;
+#endif
+  combined += "/";
+#ifdef CHIPSTAR_VERSION
+  combined += CHIPSTAR_VERSION;
+#endif
+
   return std::to_string(fnv1a64(combined));
 }
 
