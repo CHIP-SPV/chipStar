@@ -25,7 +25,6 @@ ANY:
     TestAssertFail: 'Works only on dGPU, otherwise, things being printed out of order'
     abort: 'Works only on dGPU, otherwise, things being printed out of order'
     shfl_sync: 'masks outside of 0xFFFFFFFF are not supported'
-    'Unit_hipMultiThreadStreams2.*': 'Subprocess aborted'
     Unit_hipMemset_Negative_OutOfBoundsSize: 'Subprocess aborted'
     Unit_hipMemset_Negative_OutOfBoundsPtr: 'SEGFAULT'
     Print_Out_Attributes: 'old HIP tests + new HIP API'
