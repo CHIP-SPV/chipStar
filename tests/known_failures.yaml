@@ -275,7 +275,6 @@ ANY:
     Unit_hipUserObjectCreate_Negative: 'hipUserObjectCreate is not implemented'
     Unit_hipUserObjectRelease_Negative: 'hipUserObjectCreate is not implemented'
     Unit_hipUserObjectRetain_Negative: 'hipUserObjectCreate is not implemented'
-    constant_fold_lgamma_r: ''
     cuda-simpleCallback: ''
     hipMultiThreadAddCallback: ''
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
