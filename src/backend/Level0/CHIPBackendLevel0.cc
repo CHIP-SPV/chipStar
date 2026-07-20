@@ -3152,19 +3152,24 @@ std::string resultToString(ze_result_t zeStatus) {
 // CHIPModuleLevel0
 // ***********************************************************************
 
-/// Dumps build/link log into the error log stream. The 'Log' value must be
-/// valid handle. This function will destroy the log handle.
-static void dumpBuildLog(ze_module_build_log_handle_t &&Log) {
+/// Dumps build/link log into the error log stream and returns its contents.
+/// The 'Log' value must be a valid handle. This function will destroy the log
+/// handle.
+static std::string dumpBuildLog(ze_module_build_log_handle_t &&Log) {
+  std::string LogStr;
   size_t LogSize;
   zeStatus = zeModuleBuildLogGetString(Log, &LogSize, nullptr);
   if (zeStatus == ZE_RESULT_SUCCESS) {
     std::vector<char> LogVec(LogSize);
     zeStatus = zeModuleBuildLogGetString(Log, &LogSize, LogVec.data());
-    if (zeStatus == ZE_RESULT_SUCCESS)
-      logInfo("ZE Build Log:\n{}", std::string_view(LogVec.data(), LogSize));
+    if (zeStatus == ZE_RESULT_SUCCESS) {
+      LogStr.assign(LogVec.data(), LogSize);
+      logInfo("ZE Build Log:\n{}", LogStr);
+    }
   }
 
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleBuildLogDestroy);
+  return LogStr;
 }
 
 void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
@@ -3356,9 +3361,20 @@ static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
              elapsed.count());
   else
     logTrace("zeModulerCeate took {} seconds", elapsed.count());
-  dumpBuildLog(std::move(Log));
+  std::string BuildLog = dumpBuildLog(std::move(Log));
 
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleCreate);
+
+  // Some Level Zero drivers compile lazily: zeModuleCreate returns SUCCESS but
+  // the build log reports a fatal error (e.g. "backend compiler failed build"
+  // for a kernel using double on a GPU without native FP64 when DP emulation is
+  // off). A subsequent zeModuleGetKernelNames on such a half-built module
+  // segfaults inside the driver, so surface the failure as a clean error here
+  // instead of proceeding.
+  if (BuildLog.find("backend compiler failed build") != std::string::npos)
+    CHIPERR_LOG_AND_THROW("Level Zero module build failed:\n" + BuildLog,
+                          hipErrorInvalidImage);
+
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
            resultToString(zeStatus));
 
