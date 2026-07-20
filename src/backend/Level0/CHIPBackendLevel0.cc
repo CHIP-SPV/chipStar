@@ -2797,17 +2797,24 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   // as per gen architecture doc
   HipDeviceProps_.regsPerBlock = 4096;
 
-  HipDeviceProps_.warpSize = CHIP_DEFAULT_WARP_SIZE;
-  if (std::find(DeviceComputeProps.subGroupSizes,
-                DeviceComputeProps.subGroupSizes +
-                    DeviceComputeProps.numSubGroupSizes,
-                CHIP_DEFAULT_WARP_SIZE) !=
-      DeviceComputeProps.subGroupSizes + DeviceComputeProps.numSubGroupSizes) {
+  // Report the subgroup size that warp-sensitive kernels actually execute at
+  // (queried from the device) rather than hard-coding CHIP_DEFAULT_WARP_SIZE,
+  // so props.warpSize agrees with the device-side `warpSize` variable
+  // (get_sub_group_size()). chipStar pins kernels to CHIP_DEFAULT_WARP_SIZE
+  // where the device supports it; otherwise it reports the device's native
+  // width.
+  const uint32_t *SgBegin = DeviceComputeProps.subGroupSizes;
+  const uint32_t *SgEnd = SgBegin + DeviceComputeProps.numSubGroupSizes;
+  if (DeviceComputeProps.numSubGroupSizes == 0) {
+    HipDeviceProps_.warpSize = CHIP_DEFAULT_WARP_SIZE;
+  } else if (std::find(SgBegin, SgEnd, CHIP_DEFAULT_WARP_SIZE) != SgEnd) {
+    HipDeviceProps_.warpSize = CHIP_DEFAULT_WARP_SIZE; // pinned to the default
   } else {
-    logWarn(
-        "The device might not support subgroup size {}, warp-size sensitive "
-        "kernels might not work correctly.",
-        CHIP_DEFAULT_WARP_SIZE);
+    HipDeviceProps_.warpSize = *std::max_element(SgBegin, SgEnd);
+    logWarn("Device does not support subgroup size {}; reporting warpSize {} "
+            "instead. Warp-size-sensitive kernels assuming {} may misbehave.",
+            CHIP_DEFAULT_WARP_SIZE, HipDeviceProps_.warpSize,
+            CHIP_DEFAULT_WARP_SIZE);
   }
 
   // Replicate from OpenCL implementation

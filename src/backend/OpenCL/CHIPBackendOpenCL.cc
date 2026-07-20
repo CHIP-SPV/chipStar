@@ -534,14 +534,26 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   // totally made up
   HipDeviceProps_.regsPerBlock = 64;
 
-  HipDeviceProps_.warpSize = CHIP_DEFAULT_WARP_SIZE;
-  // Try to check that we support the default warp size.
+  // Report the subgroup size that warp-sensitive kernels actually execute at.
+  // chipStar pins them to CHIP_DEFAULT_WARP_SIZE via reqd_sub_group_size where
+  // the device supports it; where it does not (e.g. Mali) the pin is dropped
+  // and kernels run at the device's native width. Query the device rather than
+  // hard-coding the constant so props.warpSize agrees with the device-side
+  // `warpSize` variable (get_sub_group_size()).
   std::vector<uint> Sg = ClDevice->getInfo<CL_DEVICE_SUB_GROUP_SIZES_INTEL>();
-  if (std::find(Sg.begin(), Sg.end(), CHIP_DEFAULT_WARP_SIZE) == Sg.end()) {
-    logWarn(
-        "The device might not support subgroup size {}, warp-size sensitive "
-        "kernels might not work correctly.",
-        CHIP_DEFAULT_WARP_SIZE);
+  if (Sg.empty()) {
+    // Driver does not report supported subgroup sizes (e.g. Mali); fall back to
+    // the build-time default.
+    HipDeviceProps_.warpSize = CHIP_DEFAULT_WARP_SIZE;
+  } else if (std::find(Sg.begin(), Sg.end(), CHIP_DEFAULT_WARP_SIZE) !=
+             Sg.end()) {
+    HipDeviceProps_.warpSize = CHIP_DEFAULT_WARP_SIZE; // pinned to the default
+  } else {
+    HipDeviceProps_.warpSize = *std::max_element(Sg.begin(), Sg.end());
+    logWarn("Device does not support subgroup size {}; reporting warpSize {} "
+            "instead. Warp-size-sensitive kernels assuming {} may misbehave.",
+            CHIP_DEFAULT_WARP_SIZE, HipDeviceProps_.warpSize,
+            CHIP_DEFAULT_WARP_SIZE);
   }
 
   HipDeviceProps_.maxGridSize[0] = HipDeviceProps_.maxGridSize[1] =
