@@ -145,6 +145,10 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
   ExecItem_ = Backend->createExecItem(Params_.gridDim, Params_.blockDim,
                                       Params_.sharedMemBytes, nullptr);
   ExecItem_->setKernel(ChipKernel);
+  // Give this graph node a private kernel handle so that another node
+  // launching the same kernel does not clobber this node's argument
+  // bindings when both are queued before execution (issue #782).
+  ExecItem_->useIndependentKernelHandle();
   ExecItem_->setArgs(TheParams->kernelParams);
   // setupAllArgs() binds implicit device-global address arguments, so the
   // module's device variables must be allocated first. The normal launch path
@@ -175,6 +179,10 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
 
   ExecItem_ = Backend->createExecItem(GridDim, BlockDim, SharedMem, nullptr);
   ExecItem_->setKernel(ChipKernel);
+  // Give this graph node a private kernel handle so that another node
+  // launching the same kernel does not clobber this node's argument
+  // bindings when both are queued before execution (issue #782).
+  ExecItem_->useIndependentKernelHandle();
   ExecItem_->setArgs(Params_.kernelParams);
   // setupAllArgs() binds implicit device-global address arguments, so the
   // module's device variables must be allocated first (see the

@@ -53,6 +53,17 @@ class CHIPKernelLevel0;
 
 class CHIPExecItemLevel0 : public chipstar::ExecItem {
   CHIPKernelLevel0 *ChipKernel_ = nullptr;
+  // When true, ChipKernel_ is a per-exec-item clone (its own
+  // ze_kernel_handle_t) owned by this exec item and destroyed on teardown.
+  // HIP graph kernel nodes use this so that two nodes launching the same
+  // kernel bind their arguments to independent handles instead of clobbering
+  // one shared handle (issue #782).
+  bool OwnsKernel_ = false;
+
+  // Replace ChipKernel_ with an owned, independent clone (its own
+  // ze_kernel_handle_t) so this exec item binds arguments to a private handle
+  // (issue #782). Defined out-of-line because it uses CHIPKernelLevel0::clone.
+  void takeOwnedKernelClone();
 
 public:
   CHIPExecItemLevel0(const CHIPExecItemLevel0 &Other)
@@ -67,13 +78,14 @@ public:
                      hipStream_t ChipQueue)
       : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
-  virtual ~CHIPExecItemLevel0() override {}
+  virtual ~CHIPExecItemLevel0() override {
+    if (OwnsKernel_)
+      delete ChipKernel_;
+  }
 
   virtual void setupAllArgs() override;
-  virtual chipstar::ExecItem *clone() const override {
-    auto NewExecItem = new CHIPExecItemLevel0(*this);
-    return NewExecItem;
-  }
+  virtual chipstar::ExecItem *clone() const override;
+  virtual void useIndependentKernelHandle() override { takeOwnedKernelClone(); }
 
   void setKernel(chipstar::Kernel *Kernel) override;
   chipstar::Kernel *getKernel() override;
@@ -706,6 +718,13 @@ public:
                    std::string FuncName, SPVFuncInfo *FuncInfo,
                    CHIPModuleLevel0 *Parent);
   ze_kernel_handle_t &get();
+
+  /// Create an independent copy of this kernel with its own
+  /// ze_kernel_handle_t (a fresh handle from the parent module, as Level Zero
+  /// has no zeKernelClone) so that argument bindings on the clone do not affect
+  /// this kernel's handle. The caller owns the returned object and must delete
+  /// it. Used by HIP graph kernel nodes (issue #782).
+  CHIPKernelLevel0 *clone();
 
   CHIPModuleLevel0 *getModule() override { return Module; }
   const CHIPModuleLevel0 *getModule() const override { return Module; }

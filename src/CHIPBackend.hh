@@ -1283,6 +1283,18 @@ public:
   virtual chipstar::Kernel *getKernel() = 0;
 
   /**
+   * @brief Give this exec item a private, independent kernel handle.
+   *
+   * Used by persistent HIP graph kernel nodes so that two nodes launching the
+   * same kernel function bind their arguments to independent kernel handles
+   * instead of clobbering one shared handle (issue #782). Must be called after
+   * setKernel() and before setupAllArgs(). The default is a no-op: backends
+   * whose exec items already own a private handle (e.g. OpenCL borrows a unique
+   * cl_kernel in setKernel()) need no isolation.
+   */
+  virtual void useIndependentKernelHandle() {}
+
+  /**
    * @brief Get the Queue object
    *
    * @return Queue*
