@@ -331,7 +331,15 @@ endif()
 # to be portable across multiple devices. It should be more portable to
 # fix it to 32 instead of 64, with a trade-off of potential underutilization
 # with GPUs with 64 wide warps.
-set(DEFAULT_WARP_SIZE 32 CACHE STRING "The warp size to use.")
+# The ARM Mali GPU has 8-wide subgroups and cannot honor a fixed 32-wide
+# subgroup size (it rejects the SubgroupDispatch capability, see
+# CHIP_MALI_GPU_WORKAROUNDS), so default the warp size to 8 for Mali builds.
+if(CHIP_MALI_GPU_WORKAROUNDS)
+  set(_CHIP_DEFAULT_WARP_SIZE 8)
+else()
+  set(_CHIP_DEFAULT_WARP_SIZE 32)
+endif()
+set(DEFAULT_WARP_SIZE ${_CHIP_DEFAULT_WARP_SIZE} CACHE STRING "The warp size to use.")
 
 # Set the default build type to Release if not specified
 if(NOT CMAKE_BUILD_TYPE)
