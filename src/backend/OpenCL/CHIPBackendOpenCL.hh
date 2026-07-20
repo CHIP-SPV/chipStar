@@ -635,11 +635,17 @@ public:
                     cl_sampler TheSampler)
       : chipstar::Texture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
 
+  // Destructors are implicitly noexcept; guard against null handles so a
+  // partially-constructed texture unwinds cleanly. See #1256.
   virtual ~CHIPTextureOpenCL() {
-    clStatus = clReleaseMemObject(Image);
-    assert(clStatus == CL_SUCCESS && "Invalid image handler?");
-    clStatus = clReleaseSampler(Sampler);
-    assert(clStatus == CL_SUCCESS && "Invalid sampler handler?");
+    if (Image) {
+      clStatus = clReleaseMemObject(Image);
+      assert(clStatus == CL_SUCCESS && "Invalid image handler?");
+    }
+    if (Sampler) {
+      clStatus = clReleaseSampler(Sampler);
+      assert(clStatus == CL_SUCCESS && "Invalid sampler handler?");
+    }
     (void)clStatus;
   }
 

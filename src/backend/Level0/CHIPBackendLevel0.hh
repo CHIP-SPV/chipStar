@@ -722,31 +722,24 @@ public:
                     ze_sampler_handle_t TheSampler)
       : chipstar::Texture(ResDesc), Image(TheImage), Sampler(TheSampler) {}
 
+  // Destructors are implicitly noexcept: an escaping exception during stack
+  // unwinding would call std::terminate. Skip null handles and never let a
+  // failure propagate out of the destructor (log instead of throw). See #1256.
   virtual ~CHIPTextureLevel0() {
-    destroyImage(Image);
-    destroySampler(Sampler);
+    if (Image) {
+      zeStatus = zeImageDestroy(Image);
+      if (zeStatus != ZE_RESULT_SUCCESS)
+        logError("zeImageDestroy failed in ~CHIPTextureLevel0: {}", zeStatus);
+    }
+    if (Sampler) {
+      zeStatus = zeSamplerDestroy(Sampler);
+      if (zeStatus != ZE_RESULT_SUCCESS)
+        logError("zeSamplerDestroy failed in ~CHIPTextureLevel0: {}", zeStatus);
+    }
   }
 
   ze_image_handle_t getImage() const { return Image; }
   ze_sampler_handle_t getSampler() const { return Sampler; }
-
-  // Destroy the LZ image object
-  static void destroyImage(ze_image_handle_t Handle) {
-    // The application must not call this function from
-    // simultaneous threads with the same image handle.
-    // Done via destructor should not be called from multiple threads
-    zeStatus = zeImageDestroy(Handle);
-    CHIPERR_CHECK_LOG_AND_THROW(hipErrorTbd);
-  }
-
-  // Destroy the LZ sampler object
-  static void destroySampler(ze_sampler_handle_t Handle) {
-    // The application must not call this function
-    // from simultaneous threads with the same sampler handle.
-    // Done via destructor should not be called from multiple threads
-    zeStatus = zeSamplerDestroy(Handle);
-    CHIPERR_CHECK_LOG_AND_THROW(hipErrorTbd);
-  }
 };
 
 class CHIPDeviceLevel0 : public chipstar::Device {
