@@ -255,41 +255,31 @@ static bool hasNoRuntimeConstants(Constant *C, const GVarMapT &GVarMap) {
   return false; // Default answer if we can't fully analyze the constant.
 }
 
-// Emit a shadow kernel for initialing the global variable.
-static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
-                                          GlobalVariable *OriginalGVar,
-                                          GVarMapT GVarMap) {
+// Emit the initialization IR for a single global variable at the Builder's
+// current insertion point (inside a shadow kernel body). See #582: this body
+// is shared by the per-variable init shadow kernel and the single combined
+// init kernel.
+static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
+                                  GlobalVariable *GVar,
+                                  GlobalVariable *OriginalGVar,
+                                  GVarMapT &GVarMap) {
   // For original global variable in pseudo code:
   //
   //   SomeType Foo = SomeInit;
   //
-  // A) Emit the following shadow kernel in pseudo code:
-  //
-  //   SomeType* <ChipVarPrefix>Foo; // *1
-  //   void <ChipVarInitPrefix>Foo() {
+  // A) Emit:
   //     memcpy(<ChipVarPrefix>Foo, &Foo, sizeof(SomeType));
-  //   }
   //
-  // B) Emit the following shadow kernel in pseudo code:
-  //
-  //   SomeType* <ChipVarPrefix>Foo; // *1
-  //   void <ChipVarInitPrefix>Foo() {
+  // B) Emit (fallback for initializers referencing other lowered variables
+  //    whose addresses are resolved at runtime):
   //     *<ChipVarPrefix>Foo = SomeInit;
-  //   }
+  //    This alternative should be avoided as it may lead to bad native
+  //    code-gen.
   //
-  // This alternative should be avoided as it may lead to bad native code-gen.
-  // This is used as fallback for variables with references to other variables
-  // whose addresses are resolved at runtime (aka. the variables being lowered
-  // in this pass).
-  //
-  // *1: Emitted by emitIndirectGlobalVariable().
-  //
+  // <ChipVarPrefix>Foo (i.e. GVar) is emitted by emitIndirectGlobalVariable().
 
   assert(GVar->getValueType()->isIntegerTy(64));
   assert(OriginalGVar->hasInitializer());
-
-  auto Name = std::string(ChipVarInitPrefix) + OriginalGVar->getName().str();
-  IRBuilder<> Builder(createKernelStub(M, Name, {}));
 
   // GVar is i64; load and convert to pointer.
   auto *PtrAS = PointerType::get(M.getContext(), SpirvCrossWorkGroupAS);
@@ -324,6 +314,35 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
 
   // *<ChipVarPrefix>Foo = SomeInit;
   Builder.CreateStore(Init, Ptr);
+}
+
+// Emit a per-variable shadow kernel for initializing the global variable.
+// Emitted in the globals-as-kernel-args (rusticl) lowering, where each init
+// kernel is later reworked to take the storage address as an argument.
+static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
+                                          GlobalVariable *OriginalGVar,
+                                          GVarMapT GVarMap) {
+  auto Name = std::string(ChipVarInitPrefix) + OriginalGVar->getName().str();
+  IRBuilder<> Builder(createKernelStub(M, Name, {}));
+  emitGlobalVarInitBody(M, Builder, GVar, OriginalGVar, GVarMap);
+}
+
+// Emit a single combined shadow kernel that initializes ALL host-accessible
+// program-scope variables in one kernel launch. This avoids the O(N) launch
+// overhead of launching one single-work-item init kernel per variable (#582).
+// The InitVars are (lowered-i64-GVar, original-GVar) pairs; the caller has
+// already filtered out variables without initializers and the special
+// device-heap-null case. Returns true if a kernel was emitted.
+static bool emitCombinedGlobalVarInitKernel(
+    Module &M,
+    ArrayRef<std::pair<GlobalVariable *, GlobalVariable *>> InitVars,
+    GVarMapT &GVarMap) {
+  if (InitVars.empty())
+    return false;
+  IRBuilder<> Builder(createKernelStub(M, ChipVarInitAllName, {}));
+  for (auto &Pair : InitVars)
+    emitGlobalVarInitBody(M, Builder, Pair.first, Pair.second, GVarMap);
+  return true;
 }
 
 static bool shouldLower(const GlobalVariable &GVar) {
@@ -745,19 +764,34 @@ static bool lowerGlobalVariables(Module &M) {
   // Lower host accessible global device variables.
   GVarMapT GVarMap = emitIndirectGlobalVariables(M);
   if (!GVarMap.empty()) {
+    // Collect (lowered-i64-GVar, original-GVar) pairs that need initialization,
+    // in a deterministic order, for the combined init kernel (#582).
+    std::vector<std::pair<GlobalVariable *, GlobalVariable *>> InitVars;
     for (auto Kv : GVarMap) {
       emitGlobalVarInfoShadowKernel(M, Kv.first);
       emitGlobalVarBindShadowKernel(M, Kv.second, Kv.first);
       if (Kv.first->hasInitializer()) {
-        // Skip init kernel only for __chipspv_device_heap which has a
-        // pointer-typed null initializer that clspv cannot handle.
+        // Skip init only for __chipspv_device_heap which has a pointer-typed
+        // null initializer that clspv cannot handle.
         bool IsDeviceHeapNull =
             Kv.first->getName() == ChipDeviceHeapName &&
             Kv.first->getInitializer()->isNullValue();
         if (!IsDeviceHeapNull)
-          emitGlobalVarInitShadowKernel(M, Kv.second, Kv.first, GVarMap);
+          InitVars.push_back(std::make_pair(Kv.second, Kv.first));
       }
     }
+#ifdef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
+    // Program-scope-globals path (default): initialize all variables from a
+    // single combined shadow kernel launched once, instead of one
+    // single-work-item init kernel launch per variable (#582).
+    emitCombinedGlobalVarInitKernel(M, InitVars, GVarMap);
+#else
+    // Globals-as-kernel-args (rusticl) path: keep per-variable init kernels;
+    // lowerGlobalsToKernelArgs() reworks each to take the storage address as
+    // an argument.
+    for (auto &Pair : InitVars)
+      emitGlobalVarInitShadowKernel(M, Pair.first, Pair.second, GVarMap);
+#endif
     replaceGlobalVariableUses(GVarMap);
     eraseMappedGlobalVariables(GVarMap);
     Changed |= true;

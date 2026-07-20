@@ -69,6 +69,11 @@ constexpr char ChipVarBindPrefix[] = "__chip_var_bind_";
 /// A prefix used for a shadow kernel used for initializing device
 /// variables.
 constexpr char ChipVarInitPrefix[] = "__chip_var_init_";
+/// The name of a single combined shadow kernel that initializes ALL
+/// host-accessible program-scope variables in one launch. Emitted (in the
+/// program-scope-globals lowering) instead of per-variable init kernels to
+/// avoid O(N) single-work-item kernel launches. See issue #582.
+constexpr char ChipVarInitAllName[] = "__chip_var_init_all";
 /// A structure to where properties of a device variable are written.
 /// CHIPVarInfo[0]: Size in bytes.
 /// CHIPVarInfo[1]: Requested alignment.

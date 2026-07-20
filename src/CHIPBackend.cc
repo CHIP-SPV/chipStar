@@ -507,14 +507,25 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   logTrace("Initialize device variables in module: {}", (void *)this);
 
   bool QueuedKernels = false;
-  for (auto *Var : ChipVars_) {
-    logTrace("Checking variable '{}' for initialization: hasInitializer={}", 
-             Var->getName(), Var->hasInitializer());
-    if (!Var->hasInitializer())
-      continue;
-    logTrace("Initializing variable '{}'", Var->getName());
-    queueVariableInitShadowKernel(Queue, this, Var);
+  // Fast path (#582): the program-scope-globals lowering emits a single
+  // combined init kernel that initializes ALL variables in one launch, instead
+  // of one single-work-item init kernel per variable. Launch it once when
+  // present; otherwise fall back to the per-variable init kernels (used by the
+  // globals-as-kernel-args/rusticl lowering).
+  if (auto *CombinedInitKernel = findKernel(ChipVarInitAllName)) {
+    logTrace("Initializing all device variables via combined init kernel");
+    queueKernel(Queue, CombinedInitKernel);
     QueuedKernels = true;
+  } else {
+    for (auto *Var : ChipVars_) {
+      logTrace("Checking variable '{}' for initialization: hasInitializer={}",
+               Var->getName(), Var->hasInitializer());
+      if (!Var->hasInitializer())
+        continue;
+      logTrace("Initializing variable '{}'", Var->getName());
+      queueVariableInitShadowKernel(Queue, this, Var);
+      QueuedKernels = true;
+    }
   }
 
   // Launch kernel for resetting host-inaccessible global device variables.
