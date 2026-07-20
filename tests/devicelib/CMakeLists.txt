@@ -43,6 +43,13 @@ set_tests_properties(shfl_sync PROPERTIES
 set_tests_properties(shfl_sync PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
 
+add_hip_test(shfl_width.cpp)
+
+set_tests_properties(shfl_width PROPERTIES
+  FAIL_REGULAR_EXPRESSION "FAIL")
+set_tests_properties(shfl_width PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS")
+
 # Verify OCML (irif.h) does not emit i128 - buggy irif uses wrong types for OpenCL
 # Run after build (ocml built as part of devicelib)
 add_test(NAME irif_no_i128
