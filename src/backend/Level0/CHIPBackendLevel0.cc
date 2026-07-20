@@ -941,6 +941,33 @@ CHIPKernelLevel0::CHIPKernelLevel0(ze_kernel_handle_t ZeKernel,
       StaticLocalSize_;
   MaxWorkGroupSize_ = Device->getAttr(hipDeviceAttributeMaxThreadsPerBlock);
 }
+
+CHIPKernelLevel0 *CHIPKernelLevel0::clone() {
+  // Create an independent ze_kernel_handle_t for the same function so the
+  // copy has its own argument bindings (issue #782). Level Zero has no
+  // zeKernelClone, so we create a fresh handle from the parent module using
+  // the same kernel name and residency flag as the original creation path.
+  // The original handle is left untouched.
+  ze_kernel_handle_t ClonedHandle = nullptr;
+  // Keep the name in a local so pKernelName does not dangle: getName() returns
+  // a temporary std::string whose buffer would be freed before zeKernelCreate.
+  std::string KernelName = getName();
+  ze_kernel_desc_t KernelDesc = {ZE_STRUCTURE_TYPE_KERNEL_DESC, nullptr,
+                                 0, // flags
+                                 KernelName.c_str()};
+  if (!Device->hasOnDemandPaging())
+    KernelDesc.flags |= ZE_KERNEL_FLAG_FORCE_RESIDENCY;
+  zeStatus = zeKernelCreate(Module->get(), &KernelDesc, &ClonedHandle);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelCreate);
+  auto *Cloned = new CHIPKernelLevel0(ClonedHandle, Device, getName(),
+                                      getFuncInfo(), Module);
+  // Preserve the host/device function pointer associations so that the clone
+  // still resolves to the same HIP kernel (needed by graph-node execution,
+  // e.g. prepareDeviceVariables()).
+  Cloned->setHostPtr(getHostPtr());
+  Cloned->setDevPtr(getDevPtr());
+  return Cloned;
+}
 // End CHIPKernelLevelZero
 
 hipError_t CHIPKernelLevel0::getAttributes(hipFuncAttributes *Attr) {
@@ -3693,3 +3720,23 @@ void CHIPExecItemLevel0::setKernel(chipstar::Kernel *Kernel) {
 }
 
 chipstar::Kernel *CHIPExecItemLevel0::getKernel() { return ChipKernel_; }
+
+void CHIPExecItemLevel0::takeOwnedKernelClone() {
+  // Replace the (shared) kernel with an independent clone that this exec item
+  // owns and destroys, so argument bindings are private to this exec item
+  // (issue #782). The original shared kernel is left untouched.
+  ChipKernel_ = ChipKernel_->clone();
+  OwnsKernel_ = true;
+}
+
+chipstar::ExecItem *CHIPExecItemLevel0::clone() const {
+  auto *NewExecItem = new CHIPExecItemLevel0(*this);
+  // Give the clone its own ze_kernel_handle_t so that a duplicated graph (e.g.
+  // hipGraphClone) does not share argument state with the original (#782).
+  NewExecItem->takeOwnedKernelClone();
+  // Force argument (re)binding onto the freshly cloned handle at launch time;
+  // the copy constructor inherited ArgsSetup from the source which may have
+  // already bound arguments to the original handle.
+  NewExecItem->ArgsSetup = false;
+  return NewExecItem;
+}
