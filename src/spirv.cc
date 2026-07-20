@@ -1004,6 +1004,16 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
           FnAttr == spv::FunctionParameterAttributeNoReadWrite)
         continue;
     }
+    // The Mali driver rejects the SubgroupDispatch capability that HipWarps'
+    // fixed subgroup-size pin (intel_reqd_sub_group_size) requires. Drop the
+    // pin -- both the SubgroupSize execution mode and the SubgroupDispatch
+    // capability, which must go together to stay valid SPIR-V. Warp-sensitive
+    // kernels then run at the driver's native subgroup width.
+    if ((Insn.getOpcode() == spv::Op::OpCapability &&
+         Insn.getWord(1) == (InstWord)spv::CapabilitySubgroupDispatch) ||
+        (Insn.getOpcode() == spv::Op::OpExecutionMode &&
+         Insn.getWord(2) == (InstWord)spv::ExecutionModeSubgroupSize))
+      continue;
 #endif
 
     std::vector<InstWord> TransformedInst;
