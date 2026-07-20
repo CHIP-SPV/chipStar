@@ -854,15 +854,25 @@ EXPORT uint __chip_atomic_dec2_u(DEFAULT_AS uint *address, uint val) {
 }
 /**********************************************************************/
 
-// Use the Intel versions for now by default, since the Intel OpenCL CPU
-// driver still implements only them, not the KHR versions.
-#define sub_group_shuffle intel_sub_group_shuffle
-#define sub_group_shuffle_xor intel_sub_group_shuffle_xor
-
+// Use the KHR subgroup shuffles (cl_khr_subgroup_shuffle). They lower to
+// OpGroupNonUniformShuffle{,Xor}, which every OpenCL target chipStar supports
+// consumes. The intel_sub_group_shuffle* builtins require SPV_INTEL_subgroups,
+// which non-Intel drivers (e.g. Mali) reject at program-build time (#635).
+// Kept inline (rather than a linked rtdevlib module like ballot) because some
+// of those drivers also cannot clLinkProgram, so shuffle-only kernels must
+// stay single-module and take the direct clBuildProgram path.
 int OVLD sub_group_shuffle(int var, uint srcLane);
+uint OVLD sub_group_shuffle(uint var, uint srcLane);
+long OVLD sub_group_shuffle(long var, uint srcLane);
+ulong OVLD sub_group_shuffle(ulong var, uint srcLane);
 float OVLD sub_group_shuffle(float var, uint srcLane);
+double OVLD sub_group_shuffle(double var, uint srcLane);
 int OVLD sub_group_shuffle_xor(int var, uint value);
+uint OVLD sub_group_shuffle_xor(uint var, uint value);
+long OVLD sub_group_shuffle_xor(long var, uint value);
+ulong OVLD sub_group_shuffle_xor(ulong var, uint value);
 float OVLD sub_group_shuffle_xor(float var, uint value);
+double OVLD sub_group_shuffle_xor(double var, uint value);
 
 // Compute the full warp lane id given a subwarp of size wSize and
 // a "logical" lane id within it.
