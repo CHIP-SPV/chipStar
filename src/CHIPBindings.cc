@@ -6177,6 +6177,13 @@ hipCreateTextureObject(hipTextureObject_t *TexObject,
   if (!TexObject)
     RETURN(hipErrorInvalidValue);
 
+  // Initialize the output handle so that any error return below leaves the
+  // caller with a safe, destroyable value. Otherwise a RAII wrapper that
+  // calls hipDestroyTextureObject during exception unwind would operate on an
+  // uninitialized handle and crash. See #1256. Value-initialize so this
+  // compiles whether hipTextureObject_t is a pointer or an integral handle.
+  *TexObject = hipTextureObject_t{};
+
   if (!ResDesc)
     RETURN(hipErrorInvalidValue);
 
