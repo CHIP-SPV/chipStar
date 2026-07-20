@@ -35,19 +35,34 @@ void check_results(int *result, int expected[4]) {
 }
 
 int main() {
-    const int warpSize = 32;
-    int data[warpSize];
+    // Launch exactly one warp. The warp width is queried at runtime so a
+    // single warp (one lane 0) is launched on every device: a hardcoded
+    // 32-thread launch on an 8-wide warp (Mali) forms four warps, and four
+    // lane-0 threads then race to write result[].
+    hipDeviceProp_t props;
+    if (hipGetDeviceProperties(&props, 0) != hipSuccess) {
+        std::cout << "FAILED!" << std::endl;
+        return 1;
+    }
+    const int MAX_WARP = 64;
+    const int warp = props.warpSize;
+    if (warp < 2 || warp > MAX_WARP) {
+        std::cout << "FAILED! (unexpected warpSize=" << warp << ")" << std::endl;
+        return 1;
+    }
+
+    int data[MAX_WARP];
     int result[4];
 
-    for (int i = 0; i < warpSize; ++i) {
+    for (int i = 0; i < warp; ++i) {
         data[i] = i;
     }
 
     int *d_data, *d_result;
-    hipMalloc(&d_data, warpSize * sizeof(int));
+    hipMalloc(&d_data, warp * sizeof(int));
     hipMalloc(&d_result, 4 * sizeof(int));
 
-    hipMemcpy(d_data, data, warpSize * sizeof(int), hipMemcpyHostToDevice);
+    hipMemcpy(d_data, data, warp * sizeof(int), hipMemcpyHostToDevice);
 
     unsigned masks[3] = {0x00000000, 0xFFFFFFFF, 0x55555555};
     // The mask 0x55555555 makes every other thread participate because:
@@ -57,11 +72,16 @@ int main() {
     int expected_results[3][4] = {
         {0, 0, 0, 0}, // Expected results for mask 0x00000000
         {0, 0, 1, 1}, // Expected results for mask 0xFFFFFFFF
-        {1, 0, 1, 0}  // Expected results for mask 0x55555555
+        // For a partial mask chipStar performs a best-effort full-warp
+        // shuffle (arbitrary participation masks cannot be expressed with the
+        // OpenCL/SPIR-V subgroup shuffle builtins). Lane 0 participates, so
+        // the width-correct index math is exercised: shfl(0)=lane0=0,
+        // shfl_up(1)=own=0, shfl_down(1)=lane1=1, shfl_xor(1)=lane1=1.
+        {0, 0, 1, 1}  // Expected results for mask 0x55555555
     };
 
     for (int i = 0; i < 3; ++i) {
-        hipLaunchKernelGGL(test_shfl_sync, dim3(1), dim3(warpSize), 0, 0, d_data, d_result, masks[i]);
+        hipLaunchKernelGGL(test_shfl_sync, dim3(1), dim3(warp), 0, 0, d_data, d_result, masks[i]);
         hipMemcpy(result, d_result, 4 * sizeof(int), hipMemcpyDeviceToHost);
         hipDeviceSynchronize();
 
