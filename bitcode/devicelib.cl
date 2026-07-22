@@ -532,6 +532,19 @@ EXPORT void __chip_syncthreads() {
   barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
+// Work-group collectives backing __syncthreads_and/_or/_count. The barrier
+// semantics are provided by __chip_syncthreads() in the callers
+// (sync_and_util.hh); work_group_* are themselves convergent collectives.
+EXPORT int __chip_group_all(int predicate) { return work_group_all(predicate); }
+
+EXPORT int __chip_group_any(int predicate) { return work_group_any(predicate); }
+
+// __syncthreads_count: returns the number of threads with a true predicate,
+// not a ballot bitmask (blocks can exceed 64 threads).
+EXPORT ulong __chip_group_ballot(int predicate) {
+  return work_group_reduce_add(predicate ? 1 : 0);
+}
+
 // local_fence
 EXPORT void __chip_threadfence_block() { mem_fence(CLK_LOCAL_MEM_FENCE); }
 
