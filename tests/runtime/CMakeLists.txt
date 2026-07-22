@@ -239,3 +239,8 @@ set_tests_properties(TestEventResetWarnFlood PROPERTIES
   ENVIRONMENT "CHIP_LOGLEVEL=warn"
   FAIL_REGULAR_EXPRESSION "FAIL;reset\\(\\) called while event is recording")
 add_hip_runtime_test(TestFixHostNativeAtomicSupported.hip)
+
+# Reproducer for #1360 (sneaky_snake miscompile). Force -O2: the
+# __clz(0)-poison miscompile only manifests at -O1 and above.
+add_hip_runtime_test(TestSnakeMiscompileO2.hip)
+target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
