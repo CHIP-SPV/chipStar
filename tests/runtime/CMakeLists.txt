@@ -242,3 +242,8 @@ add_hip_runtime_test(TestFixHostNativeAtomicSupported.hip)
 # Reproducer for issue #1359: __syncthreads_and/or/count unresolved
 # (__chip_group_all/any/ballot missing from the device library).
 add_hip_runtime_test(TestSyncthreadsAndOrCount.hip)
+
+# Reproducer for #1360 (sneaky_snake miscompile). Force -O2: the
+# __clz(0)-poison miscompile only manifests at -O1 and above.
+add_hip_runtime_test(TestSnakeMiscompileO2.hip)
+target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
