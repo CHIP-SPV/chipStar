@@ -370,6 +370,10 @@ endif()
 set(SPIRV_EMITTER_OPTS "")
 if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
+elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
+  # LLVM 23's HIPSPV toolchain defaults to the in-tree SPIR-V backend when it
+  # is built; explicitly request the llvm-spirv translator.
+  set(SPIRV_EMITTER_OPTS "-fno-integrated-objemitter")
 endif()
 
 if(CHIP_VERBOSE)
