@@ -239,3 +239,6 @@ set_tests_properties(TestEventResetWarnFlood PROPERTIES
   ENVIRONMENT "CHIP_LOGLEVEL=warn"
   FAIL_REGULAR_EXPRESSION "FAIL;reset\\(\\) called while event is recording")
 add_hip_runtime_test(TestFixHostNativeAtomicSupported.hip)
+# Reproducer for issue #1359: __syncthreads_and/or/count unresolved
+# (__chip_group_all/any/ballot missing from the device library).
+add_hip_runtime_test(TestSyncthreadsAndOrCount.hip)
