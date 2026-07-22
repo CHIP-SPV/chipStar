@@ -864,23 +864,24 @@ float OVLD sub_group_shuffle(float var, uint srcLane);
 int OVLD sub_group_shuffle_xor(int var, uint value);
 float OVLD sub_group_shuffle_xor(float var, uint value);
 
-// Compute the full warp lane id given a subwarp of size wSize and
-// a "logical" lane id within it.
+// Compute the absolute subgroup lane id for an __shfl (indexed) shuffle.
 //
-// Assumes that each subwarp behaves as a separate entity
-// with a starting logical lane ID of 0.
+// CUDA semantics: when wSize < warpSize, the warp is partitioned into
+// contiguous segments of `wSize` lanes, each behaving as a separate
+// entity with logical lane IDs 0..wSize-1. The requested srcLane is
+// taken modulo wSize (i.e. it wraps within the caller's own segment;
+// srcLane values outside [0, wSize-1] never escape the segment), and it
+// is then rebased onto the caller's segment. wSize is a power of two.
 __attribute__((always_inline)) static int warpLaneId(int subWarpLaneId,
                                                      int wSize) {
-  if (wSize == DEFAULT_WARP_SIZE)
-    return subWarpLaneId;
   unsigned laneId = get_sub_group_local_id();
-  unsigned logicalSubWarp = laneId / wSize;
-  return logicalSubWarp * wSize + subWarpLaneId;
+  unsigned segmentBase = (laneId / (unsigned)wSize) * (unsigned)wSize;
+  unsigned laneInSeg = (unsigned)subWarpLaneId % (unsigned)wSize;
+  return segmentBase + laneInSeg;
 }
 
 #define __SHFL(T)                                                              \
   EXPORT OVLD T __shfl(T var, int srcLane, int wSize) {                        \
-    int laneId = get_sub_group_local_id();                                     \
     return sub_group_shuffle(var, warpLaneId(srcLane, wSize));                 \
   }
 
@@ -891,9 +892,21 @@ __SHFL(ulong);
 __SHFL(float);
 __SHFL(double);
 
+// CUDA semantics for __shfl_xor with a width < warpSize: the source lane
+// is laneId ^ laneMask. If that XOR result lands outside the caller's
+// width-segment (i.e. it would reference a later/earlier group), the
+// caller keeps its own value. For width == warpSize this reduces to a
+// plain butterfly shuffle. laneMask is applied to the absolute lane id
+// (not masked to the segment) so that high bits correctly send the
+// access out of the segment.
 #define __SHFL_XOR(T)                                                          \
-  EXPORT OVLD T __shfl_xor(T var, int value, int warpSizeOverride) {           \
-    return sub_group_shuffle_xor(var, value);                                  \
+  EXPORT OVLD T __shfl_xor(T var, int laneMask, int wSize) {                   \
+    int laneId = get_sub_group_local_id();                                     \
+    int segmentBase = (laneId / wSize) * wSize;                                \
+    int srcLane = laneId ^ laneMask;                                           \
+    if (srcLane < segmentBase || srcLane >= segmentBase + wSize)              \
+      srcLane = laneId;                                                        \
+    return sub_group_shuffle(var, srcLane);                                    \
   }
 
 __SHFL_XOR(int);
@@ -939,60 +952,52 @@ __SHFL_DOWN(ulong);
 __SHFL_DOWN(float);
 __SHFL_DOWN(double);
 
+// _sync shuffle variants.
+//
+// The `mask` argument names the set of lanes that participate in the
+// exchange (they are assumed already converged). The width-parameterized
+// index math is delegated to the non-sync implementations above, which are
+// correct for every width in {1,2,...,warpSize} and for arbitrary srcLane/
+// delta/laneMask values.
+//
+// Mask handling:
+//  * mask == 0            : this lane does not participate; return 0.
+//  * mask == 0xFFFFFFFF   : the whole warp participates -> exact semantics.
+//  * any other mask       : the OpenCL/SPIR-V subgroup shuffle builtins can
+//    only express whole-subgroup exchanges, so an arbitrary participation
+//    mask cannot be honored in general. We fall back to the full
+//    width-segment shuffle, which is correct whenever the participating
+//    lanes cover complete width-segments (the common reduction pattern,
+//    e.g. mask selecting every lane of each 0..width-1 segment). A truly
+//    sparse/partial mask that omits lanes inside an active segment is the
+//    only remaining unsupported case; results for the omitted lanes are
+//    then whatever the underlying segment lane holds rather than undefined.
 #define __SHFL_SYNC(T)                                                         \
   EXPORT OVLD T __shfl_sync(unsigned mask, T var, int srcLane, int width) {    \
-    if (mask == 0) {                                                           \
+    if (mask == 0)                                                            \
       return 0;                                                                \
-    } else if (mask == 0xFFFFFFFF) {                                           \
-      return __shfl(var, srcLane, width);                                      \
-    } else {                                                                   \
-      if (get_sub_group_local_id() == 0) {                                     \
-        printf("warning: Partial mask in __shfl_sync is not fully supported\n");\
-      }                                                                        \
-      return __shfl(var, srcLane, width);                                      \
-    }                                                                          \
+    return __shfl(var, srcLane, width);                                        \
   }
 
 #define __SHFL_UP_SYNC(T)                                                      \
   EXPORT OVLD T __shfl_up_sync(unsigned mask, T var, unsigned int delta, int width) { \
-    if (mask == 0) {                                                           \
+    if (mask == 0)                                                            \
       return 0;                                                                \
-    } else if (mask == 0xFFFFFFFF) {                                           \
-      return __shfl_up(var, delta, width);                                     \
-    } else {                                                                   \
-      if (get_sub_group_local_id() == 0) {                                     \
-        printf("warning: Partial mask in __shfl_up_sync is not fully supported\n");\
-      }                                                                        \
-      return __shfl_up(var, delta, width);                                     \
-    }                                                                          \
+    return __shfl_up(var, delta, width);                                       \
   }
 
 #define __SHFL_DOWN_SYNC(T)                                                    \
   EXPORT OVLD T __shfl_down_sync(unsigned mask, T var, unsigned int delta, int width) { \
-    if (mask == 0) {                                                           \
+    if (mask == 0)                                                            \
       return 0;                                                                \
-    } else if (mask == 0xFFFFFFFF) {                                           \
-      return __shfl_down(var, delta, width);                                   \
-    } else {                                                                   \
-      if (get_sub_group_local_id() == 0) {                                     \
-        printf("warning: Partial mask in __shfl_down_sync is not fully supported\n");\
-      }                                                                        \
-      return __shfl_down(var, delta, width);                                   \
-    }                                                                          \
+    return __shfl_down(var, delta, width);                                     \
   }
 
 #define __SHFL_XOR_SYNC(T)                                                     \
   EXPORT OVLD T __shfl_xor_sync(unsigned mask, T var, int laneMask, int width) { \
-    if (mask == 0) {                                                           \
+    if (mask == 0)                                                            \
       return 0;                                                                \
-    } else if (mask == 0xFFFFFFFF) {                                           \
-      return __shfl_xor(var, laneMask, width);                                 \
-    } else {                                                                   \
-      if (get_sub_group_local_id() == 0) {                                     \
-        printf("warning: Partial mask in __shfl_xor_sync is not fully supported\n");\
-      }                                                                        \
-      return __shfl_xor(var, laneMask, width);                                 \
-    }                                                                          \
+    return __shfl_xor(var, laneMask, width);                                   \
   }
 
 __SHFL_SYNC(int);

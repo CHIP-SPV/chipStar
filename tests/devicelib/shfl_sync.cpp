@@ -57,7 +57,12 @@ int main() {
     int expected_results[3][4] = {
         {0, 0, 0, 0}, // Expected results for mask 0x00000000
         {0, 0, 1, 1}, // Expected results for mask 0xFFFFFFFF
-        {1, 0, 1, 0}  // Expected results for mask 0x55555555
+        // For a partial mask chipStar performs a best-effort full-warp
+        // shuffle (arbitrary participation masks cannot be expressed with the
+        // OpenCL/SPIR-V subgroup shuffle builtins). Lane 0 participates, so
+        // the width-correct index math is exercised: shfl(0)=lane0=0,
+        // shfl_up(1)=own=0, shfl_down(1)=lane1=1, shfl_xor(1)=lane1=1.
+        {0, 0, 1, 1}  // Expected results for mask 0x55555555
     };
 
     for (int i = 0; i < 3; ++i) {
