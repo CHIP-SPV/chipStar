@@ -853,9 +853,6 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
   OPENCL_CPU:
   OPENCL_POCL:
   OPENCL_GPU:
-    broadcast: 'rusticl/mesa panics (unwrap on None) in convert_spirv_to_nir on KHR GroupNonUniformShuffle; upstream mesa bug. Passes on Intel/Mali OpenCL GPU.'
-    broadcast2: 'rusticl/mesa panics (unwrap on None) in convert_spirv_to_nir on KHR GroupNonUniformShuffle; upstream mesa bug. Passes on Intel/Mali OpenCL GPU.'
-    TestBoolParamShuffle: 'rusticl/mesa panics (unwrap on None) in convert_spirv_to_nir on KHR GroupNonUniformShuffle; upstream mesa bug. Passes on Intel/Mali OpenCL GPU.'
     manyMallocMemcopies: 'rusticl/radeonsi driver-side O(N) per-buffer memcpy overhead: with ~15000 live allocations the per-op memcpy time grows ~13x. rusticl is experimental; the scaling is in mesa/radeonsi BufferDevAddr residency, not chipStar.'
     Unit_kernel_chkConstantViaKernel_KernelTest: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (device/__constant__ globals, symbols, static vars): "Initializer for CrossWorkgroup variable not yet supported in Mesa"'
     Unit_kernel_chkGlobalArrAndGlobalVaribleViaKernelFn_KernelTest: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (device/__constant__ globals, symbols, static vars): "Initializer for CrossWorkgroup variable not yet supported in Mesa"'

@@ -939,6 +939,7 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
   std::unordered_map<InstWord, std::string_view> MissingDefs;
   IdMapT ResultIdMap;
   IdSetT SampledImgs;
+  bool NeedsSpirv13 = false;
   size_t InsnSize = 0;
   for (size_t I = 0; I < NumWords; I += InsnSize) {
     SPIRVinst Insn(WordsPtr + I);
@@ -947,6 +948,19 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
 
     if (Insn.isEntryPoint())
       EntryPoints.insert(Insn.entryPointName());
+
+    // The GroupNonUniform* capabilities (e.g. GroupNonUniformShuffle, emitted
+    // for __shfl* / warp intrinsics) require a SPIR-V 1.3 module header. The
+    // SPIR-V translator emits a 1.2 header, which strict validators such as
+    // rusticl/mesa reject ("requires SPIR-V version 1.3 or later"). Remember to
+    // bump the version word below; drivers that tolerated the lower version are
+    // unaffected.
+    if (Insn.getOpcode() == spv::Op::OpCapability) {
+      InstWord Cap = Insn.getWord(1);
+      if (Cap >= (InstWord)spv::CapabilityGroupNonUniform &&
+          Cap <= (InstWord)spv::CapabilityGroupNonUniformQuad)
+        NeedsSpirv13 = true;
+    }
 
     if (Insn.isExtension() && Insn.getExtension() == "SPV_KHR_linkonce_odr")
       // Drop SPV_KHR_linkonce_odr and LinkOnceODR linkage attributes
@@ -1046,6 +1060,14 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
 
   for (auto &[Ignored, Name] : MissingDefs)
     logWarn("Missing definition for '{}'", Name);
+
+  // Bump the module version to 1.3 if a GroupNonUniform* capability is present
+  // (see above). Dst[1] is the header version word; 1.3 == 0x00010300.
+  if (NeedsSpirv13) {
+    constexpr InstWord Spirv13Version = 0x00010300u;
+    if (Dst.size() > 1 && Dst[1] < Spirv13Version)
+      Dst[1] = Spirv13Version;
+  }
 
   return true;
 }
