@@ -173,8 +173,9 @@ struct is_scalar : public integral_constant<bool, __is_scalar(__T)> {};
 
 namespace hip_impl {
 inline constexpr unsigned int next_pot(unsigned int x) {
-  // Precondition: x > 1.
-  return 1u << (32u - __builtin_clz(x - 1u));
+  // __builtin_clz(0) is undefined; guard x <= 1 instead of relying on the
+  // callers to uphold an x > 1 precondition (same UB class as issue #1360).
+  return x <= 1u ? 1u : 1u << (32u - __builtin_clz(x - 1u));
 }
 } // Namespace hip_impl.
 
