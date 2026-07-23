@@ -133,6 +133,35 @@ cmake -S llvm -B build \
 make -C build -j8 all install
 ```
 
+### Choosing the SPIR-V emitter: integrated backend vs. llvm-spirv translator
+
+With LLVM 22+ chipStar can emit device SPIR-V two ways:
+
+* **Integrated (in-tree) SPIR-V backend** — no external tools needed.
+* **SPIRV-LLVM-Translator** (`llvm-spirv`) — the traditional path.
+
+The default is chosen at configure time: `CHIP_LLVM_USE_INTERGRATED_SPIRV`
+is auto-detected ON when the LLVM installation was built with the SPIRV
+target, OFF otherwise. Override explicitly with:
+
+```bash
+cmake -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON ..   # integrated backend
+cmake -DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF ..  # llvm-spirv translator
+```
+
+Translator mode requires the `llvm-spirv` binary installed next to `clang`.
+
+The CMake option only sets the default compile flags; you can switch
+per-compilation without rebuilding chipStar, since the last flag wins:
+
+```bash
+hipcc foo.hip -fintegrated-objemitter      # force integrated backend
+hipcc foo.hip -fno-integrated-objemitter   # force llvm-spirv translator
+```
+
+Note: device code compiled through hipRTC always uses chipStar's
+configure-time default.
+
 ### OpenCL Backend
 
   * An OpenCL 2.0 or 3.0 driver with at least the following features supported:
