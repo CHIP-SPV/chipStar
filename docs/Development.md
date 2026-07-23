@@ -10,7 +10,7 @@ Compilation of HIP sources with chipStar is done by Clang. The Clang compiler si
 1) Compilation of the source in device mode (host code is ignored) to LLVM IR.
 2) Linking of the LLVM IR (from previous step) to the chipStar bitcode library (see 'chipStar bitcode library' below).
 3) Running the necessary transformation passes (see LLVM passes below).
-4) Converting the device bitcode to a SPIR-V binary. Currently, the SPIRV-LLVM Translator tool is used for this, but in the future we may switch to using LLVM’s SPIR-V backend as it becomes stable.
+4) Converting the device bitcode to a SPIR-V binary. Either LLVM's integrated SPIR-V backend or the SPIRV-LLVM Translator tool is used for this; see "Choosing the SPIR-V emitter" in the README.
 5) Bundling the SPIR-V in clang's "offload bundle" fat binary format (in theory multiple binary formats could be bundled here, but currently chipStar only includes the SPIR-V binary).
 6) Compilation of the source in the host mode (device code is ignored in this step) to LLVM IR. The offload bundle binary is included in the compilation unit as a "magic" global variable.
 7) Assembling & linking of the LLVM IR from previous step to produce final object.
