@@ -289,8 +289,17 @@ preprocessForCacheKey(const chipstar::Program &Program,
 
   std::string Cmd = createCompileCommand(Options, WorkingDirectory, SourceFile,
                                          OutputFile, /*PreprocessOnly=*/true);
-  if (!executeCommand(WorkingDirectory, Cmd, LogFile))
+  if (!executeCommand(WorkingDirectory, Cmd, LogFile)) {
+    // The caller only reports that caching was disabled; surface the compiler's
+    // own diagnostics here so the reason (e.g. a toolchain rejecting the
+    // preprocess-only invocation) is visible instead of silently swallowed.
+    if (auto Log = readFromFile(LogFile); Log && !Log->empty())
+      logWarn("hiprtc: preprocessing for the cache key failed:\n{}", *Log);
+    else
+      logWarn("hiprtc: preprocessing for the cache key failed (no compiler "
+              "output captured).");
     return std::nullopt;
+  }
 
   return readFromFile(OutputFile);
 }
