@@ -118,10 +118,17 @@ __byte_perm(unsigned int x, unsigned int y, unsigned int s) {
   return result;
 }
 
-extern "C++" inline __device__ int __clz(int x) { return __builtin_clz(x); }
+// CUDA defines __clz(0) == 32 and __clzll(0) == 64, but __builtin_clz*
+// alone is poison at 0 (lowers to llvm.ctlz with is_zero_poison=true), and
+// the optimizer is entitled to assume the result is <= 31 and delete
+// user-code range checks that depend on the zero case (issue #1360). The
+// explicit zero test selects the is_zero_poison=false lowering.
+extern "C++" inline __device__ int __clz(int x) {
+  return x == 0 ? 32 : __builtin_clz((unsigned int)x);
+}
 
 extern "C++" inline __device__ int __clzll(long long int x) {
-  return __builtin_clzl(x);
+  return x == 0 ? 64 : __builtin_clzll((unsigned long long)x);
 }
 
 extern "C" __device__ int __chip_ffs(int x); // Custom
