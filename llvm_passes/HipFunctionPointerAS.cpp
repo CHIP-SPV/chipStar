@@ -53,6 +53,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Debug.h"
 
@@ -189,6 +190,30 @@ static GlobalVariable *replaceGlobalInitializer(Module &M, GlobalVariable *Old,
   Old->getAllMetadata(MDs);
   for (const auto &MD : MDs)
     New->addMetadata(MD.first, *MD.second);
+
+  // A constant getelementptr stores its source element type explicitly, so
+  // replaceAllUsesWith would leave GEPs that still claim the *old* value type
+  // while pointing at the retyped global. Classes with virtual bases hit this:
+  // the VTT (_ZTT...) holds one 'getelementptr inrange(...) ({...}, ptr @_ZTC...)'
+  // per construction vtable, and once a _ZTC table is retyped the SPIR-V writer
+  // aborts in transConstantUse() on the disagreement. Rebuild those GEPs against
+  // the new value type first, keeping indices, nowrap flags and inrange.
+  Type *OldValTy = Old->getValueType();
+  Type *NewValTy = New->getValueType();
+  SmallVector<ConstantExpr *, 8> GEPUsers;
+  for (User *U : Old->users())
+    if (auto *CE = dyn_cast<ConstantExpr>(U))
+      if (CE->getOpcode() == Instruction::GetElementPtr &&
+          cast<GEPOperator>(CE)->getSourceElementType() == OldValTy)
+        GEPUsers.push_back(CE);
+
+  for (ConstantExpr *CE : GEPUsers) {
+    auto *GEP = cast<GEPOperator>(CE);
+    SmallVector<Value *, 4> Idxs(CE->op_begin() + 1, CE->op_end());
+    Constant *NewCE = ConstantExpr::getGetElementPtr(
+        NewValTy, New, Idxs, GEP->getNoWrapFlags(), GEP->getInRange());
+    CE->replaceAllUsesWith(NewCE);
+  }
 
   Old->replaceAllUsesWith(New);
   std::string Name = Old->getName().str();
