@@ -24,9 +24,13 @@
 
 #include "HipWarps.h"
 
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Metadata.h>
 #include "llvm/IR/Module.h"
-#include <llvm/IR/Constants.h>
 
 #include "chipStarConfig.hh"
 
@@ -99,20 +103,56 @@ PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
       "_Z16__shfl_down_syncjijii",
       "_Z16__shfl_down_syncjfjii"};
 
-  bool SensitiveFuncFound = false;
-  for (auto &FuncName : WarpSizeSensitiveFuncNames) {
-    if (Mod.getNamedValue(FuncName)) {
-      SensitiveFuncFound = true;
-      break;
-    }
-  }
+  SmallPtrSet<Function *, 8> Sensitive;
+  for (auto &FuncName : WarpSizeSensitiveFuncNames)
+    if (auto *F = Mod.getFunction(FuncName))
+      Sensitive.insert(F);
 
-  if (!SensitiveFuncFound)
+  if (Sensitive.empty())
     return PreservedAnalyses::all();
+
+  // Kernels that perform an indirect call must not be stamped: the driver then
+  // delivers the correct 'this' but zero for every argument after it, silently.
+  // No error, no diagnostic, just wrong results.
+  //
+  // Since one shuffle declaration anywhere in the module stamps every kernel,
+  // and Kokkos_Core.hpp declares the shuffle intrinsics, a single #include used
+  // to break device-side virtual dispatch for a whole application. See
+  // tests/runtime/TestIndirectCallWithWarpPrimitive.hip.
+  //
+  // Everything else keeps the existing conservative behaviour. Narrowing the
+  // stamp to kernels that provably reach a sensitive function was tried and is
+  // wrong today: WarpSizeSensitiveFuncNames only lists some of the shuffle
+  // overloads, so Kokkos' own reductions lost the subgroup size they rely on
+  // and started accumulating each contribution several times.
+  //
+  // A kernel that both dispatches indirectly and shuffles cannot be served
+  // either way; correct arguments are the more useful half.
+  auto reachesIndirectCall = [](Function &Kernel) {
+    SmallPtrSet<Function *, 16> Seen;
+    SmallVector<Function *, 16> Worklist{&Kernel};
+    Seen.insert(&Kernel);
+    while (!Worklist.empty()) {
+      Function *F = Worklist.pop_back_val();
+      for (Instruction &I : instructions(*F)) {
+        auto *CB = dyn_cast<CallBase>(&I);
+        if (!CB || CB->isInlineAsm())
+          continue;
+        Function *Callee = CB->getCalledFunction();
+        if (!Callee)
+          return true; // Calls through a value: a vtable slot, a callback, ...
+        if (!Callee->isDeclaration() && Seen.insert(Callee).second)
+          Worklist.push_back(Callee);
+      }
+    }
+    return false;
+  };
 
   auto &Ctx = Mod.getContext();
   for (auto &F : Mod) {
     if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
+      continue;
+    if (reachesIndirectCall(F))
       continue;
 
     IntegerType *I32Type = IntegerType::get(Ctx, 32);
