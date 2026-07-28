@@ -78,6 +78,7 @@ add_hip_runtime_test(TestCompileError.hip)
 # so we need to clear the default FAIL regex which would match "FAILURE"
 set_tests_properties(TestCompileError PROPERTIES FAIL_REGULAR_EXPRESSION "")
 add_hip_runtime_test(TestGlobalVarInit.hip)
+add_hip_runtime_test(TestGlobalVarInitClasses.hip)
 add_hip_runtime_test(TestArgVisitors.cpp)
 add_hip_runtime_test(TestLargeKernelArgLists.hip)
 add_hip_runtime_test(TestStlFunctions.hip)

@@ -692,8 +692,15 @@ private:
   // It have to be queried via shadow kernels.
   size_t Alignment_ = 0;
   /// Tells if the variable has an initializer. NOTE: Variables are
-  /// initialized via a shadow kernel.
+  /// initialized via a shadow kernel unless InitializedByHostFill_ is set.
   bool HasInitializer_ = false;
+  /// Tells if the variable's initialization is performed by a host-issued
+  /// device fill (Queue::memFillAsync) instead of the init shadow kernel.
+  /// Set for zero-initialized variables which are at least
+  /// ChipVarFillThreshold bytes: for those the lowering pass omits the
+  /// initialization from the init shadow kernel entirely (CHIPVarInfo[2] == 2,
+  /// see src/common.hh) and expects the runtime to fill the storage.
+  bool InitializedByHostFill_ = false;
 
 public:
   DeviceVar(const SPVVariable *SrcVar) : SrcVar_(SrcVar) {}
@@ -711,6 +718,12 @@ public:
   }
   bool hasInitializer() const { return HasInitializer_; }
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
+  /// True if this variable is initialized by a host-issued device fill rather
+  /// than by the init shadow kernel. Only meaningful when hasInitializer().
+  bool isInitializedByHostFill() const { return InitializedByHostFill_; }
+  void markInitializedByHostFill(bool State = true) {
+    InitializedByHostFill_ = State;
+  }
 };
 
 class Event : public ihipEvent_t {
