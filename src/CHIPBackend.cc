@@ -1473,6 +1473,12 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
 
   logDebug("Compile module {}", static_cast<const void *>(&SrcMod));
 
+  // The backend compiler runs with DeviceVarMtx held, and some backends end
+  // the process with exit() rather than reporting a rejected module. Let
+  // CHIPUninitializeCallOnce() detect that so it does not deadlock on the lock
+  // held here.
+  BackendModuleBuildScope BuildScope;
+
   auto start = std::chrono::high_resolution_clock::now();
   auto *Module = compile(SrcMod);
   auto end = std::chrono::high_resolution_clock::now();

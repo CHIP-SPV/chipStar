@@ -105,6 +105,31 @@ void CHIPInitializeCallOnce();
  */
 void CHIPUninitializeCallOnce();
 
+/**
+ * @brief
+ * True while the calling thread is inside a backend module build.
+ *
+ * Some backend compilers end the process with exit() instead of reporting a
+ * rejected module. PoCL's SPIR-V reader does this when the module needs an
+ * extension the target does not have, e.g. SPV_INTEL_function_pointers. exit()
+ * runs chipStar's atexit handler on the same thread, so the handler must not
+ * try to take the device lock the build is still holding.
+ */
+bool isThreadInBackendModuleBuild();
+
+/**
+ * @brief
+ * Marks the calling thread as being inside a backend module build for the
+ * lifetime of the object. See isThreadInBackendModuleBuild().
+ */
+class BackendModuleBuildScope {
+public:
+  BackendModuleBuildScope();
+  ~BackendModuleBuildScope();
+  BackendModuleBuildScope(const BackendModuleBuildScope &) = delete;
+  BackendModuleBuildScope &operator=(const BackendModuleBuildScope &) = delete;
+};
+
 extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles);
 

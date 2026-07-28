@@ -203,10 +203,33 @@ extern void CHIPInitialize() {
   std::call_once(Initialized, &CHIPInitializeCallOnce);
 }
 
+/// Nesting depth of backend module builds on this thread.
+static thread_local unsigned BackendModuleBuildDepth = 0;
+
+bool isThreadInBackendModuleBuild() { return BackendModuleBuildDepth > 0; }
+
+BackendModuleBuildScope::BackendModuleBuildScope() { ++BackendModuleBuildDepth; }
+
+BackendModuleBuildScope::~BackendModuleBuildScope() { --BackendModuleBuildDepth; }
+
 void CHIPUninitializeCallOnce() {
   logDebug("Uninitializing CHIP...");
   if (ChipEnvVars.getSkipUninit()) {
     logWarn("Uninitialization skipped");
+    return;
+  }
+  if (isThreadInBackendModuleBuild()) {
+    // The backend compiler ended the process from inside a module build, so
+    // this runs as an atexit handler on the thread that is still holding
+    // Device::DeviceVarMtx. Tearing down here would block on that lock
+    // forever, turning a device compiler error into a silent hang.
+    logError("chipStar shutdown was entered from inside a backend module "
+             "build: the device compiler ended the process instead of "
+             "reporting an error. This normally means the device does not "
+             "support a capability the SPIR-V module requires, such as "
+             "SPV_INTEL_function_pointers for indirect calls. Skipping "
+             "runtime teardown, which would deadlock on the lock the build is "
+             "still holding.");
     return;
   }
   if (Backend) {
