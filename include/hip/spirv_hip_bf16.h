@@ -319,7 +319,12 @@ __device__ inline __hip_bfloat162 __lows2bfloat162(const __hip_bfloat162 a, cons
  * \brief Reinterprets short int into a bfloat16
  */
 __device__ inline __hip_bfloat16 __short_as_bfloat16(const short int a) {
-  return __hip_bfloat16{(unsigned short)a};
+  // Not __hip_bfloat16{a}: the type is not an aggregate here, so that would
+  // select the converting constructor from float and turn a bit pattern into
+  // a numeric conversion.
+  __hip_bfloat16 r;
+  r.data = (unsigned short)a;
+  return r;
 }
 
 /**
@@ -327,7 +332,9 @@ __device__ inline __hip_bfloat16 __short_as_bfloat16(const short int a) {
  * \brief Reinterprets unsigned short int into a bfloat16
  */
 __device__ inline __hip_bfloat16 __ushort_as_bfloat16(const unsigned short int a) {
-  return __hip_bfloat16{a};
+  __hip_bfloat16 r;
+  r.data = a;
+  return r;
 }
 
 
