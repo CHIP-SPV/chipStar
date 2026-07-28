@@ -149,10 +149,11 @@ add_shell_test(TestHipcc692Regression.bash)
 add_shell_test(TestHipccFileOrderPreservation.bash)
 add_shell_test(TestHipcc945MacroSpace.bash)
 add_shell_test(TestHipccArgOrder.bash)
-# Separate compilation uses clang-offload-bundler which calls llvm-objcopy
-# with options not supported on MachO (macOS).
+# Separate compilation and -fgpu-rdc use clang-offload-bundler which calls
+# llvm-objcopy with options not supported on MachO (macOS).
 if(NOT APPLE)
   add_shell_test(TestSeparateCompilation.bash)
+  add_shell_test(TestRDCNoDataLayoutWarning.bash)
 endif()
 add_subdirectory(rdcLink)
 add_test(NAME "TestHipccMultiSource" COMMAND 
