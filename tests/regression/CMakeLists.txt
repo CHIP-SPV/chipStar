@@ -13,3 +13,15 @@ set_tests_properties(TestFixUmul64hi PROPERTIES
   TIMEOUT 60)
 
 add_hip_test(test_shutdown_crossqueue_dep.cpp)
+
+add_hip_test(TestFixCompilerExitDuringModuleBuild.cpp)
+# A backend compiler that rejects a SPIR-V module by calling exit() (PoCL does
+# this for unsupported extensions) used to deadlock chipStar: the atexit
+# handler re-entered Device::DeviceVarMtx, which the same thread was already
+# holding across the build. The test bounds itself, so the TIMEOUT below is
+# only a backstop.
+set_tests_properties(TestFixCompilerExitDuringModuleBuild PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS"
+  FAIL_REGULAR_EXPRESSION "FAIL"
+  TIMEOUT 120)
+target_link_libraries(TestFixCompilerExitDuringModuleBuild ${CMAKE_DL_LIBS})
