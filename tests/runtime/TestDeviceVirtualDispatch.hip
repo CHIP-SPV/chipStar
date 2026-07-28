@@ -128,6 +128,36 @@ __global__ void indirectDispatchKernel(const int *Sel, double *Area) {
   Area[I] = areaOf(Table[Sel[I] & 1]);
 }
 
+// Dispatch through an *abstract* base. Clang keeps a __cxa_pure_virtual slot in
+// the vtable of any class with an unoverridden pure virtual member, and the
+// device side has to define that symbol (CHIP-SPV/chipStar#1381). Without it
+// the consumer rejects the module and every kernel in the program silently
+// fails to build, while launches keep reporting hipSuccess.
+struct Abstract {
+  __device__ virtual ~Abstract() {}
+  __device__ virtual double area() const = 0;
+};
+
+struct AbstractRect final : Abstract {
+  double W, H;
+  __device__ AbstractRect(double W_, double H_) : W(W_), H(H_) {}
+  __device__ double area() const final { return W * H; }
+};
+
+struct AbstractSquare final : Abstract {
+  double S;
+  __device__ explicit AbstractSquare(double S_) : S(S_) {}
+  __device__ double area() const final { return S * S; }
+};
+
+__global__ void pureVirtualKernel(const int *Sel, double *Area) {
+  int I = threadIdx.x;
+  AbstractRect R(3.0, 4.0);
+  AbstractSquare Sq(5.0);
+  const Abstract *Table[2] = {&R, &Sq};
+  Area[I] = Table[Sel[I] & 1]->area();
+}
+
 int main() {
   int DeviceCount = 0;
   hipError_t Err = hipGetDeviceCount(&DeviceCount);
@@ -147,6 +177,7 @@ int main() {
   double WantArea[N] = {4.0, 12.0, 12.0, 4.0};
   int WantTag[N] = {1, 2, 2, 1};
   double WantIndirectArea[N] = {9.0, 27.0, 27.0, 9.0};
+  double WantPureVirtualArea[N] = {12.0, 25.0, 25.0, 12.0};
 
   int *DSel = nullptr;
   double *DArea = nullptr;
@@ -191,6 +222,24 @@ int main() {
     if (HArea[I] != WantIndirectArea[I]) {
       printf("FAIL: indirectDispatch[%d]: area=%f (want %f)\n", I, HArea[I],
              WantIndirectArea[I]);
+      Ok = false;
+    }
+  }
+
+  for (int I = 0; I < N; I++)
+    HArea[I] = 0;
+  pureVirtualKernel<<<1, N>>>(DSel, DArea);
+  (void)hipDeviceSynchronize();
+  Err = hipGetLastError();
+  if (Err != hipSuccess) {
+    printf("FAIL: pureVirtualKernel: %s\n", hipGetErrorString(Err));
+    Ok = false;
+  }
+  (void)hipMemcpy(HArea, DArea, N * sizeof(double), hipMemcpyDeviceToHost);
+  for (int I = 0; I < N; I++) {
+    if (HArea[I] != WantPureVirtualArea[I]) {
+      printf("FAIL: pureVirtual[%d]: area=%f (want %f)\n", I, HArea[I],
+             WantPureVirtualArea[I]);
       Ok = false;
     }
   }
