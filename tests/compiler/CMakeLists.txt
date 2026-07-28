@@ -158,6 +158,8 @@ add_shell_test(TestHipccArgOrder.bash)
 if(NOT APPLE)
   add_shell_test(TestSeparateCompilation.bash)
   add_shell_test(TestRDCNoDataLayoutWarning.bash)
+  # Two translation units both including hip_bf16.h, device-linked with -fgpu-rdc.
+  add_shell_test(TestBFloat16RDC.bash)
 endif()
 add_subdirectory(rdcLink)
 add_test(NAME "TestHipccMultiSource" COMMAND 
