@@ -167,7 +167,28 @@ MagicResult seekToMagic(const void *Bundle) {
   return {nullptr, BinaryType::UNKNOWN};
 }
 
-std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
+/// Extract the SPIR-V module from \p Bundle.
+///
+/// \p BundleSize is the number of bytes readable at \p Bundle. It bounds the
+/// bundle-descriptor walk below, which is otherwise driven entirely by values
+/// read out of the buffer: a non-bundle input that merely *contains* the magic
+/// string yields a garbage entry count and garbage triple sizes, and the walk
+/// runs off the end. Callers that do not know the size may leave it at
+/// SIZE_MAX to keep the historical (unchecked) behaviour.
+std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg,
+                                    size_t BundleSize = SIZE_MAX) {
+  const char *BufBegin = static_cast<const char *>(Bundle);
+  // Saturating end pointer: with the SIZE_MAX default there is no bound to
+  // enforce, and forming BufBegin + SIZE_MAX would itself be UB.
+  const char *BufEnd =
+      BundleSize == SIZE_MAX ? nullptr : BufBegin + BundleSize;
+  // True when [P, P+N) lies within the caller-declared buffer.
+  auto InBounds = [&](const char *P, size_t N) -> bool {
+    if (!BufEnd)
+      return true; // size unknown; nothing to check
+    return P >= BufBegin && N <= static_cast<size_t>(BufEnd - P);
+  };
+
   // Use seekToMagic to find the start of the bundle or SPIR-V
   auto magicResult = seekToMagic(Bundle);
   if (!magicResult.ptr) {
@@ -209,16 +230,28 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
   using HeaderT = __ClangOffloadBundleHeader;
   using EntryT = __ClangOffloadBundleDesc;
   const auto *Header = (const char *)Bundle;
+  if (!InBounds(Header, sizeof(HeaderT))) {
+    ErrorMsg = "Truncated Clang offload bundle header";
+    return std::string_view();
+  }
   auto NumBundles = _copyAs<uint64_t>(Header, offsetof(HeaderT, numBundles));
 
   // std::cout << "Number of bundles: " << NumBundles << std::endl;
 
   const char *Desc = Header + offsetof(HeaderT, desc);
   for (size_t i = 0; i < NumBundles; i++) {
+    if (!InBounds(Desc, offsetof(EntryT, triple))) {
+      ErrorMsg = "Clang offload bundle descriptor runs past end of buffer";
+      return std::string_view();
+    }
     auto Offset = _copyAs<uint64_t>(Desc, offsetof(EntryT, offset));
     auto Size = _copyAs<uint64_t>(Desc, offsetof(EntryT, size));
     auto TripleSize = _copyAs<uint64_t>(Desc, offsetof(EntryT, tripleSize));
     const char *Triple = Desc + offsetof(EntryT, triple);
+    if (!InBounds(Triple, TripleSize)) {
+      ErrorMsg = "Clang offload bundle entry triple runs past end of buffer";
+      return std::string_view();
+    }
     std::string_view EntryID(Triple, TripleSize);
 
     // std::cout << "Bundle " << i << ":" << std::endl;
@@ -234,6 +267,10 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg) {
         EntryID == "hip-spir64-unknown-unknown") {
       // std::cout << "Found SPIR-V bundle" << std::endl;
       const char *spirvData = Header + Offset;
+      if (!InBounds(spirvData, std::max<uint64_t>(Size, sizeof(uint32_t)))) {
+        ErrorMsg = "Clang offload bundle entry payload runs past end of buffer";
+        return std::string_view();
+      }
       uint32_t magic;
       std::memcpy(&magic, spirvData, sizeof(uint32_t));
       // std::cout << "Magic at offset: 0x" << std::hex << magic << std::dec

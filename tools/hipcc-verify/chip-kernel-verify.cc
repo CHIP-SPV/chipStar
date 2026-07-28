@@ -224,11 +224,26 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // A *textual* offload bundle (what `hipcc -E` emits) spells the bundler
+  // magic out in ASCII inside its delimiter comments:
+  //   // __CLANG_OFFLOAD_BUNDLE____START__ hip-spirv64----generic
+  // seekToMagic() matches that literal and extractSPIRVModule() then reads the
+  // following ASCII as a binary __ClangOffloadBundleHeader, yielding a garbage
+  // entry count and walking off the buffer. Detect the textual form by its
+  // comment prefix and skip: there is no SPIR-V in preprocessed output anyway.
+  {
+    static constexpr char kTextBundlePrefix[] = "// __CLANG_OFFLOAD_BUNDLE__";
+    constexpr size_t kPrefixLen = sizeof(kTextBundlePrefix) - 1;
+    if (buf.size() >= kPrefixLen &&
+        std::memcmp(buf.data(), kTextBundlePrefix, kPrefixLen) == 0)
+      return 0;
+  }
+
   constexpr size_t kScanPad = 1024 * 1024 + 64;
   if (buf.size() < kScanPad) buf.resize(kScanPad, 0);
 
   std::string err;
-  std::string_view spirv = extractSPIRVModule(buf.data(), err);
+  std::string_view spirv = extractSPIRVModule(buf.data(), err, buf.size());
   if (spirv.empty()) {
     // No HIP fatbin present (e.g. plain C object, or preprocess-only). Not an
     // error — just nothing to check.
