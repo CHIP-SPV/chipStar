@@ -142,6 +142,8 @@ add_shell_test(TestHipcc621.bash)
 add_shell_test(TestHipccAcceptCFiles.bash)
 add_shell_test(TestRDCWithSingleHipccCmd.bash)
 add_shell_test(TestRDCWithMultipleHipccCmds.bash)
+# Two translation units both including hip_bf16.h, device-linked with -fgpu-rdc.
+add_shell_test(TestBFloat16RDC.bash)
 add_shell_test(TestWholeProgramCompilation.bash)
 add_shell_test(TestHipccDashX.bash)
 add_shell_test(TestHipccFp16Include.bash)
