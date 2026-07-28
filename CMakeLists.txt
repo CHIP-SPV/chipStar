@@ -755,12 +755,17 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 # -no-hip-rt: Prevents linking amdhip64 library implicitly when doing
 #             combined compile and link or when the --hip-link is
 #             present at the link step.
+#
+# ocml_host_math_funcs is a host-only static library; pass it via -Wl, so
+# clang's static-device-library handling does not unbundle it into empty
+# device bitcode during -fgpu-rdc links (spurious "different data layouts"
+# warnings from llvm-link, see issue #525).
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
   ${HIP_SYSROOT_LINK_OPTIONS}
-  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
+  "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
   ${HIP_SYSROOT_LINK_OPTIONS}
-  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -locml_host_math_funcs")
+  "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 
 if(OpenCL_LIBRARY)
   target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
