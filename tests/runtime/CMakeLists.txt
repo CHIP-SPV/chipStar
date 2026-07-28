@@ -98,6 +98,9 @@ add_shell_test(TestModuleLoadFromFile.bash)
 add_shell_test(TestLinkHiprtc.bash)
 
 add_hip_runtime_test(TestIndirectCall.hip)
+# An indirect call must keep its arguments even when a warp primitive elsewhere
+# in the module makes HipWarpsPass stamp intel_reqd_sub_group_size.
+add_hip_runtime_test(TestIndirectCallWithWarpPrimitive.hip)
 add_hip_runtime_test(TestStructWithFnPtr.hip)
 add_hip_runtime_test(TestHipInit.hip)
 
