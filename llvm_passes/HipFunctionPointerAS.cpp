@@ -433,11 +433,59 @@ static bool fixIndirectCalls(Module &M) {
   return true;
 }
 
+/// Erase C++ vtable-family globals that nothing in the module refers to.
+///
+/// Clang emits the vtable, VTT, construction vtables and RTTI of any
+/// polymorphic class that merely *appears* in device code, even when no device
+/// code ever dispatches through them. Trilinos hits this hard: Tpetra::RowMatrix
+/// is host-only polymorphic with virtual bases, so every HIP explicit
+/// instantiation carries a dead _ZTV/_ZTT/_ZTC set whose slots are almost all
+/// null and whose virtual base offsets are inttoptr constants. Translating them
+/// crashes llvm-spirv inside transConstantUse():
+///
+///   Assertion `(C->getType()->isPointerTy() ||
+///               ExpectedType->isTypeUntypedPointerKHR()) &&
+///              "Only pointer type mismatches should be possible"' failed.
+///
+/// GlobalDCE leaves them alone because they sit in comdats. A chipStar device
+/// module is self-contained - nothing outside it can link against these symbols
+/// - so dropping the unreferenced ones is safe and keeps the module
+/// translatable. Only the Itanium vtable prefixes are considered, so runtime
+/// visible globals such as __chip_var_* are never touched.
+static bool eraseUnusedVTableGlobals(Module &M) {
+  static const StringRef Prefixes[] = {"_ZTV", "_ZTT", "_ZTC", "_ZTI", "_ZTS"};
+
+  bool Changed = false;
+  bool Again = true;
+  while (Again) {
+    Again = false;
+    SmallVector<GlobalVariable *, 8> Dead;
+    for (GlobalVariable &GV : M.globals()) {
+      if (!GV.use_empty() || GV.hasExternalLinkage() || GV.isDeclaration())
+        continue;
+      StringRef Name = GV.getName();
+      if (llvm::any_of(Prefixes,
+                       [&](StringRef P) { return Name.starts_with(P); }))
+        Dead.push_back(&GV);
+    }
+    for (GlobalVariable *GV : Dead) {
+      // Dropping the initializer first lets a VTT release the construction
+      // vtables it points at, so the next round can collect those too.
+      GV->setComdat(nullptr);
+      GV->setInitializer(nullptr);
+      GV->eraseFromParent();
+      Changed = Again = true;
+    }
+  }
+  return Changed;
+}
+
 } // namespace
 
 PreservedAnalyses HipFunctionPointerASPass::run(Module &M,
                                                 ModuleAnalysisManager &AM) {
-  bool Changed = fixGlobalInitializers(M);
+  bool Changed = eraseUnusedVTableGlobals(M);
+  Changed |= fixGlobalInitializers(M);
   Changed |= fixIndirectCalls(M);
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
