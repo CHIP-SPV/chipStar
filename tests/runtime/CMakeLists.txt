@@ -247,3 +247,8 @@ add_hip_runtime_test(TestSyncthreadsAndOrCount.hip)
 # __clz(0)-poison miscompile only manifests at -O1 and above.
 add_hip_runtime_test(TestSnakeMiscompileO2.hip)
 target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
+
+# Device side C++ virtual dispatch (CHIP-SPV/chipStar#1373). Skips itself at
+# runtime on stacks without SPV_INTEL_function_pointers; the compile side is
+# covered on every target by tests/compiler/TestDeviceVirtualFunctions.hip.
+add_hip_runtime_test(TestDeviceVirtualDispatch.hip)
