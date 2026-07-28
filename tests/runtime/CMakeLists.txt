@@ -1,5 +1,4 @@
-#=============================================================================
-#  CMake build system files
+#======================================================================#  CMake build system files
 #
 #  Copyright (c) 2023 chipStar developers
 #
@@ -21,8 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 #  THE SOFTWARE.
 #
-#=============================================================================
-
+#======================================================================
 set(CHIP_SKIP_TEST 77)
 
 function(add_hip_runtime_test MAIN_SOURCE)
@@ -267,3 +265,6 @@ add_test(NAME TestModuleCacheInvalidation
     -P ${CMAKE_SOURCE_DIR}/tests/run_module_cache_invalidation_test.cmake)
 set_tests_properties(TestModuleCacheInvalidation PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+# __short_as_bfloat16 / __ushort_as_bfloat16 must reinterpret bits (#1385).
+add_hip_runtime_test(TestBFloat16AsCasts.hip)
