@@ -33,6 +33,7 @@
 #include "HipLowerFPAtomicMinMax.h"
 #include "HipIGBADetector.h"
 #include "HipPromoteInts.h"
+#include "HipLowerOverflowIntrinsics.h"
 #include "HipSpirvFunctionReorderPass.h"
 #include "HipVerify.h"
 #include "HipCanonicalizeGEP.h"
@@ -210,6 +211,15 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Fix InvalidBitWidth errors due to non-standard integer types
   addPassWithVerification(MPM, HipPromoteIntsPass(), "HipPromoteIntsPass");
 
+  // Expand llvm.{u,s}mul.with.overflow, which clang emits for device-side
+  // array-new and __builtin_mul_overflow. Left in place, the backend lane
+  // emits OpUMulExtended, which IGC rejects with an undefined reference to
+  // _Z20__spirv_UMulExtendedll, and the translator lane cannot lower the
+  // signed intrinsic at all. Either failure takes down every kernel in the
+  // module.
+  addPassWithVerification(MPM, HipLowerOverflowIntrinsicsPass(),
+                          "HipLowerOverflowIntrinsicsPass");
+
   // Must be last: removes __chip_*/__hip_* globals and stubs their users.
   // Runs after HipIGBADetectorPass which creates __chip_module_has_no_IGBAs.
   addPassWithVerification(MPM, HipCleanupPass(), "HipCleanupPass");
@@ -253,6 +263,12 @@ llvmGetPassPluginInfo() {
                   // Register merged IR+SPIR-V validation pass as standalone (legacy - use hip-verify instead)
                   if (Name == "ir-spirv-validate") {
                     MPM.addPass(HipVerifyPass("IR+SPIR-V validation"));
+                    return true;
+                  }
+                  // Register the overflow intrinsic lowering as standalone,
+                  // which makes it directly testable with opt.
+                  if (Name == "hip-lower-overflow-intrinsics") {
+                    MPM.addPass(HipLowerOverflowIntrinsicsPass());
                     return true;
                   }
                   // Register SPIR-V function reorder pass as standalone
