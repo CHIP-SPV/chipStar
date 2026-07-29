@@ -71,3 +71,7 @@ set_tests_properties(TestStdModfFloat PROPERTIES
 add_hip_test(TestAtomicIncDecMod.cpp)
 set_tests_properties(TestAtomicIncDecMod PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
+
+add_hip_test(TestAtomicFPMinMaxBuiltins.cpp)
+set_tests_properties(TestAtomicFPMinMaxBuiltins PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
