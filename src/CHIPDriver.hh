@@ -356,7 +356,10 @@ private:
         DumpProcessedSpirvDir_ = value;
     }
 
-    if (readEnvVar("CHIP_MODULE_CACHE_DIR", value, true)) {
+    // Lower = false: this is a filesystem path, and lowercasing it either
+    // sends the cache somewhere the user did not ask for or, if that path is
+    // not creatable, aborts the process.
+    if (readEnvVar("CHIP_MODULE_CACHE_DIR", value, false)) {
       if (value.size())
         ModuleCacheDir_ = value;
     } else {
