@@ -200,6 +200,26 @@ __HIP_OVERLOAD1(double, atan);
 __HIP_OVERLOAD1(double, acos);
 __HIP_OVERLOAD1(double, asin);
 __HIP_OVERLOAD1(double, tan);
+
+// libstdc++ pulls the C `modf` into std with a using-declaration, which covers
+// the double overload, but its float overload is a host-only inline. The device
+// `float modf(float, float *)` lives in the global namespace only, so a device
+// call written as `using std::modf; modf(x, &integral)` has no viable candidate
+// (float * does not convert to double *). Kokkos writes every math call that
+// way.
+//
+// Re-export the global overload set rather than declaring a new function here.
+// libstdc++'s <math.h> does `using std::modf;` at global scope, so a distinct
+// std::modf(float, float *) would collide with the global one declared in
+// devicelib/single_precision/sp_math.hh:
+//
+//   math.h:54:12: error: target of using declaration conflicts with
+//   declaration already in scope
+//
+// and every translation unit that includes <math.h> would stop compiling. A
+// using-declaration names the same entity, so bouncing it back out to the
+// global namespace is a no-op.
+using ::modf;
 } // namespace std
 
 #pragma pop_macro("__DEF_FLOAT_FUN")
