@@ -21,4 +21,13 @@ set_tests_properties(TestFix1391UmulWithOverflow PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL"
   TIMEOUT 60)
 
+add_hip_test(TestFix1396ModuleCacheDir.hip)
+# Reproduce #1396: CHIP_MODULE_CACHE_DIR was read through readEnvVar with
+# Lower = true, which lowercased the path and sent the cache somewhere the
+# user did not ask for, or aborted the process outright.
+set_tests_properties(TestFix1396ModuleCacheDir PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS"
+  FAIL_REGULAR_EXPRESSION "FAIL"
+  TIMEOUT 60)
+
 add_hip_test(test_shutdown_crossqueue_dep.cpp)
