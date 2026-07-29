@@ -13,9 +13,8 @@ set_tests_properties(TestFixUmul64hi PROPERTIES
   TIMEOUT 60)
 
 add_hip_test(TestFix1391UmulWithOverflow.hip)
-# Reproduce #1391: llvm.umul.with.overflow reaching SPIR-V as a
-# spirv.llvm_umul_with_overflow_* helper, which the consumer maps back to the
-# intrinsic and leaves as an undefined old_llvm.umul.with.overflow.i64,
+# Reproduce #1391: llvm.umul.with.overflow reaching SPIR-V as OpUMulExtended,
+# which IGC rejects with an undefined reference to _Z20__spirv_UMulExtendedll,
 # failing the build of every kernel in the module.
 set_tests_properties(TestFix1391UmulWithOverflow PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS"

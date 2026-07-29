@@ -1,24 +1,23 @@
-// Regression test for: llvm.umul.with.overflow in device code must not reach
-// the SPIR-V consumer as a spirv.llvm_umul_with_overflow_* helper.
+// Regression test for: llvm.{u,s}mul.with.overflow in device code must not
+// reach the SPIR-V consumer.
 //
 // Bug (#1391): clang emits llvm.umul.with.overflow.i64 for the count times
 // size computation of a device-side "new T[n]", and for __builtin_mul_overflow.
-// The LLVM SPIR-V producer cannot express the intrinsic, so it emits a helper
-// function named spirv.llvm_umul_with_overflow_i64 and calls that. The
-// consumer reads the SPIR-V back into LLVM IR, maps the helper onto the
-// intrinsic again, renames the declaration to old_llvm.umul.with.overflow.i64
-// and never gives it a body:
+// Through the in-tree SPIR-V backend the intrinsic becomes OpUMulExtended,
+// whose operands IGC's SPIR-V reader mangles as signed while its builtin
+// module defines only the unsigned overloads:
 //
-//   error: undefined reference to `old_llvm.umul.with.overflow.i64'
+//   error: undefined reference to `_Z20__spirv_UMulExtendedll'
 //   error: backend compiler failed build.
 //
-// chipStar puts all device code of a binary into one module, so that single
-// unresolved symbol makes every kernel in the program fail to build, while
-// hipDeviceSynchronize() keeps returning hipSuccess and the outputs keep
-// their initial values.
+// Through the llvm-spirv translator, llvm.smul.with.overflow has no lowering
+// and translation aborts outright. chipStar puts all device code of a binary
+// into one module, so either failure makes every kernel in the program fail to
+// build, while hipDeviceSynchronize() keeps returning hipSuccess and the
+// outputs keep their initial values.
 //
 // Fix: expand llvm.{u,s}mul.with.overflow into plain integer arithmetic in the
-// post-link pass pipeline so the construct never reaches SPIR-V.
+// post-link pass pipeline so neither construct reaches SPIR-V.
 //
 // This uses __builtin_mul_overflow rather than "new T[n]" so it exercises the
 // intrinsic without also depending on the device heap.
