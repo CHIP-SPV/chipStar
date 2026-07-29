@@ -102,7 +102,8 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipCleanup.cpp HipTextureLowering.cpp HipAbort.cpp
     HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
-    HipLowerMemset.cpp HipIGBADetector.cpp HipPromoteInts.cpp
+    HipLowerMemset.cpp HipLowerRoundIntrinsics.cpp
+    HipIGBADetector.cpp HipPromoteInts.cpp
     HipSpirvFunctionReorderPass.cpp
     HipVerify.cpp
     ${EXTRA_OBJS})
