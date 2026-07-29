@@ -26,10 +26,13 @@
 #include "logging.hh"
 #include "iostream"
 #include "CHIPException.hh"
+#include <type_traits>
 
 #define CONCAT(a, b) CONCAT_INNER(a, b)
 #define CONCAT_INNER(a, b) a##b
-#define LOCK(x) std::lock_guard<std::mutex> CONCAT(Lock, __LINE__)(x);
+#define LOCK(x)                                                                \
+  std::lock_guard<std::remove_reference_t<decltype(x)>>                        \
+      CONCAT(Lock, __LINE__)(x);
 
 #ifdef CHIP_ERROR_IF_NOT_IMPLEMENTED
 #define UNIMPLEMENTED(x)                                                       \
