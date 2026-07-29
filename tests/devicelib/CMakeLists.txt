@@ -63,3 +63,7 @@ set_tests_properties(irif_no_i128 PROPERTIES
 add_hip_test(TestAtomicMinMaxFloat.cpp)
 set_tests_properties(TestAtomicMinMaxFloat PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
+
+add_hip_test(TestStdLlroundFloat.cpp)
+set_tests_properties(TestStdLlroundFloat PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
