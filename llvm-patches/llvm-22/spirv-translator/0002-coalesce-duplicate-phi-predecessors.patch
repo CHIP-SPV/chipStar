@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: chipStar <noreply@chip-spv>
 Date: Wed, 18 Jun 2026 00:00:00 +0000
-Subject: [PATCH] Coalesce duplicate predecessors when emitting OpPhi
+Subject: [PATCH 2/2] Coalesce duplicate predecessors when emitting OpPhi
 
 LLVM IR allows a PHI to list the same predecessor block more than once
 (e.g. a switch with several cases branching to the same block); the LLVM
@@ -12,15 +12,20 @@ predecessor, so emitting the duplicates verbatim yields invalid SPIR-V
 count"), which IGC then mis-handles (nondeterministic crash / miscompile).
 
 Skip duplicate predecessor entries when building the OpPhi operand list.
+
+Applies-to: SPIRV-LLVM-Translator llvm_release_220
+Upstream-status: same defect fixed upstream-pending in
+KhronosGroup/SPIRV-LLVM-Translator#3866 (approved, unmerged).
+chipStar regression test: tests/compiler/TestSpirvDuplicatePhiHip.hip.
 ---
- lib/SPIRV/SPIRVWriter.cpp | 13 +++++++++++--
+ lib/SPIRV/SPIRVWriter.cpp | 11 +++++++++++
  1 file changed, 11 insertions(+)
 
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
-index b3cb24b..eb14297 100644
+index 880ae90..919db5e 100644
 --- a/lib/SPIRV/SPIRVWriter.cpp
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -2546,7 +2546,18 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
+@@ -2563,7 +2563,18 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
      std::vector<SPIRVValue *> IncomingPairs;
      SPIRVType *Ty = transScavengedType(Phi);
  

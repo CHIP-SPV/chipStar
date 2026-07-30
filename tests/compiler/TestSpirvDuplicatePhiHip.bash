@@ -1,5 +1,6 @@
 #!/bin/bash
-# Regression test for llvm-patches/spirv-translator/0005
+# Regression test for the coalesce-duplicate-phi-predecessors patch in
+# llvm-patches/llvm-<version>/spirv-translator/
 # (coalesce duplicate-predecessor OpPhi). Compiles a small HIP kernel that
 # mirrors a real-world crash pattern, keeps the lowered device bitcode, translates
 # it to SPIR-V with the build's llvm-spirv, and validates it.

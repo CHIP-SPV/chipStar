@@ -1,0 +1,155 @@
+From a3470a72159635f5ac0c473eeabd6c69cb15a792 Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@pglc.io>
+Date: Mon, 19 Jan 2026 22:39:47 +0200
+Subject: [PATCH 5/5] Fix HIP SPIR-V compilation on macOS hosts
+
+Make the HIPSPV offload flow work with a Darwin host toolchain:
+
+- Use Mach-O "segment,section" names for the HIP fatbin sections
+  (CGCUDANV and HIPUtility) since ELF-style names are invalid on macOS.
+- Guard Darwin toolchain paths (addClangWarningOptions, CheckObjCARC,
+  getSupportedSanitizers) against an uninitialized target, which occurs
+  when Darwin serves as the host toolchain for HIP/CUDA offloading.
+- Return an empty version tuple from alignedAllocMinVersion for
+  unknown/unsupported OS types (e.g. SPIRV device triples) instead of
+  hitting llvm_unreachable.
+- Stop delegating HIPSPVToolChain::addClangTargetOptions to the host
+  toolchain: on Darwin it injects flags like -faligned-alloc-unavailable
+  that are specific to macOS libc++ and break SPIR-V device compilation.
+
+Applies-to: LLVM release/21.x
+Upstream-Status: Upstreamed via llvm#183991 (commit 264ac2d3af1b) and
+llvm#206902; still needed on 21.x.
+---
+ clang/include/clang/Basic/AlignedAllocation.h |  6 +++---
+ clang/lib/CodeGen/CGCUDANV.cpp                | 10 +++++++---
+ clang/lib/Driver/ToolChains/Darwin.cpp        | 15 +++++++++++++++
+ clang/lib/Driver/ToolChains/HIPSPV.cpp        |  6 +++++-
+ clang/lib/Driver/ToolChains/HIPUtility.cpp    |  7 +++++--
+ 5 files changed, 35 insertions(+), 9 deletions(-)
+
+diff --git a/clang/include/clang/Basic/AlignedAllocation.h b/clang/include/clang/Basic/AlignedAllocation.h
+index ac26eb4..21bb7e2 100644
+--- a/clang/include/clang/Basic/AlignedAllocation.h
++++ b/clang/include/clang/Basic/AlignedAllocation.h
+@@ -24,7 +24,9 @@ namespace clang {
+ inline llvm::VersionTuple alignedAllocMinVersion(llvm::Triple::OSType OS) {
+   switch (OS) {
+   default:
+-    break;
++    // For unknown/unsupported OS types (e.g. SPIRV, CUDA device targets),
++    // return empty version tuple indicating aligned alloc is always available.
++    return llvm::VersionTuple();
+   case llvm::Triple::Darwin:
+   case llvm::Triple::MacOSX: // Earliest supporting version is 10.13.
+     return llvm::VersionTuple(10U, 13U);
+@@ -36,8 +38,6 @@ inline llvm::VersionTuple alignedAllocMinVersion(llvm::Triple::OSType OS) {
+   case llvm::Triple::ZOS:
+     return llvm::VersionTuple(); // All z/OS versions have no support.
+   }
+-
+-  llvm_unreachable("Unexpected OS");
+ }
+ 
+ } // end namespace clang
+diff --git a/clang/lib/CodeGen/CGCUDANV.cpp b/clang/lib/CodeGen/CGCUDANV.cpp
+index dd26be7..552adcd 100644
+--- a/clang/lib/CodeGen/CGCUDANV.cpp
++++ b/clang/lib/CodeGen/CGCUDANV.cpp
+@@ -817,10 +817,14 @@ llvm::Function *CGNVCUDARuntime::makeModuleCtorFunction() {
+   llvm::Constant *FatBinStr;
+   unsigned FatMagic;
+   if (IsHIP) {
+-    FatbinConstantName = ".hip_fatbin";
+-    FatbinSectionName = ".hipFatBinSegment";
++    // On macOS (Mach-O), section names must be in "segment,section" format.
++    FatbinConstantName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__hip_fatbin" : ".hip_fatbin";
++    FatbinSectionName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__fatbin" : ".hipFatBinSegment";
+ 
+-    ModuleIDSectionName = "__hip_module_id";
++    ModuleIDSectionName =
++        CGM.getTriple().isMacOSX() ? "__HIP,__module_id" : "__hip_module_id";
+     ModuleIDPrefix = "__hip_";
+ 
+     if (CudaGpuBinary) {
+diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
+index 234683f..4532846 100644
+--- a/clang/lib/Driver/ToolChains/Darwin.cpp
++++ b/clang/lib/Driver/ToolChains/Darwin.cpp
+@@ -1185,6 +1185,12 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
+   CC1Args.push_back("-Werror=undef-prefix");
+ 
+   // For modern targets, promote certain warnings to errors.
++  // Guard against uninitialized target (e.g. when Darwin is used as host
++  // toolchain for HIP/CUDA offloading where the target platform may not
++  // have been fully set up).
++  if (!isTargetInitialized())
++    return;
++
+   if (isTargetWatchOSBased() || getTriple().isArch64Bit()) {
+     // Always enable -Wdeprecated-objc-isa-usage and promote it
+     // to an error.
+@@ -3739,6 +3745,10 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
+ }
+ 
+ void Darwin::CheckObjCARC() const {
++  // Guard against uninitialized target (e.g. when Darwin is used as host
++  // toolchain for HIP/CUDA offloading).
++  if (!isTargetInitialized())
++    return;
+   if (isTargetIOSBased() || isTargetWatchOSBased() || isTargetXROS() ||
+       (isTargetMacOSBased() && !isMacosxVersionLT(10, 6)))
+     return;
+@@ -3758,6 +3768,11 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
+   Res |= SanitizerKind::FuzzerNoLink;
+   Res |= SanitizerKind::ObjCCast;
+ 
++  // Guard against uninitialized target (e.g. when Darwin is used as host
++  // toolchain for HIP/CUDA offloading). Return base sanitizers only.
++  if (!isTargetInitialized())
++    return Res;
++
+   // Prior to 10.9, macOS shipped a version of the C++ standard library without
+   // C++11 support. The same is true of iOS prior to version 5. These OS'es are
+   // incompatible with -fsanitize=vptr.
+diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+index 27bc66d..71d5a28 100644
+--- a/clang/lib/Driver/ToolChains/HIPSPV.cpp
++++ b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+@@ -156,7 +156,11 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
+ void HIPSPVToolChain::addClangTargetOptions(
+     const llvm::opt::ArgList &DriverArgs, llvm::opt::ArgStringList &CC1Args,
+     Action::OffloadKind DeviceOffloadingKind) const {
+-  HostTC.addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadingKind);
++  // NOTE: Unlike other HIP toolchains, we do NOT delegate to
++  // HostTC.addClangTargetOptions() here. On macOS (Darwin), the host toolchain
++  // adds flags like -faligned-alloc-unavailable that are specific to macOS
++  // libc++ and break SPIR-V device compilation. SPIR-V device code doesn't
++  // have the same stdlib limitations as the host.
+ 
+   assert(DeviceOffloadingKind == Action::OFK_HIP &&
+          "Only HIP offloading kinds are supported for GPUs.");
+diff --git a/clang/lib/Driver/ToolChains/HIPUtility.cpp b/clang/lib/Driver/ToolChains/HIPUtility.cpp
+index cb061ff..0bf240e 100644
+--- a/clang/lib/Driver/ToolChains/HIPUtility.cpp
++++ b/clang/lib/Driver/ToolChains/HIPUtility.cpp
+@@ -424,9 +424,12 @@ void HIP::constructGenerateObjFileFromHIPFatBinary(
+   }
+   if (FoundPrimaryHipFatbinSymbol) {
+     // Define the first fatbin symbol
+-    if (HostTriple.isWindowsMSVCEnvironment())
++    if (HostTriple.isWindowsMSVCEnvironment()) {
+       ObjStream << "  .section .hip_fatbin,\"dw\"\n";
+-    else {
++    } else if (HostTriple.isMacOSX()) {
++      // Mach-O requires "segment,section" format
++      ObjStream << "  .section __HIP,__hip_fatbin\n";
++    } else {
+       ObjStream << "  .protected " << PrimaryHipFatbinSymbol << "\n";
+       ObjStream << "  .type " << PrimaryHipFatbinSymbol << ",@object\n";
+       ObjStream << "  .section .hip_fatbin,\"a\",@progbits\n";
+-- 
+2.43.0
+

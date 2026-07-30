@@ -1,5 +1,35 @@
+From fd93b63ac292e9f4a068c863b9d0eabf7df40b29 Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@pglc.io>
+Date: Fri, 1 Aug 2025 12:00:00 +0300
+Subject: [PATCH 5/5] Fix HIP SPIR-V compilation on macOS hosts
+
+Make HIP offloading to SPIR-V work when the host toolchain is Darwin:
+
+- AlignedAllocation.h: return an empty version tuple for unknown OS
+  types (e.g. SPIRV device targets) instead of hitting llvm_unreachable.
+- CGCUDANV: use Mach-O "segment,section" names for the HIP fatbin
+  sections on macOS.
+- Darwin toolchain: guard addClangWarningOptions, CheckObjCARC and
+  getSupportedSanitizers against an uninitialized target, which happens
+  when Darwin serves as the host toolchain for HIP offloading.
+- HIPSPV: do not delegate addClangTargetOptions to the host toolchain;
+  on Darwin it injects macOS libc++-specific flags such as
+  -faligned-alloc-unavailable that break SPIR-V device compilation.
+- HIPUtility: emit the Mach-O section directive for the fatbin symbol.
+
+Applies-to: LLVM release/20.x
+Upstream-status: upstreamed via llvm/llvm-project#183991 and
+llvm/llvm-project#206902; still needed on 20.x.
+---
+ clang/include/clang/Basic/AlignedAllocation.h |  6 +++---
+ clang/lib/CodeGen/CGCUDANV.cpp                | 10 +++++++---
+ clang/lib/Driver/ToolChains/Darwin.cpp        | 15 +++++++++++++++
+ clang/lib/Driver/ToolChains/HIPSPV.cpp        |  6 +++++-
+ clang/lib/Driver/ToolChains/HIPUtility.cpp    |  7 +++++--
+ 5 files changed, 35 insertions(+), 9 deletions(-)
+
 diff --git a/clang/include/clang/Basic/AlignedAllocation.h b/clang/include/clang/Basic/AlignedAllocation.h
-index ac26eb4a276d..21bb7e2ccf40 100644
+index ac26eb4..21bb7e2 100644
 --- a/clang/include/clang/Basic/AlignedAllocation.h
 +++ b/clang/include/clang/Basic/AlignedAllocation.h
 @@ -24,7 +24,9 @@ namespace clang {
@@ -23,10 +53,10 @@ index ac26eb4a276d..21bb7e2ccf40 100644
  
  } // end namespace clang
 diff --git a/clang/lib/CodeGen/CGCUDANV.cpp b/clang/lib/CodeGen/CGCUDANV.cpp
-index dd26be74e561..552adcdb782e 100644
+index e8d2dca..4333cd0 100644
 --- a/clang/lib/CodeGen/CGCUDANV.cpp
 +++ b/clang/lib/CodeGen/CGCUDANV.cpp
-@@ -817,10 +817,14 @@ llvm::Function *CGNVCUDARuntime::makeModuleCtorFunction() {
+@@ -820,10 +820,14 @@ llvm::Function *CGNVCUDARuntime::makeModuleCtorFunction() {
    llvm::Constant *FatBinStr;
    unsigned FatMagic;
    if (IsHIP) {
@@ -45,10 +75,10 @@ index dd26be74e561..552adcdb782e 100644
  
      if (CudaGpuBinary) {
 diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
-index 234683f2f488..4532846f1c98 100644
+index 55c55ba..856b023 100644
 --- a/clang/lib/Driver/ToolChains/Darwin.cpp
 +++ b/clang/lib/Driver/ToolChains/Darwin.cpp
-@@ -1185,6 +1185,12 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
+@@ -1201,6 +1201,12 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
    CC1Args.push_back("-Werror=undef-prefix");
  
    // For modern targets, promote certain warnings to errors.
@@ -61,7 +91,7 @@ index 234683f2f488..4532846f1c98 100644
    if (isTargetWatchOSBased() || getTriple().isArch64Bit()) {
      // Always enable -Wdeprecated-objc-isa-usage and promote it
      // to an error.
-@@ -3739,6 +3745,10 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
+@@ -3593,6 +3599,10 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
  }
  
  void Darwin::CheckObjCARC() const {
@@ -72,7 +102,7 @@ index 234683f2f488..4532846f1c98 100644
    if (isTargetIOSBased() || isTargetWatchOSBased() || isTargetXROS() ||
        (isTargetMacOSBased() && !isMacosxVersionLT(10, 6)))
      return;
-@@ -3758,6 +3768,11 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
+@@ -3612,6 +3622,11 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
    Res |= SanitizerKind::FuzzerNoLink;
    Res |= SanitizerKind::ObjCCast;
  
@@ -85,10 +115,10 @@ index 234683f2f488..4532846f1c98 100644
    // C++11 support. The same is true of iOS prior to version 5. These OS'es are
    // incompatible with -fsanitize=vptr.
 diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
-index 622497603292..60353fbb1e34 100644
+index e7aad1b..362a49b 100644
 --- a/clang/lib/Driver/ToolChains/HIPSPV.cpp
 +++ b/clang/lib/Driver/ToolChains/HIPSPV.cpp
-@@ -142,7 +142,11 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
+@@ -157,7 +157,11 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
  void HIPSPVToolChain::addClangTargetOptions(
      const llvm::opt::ArgList &DriverArgs, llvm::opt::ArgStringList &CC1Args,
      Action::OffloadKind DeviceOffloadingKind) const {
@@ -102,10 +132,10 @@ index 622497603292..60353fbb1e34 100644
    assert(DeviceOffloadingKind == Action::OFK_HIP &&
           "Only HIP offloading kinds are supported for GPUs.");
 diff --git a/clang/lib/Driver/ToolChains/HIPUtility.cpp b/clang/lib/Driver/ToolChains/HIPUtility.cpp
-index cb061ffede23..0bf240e9609b 100644
+index dfe9acc..49d5f59 100644
 --- a/clang/lib/Driver/ToolChains/HIPUtility.cpp
 +++ b/clang/lib/Driver/ToolChains/HIPUtility.cpp
-@@ -424,9 +424,12 @@ void HIP::constructGenerateObjFileFromHIPFatBinary(
+@@ -426,9 +426,12 @@ void HIP::constructGenerateObjFileFromHIPFatBinary(
    }
    if (FoundPrimaryHipFatbinSymbol) {
      // Define the first fatbin symbol
@@ -120,3 +150,6 @@ index cb061ffede23..0bf240e9609b 100644
        ObjStream << "  .protected " << PrimaryHipFatbinSymbol << "\n";
        ObjStream << "  .type " << PrimaryHipFatbinSymbol << ",@object\n";
        ObjStream << "  .section .hip_fatbin,\"a\",@progbits\n";
+-- 
+2.43.0
+
