@@ -1,17 +1,26 @@
-From ceb7b8a594b0841dcf486aa881b3eede168bfd4a Mon Sep 17 00:00:00 2001
+From 81472dfb51524335f829fe941b508b098709941f Mon Sep 17 00:00:00 2001
 From: Paulius Velesko <pvelesko@pglc.io>
 Date: Wed, 23 Jul 2025 13:33:02 +0300
-Subject: [PATCH 04/12] Fix LoopMerge error
+Subject: [PATCH 2/4] Fix LoopMerge error
 
+Insert OpLoopMerge and OpLoopControlINTEL immediately before the block's
+branch terminator only when that terminator actually is OpBranch or
+OpBranchConditional; otherwise append them at the end of the block.
+This fixes "OpLoopMerge must appear immediately before the branch"
+validation errors.
+
+Applies-to: SPIRV-LLVM-Translator llvm_release_200
+Upstream-status: merged upstream in llvm_release_220+ as commit 691d303a
+(KhronosGroup/SPIRV-LLVM-Translator#3277, Paulius Velesko).
 ---
  lib/SPIRV/libSPIRV/SPIRVModule.cpp | 36 ++++++++++++++++++++++++------
  1 file changed, 29 insertions(+), 7 deletions(-)
 
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-index 966b4b62..adb3666a 100644
+index 5fa2b29..81899a5 100644
 --- a/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -1701,10 +1701,22 @@ SPIRVInstruction *SPIRVModuleImpl::addSelectionMergeInst(
+@@ -1869,10 +1869,22 @@ SPIRVInstruction *SPIRVModuleImpl::addSelectionMergeInst(
  SPIRVInstruction *SPIRVModuleImpl::addLoopMergeInst(
      SPIRVId MergeBlock, SPIRVId ContinueTarget, SPIRVWord LoopControl,
      std::vector<SPIRVWord> LoopControlParameters, SPIRVBasicBlock *BB) {
@@ -38,7 +47,7 @@ index 966b4b62..adb3666a 100644
  }
  
  SPIRVInstruction *SPIRVModuleImpl::addLoopControlINTELInst(
-@@ -1712,9 +1724,19 @@ SPIRVInstruction *SPIRVModuleImpl::addLoopControlINTELInst(
+@@ -1880,9 +1892,19 @@ SPIRVInstruction *SPIRVModuleImpl::addLoopControlINTELInst(
      SPIRVBasicBlock *BB) {
    addCapability(CapabilityUnstructuredLoopControlsINTEL);
    addExtension(ExtensionID::SPV_INTEL_unstructured_loop_controls);

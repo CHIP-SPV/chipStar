@@ -1,5 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: chipStar <chipstar@chip.spv>
+Date: Wed, 30 Jul 2026 00:00:00 +0000
+Subject: [PATCH 3/3] Fix HIP SPIR-V compilation on macOS (Mach-O)
+
+Make HIP SPIR-V compilation work when the host is Mach-O: use
+"segment,section" style section names (__HIP,__hip_fatbin etc.) in
+CGCUDANV and in the assembly HIPUtility generates for fatbin embedding
+instead of ELF-style names, teach the Darwin driver toolchain to lazily
+initialize its target (ensureTargetInitialized) so using Darwin as a
+host toolchain for device offloading does not hit an uninitialized
+DarwinPlatformKind, and skip host-specific flags (aligned-alloc
+availability, sized deallocation) when compiling device code. Without
+this, hipcc on macOS hosts fails to build and link HIP SPIR-V binaries.
+
+Applies-to: LLVM release/22.x
+Upstream-status: upstreamed via llvm/llvm-project#183991 (264ac2d3af1b)
+and llvm/llvm-project#206902 (f90e121dde60), first shipping (partially)
+in LLVM 23; still needed on release/22.x.
+---
+ clang/lib/CodeGen/CGCUDANV.cpp             | 10 +++-
+ clang/lib/Driver/ToolChains/Darwin.cpp     | 75 +++++++++++++++++++++-
+ clang/lib/Driver/ToolChains/Darwin.h       |  9 +++
+ clang/lib/Driver/ToolChains/HIPUtility.cpp | 13 ++--
+ 4 files changed, 98 insertions(+), 9 deletions(-)
+
 diff --git a/clang/lib/CodeGen/CGCUDANV.cpp b/clang/lib/CodeGen/CGCUDANV.cpp
-index e04da90b3cbf..f08040d1d3d1 100644
+index e04da90..f08040d 100644
 --- a/clang/lib/CodeGen/CGCUDANV.cpp
 +++ b/clang/lib/CodeGen/CGCUDANV.cpp
 @@ -817,10 +817,14 @@ llvm::Function *CGNVCUDARuntime::makeModuleCtorFunction() {
@@ -21,7 +47,7 @@ index e04da90b3cbf..f08040d1d3d1 100644
  
      if (CudaGpuBinary) {
 diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
-index fb7573936032..2eda9bd063ad 100644
+index fb75739..2eda9bd 100644
 --- a/clang/lib/Driver/ToolChains/Darwin.cpp
 +++ b/clang/lib/Driver/ToolChains/Darwin.cpp
 @@ -1114,6 +1114,59 @@ VersionTuple MachO::getLinkerVersion(const llvm::opt::ArgList &Args) const {
@@ -142,7 +168,7 @@ index fb7573936032..2eda9bd063ad 100644
    // C++11 support. The same is true of iOS prior to version 5. These OS'es are
    // incompatible with -fsanitize=vptr.
 diff --git a/clang/lib/Driver/ToolChains/Darwin.h b/clang/lib/Driver/ToolChains/Darwin.h
-index 4a3b75be3c25..179a430e9853 100644
+index 4a3b75b..179a430 100644
 --- a/clang/lib/Driver/ToolChains/Darwin.h
 +++ b/clang/lib/Driver/ToolChains/Darwin.h
 @@ -387,6 +387,15 @@ public:
@@ -162,7 +188,7 @@ index 4a3b75be3c25..179a430e9853 100644
    Darwin(const Driver &D, const llvm::Triple &Triple,
           const llvm::opt::ArgList &Args);
 diff --git a/clang/lib/Driver/ToolChains/HIPUtility.cpp b/clang/lib/Driver/ToolChains/HIPUtility.cpp
-index 1fcb36cc3a39..3bf0f23409f9 100644
+index 1fcb36c..3bf0f23 100644
 --- a/clang/lib/Driver/ToolChains/HIPUtility.cpp
 +++ b/clang/lib/Driver/ToolChains/HIPUtility.cpp
 @@ -409,9 +409,11 @@ void HIP::constructGenerateObjFileFromHIPFatBinary(

@@ -1,6 +1,7 @@
 #include <hip/hip_runtime.h>
 
-// Regression test for llvm-patches/spirv-translator/0005
+// Regression test for the coalesce-duplicate-phi-predecessors patch in
+// llvm-patches/llvm-<version>/spirv-translator/
 // (coalesce duplicate-predecessor OpPhi).
 // This results in LLVM IR produced to have a phi node with
 // duplicate entries (for at least LLVM22) which then
