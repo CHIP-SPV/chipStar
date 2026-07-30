@@ -251,6 +251,22 @@ COMPONENTS = [
         test_cmake_flags=["-DBUILD_TESTS=ON"],
         with_hip_include_flag=True,
     ),
+    Component(
+        name="chiprccl",
+        display_name="chipRCCL",
+        repo="git@github.com:CHIP-SPV/chipRCCL.git",
+        depends_on=["chipstar"],
+        description=("Minimal single-process RCCL (NCCL API): nranks==1 "
+                     "collectives as local device operations"),
+    ),
+    Component(
+        name="chipstdpar",
+        display_name="chipStdPar",
+        repo="git@github.com:CHIP-SPV/chipStdPar.git",
+        depends_on=["chipstar", "rocprim", "rocthrust"],
+        description=("Header-only C++17 parallel-STL forwarding to rocThrust "
+                     "(no clang --hipstdpar needed)"),
+    ),
 ]
 
 
