@@ -1,21 +1,11 @@
 if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
    (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
 
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 17.0.0)
-    set(CLANG_VERSION_LESS_17 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16.0.0)
-    set(CLANG_VERSION_LESS_16 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0.0)
-    set(CLANG_VERSION_LESS_15 ON)
-  endif()
-
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.0.0)
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 20.0.0)
     message(FATAL_ERROR
-      "Unsupported clang version '${CMAKE_CXX_COMPILER_VERSION}'")
+      "Unsupported clang version '${CMAKE_CXX_COMPILER_VERSION}'. "
+      "chipStar requires clang/LLVM 20, 21, or 22 (or the experimental "
+      "'latest' toolchain); see scripts/configure_llvm.sh.")
   endif()
 else()
   message(FATAL_ERROR "this project must be compiled with clang. CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
