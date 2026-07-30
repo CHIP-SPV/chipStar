@@ -78,7 +78,10 @@ done
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--variant translator|native] [--with-binutils [path]] [--configure-only] [-N]"
-  echo "--version: LLVM version 17, 18, 19, 20, 21 or 22"
+  echo "--version: LLVM version 20, 21, 22, or latest"
+  echo "           20/21/22: upstream release branch plus patches from llvm-patches/llvm-<version>/"
+  echo "           latest (experimental): CHIP-SPV/llvm-project branch chipStar-llvm-23, maintained"
+  echo "           directly with no patches (patches exist only for the release-pinned versions)"
   echo "--install-dir: installation directory"
   echo "--link-type: static or dynamic (default: dynamic)"
   echo "--variant: translator (host only) or native (host;SPIRV) (default: translator)"
@@ -95,9 +98,10 @@ if [ -z "$INSTALL_DIR" ]; then
 fi
 
 # validate version argument
-if [ "$VERSION" != "17" ] && [ "$VERSION" != "18" ] && [ "$VERSION" != "19" ] \
-       && [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ]; then
-  echo "Invalid version. Must be 17, 18, 19, 20, 21 or 22."
+if [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ] \
+       && [ "$VERSION" != "latest" ]; then
+  echo "Invalid version '$VERSION'. Must be 20, 21, 22, or latest."
+  echo "(Support for LLVM 17, 18, and 19 has been dropped.)"
   exit 1
 fi
 
@@ -127,9 +131,17 @@ fi
 
 NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 
-# Map version to upstream LLVM branch and SPIRV-Translator branch
-LLVM_BRANCH="release/${VERSION}.x"
-TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
+# Map version to LLVM repo/branch and SPIRV-Translator branch.
+# latest tracks the maintained chipStar branch and takes no patches.
+if [ "$VERSION" == "latest" ]; then
+  LLVM_REPO="https://github.com/CHIP-SPV/llvm-project.git"
+  LLVM_BRANCH="chipStar-llvm-23"
+  TRANSLATOR_BRANCH="llvm_release_230"
+else
+  LLVM_REPO="https://github.com/llvm/llvm-project.git"
+  LLVM_BRANCH="release/${VERSION}.x"
+  TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
+fi
 
 export LLVM_DIR=`pwd`/llvm-project/llvm
 
@@ -137,27 +149,32 @@ export LLVM_DIR=`pwd`/llvm-project/llvm
 if [ "$EMIT_ONLY" != "on" ]; then
   # check if llvm-project exists, if not clone it
   if [ ! -d llvm-project ]; then
-    echo "Cloning LLVM from upstream..."
-    retry git clone https://github.com/llvm/llvm-project.git
-    cd llvm-project
-    git checkout ${LLVM_BRANCH}
-    
-    echo "Cloning SPIRV-LLVM-Translator from upstream..."
+    echo "Cloning LLVM (${LLVM_BRANCH})..."
+    if [ "$VERSION" == "latest" ]; then
+      retry git clone --single-branch -b ${LLVM_BRANCH} ${LLVM_REPO}
+      cd llvm-project
+    else
+      retry git clone ${LLVM_REPO}
+      cd llvm-project
+      git checkout ${LLVM_BRANCH}
+    fi
+
+    echo "Cloning SPIRV-LLVM-Translator (${TRANSLATOR_BRANCH})..."
     cd llvm/projects
     retry git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
     cd SPIRV-LLVM-Translator
     git checkout ${TRANSLATOR_BRANCH}
   else
     # Warn the user.
-    echo "llvm-project directory already exists. Checking out upstream branches..."
+    echo "llvm-project directory already exists. Checking out ${LLVM_BRANCH}..."
     cd llvm-project
     git fetch origin
     git reset --hard
     git clean -fd
     git checkout ${LLVM_BRANCH}
-    
+
     if [ ! -d llvm/projects/SPIRV-LLVM-Translator ]; then
-      echo "Cloning SPIRV-LLVM-Translator from upstream..."
+      echo "Cloning SPIRV-LLVM-Translator (${TRANSLATOR_BRANCH})..."
       cd llvm/projects
       retry git clone https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git
       cd SPIRV-LLVM-Translator
@@ -169,124 +186,44 @@ if [ "$EMIT_ONLY" != "on" ]; then
     fi
     git checkout ${TRANSLATOR_BRANCH}
   fi
-  cd ${initial_pwd}/llvm-project
-  
-  # Apply chipStar-specific patches
-  echo "Applying chipStar patches..."
-  
-  # Apply LLVM patches
-  LLVM_PATCH_DIR="${THIS_SCRIPT_DIR}/../llvm-patches/llvm"
-  if [ -d "$LLVM_PATCH_DIR" ]; then
-    echo "Applying LLVM patches..."
-    for patch in "$LLVM_PATCH_DIR"/*.patch; do
-      if [ -f "$patch" ]; then
-        patch_name=$(basename $patch)
-        
-        # Skip SPIR-V data layout patches for LLVM 17-19 (not needed) and 22+ (fixed at chipStar level)
-        # Note: only match 0002-fix-SPIR-V-data-layout, NOT 0005-fix-archive-data-layout
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout"* ]] && ([ "$VERSION" -lt 20 ] || [ "$VERSION" -ge 22 ]); then
-          echo "  Skipping $patch_name (not needed for LLVM ${VERSION})"
-          continue
-        fi
 
-        # Use LLVM 21-specific data layout patch for version 21, skip LLVM 20 version
-        if [[ "$patch_name" == "0002-fix-SPIR-V-data-layout.patch" ]] && [ "$VERSION" -eq 21 ]; then
-          echo "  Skipping $patch_name (using LLVM 21-specific patch instead)"
-          continue
-        fi
-        if [[ "$patch_name" == *"data-layout-llvm21.patch" ]] && [ "$VERSION" -ne 21 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 21)"
-          continue
-        fi
-
-        # Skip Unbundle SDL patch for LLVM 22+ (already upstream)
-        if [[ "$patch_name" == *"Unbundle-SDL"* ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
-          continue
-        fi
-
-        # For LLVM 22+: skip individual 0001/0004 patches (line shifts due to upstream 0003),
-        # use combined llvm22 patch instead
-        if [[ "$patch_name" == "0001-Allow-up-to-v1.2-SPIR-V-features.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (using LLVM 22-specific combined patch instead)"
-          continue
-        fi
-        if [[ "$patch_name" == "0004-only-necessary-exts.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (using LLVM 22-specific combined patch instead)"
-          continue
-        fi
-
-        # Skip old macOS patch for LLVM 22+ (replaced by llvm22-specific patch)
-        if [[ "$patch_name" == "0006-fix-macos-hip-spirv.patch" ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (using LLVM 22-specific macOS patch instead)"
-          continue
-        fi
-
-        # Skip LLVM 22-specific patches when building older versions
-        if [[ "$patch_name" == *"-llvm22.patch" ]] && [ "$VERSION" -lt 22 ]; then
-          echo "  Skipping $patch_name (only for LLVM 22+)"
-          continue
-        fi
-        
-        echo "  Applying $patch_name..."
-        git apply "$patch" || {
-          echo "Error: Failed to apply $patch_name"
-          exit 1
-        }
-      fi
-    done
+  if [ "$VERSION" == "latest" ]; then
+    echo "Skipping patches: branch ${LLVM_BRANCH} is maintained directly."
   else
-    #if the patch directory doesn't exist, good chance somehow this script is being run outside of its intended project
-    echo "Error: LLVM patch directory not found at $LLVM_PATCH_DIR"
-    exit 1
-  fi
-  
-  # Apply SPIRV-Translator patches
-  cd ${initial_pwd}/llvm-project/llvm/projects/SPIRV-LLVM-Translator
-  TRANSLATOR_PATCH_DIR="${THIS_SCRIPT_DIR}/../llvm-patches/spirv-translator"
-  if [ -d "$TRANSLATOR_PATCH_DIR" ]; then
-    echo "Applying SPIRV-Translator patches..."
-    for patch in "$TRANSLATOR_PATCH_DIR"/*.patch; do
-      if [ -f "$patch" ]; then
-        patch_name=$(basename $patch)
-        
-        # Skip fp_fast_mode patch for LLVM 17/18/19 (test file structure changed, opaque pointers are default)
-        if [[ "$patch_name" == *"fp_fast_mode"* ]] && ([ "$VERSION" -eq 17 ] || [ "$VERSION" -eq 18 ] || [ "$VERSION" -eq 19 ]); then
-          echo "  Skipping $patch_name (not needed for LLVM ${VERSION})"
-          continue
-        fi
-        
-        # Use version-specific patch for LLVM 17/18, skip the original for LLVM 17/18
-        if [[ "$patch_name" == "0002-Pretend-the-SPIR-ver-needed-by-shuffles-is-1.2.patch" ]] && ([ "$VERSION" -eq 17 ] || [ "$VERSION" -eq 18 ]); then
-          echo "  Skipping $patch_name (using LLVM 17/18-specific patch instead)"
-          continue
-        fi
-        if [[ "$patch_name" == "0002-Pretend-the-SPIR-ver-needed-by-shuffles-is-1.2-llvm17-18.patch" ]] && [ "$VERSION" -ne 17 ] && [ "$VERSION" -ne 18 ]; then
-          echo "  Skipping $patch_name (only needed for LLVM 17/18)"
-          continue
-        fi
-        
-        # Skip LoopMerge and blockMerge patches for LLVM 22+ (already upstream in translator)
-        if [[ "$patch_name" == *"LoopMerge"* || "$patch_name" == *"blockMerge"* ]] && [ "$VERSION" -ge 22 ]; then
-          echo "  Skipping $patch_name (already upstream in LLVM ${VERSION})"
-          continue
-        fi
+    # Apply chipStar-specific patches for this version, in lexicographic
+    # (numeric) order. Every patch in the version directory must apply.
+    PATCH_DIR="${THIS_SCRIPT_DIR}/../llvm-patches/llvm-${VERSION}"
+    if [ ! -d "$PATCH_DIR" ]; then
+      echo "Error: patch directory not found: $PATCH_DIR"
+      echo "Is this script being run from a complete chipStar checkout?"
+      exit 1
+    fi
 
-        echo "  Applying $patch_name..."
-        git apply "$patch" || {
-          echo "Error: Failed to apply $patch_name"
-          exit 1
-        }
-      fi
+    cd ${initial_pwd}/llvm-project
+    echo "Applying LLVM patches from ${PATCH_DIR}/llvm..."
+    for patch in "$PATCH_DIR"/llvm/*.patch; do
+      [ -f "$patch" ] || continue
+      echo "  Applying $(basename "$patch")..."
+      git apply "$patch" || {
+        echo "Error: Failed to apply $(basename "$patch")"
+        exit 1
+      }
     done
-  else
-    #if the patch directory doesn't exist, good chance somehow this script is being run outside of its intended project
-    echo "Error: SPIRV-Translator patch directory not found at $TRANSLATOR_PATCH_DIR"
-    exit 1
+
+    cd ${initial_pwd}/llvm-project/llvm/projects/SPIRV-LLVM-Translator
+    echo "Applying SPIRV-Translator patches from ${PATCH_DIR}/spirv-translator..."
+    for patch in "$PATCH_DIR"/spirv-translator/*.patch; do
+      [ -f "$patch" ] || continue
+      echo "  Applying $(basename "$patch")..."
+      git apply "$patch" || {
+        echo "Error: Failed to apply $(basename "$patch")"
+        exit 1
+      }
+    done
+
+    echo "All patches applied successfully"
   fi
-  
-  echo "All patches applied successfully"
-  
+
   cd ${LLVM_DIR}
 
   rm -rf build_$VERSION
@@ -310,7 +247,7 @@ if [ -n "${WITH_BINUTILS}" ]; then
     BINUTILS_HEADER_DIR=/usr/include
   else
     echo "plugin-api.h was not found at /usr/include/plugin-api.h"
-    
+
     # Check if binutils was installed in a previous attempt
     BINUTILS_INSTALL_DIR=${INSTALL_DIR}/binutils
     if [ -f "${BINUTILS_INSTALL_DIR}/include/plugin-api.h" ]; then
@@ -319,27 +256,27 @@ if [ -n "${WITH_BINUTILS}" ]; then
     else
       if [ "$EMIT_ONLY" != "on" ]; then
         echo "Installing binutils-dev from source..."
-        
+
         # Create the installation directory if it doesn't exist
         mkdir -p ${BINUTILS_INSTALL_DIR}
-        
+
         # Download the binutils source
         BINUTILS_VERSION="2.36.1"
         wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.gz
-        
+
         # Extract the source
         tar -xzf binutils-${BINUTILS_VERSION}.tar.gz
         cd binutils-${BINUTILS_VERSION}
-        
+
         # Configure, compile, and install binutils
         ./configure --prefix=${BINUTILS_INSTALL_DIR}
         make -j${NPROC}
         make install
-        
+
         # Clean up
         cd ..
         rm -rf binutils-${BINUTILS_VERSION} binutils-${BINUTILS_VERSION}.tar.gz
-        
+
         echo "binutils-dev installed successfully in ${BINUTILS_INSTALL_DIR}"
       fi
       BINUTILS_HEADER_DIR=${BINUTILS_INSTALL_DIR}/include
