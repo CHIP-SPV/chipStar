@@ -110,7 +110,7 @@ For macOS development, use **Option A** (dynamic LLVM). The `configure_llvm.sh` 
 
 ### Required Dependencies
 - Homebrew packages: `spirv-tools`, `cmake`, `ninja`
-- Environment modules: `llvm/19.0` (or newer), `ocl-icd-loader`, `pocl`
+- Environment modules: `llvm/20.0` (or newer), `ocl-icd-loader`, `pocl`
 
 ### Build Command
 ```bash
@@ -122,7 +122,7 @@ cmake .. -G Ninja \
 ```
 
 ### CI Configuration
-The macOS ARM64 CI workflow (`.github/workflows/macos-arm64-ci.yml`) currently uses LLVM 19.0 with static linking. If upgrading to LLVM 21+, consider switching to dynamic linking or applying the CMake fix above.
+The macOS ARM64 CI workflow (`.github/workflows/macos-arm64-ci.yml`) currently uses LLVM 22.0 with dynamic linking (the `configure_llvm.sh` default).
 
 ---
 
@@ -204,16 +204,17 @@ Two patches to `clang/lib/Lex/PPMacroExpansion.cpp`:
 
 2. **Return false for CPU arch queries on SPIRV targets**: When `__is_target_arch(arm64)` etc. is called on a SPIRV target, return false gracefully instead of potentially hitting edge cases.
 
-This patch is included in `llvm-patches/llvm-21-macos.patch`.
+This patch is included in the per-version macOS patch (see below).
 
 ---
 
-## Complete LLVM 21 macOS Patch
+## Complete macOS Patch
 
-All LLVM 21 macOS compatibility issues are addressed in a single patch file:
+All macOS compatibility issues are addressed in a single per-version patch
+file, applied automatically by `scripts/configure_llvm.sh`:
 
 ```
-llvm-patches/llvm-21-macos.patch
+llvm-patches/llvm-<version>/llvm/*macos*.patch
 ```
 
 ### Files Modified
@@ -229,10 +230,6 @@ llvm-patches/llvm-21-macos.patch
 10. `llvm/tools/llvm-link/llvm-link.cpp` - Archive linking improvements
 
 ### Applying the Patch
-```bash
-cd /path/to/llvm-project
-git apply /path/to/chipStar/llvm-patches/llvm-21-macos.patch
-```
-
-### Branch
-The patch is also available as a branch: `llvm-21-macos` in the local llvm-project directory.
+No manual step is needed: `scripts/configure_llvm.sh --version <20|21|22>`
+applies the macOS patch (along with the other chipStar patches for that
+version) automatically.
