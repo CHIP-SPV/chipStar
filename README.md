@@ -82,11 +82,11 @@ Release notes for [1.3](docs/release_notes/chipStar_1.3.rst), [1.2](docs/release
 ## Prerequisites
 
 * Cmake >= 3.20.0
-* Clang and LLVM 18, 19, 20
-  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-19 llvm-19 clang-tools-19'.
-  * For the best results, install Clang/LLVM from a chipStar LLVM/Clang [branch](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-18) which has fixes that are not yet in the LLVM upstream project. See below for a scripted way to build and install the patched versions.
+* Clang and LLVM 20, 21, 22 (plus an experimental `latest` option tracking the maintained [chipStar-llvm-23](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-23) branch)
+  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-20 llvm-20 clang-tools-20'.
+  * For the best results, build Clang/LLVM with the chipStar patches applied (from `llvm-patches/llvm-<version>/`). See below for a scripted way to build and install the patched versions.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
-  (e.g. llvm\_release\_180 for LLVM 18, llvm\_release\_190 for LLVM 19)
+  (e.g. llvm\_release\_200 for LLVM 20, llvm\_release\_210 for LLVM 21)
 ,  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
 * SPIRV-Tools and SPIRV-Headers:
@@ -95,31 +95,33 @@ Release notes for [1.3](docs/release_notes/chipStar_1.3.rst), [1.2](docs/release
 
 ### Compiling Clang, LLVM and SPIRV-LLVM-Translator
 
-It's recommended to use the chipStar fork of LLVM which has a few patches not yet upstreamed.
+It's recommended to build LLVM with the chipStar patches applied (a few fixes not yet in the upstream release branches).
 For this you can use a script included in the chipStar repository:
 
 ```bash
 ./scripts/configure_llvm.sh
-Usage: ./scripts/configure_llvm.sh --version <version> --install-dir <dir> --link-type static(default)/dynamic --only-necessary-spirv-exts <on|off> --binutils-header-location <path>
---version: LLVM version 18, 19 or 20
+Usage: ./scripts/configure_llvm.sh --version <version> --install-dir <dir> --link-type static/dynamic(default) [--variant translator|native] [--with-binutils [path]] [--configure-only] [-N]
+--version: LLVM version 20, 21, 22, or latest (experimental, tracks the maintained chipStar-llvm-23 branch, no patches)
 --install-dir: installation directory
---link-type: static or dynamic (default: static)
---only-necessary-spirv-exts: on or off (default: off)
---binutils-header-location: path to binutils header (default: empty)
+--link-type: static or dynamic (default: dynamic)
 
-./scripts/configure_llvm.sh --version 19 --install-dir /opt/install/llvm/19.0
-cd llvm-project/llvm/build_17
+./scripts/configure_llvm.sh --version 20 --install-dir /opt/install/llvm/20.0
+cd llvm-project/llvm/build_20
 make -j 16
 <sudo> make install
 ```
 
-Or you can do the steps manually:
+Or you can do the steps manually (clone the release branches, apply the patches from `llvm-patches/llvm-<version>/`, then build):
 
 ```bash
-git clone --depth 1 https://github.com/CHIP-SPV/llvm-project.git -b chipStar-llvm-19
-cd llvm-project/llvm/projects
-git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-LLVM-Translator.git -b chipStar-llvm-19
-cd ../..
+git clone --depth 1 https://github.com/llvm/llvm-project.git -b release/20.x
+cd llvm-project
+for p in /path/to/chipStar/llvm-patches/llvm-20/llvm/*.patch; do git apply "$p"; done
+cd llvm/projects
+git clone --depth 1 https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git -b llvm_release_200
+cd SPIRV-LLVM-Translator
+for p in /path/to/chipStar/llvm-patches/llvm-20/spirv-translator/*.patch; do git apply "$p"; done
+cd ../../..
 
 # DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
 # DLLVM_TARGETS_TO_BUILD Speed up compilation by building only the necessary CPU host target
@@ -129,7 +131,7 @@ cmake -S llvm -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS="clang;openmp" \
   -DLLVM_TARGETS_TO_BUILD=X86 \
-  -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-19
+  -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-20
 make -C build -j8 all install
 ```
 
