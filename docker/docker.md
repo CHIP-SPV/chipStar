@@ -87,31 +87,19 @@ Key components:
 
 Purpose: Enhances the development environment with code quality tools specifically for C++ projects, enabling better code analysis and consistency checks.
 
-## DockerfileFull Overview
+## DockerfileFull Overview (stale - do not use)
 
-This layer builds upon the base image and adds:
+This layer was intended to provide multiple LLVM toolchains with a matching
+POCL per version. It is stale and currently broken: it builds LLVM 16 (support
+for LLVM versions below 20 has been dropped) and passes
+`--only-necessary-spirv-exts`, an option `configure_llvm.sh` no longer has.
 
-- Multiple LLVM/Clang versions (16, 17, 18)
-- POCL (Portable Computing Language) for each LLVM version
-
-Key components:
-- LLVM/Clang versions 16, 17, and 18:
-  - Built from source
-  - Installed in /apps/llvm/${LLVM_VERSION}
-  - Environment modules created for each version
-- POCL 4.0:
-  - Built for each LLVM version
-  - Installed in /apps/pocl/4.0-llvm-${LLVM_VERSION}
-  - Environment modules created for each version
-
-Build process for each LLVM/POCL pair:
-1. Configure and build LLVM
-2. Install LLVM and create its environment module
-3. Clone POCL repository
-4. Configure and build POCL
-5. Install POCL and create its environment module
-
-Purpose: Provides a comprehensive development environment with multiple LLVM toolchains and corresponding POCL installations, allowing for flexible OpenCL development and testing across different LLVM versions, suitable for CI use. 
+If multi-version images are needed again, rework it to loop over the supported
+versions (20, 21, 22) using
+`configure_llvm.sh --version <V> --install-dir /apps/llvm/<V> ...`, which
+applies the per-version patches from `llvm-patches/llvm-<V>/` automatically,
+and pair each with a POCL built for that LLVM (POCL main is required for
+LLVM 22).
 
 
 
@@ -120,7 +108,7 @@ Purpose: Provides a comprehensive development environment with multiple LLVM too
 This layer builds upon the base image and adds:
 
 - Additional Python packages
-- LLVM/Clang 15 environment setup
+- LLVM/Clang 22 (native SPIR-V backend) environment setup
 - Vim common tools
 - chipStar build and installation
 
