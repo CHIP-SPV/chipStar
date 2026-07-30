@@ -47,7 +47,7 @@ LLVM 17, 18, and 19 support was dropped.
 | Patch | Purpose | Upstream status |
 |---|---|---|
 | 0001-spirv-version-and-extensions | Enable SPIR-V 1.2 (warp-level primitives via subgroup extensions) and restrict `--spirv-ext` to only the required extensions | Upstreamed in LLVM 23+ behind `Triple::ChipStar` ([llvm#179902](https://github.com/llvm/llvm-project/pull/179902)) |
-| 0002-preserve-device-debug-info | Keep debug info intact through the HIP SPIR-V device pipeline | Merged upstream ([llvm#210504](https://github.com/llvm/llvm-project/pull/210504)), ships in LLVM 24; upstream additionally adds SPV_INTEL_optnone, which the local patch deliberately omits for now |
+| 0002-preserve-device-debug-info | Keep debug info intact through the HIP SPIR-V device pipeline | Merged upstream ([llvm#210504](https://github.com/llvm/llvm-project/pull/210504)), ships in LLVM 24; matches the final merged form including SPV_INTEL_optnone |
 | 0003-unbundle-static-device-libraries | Enable RDC linking with static libraries containing device code | Upstream in LLVM 22+ ([llvm#136412](https://github.com/llvm/llvm-project/pull/136412), commit `ae0614de05ac`) |
 | 0004-fix-spirv-data-layout | Revert the `-n8:16:32:64` data layout change to avoid bitcode linking mismatches | chipStar-local revert of [llvm#110695](https://github.com/llvm/llvm-project/pull/110695), not upstreamable |
 | 0005-macos-hip-spirv | HIP SPIR-V compilation on macOS (Mach-O sections, Darwin toolchain guards, skip host stdlib for device) | Upstreamed via [llvm#183991](https://github.com/llvm/llvm-project/pull/183991) + [llvm#206902](https://github.com/llvm/llvm-project/pull/206902) |
@@ -70,7 +70,7 @@ Same patch set as llvm-20 (rebased onto `release/21.x`):
 | Patch | Purpose | Upstream status |
 |---|---|---|
 | 0001-spirv-version-and-extensions | As in llvm-20 | Upstreamed in LLVM 23+ behind `Triple::ChipStar` ([llvm#179902](https://github.com/llvm/llvm-project/pull/179902)) |
-| 0002-preserve-device-debug-info | As in llvm-20 | Merged upstream ([llvm#210504](https://github.com/llvm/llvm-project/pull/210504)), ships in LLVM 24; SPV_INTEL_optnone deliberately omitted locally |
+| 0002-preserve-device-debug-info | As in llvm-20 | Merged upstream ([llvm#210504](https://github.com/llvm/llvm-project/pull/210504)), ships in LLVM 24; matches the final merged form including SPV_INTEL_optnone |
 | 0003-unbundle-static-device-libraries | As in llvm-20 | Upstream in LLVM 22+ ([llvm#136412](https://github.com/llvm/llvm-project/pull/136412), `ae0614de05ac`) |
 | 0004-fix-spirv-data-layout | As in llvm-20 | chipStar-local revert of [llvm#110695](https://github.com/llvm/llvm-project/pull/110695), not upstreamable |
 | 0005-macos-hip-spirv | As in llvm-20 | Upstreamed via [llvm#183991](https://github.com/llvm/llvm-project/pull/183991) + [llvm#206902](https://github.com/llvm/llvm-project/pull/206902) |
@@ -95,7 +95,7 @@ upstream in translator 220+.
 | Patch | Purpose | Upstream status |
 |---|---|---|
 | 0001-spirv-version-and-extensions | As in llvm-20 | Upstreamed in LLVM 23+ behind `Triple::ChipStar` ([llvm#179902](https://github.com/llvm/llvm-project/pull/179902)) |
-| 0002-preserve-device-debug-info | As in llvm-20 | Merged upstream ([llvm#210504](https://github.com/llvm/llvm-project/pull/210504)), ships in LLVM 24; SPV_INTEL_optnone deliberately omitted locally |
+| 0002-preserve-device-debug-info | As in llvm-20 | Merged upstream ([llvm#210504](https://github.com/llvm/llvm-project/pull/210504)), ships in LLVM 24; matches the final merged form including SPV_INTEL_optnone |
 | 0003-macos-hip-spirv | As in llvm-20 | Upstreamed via [llvm#183991](https://github.com/llvm/llvm-project/pull/183991) + [llvm#206902](https://github.com/llvm/llvm-project/pull/206902) |
 
 ### spirv-translator/
