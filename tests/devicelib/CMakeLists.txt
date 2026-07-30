@@ -79,3 +79,7 @@ set_tests_properties(TestAtomicFPMinMaxBuiltins PROPERTIES
 add_hip_test(TestStdLlroundFloat.cpp)
 set_tests_properties(TestStdLlroundFloat PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
+
+add_hip_test(TestStdLdexp.cpp)
+set_tests_properties(TestStdLdexp PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
