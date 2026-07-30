@@ -87,22 +87,6 @@ Key components:
 
 Purpose: Enhances the development environment with code quality tools specifically for C++ projects, enabling better code analysis and consistency checks.
 
-## DockerfileFull Overview (stale - do not use)
-
-This layer was intended to provide multiple LLVM toolchains with a matching
-POCL per version. It is stale and currently broken: it builds LLVM 16 (support
-for LLVM versions below 20 has been dropped) and passes
-`--only-necessary-spirv-exts`, an option `configure_llvm.sh` no longer has.
-
-If multi-version images are needed again, rework it to loop over the supported
-versions (20, 21, 22) using
-`configure_llvm.sh --version <V> --install-dir /apps/llvm/<V> ...`, which
-applies the per-version patches from `llvm-patches/llvm-<V>/` automatically,
-and pair each with a POCL built for that LLVM (POCL main is required for
-LLVM 22).
-
-
-
 ## DockerfileLatest Overview
 
 This layer builds upon the base image and adds:
