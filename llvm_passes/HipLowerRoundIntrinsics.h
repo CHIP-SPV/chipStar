@@ -6,10 +6,12 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Expands the type-crossing rounding intrinsics llvm.lround.*, llvm.llround.*,
-// llvm.lrint.* and llvm.llrint.* to llvm.round / llvm.rint plus a conversion.
-// They return an integer, and OpenCL.std has only float to float rounding
-// instructions, so neither SPIR-V producer can translate them directly.
+// Rewrites the math intrinsics the SPIR-V producers have no translation for.
+// The type-crossing rounding intrinsics llvm.lround.*, llvm.llround.*,
+// llvm.lrint.* and llvm.llrint.* become llvm.round / llvm.rint plus a
+// conversion: they return an integer, and OpenCL.std has only float to float
+// rounding instructions, so neither SPIR-V producer can translate them
+// directly. llvm.ldexp becomes a call to the OpenCL ldexp builtin.
 //
 // (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
