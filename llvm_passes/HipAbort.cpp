@@ -45,6 +45,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "HipAbort.h"
+#include "HipDebugInfoUtils.h"
 
 #include "../src/common.hh"
 
@@ -332,6 +333,7 @@ static bool eraseAbortFlag(Module &M) {
   GlobalVariable *AbortFlag = M.getGlobalVariable(ChipDeviceAbortFlagName);
   if (AbortFlag != nullptr) {
     AbortFlag->replaceAllUsesWith(Constant::getNullValue(AbortFlag->getType()));
+    chipstar::dropGlobalDebugInfo(AbortFlag);
     AbortFlag->eraseFromParent();
     return true;
   }

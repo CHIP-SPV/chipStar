@@ -18,6 +18,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "HipCleanup.h"
+#include "HipDebugInfoUtils.h"
 
 #include "../src/common.hh"
 
@@ -179,12 +180,13 @@ PreservedAnalyses HipCleanupPass::run(Module &M, ModuleAnalysisManager &AM) {
       I->eraseFromParent();
     }
     GV->removeDeadConstantUsers();
-    if (GV->use_empty())
-      GV->eraseFromParent();
-    else {
+    if (!GV->use_empty())
       GV->replaceAllUsesWith(PoisonValue::get(GV->getType()));
-      GV->eraseFromParent();
-    }
+    // Detach debug info first: erasing the global leaves its
+    // DIGlobalVariableExpression in the compile unit, which the SPIR-V
+    // producers then emit as a DebugGlobalVariable with no storage.
+    chipstar::dropGlobalDebugInfo(GV);
+    GV->eraseFromParent();
     ModuleChanged = true;
   }
 
