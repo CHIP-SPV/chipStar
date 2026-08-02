@@ -247,6 +247,12 @@ llvmGetPassPluginInfo() {
                     MPM.addPass(HipVerifyPass());
                     return true;
                   }
+                  // Register the global cleanup as standalone, which makes the
+                  // debug-info detaching directly testable with opt.
+                  if (Name == "hip-cleanup") {
+                    MPM.addPass(HipCleanupPass());
+                    return true;
+                  }
                   return false;
                 });
           }};

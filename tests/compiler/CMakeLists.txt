@@ -195,3 +195,6 @@ add_subdirectory(promoteInt)
 
 # Add the IR verification tests
 add_subdirectory(irVerification)
+
+# Add the HipCleanup debug-info tests
+add_subdirectory(cleanupDebugInfo)
