@@ -12,10 +12,15 @@ vary by installation.
 | In-kernel debugging, line info + breakpoints | `-g -O0` | — |
 | In-kernel debugging, readable locals | `-g -O0` | `CHIP_JIT_FLAGS="-cl-opt-disable"` |
 
-Device debug info requires LLVM built with chipStar's
+Device debug info requires LLVM 23 built by
+`scripts/configure_llvm.sh --version 23`, which applies chipStar's
 `preserve-device-debug-info` patch (upstream from LLVM 24,
-[llvm#210504](https://github.com/llvm/llvm-project/pull/210504));
-`scripts/configure_llvm.sh` applies it for LLVM 20-22.
+[llvm#210504](https://github.com/llvm/llvm-project/pull/210504)) on top of
+the in-tree SPIR-V backend backport. On LLVM 21 and 22, and on 23 when
+`-fno-integrated-objemitter` selects the SPIRV-LLVM-Translator, device
+debug info is stripped: the translator emits a cyclic
+`DebugTypeComposite` `Parent` reference that `spirv-val` rejects and IGC
+mis-handles.
 
 ## Compile time vs JIT time
 
