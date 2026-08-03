@@ -1,0 +1,466 @@
+From 7ef0ca2b13f900000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: chipStar <chipstar@chip.spv>
+Date: Fri, 31 Jul 2026 00:00:00 +0000
+Subject: [PATCH 1/2] [HIPSPV] Add in-tree SPIR-V backend support for chipStar
+
+Backport of llvm/llvm-project#213052 (merged 2026-07-31 as 7ef0ca2b13f9,
+a reland of #206910). release/23.x branched before it, so a stock LLVM 23
+always emits device SPIR-V through the external SPIRV-LLVM-Translator.
+
+With this patch the HIPSPV toolchain drives the in-tree SPIR-V backend by
+default (clang -cc1 -emit-obj on the lowered bitcode) and falls back to
+llvm-spirv when -fno-integrated-objemitter is given or the SPIR-V target
+was not built. This matters to chipStar beyond emitter choice: the
+translator encodes DebugTypeComposite with a Parent operand, producing a
+cyclic forward reference that spirv-val rejects and IGC mis-handles, so
+device debug info (-g) only works via the backend. See the companion
+0002-preserve-device-debug-info.patch.
+
+The HipSpvPasses opt invocation is factored into runHipSpvPasses() so both
+emitters run it, and SPIRVSubtarget maps the chipstar OS to the Kernel
+execution environment.
+
+Adapted from the upstream commit for release/23.x, which also lacks the
+SPIR-V extension list and debug-info flags that main's HIPSPV.cpp had at
+the time of the merge; both are folded in here so a patched 23 behaves
+exactly like main.
+
+Applies-to: LLVM llvmorg-23.1.0-rc2
+Upstream-status: merged upstream as 7ef0ca2b13f9, first ships in LLVM 24.
+---
+diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+index d6900c7..98bec18 100644
+--- a/clang/lib/Driver/ToolChains/HIPSPV.cpp
++++ b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+@@ -13,6 +13,7 @@
+ #include "clang/Driver/Driver.h"
+ #include "clang/Driver/InputInfo.h"
+ #include "clang/Options/Options.h"
++#include "llvm/MC/TargetRegistry.h"
+ #include "llvm/Support/FileSystem.h"
+ #include "llvm/Support/Path.h"
+ 
+@@ -48,6 +49,34 @@ static std::string findPassPlugin(const Driver &D,
+   return std::string();
+ }
+ 
++// Is the in-tree SPIR-V backend built into this clang?
++static bool isSPIRVBackendAvailable(const llvm::Triple &T) {
++  std::string IgnoredError;
++  return llvm::TargetRegistry::lookupTarget(T, IgnoredError);
++}
++
++// Runs the HipSpvPasses plugin via `opt` on TempFile when the plugin is found.
++// Returns the lowered bitcode path, or TempFile unchanged if no plugin exists.
++static const char *runHipSpvPasses(Compilation &C, const JobAction &JA,
++                                   const Tool &Creator, const ToolChain &TC,
++                                   const InputInfoList &Inputs,
++                                   const InputInfo &Output,
++                                   const llvm::opt::ArgList &Args,
++                                   StringRef Name, const char *TempFile) {
++  auto PassPluginPath = findPassPlugin(C.getDriver(), Args);
++  if (PassPluginPath.empty())
++    return TempFile;
++  const char *PassPathCStr = C.getArgs().MakeArgString(PassPluginPath);
++  const char *OptOutput = HIP::getTempFile(C, Name.str() + "-lower", "bc");
++  ArgStringList OptArgs{TempFile,     "-load-pass-plugin",
++                        PassPathCStr, "-passes=hip-post-link-passes",
++                        "-o",         OptOutput};
++  const char *Opt = Args.MakeArgString(TC.GetProgramPath("opt"));
++  C.addCommand(std::make_unique<Command>(
++      JA, Creator, ResponseFileSupport::None(), Opt, OptArgs, Inputs, Output));
++  return OptOutput;
++}
++
+ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+     Compilation &C, const JobAction &JA, const InputInfoList &Inputs,
+     const InputInfo &Output, const llvm::opt::ArgList &Args) const {
+@@ -73,44 +102,100 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+   tools::constructLLVMLinkCommand(C, *this, JA, Inputs, LinkArgs, Output, Args,
+                                   TempFile);
+ 
+-  // Post-link HIP lowering.
++  auto T = getToolChain().getTriple();
+ 
+-  // Run LLVM IR passes to lower/expand/emulate HIP code that does not translate
+-  // to SPIR-V (E.g. dynamic shared memory).
+-  auto PassPluginPath = findPassPlugin(C.getDriver(), Args);
+-  if (!PassPluginPath.empty()) {
+-    const char *PassPathCStr = C.getArgs().MakeArgString(PassPluginPath);
+-    const char *OptOutput = HIP::getTempFile(C, Name + "-lower", "bc");
+-    ArgStringList OptArgs{TempFile,     "-load-pass-plugin",
+-                          PassPathCStr, "-passes=hip-post-link-passes",
+-                          "-o",         OptOutput};
+-    const char *Opt = Args.MakeArgString(getToolChain().GetProgramPath("opt"));
++  if (T.getOS() == llvm::Triple::ChipStar) {
++    // chipStar: run HipSpvPasses via opt, then emit SPIR-V with the in-tree
++    // SPIR-V backend by default, or with the external llvm-spirv translator
++    // when -fno-integrated-objemitter is given (or the backend is not built).
++
++    // Run HipSpvPasses plugin via opt (must run on LLVM IR before
++    // the SPIR-V backend lowers to MIR).
++    TempFile = runHipSpvPasses(C, JA, *this, getToolChain(), Inputs, Output,
++                               Args, Name, TempFile);
++
++    // Note that useIntegratedBackend() is consulted first so that an explicit
++    // -f(no-)integrated-objemitter still gets diagnosed against this toolchain.
++    if (!getToolChain().useIntegratedBackend() || !isSPIRVBackendAvailable(T)) {
++      // External translator path: BC -> SPIR-V via llvm-spirv.
++      llvm::opt::ArgStringList TrArgs;
++      if (T.getSubArch() == llvm::Triple::NoSubArch)
++        TrArgs.push_back("--spirv-max-version=1.2");
++      // Keep this extension list in sync with the in-tree backend fallback
++      // below.
++      TrArgs.push_back("--spirv-ext=-all"
++                       ",+SPV_INTEL_function_pointers"
++                       ",+SPV_INTEL_subgroups"
++                       ",+SPV_KHR_bit_instructions"
++                       ",+SPV_EXT_shader_atomic_float_add");
++
++      // Preserve debug info in the NonSemantic.Shader.DebugInfo form.
++      // These flags are passed unconditionally instead of gating on -g: in
++      // RDC-mode links this job runs in a clang invoked by
++      // clang-linker-wrapper where the original -g is not visible, but the
++      // debug info itself travels in the bitcode. SPV_KHR_non_semantic_info
++      // and the debug info version only take effect when the bitcode carries
++      // debug info. SPV_INTEL_optnone is not tied to debug info: clang emits
++      // optnone at -O0 even without -g, and the emitter needs the extension
++      // allowed to encode it.
++      TrArgs.push_back("--spirv-ext=+SPV_KHR_non_semantic_info"
++                       ",+SPV_INTEL_optnone");
++      TrArgs.push_back("--spirv-debug-info-version=nonsemantic-shader-200");
++
++      InputInfo TrInput = InputInfo(types::TY_LLVM_BC, TempFile, "");
++      SPIRV::constructTranslateCommand(C, *this, JA, Output, TrInput, TrArgs);
++      return;
++    }
++
++    // Default: compile the lowered bitcode to SPIR-V with the in-tree backend.
++    // Invoke `clang -cc1` directly rather than the clang driver: the driver
++    // would re-run config-file loading, toolchain detection and argument
++    // translation over an input that is already device-compiled and lowered,
++    // which is both wasteful and fragile. This mirrors how HIPAMD drives its
++    // SPIR-V backend emission (see HIPAMD::constructLinkAndEmitSpirvCommand).
++    // Keep the default -O0 backend pipeline (i.e. no -disable-llvm-optzns) so
++    // the mandatory lowering passes still run, matching the previously
++    // validated driver `-c` behavior.
++    ArgStringList Cc1Args;
++    Cc1Args.push_back("-cc1");
++    Cc1Args.push_back("-triple");
++    Cc1Args.push_back(C.getArgs().MakeArgString(T.getTriple()));
++    Cc1Args.push_back("-emit-obj");
++
++    // SPIR-V extensions the chipStar runtime relies on. Keep in sync with the
++    // llvm-spirv translator path above. SPV_KHR_non_semantic_info and
++    // SPV_INTEL_optnone let the backend emit NonSemantic.Shader.DebugInfo and
++    // the OptNoneINTEL function control when the bitcode carries debug info /
++    // optnone attributes (the backend's debug handler is a no-op otherwise).
++    Cc1Args.push_back("-mllvm");
++    Cc1Args.push_back("-spirv-ext=+SPV_INTEL_function_pointers"
++                      ",+SPV_INTEL_subgroups"
++                      ",+SPV_KHR_bit_instructions"
++                      ",+SPV_EXT_shader_atomic_float_add"
++                      ",+SPV_KHR_non_semantic_info"
++                      ",+SPV_INTEL_optnone");
++
++    Cc1Args.push_back(TempFile);
++    Cc1Args.push_back("-o");
++    Cc1Args.push_back(Output.getFilename());
++
++    const Driver &Drv = C.getDriver();
++    const char *Clang = Drv.getDriverProgramPath();
+     C.addCommand(std::make_unique<Command>(
+-        JA, *this, ResponseFileSupport::None(), Opt, OptArgs, Inputs, Output));
+-    TempFile = OptOutput;
++        JA, *this, ResponseFileSupport::None(), Clang, Cc1Args, Inputs, Output,
++        Drv.getPrependArg()));
++    return;
+   }
+ 
+-  // Emit SPIR-V binary.
++  // Non-chipStar: run HIP passes via opt, then translate with llvm-spirv.
++  TempFile = runHipSpvPasses(C, JA, *this, getToolChain(), Inputs, Output, Args,
++                             Name, TempFile);
++
++  // Emit SPIR-V binary via llvm-spirv translator (non-chipStar targets).
+   llvm::opt::ArgStringList TrArgs;
+-  auto T = getToolChain().getTriple();
+-  bool HasNoSubArch = T.getSubArch() == llvm::Triple::NoSubArch;
+-  if (T.getOS() == llvm::Triple::ChipStar) {
+-    // chipStar needs 1.2 for supporting warp-level primitivies via sub-group
+-    // extensions.  Strictly put we'd need 1.3 for the standard non-extension
+-    // shuffle operations, but it's not supported by any backend driver of the
+-    // chipStar.
+-    if (HasNoSubArch)
+-      TrArgs.push_back("--spirv-max-version=1.2");
+-    TrArgs.push_back("--spirv-ext=-all"
+-                     // Needed for experimental indirect call support.
+-                     ",+SPV_INTEL_function_pointers"
+-                     // Needed for shuffles below SPIR-V 1.3
+-                     ",+SPV_INTEL_subgroups");
+-  } else {
+-    if (HasNoSubArch)
+-      TrArgs.push_back("--spirv-max-version=1.1");
+-    TrArgs.push_back("--spirv-ext=+all");
+-  }
++  if (T.getSubArch() == llvm::Triple::NoSubArch)
++    TrArgs.push_back("--spirv-max-version=1.1");
++  TrArgs.push_back("--spirv-ext=+all");
+ 
+   InputInfo TrInput = InputInfo(types::TY_LLVM_BC, TempFile, "");
+   SPIRV::constructTranslateCommand(C, *this, JA, Output, TrInput, TrArgs);
+@@ -150,6 +235,11 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
+   getProgramPaths().push_back(getDriver().Dir);
+ }
+ 
++bool HIPSPVToolChain::IsIntegratedBackendSupported() const {
++  // The in-tree SPIR-V backend can only be requested when it is built.
++  return isSPIRVBackendAvailable(getTriple());
++}
++
+ void HIPSPVToolChain::addClangTargetOptions(
+     const llvm::opt::ArgList &DriverArgs, llvm::opt::ArgStringList &CC1Args,
+     BoundArch BA, Action::OffloadKind DeviceOffloadingKind) const {
+diff --git a/clang/lib/Driver/ToolChains/HIPSPV.h b/clang/lib/Driver/ToolChains/HIPSPV.h
+index 337c9c9..e38a713 100644
+--- a/clang/lib/Driver/ToolChains/HIPSPV.h
++++ b/clang/lib/Driver/ToolChains/HIPSPV.h
+@@ -52,10 +52,18 @@ public:
+                   const llvm::opt::ArgList &Args);
+ 
+   const llvm::Triple *getAuxTriple() const override {
+-    assert(HostTC);
+-    return &HostTC->getTriple();
++    return HostTC ? &HostTC->getTriple() : nullptr;
+   }
+ 
++  // Keep IsIntegratedBackendDefault() at the base class' "true": it also
++  // decides whether clang's compile and backend jobs are collapsed into a
++  // single -cc1 invocation, so making it depend on whether the SPIR-V backend
++  // was built would change the device compilation job layout of every HIPSPV
++  // compile. The fallback to the external llvm-spirv translator is decided in
++  // HIPSPV::Linker::constructLinkAndEmitSpirvCommand instead.
++  bool IsIntegratedBackendSupported() const override;
++  bool IsNonIntegratedBackendSupported() const override { return true; }
++
+   void
+   addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                         llvm::opt::ArgStringList &CC1Args, BoundArch BA,
+diff --git a/clang/test/Driver/hipspv-link-static-library.hip b/clang/test/Driver/hipspv-link-static-library.hip
+index eb114ad..a00f385 100644
+--- a/clang/test/Driver/hipspv-link-static-library.hip
++++ b/clang/test/Driver/hipspv-link-static-library.hip
+@@ -49,7 +49,8 @@
+ // DELETE-SDL-NEW: "{{.*}}llvm-link" "-o" "{{.*}}.bc" "{{.*}}.o" "{{.*}}.o"
+ 
+ // SDL-NEW-WRAPPER: clang{{.*}}" --no-default-config -o {{[^ ]*.img}}
+-// SDL-NEW-WRAPPER-SAME: {{[^ ]*.o}} {{[^ ]*.o}}
++// SDL-NEW-WRAPPER-SAME: --target=spirv64-unknown-chipstar
++// SDL-NEW-WRAPPER-SAME: {{[^ ]*.o}}
+ // SDL-NEW-WRAPPER-SAME: --hip-path=[[HIP_PATH]]
+ 
+ // SDL: "{{.*}}opt"
+diff --git a/clang/test/Driver/hipspv-no-spirv-backend.hip b/clang/test/Driver/hipspv-no-spirv-backend.hip
+new file mode 100644
+index 0000000..decab84
+--- /dev/null
++++ b/clang/test/Driver/hipspv-no-spirv-backend.hip
+@@ -0,0 +1,41 @@
++// Coverage for HIPSPV behavior that must not depend on whether the in-tree
++// SPIR-V backend was built. Deliberately not guarded by the
++// spirv-registered-target feature, so builders configured without the SPIR-V
++// target (e.g. X86-only bots) exercise it too.
++
++// UNSUPPORTED: system-windows
++
++// The device compilation job layout is a property of the driver, not of the
++// registered targets: an RDC device compile stays a single -cc1 invocation
++// that emits the object directly, rather than being split into a separate
++// -emit-llvm-bc job plus a backend job.
++
++// RUN: %clang -### -x hip --target=x86_64-linux-gnu --offload=spirv64 \
++// RUN:   --no-offload-new-driver -fgpu-rdc --hip-path=%S/Inputs/hipspv \
++// RUN:   -nohipwrapperinc %S/Inputs/hip_multiple_inputs/a.cu \
++// RUN: 2>&1 | FileCheck --check-prefix=RDC-JOB %s
++
++// RDC-JOB: "-cc1" "-triple" "spirv64"
++// RDC-JOB-SAME: "-aux-triple" "x86_64-unknown-linux-gnu"
++// RDC-JOB-SAME: "-emit-obj"
++// RDC-JOB-SAME: "-fcuda-is-device"
++
++// -fno-integrated-objemitter selects the external llvm-spirv translator, and
++// it is accepted in either configuration.
++
++// RUN: touch %t.o
++// RUN: %clang -### --no-default-config -o %t.img \
++// RUN:   --target=spirv64-unknown-chipstar %t.o --hip-path=%S/Inputs/hipspv \
++// RUN:   -fno-integrated-objemitter \
++// RUN: 2>&1 | FileCheck --check-prefix=XTOR -DHIP_PATH=%S/Inputs/hipspv %s
++
++//      XTOR: {{".*llvm-link"}}
++// XTOR-SAME: "-o" [[LINK_BC:".*bc"]] "{{[^ ]*.o}}"
++
++//      XTOR: {{".*opt"}} [[LINK_BC]] "-load-pass-plugin"
++// XTOR-SAME: "[[HIP_PATH]]/lib/libLLVMHipSpvPasses.so"
++// XTOR-SAME: "-passes=hip-post-link-passes" "-o" [[LOWER_BC:".*bc"]]
++
++//      XTOR: {{".*llvm-spirv.*"}} "--spirv-max-version=1.2"
++// XTOR-SAME: [[LOWER_BC]] "-o" "{{.*img}}"
++// XTOR-NOT: "-cc1"
+diff --git a/clang/test/Driver/hipspv-pass-plugin.hip b/clang/test/Driver/hipspv-pass-plugin.hip
+index 3a0979a..ae6194b 100644
+--- a/clang/test/Driver/hipspv-pass-plugin.hip
++++ b/clang/test/Driver/hipspv-pass-plugin.hip
+@@ -1,3 +1,4 @@
++// REQUIRES: spirv-registered-target
+ // UNSUPPORTED: system-windows
+ 
+ // RUN: %clang -### -target x86_64-linux-gnu --offload=spirv64 \
+@@ -16,23 +17,24 @@
+ // RUN: --no-offload-new-driver -nogpuinc -nogpulib %s \
+ // RUN: 2>&1 | FileCheck --check-prefixes=ALL,NO-PLUGIN %s
+ 
+-// Run commands for the new offload driver:
++// Run commands for the new offload driver (chipStar uses in-tree SPIR-V
++// backend instead of llvm-spirv):
+ 
+ // RUN: touch %t.dummy.o
+-// RUN: %clang -### --no-default-config -o /dev/null --target=spirv64-unknown-chipstar \
++// RUN: env "PATH=" %clang -### --no-default-config -o /dev/null --target=spirv64-unknown-chipstar \
+ // RUN:   %t.dummy.o --hip-path=%S/Inputs/hipspv \
+-// RUN: 2>&1 | FileCheck %s --check-prefixes=ALL,FROM-HIP-PATH
++// RUN: 2>&1 | FileCheck %s --check-prefixes=CHIPSTAR,FROM-HIP-PATH
+ 
+-// RUN: %clang -### --no-default-config -o /dev/null --target=spirv64-unknown-chipstar \
++// RUN: env "PATH=" %clang -### --no-default-config -o /dev/null --target=spirv64-unknown-chipstar \
+ // RUN:   %t.dummy.o --hipspv-pass-plugin=%S/Inputs/pass-plugin.so \
+-// RUN: 2>&1 | FileCheck %s --check-prefixes=ALL,FROM-OPTION
++// RUN: 2>&1 | FileCheck %s --check-prefixes=CHIPSTAR,FROM-OPTION
+ 
+-// RUN: not %clang -### --no-default-config -o /dev/null --target=spirv64-unknown-chipstar \
++// RUN: not env "PATH=" %clang -### --no-default-config -o /dev/null --target=spirv64-unknown-chipstar \
+ // RUN:   %t.dummy.o --hipspv-pass-plugin=foo.so \
+-// RUN: 2>&1 | FileCheck %s --check-prefixes=ALL,FROM-OPTION-INVALID
++// RUN: 2>&1 | FileCheck %s --check-prefixes=CHIPSTAR,FROM-OPTION-INVALID
+ 
+-// RUN: %clang -### --no-default-config -o /dev/null --target=spirv64-unknown-chipstar \
+-// RUN:   %t.dummy.o 2>&1 | FileCheck %s --check-prefixes=ALL,NO-PLUGIN
++// RUN: env "PATH=" %clang -### --no-default-config -o /dev/null --target=spirv64-unknown-chipstar \
++// RUN:   %t.dummy.o 2>&1 | FileCheck %s --check-prefixes=CHIPSTAR,NO-PLUGIN
+ 
+ // FROM-HIP-PATH: {{".*opt"}} {{".*.bc"}} "-load-pass-plugin"
+ // FROM-HIP-PATH-SAME: {{".*/Inputs/hipspv/lib/libLLVMHipSpvPasses.so"}}
+@@ -42,3 +44,5 @@
+ // NO-PLUGIN-NOT: {{".*opt"}} {{".*.bc"}} "-load-pass-plugin"
+ // NO-PLUGIN-NOT: {{".*/Inputs/hipspv/lib/libLLVMHipSpvPasses.so"}}
+ // ALL: {{".*llvm-spirv[^ ]*"}}
++// CHIPSTAR: {{".*clang.*"}} "-cc1"
++// CHIPSTAR-SAME: "-emit-obj"
+diff --git a/clang/test/Driver/hipspv-toolchain.hip b/clang/test/Driver/hipspv-toolchain.hip
+index 64d5d22..3a262a2 100644
+--- a/clang/test/Driver/hipspv-toolchain.hip
++++ b/clang/test/Driver/hipspv-toolchain.hip
+@@ -60,6 +60,10 @@
+ // RUN: llvm-offload-binary -o %t.dev.out \
+ // RUN:   --image=file=%t.dev.bc,kind=hip,triple=spirv64-unknown-chipstar,arch=generic
+ 
++// The linker wrapper forwards --hip-path from --device-compiler= to the inner
++// clang invocation; the HIPSPV toolchain inside that clang then drives the
++// llvm-link / opt (HipSpvPasses) / SPIR-V backend pipeline (covered by the
++// CHIPSTAR run below).
+ // RUN: clang-linker-wrapper --dry-run \
+ // RUN:   --device-compiler=spirv64-unknown-chipstar=--hip-path="%S/Inputs/hipspv" \
+ // RUN:   --host-triple=spirv64-unknown-chipstar \
+@@ -72,6 +76,8 @@
+ // WRAPPER-SAME: {{[^ ]*.o}}
+ // WRAPPER-SAME: --hip-path=[[HIP_PATH]]
+ 
++// The in-tree SPIR-V backend is the default emitter; PATH content (e.g. a
++// stray llvm-spirv) must not affect the choice.
+ // RUN: touch %t.dummy.o
+ // RUN: %clang -### --no-default-config -o %t.dummy.img \
+ // RUN:   --target=spirv64-unknown-chipstar %t.dummy.o \
+@@ -85,8 +91,9 @@
+ // CHIPSTAR-SAME: "[[HIP_PATH]]/lib/libLLVMHipSpvPasses.so"
+ // CHIPSTAR-SAME: "-passes=hip-post-link-passes" "-o" [[LOWER_BC:".*bc"]]
+ 
+-//      CHIPSTAR: {{".*llvm-spirv"}} "--spirv-max-version=1.2"
+-// CHIPSTAR-SAME: "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups"
++//      CHIPSTAR: {{".*clang.*"}} "-cc1" "-triple" "spirv64-unknown-chipstar"
++// CHIPSTAR-SAME: "-emit-obj"
++// CHIPSTAR-SAME: "-mllvm" "-spirv-ext=+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_KHR_bit_instructions,+SPV_EXT_shader_atomic_float_add,+SPV_KHR_non_semantic_info,+SPV_INTEL_optnone"
+ // CHIPSTAR-SAME: [[LOWER_BC]] "-o" "[[SPIRV_OUT:.*img]]"
+ 
+ // RUN: %clang -### --no-default-config -o %t.dummy.img \
+@@ -101,10 +108,27 @@
+ // CHIPSTAR-SUBARCH-SAME: "[[HIP_PATH]]/lib/libLLVMHipSpvPasses.so"
+ // CHIPSTAR-SUBARCH-SAME: "-passes=hip-post-link-passes" "-o" [[LOWER_BC:".*bc"]]
+ 
+-//      CHIPSTAR-SUBARCH: {{".*llvm-spirv"}}
+-// CHIPSTAR-SUBARCH-SAME: "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups"
++//      CHIPSTAR-SUBARCH: {{".*clang.*"}} "-cc1" "-triple" "spirv64v1.3-unknown-chipstar"
++// CHIPSTAR-SUBARCH-SAME: "-emit-obj"
++// CHIPSTAR-SUBARCH-SAME: "-mllvm" "-spirv-ext=+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_KHR_bit_instructions,+SPV_EXT_shader_atomic_float_add,+SPV_KHR_non_semantic_info,+SPV_INTEL_optnone"
+ // CHIPSTAR-SUBARCH-SAME: [[LOWER_BC]] "-o" "[[SPIRV_OUT:.*img]]"
+ 
++// -fno-integrated-objemitter selects the external llvm-spirv translator.
++// RUN: %clang -### --no-default-config -o %t.dummy.img \
++// RUN:   --target=spirv64-unknown-chipstar %t.dummy.o \
++// RUN:   --hip-path="%S/Inputs/hipspv" -fno-integrated-objemitter \
++// RUN: 2>&1 | FileCheck %s --check-prefix=CHIPSTAR-XTOR -DHIP_PATH=%S/Inputs/hipspv
++
++//      CHIPSTAR-XTOR: {{".*opt"}} {{".*bc"}} "-load-pass-plugin"
++// CHIPSTAR-XTOR-SAME: "[[HIP_PATH]]/lib/libLLVMHipSpvPasses.so"
++// CHIPSTAR-XTOR-SAME: "-passes=hip-post-link-passes" "-o" [[LOWER_BC:".*bc"]]
++
++//      CHIPSTAR-XTOR: {{".*llvm-spirv.*"}} "--spirv-max-version=1.2"
++// CHIPSTAR-XTOR-SAME: "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_KHR_bit_instructions,+SPV_EXT_shader_atomic_float_add"
++// CHIPSTAR-XTOR-SAME: "--spirv-ext=+SPV_KHR_non_semantic_info,+SPV_INTEL_optnone"
++// CHIPSTAR-XTOR-SAME: "--spirv-debug-info-version=nonsemantic-shader-200"
++// CHIPSTAR-XTOR-SAME: [[LOWER_BC]] "-o" "{{.*img}}"
++
+ // Check unknown linker options are ignored - such as ones that are targeted at
+ // spirv-link. HIPSPV toolchain does linking via llvm-link.
+ // RUN: %clang -### --no-default-config -o %t.dummy.img \
+@@ -123,9 +147,21 @@
+ // RUN:   | FileCheck -DVERSION=%llvm-version-major \
+ // RUN:   --check-prefix=VERSIONED %s
+ 
++// With -fno-integrated-objemitter the chipStar path must pick the same
++// versioned translator (lookup shared with SPIRV::constructTranslateCommand).
+ // RUN: env "PATH=%t/versioned" %clang -### --no-default-config \
+-// RUN:  -o %t.dummy.img --target=spirv64-unknown-chipstar %t.dummy.o \
+-// RUN:  --hip-path="%S/Inputs/hipspv" -o /dev/null 2>&1 \
+-// RUN: | FileCheck -DVERSION=%llvm-version-major --check-prefix=VERSIONED %s
++// RUN:   -o %t.dummy.img --target=spirv64-unknown-chipstar %t.dummy.o \
++// RUN:   --hip-path="%S/Inputs/hipspv" -fno-integrated-objemitter 2>&1 \
++// RUN:   | FileCheck -DVERSION=%llvm-version-major --check-prefix=VERSIONED %s
+ 
+ // VERSIONED: {{.*}}llvm-spirv-[[VERSION]]
++
++//-----------------------------------------------------------------------------
++// The debug-info flags are passed regardless of -g (covered by the
++// CHIPSTAR-XTOR checks above): in RDC-mode links this job runs in a clang
++// invoked by clang-linker-wrapper where the original -g is not visible, but
++// debug info travels in the bitcode and the flags are no-ops without it.
++// RUN: %clang -### --no-default-config -g -o %t.dummy.img \
++// RUN:   --target=spirv64-unknown-chipstar %t.dummy.o \
++// RUN:   --hip-path="%S/Inputs/hipspv" -fno-integrated-objemitter \
++// RUN: 2>&1 | FileCheck %s --check-prefix=CHIPSTAR-XTOR -DHIP_PATH=%S/Inputs/hipspv
+diff --git a/llvm/lib/Target/SPIRV/SPIRVSubtarget.cpp b/llvm/lib/Target/SPIRV/SPIRVSubtarget.cpp
+index be14064..5899f60 100644
+--- a/llvm/lib/Target/SPIRV/SPIRVSubtarget.cpp
++++ b/llvm/lib/Target/SPIRV/SPIRVSubtarget.cpp
+@@ -91,7 +91,8 @@ SPIRVSubtarget::SPIRVSubtarget(const Triple &TT, const std::string &CPU,
+   if (TargetTriple.getOS() == Triple::Vulkan)
+     Env = Shader;
+   else if (TargetTriple.getOS() == Triple::OpenCL ||
+-           TargetTriple.getVendor() == Triple::AMD)
++           TargetTriple.getVendor() == Triple::AMD ||
++           TargetTriple.getOS() == Triple::ChipStar)
+     Env = Kernel;
+   else
+     Env = Unknown;
+-- 
+2.43.0
+

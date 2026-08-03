@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: chipStar <noreply@chip-spv>
+Date: Wed, 18 Jun 2026 00:00:00 +0000
+Subject: [PATCH 2/2] Coalesce duplicate predecessors when emitting OpPhi
+
+LLVM IR allows a PHI to list the same predecessor block more than once
+(e.g. a switch with several cases branching to the same block); the LLVM
+verifier guarantees the duplicate entries carry identical incoming values.
+SPIR-V's OpPhi requires exactly one (value, parent block) pair per
+predecessor, so emitting the duplicates verbatim yields invalid SPIR-V
+("OpPhi's number of incoming blocks does not match block's predecessor
+count"), which IGC then mis-handles (nondeterministic crash / miscompile).
+
+Skip duplicate predecessor entries when building the OpPhi operand list.
+
+Applies-to: SPIRV-LLVM-Translator llvm_release_230
+Upstream-status: same defect fixed upstream-pending in
+KhronosGroup/SPIRV-LLVM-Translator#3866 (approved, unmerged).
+chipStar regression test: tests/compiler/TestSpirvDuplicatePhiHip.hip.
+---
+diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
+index d2b564a..5f44c80 100644
+--- a/lib/SPIRV/SPIRVWriter.cpp
++++ b/lib/SPIRV/SPIRVWriter.cpp
+@@ -2645,7 +2645,18 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
+     std::vector<SPIRVValue *> IncomingPairs;
+     SPIRVType *Ty = transScavengedType(Phi);
+ 
++    // SPIR-V requires OpPhi to have exactly one (value, parent block) pair per
++    // predecessor block. LLVM IR, however, permits a PHI to list the same
++    // predecessor multiple times (e.g. a switch with several cases branching
++    // to this block); the LLVM verifier guarantees those duplicate entries
++    // carry identical incoming values. Emitting them verbatim produces an
++    // invalid OpPhi (more parent blocks than the block has predecessors), so
++    // coalesce duplicate predecessors to a single entry.
++    SmallPtrSet<const BasicBlock *, 8> SeenPreds;
+     for (size_t I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
++      const BasicBlock *IncomingBB = Phi->getIncomingBlock(I);
++      if (!SeenPreds.insert(IncomingBB).second)
++        continue; // duplicate predecessor; value is identical, skip it
+       SPIRVValue *Val = transValue(Phi->getIncomingValue(I), BB, true,
+                                    FuncTransMode::Pointer);
+       if (Val->getType() != Ty)
+-- 
+2.43.0
+

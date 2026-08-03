@@ -1,0 +1,68 @@
+From b2b3db6a36ebdd3955dce983bb137ae6767c15c2 Mon Sep 17 00:00:00 2001
+From: chipStar <chipstar@chip.spv>
+Date: Sat, 18 Jul 2026 14:18:22 +0300
+Subject: [PATCH 2/2] Preserve device debug info when the SPIR-V backend emits
+
+HIPSPVToolChain::adjustDebugInfoKind() unconditionally forced NoDebugInfo,
+so -g/-O0 produced device SPIR-V with no debug metadata at all and
+gdb-oneapi could not resolve source lines or locals in device code.
+
+Honor the requested debug level, but only when the module is actually
+emitted by the in-tree SPIR-V backend (see
+0001-hipspv-in-tree-spirv-backend.patch). The SPIRV-LLVM-Translator
+encodes DebugTypeComposite with a Parent operand, which yields a cyclic
+forward reference: spirv-val rejects the result and IGC reports an
+internal error, so -g must keep being stripped on that path. The gate
+mirrors the emitter choice made in constructLinkAndEmitSpirvCommand(),
+which means -fno-integrated-objemitter (and a clang built without the
+SPIR-V target) gets the strip too.
+
+Stripping here rather than at translation time means clang CodeGen never
+emits a DICompileUnit, so no downstream pass can orphan debug metadata.
+
+The translator/backend invocations already request
+NonSemantic.Shader.DebugInfo (SPV_KHR_non_semantic_info,
+--spirv-debug-info-version=nonsemantic-shader-200) and SPV_INTEL_optnone;
+those flags are no-ops when the bitcode carries no debug info.
+
+Refs: CHIP-SPV/chipStar#1004
+Applies-to: LLVM llvmorg-23.1.0-rc2
+Upstream-status: the unconditional form was upstreamed in
+llvm/llvm-project#210504 (3093d8c577d7); the backend gate added here is
+chipStar-specific and not upstream.
+---
+diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+index 98bec18..e4aaf79 100644
+--- a/clang/lib/Driver/ToolChains/HIPSPV.cpp
++++ b/clang/lib/Driver/ToolChains/HIPSPV.cpp
+@@ -423,10 +423,23 @@ VersionTuple HIPSPVToolChain::computeMSVCVersion(const Driver *D,
+ void HIPSPVToolChain::adjustDebugInfoKind(
+     llvm::codegenoptions::DebugInfoKind &DebugInfoKind,
+     const llvm::opt::ArgList &Args) const {
+-  // Debug info generation is disabled for SPIRV-LLVM-Translator
+-  // which currently aborts on the presence of DW_OP_LLVM_convert.
+-  // TODO: Enable debug info when the SPIR-V backend arrives.
+-  DebugInfoKind = llvm::codegenoptions::NoDebugInfo;
++  // Device debug info is only usable when the in-tree SPIR-V backend emits the
++  // module. The SPIRV-LLVM-Translator encodes DebugTypeComposite with a Parent
++  // operand, which produces a cyclic forward reference that spirv-val rejects
++  // and that device compilers mis-handle (IGC internal errors); the backend
++  // avoids the cycle structurally. So honor the requested debug level only
++  // when the effective emitter is the backend, and otherwise keep forcing
++  // NoDebugInfo. Doing it here rather than at translation time means no debug
++  // metadata is generated at all: the module carries no DICompileUnit, so
++  // nothing downstream can orphan it.
++  //
++  // constructLinkAndEmitSpirvCommand() makes the same
++  // useIntegratedBackend()/isSPIRVBackendAvailable() choice, so a user passing
++  // -fno-integrated-objemitter (or a clang built without the SPIR-V target)
++  // gets the strip as well.
++  if (!useIntegratedBackend() || !isSPIRVBackendAvailable(getTriple()))
++    DebugInfoKind = llvm::codegenoptions::NoDebugInfo;
++  (void)Args;
+ }
+ 
+ LTOKind HIPSPVToolChain::getLTOMode(const llvm::opt::ArgList &Args,
+-- 
+2.43.0
+
