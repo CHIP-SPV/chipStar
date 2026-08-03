@@ -82,11 +82,11 @@ Release notes for [1.3](docs/release_notes/chipStar_1.3.rst), [1.2](docs/release
 ## Prerequisites
 
 * Cmake >= 3.20.0
-* Clang and LLVM 20, 21, 22 (plus an experimental `latest` option tracking the maintained [chipStar-llvm-23](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-23) branch)
-  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-20 llvm-20 clang-tools-20'.
+* Clang and LLVM 21, 22, 23 (plus an experimental `latest` option tracking the maintained [chipStar-llvm-23](https://github.com/CHIP-SPV/llvm-project/tree/chipStar-llvm-23) branch)
+  * Can be installed, for example, by adding the [LLVM's Debian/Ubuntu repository](https://apt.llvm.org/) and installing packages 'clang-21 llvm-21 clang-tools-21'.
   * For the best results, build Clang/LLVM with the chipStar patches applied (from `llvm-patches/llvm-<version>/`). See below for a scripted way to build and install the patched versions.
 * SPIRV-LLVM-Translator from a branch matching the LLVM major version:
-  (e.g. llvm\_release\_200 for LLVM 20, llvm\_release\_210 for LLVM 21)
+  (e.g. llvm\_release\_210 for LLVM 21, llvm\_release\_220 for LLVM 22)
 ,  [llvm-spirv](https://github.com/KhronosGroup/SPIRV-LLVM-Translator).
   * Make sure the built llvm-spirv binary is installed into the same path as clang binary, otherwise clang might find and use a different llvm-spirv, leading to errors.
 * SPIRV-Tools and SPIRV-Headers:
@@ -101,12 +101,12 @@ For this you can use a script included in the chipStar repository:
 ```bash
 ./scripts/configure_llvm.sh
 Usage: ./scripts/configure_llvm.sh --version <version> --install-dir <dir> --link-type static/dynamic(default) [--variant translator|native] [--with-binutils [path]] [--configure-only] [-N]
---version: LLVM version 20, 21, 22, or latest (experimental, tracks the maintained chipStar-llvm-23 branch, no patches)
+--version: LLVM version 21, 22, 23, or latest (experimental, tracks the maintained chipStar-llvm-23 branch, no patches)
 --install-dir: installation directory
 --link-type: static or dynamic (default: dynamic)
 
-./scripts/configure_llvm.sh --version 20 --install-dir /opt/install/llvm/20.0
-cd llvm-project/llvm/build_20
+./scripts/configure_llvm.sh --version 22 --install-dir /opt/install/llvm/22.0
+cd llvm-project/llvm/build_22
 make -j 16
 <sudo> make install
 ```
@@ -114,13 +114,13 @@ make -j 16
 Or you can do the steps manually (clone the release branches, apply the patches from `llvm-patches/llvm-<version>/`, then build):
 
 ```bash
-git clone --depth 1 https://github.com/llvm/llvm-project.git -b release/20.x
+git clone --depth 1 https://github.com/llvm/llvm-project.git -b release/22.x
 cd llvm-project
-for p in /path/to/chipStar/llvm-patches/llvm-20/llvm/*.patch; do git apply "$p"; done
+for p in /path/to/chipStar/llvm-patches/llvm-22/llvm/*.patch; do git apply "$p"; done
 cd llvm/projects
-git clone --depth 1 https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git -b llvm_release_200
+git clone --depth 1 https://github.com/KhronosGroup/SPIRV-LLVM-Translator.git -b llvm_release_220
 cd SPIRV-LLVM-Translator
-for p in /path/to/chipStar/llvm-patches/llvm-20/spirv-translator/*.patch; do git apply "$p"; done
+for p in /path/to/chipStar/llvm-patches/llvm-22/spirv-translator/*.patch; do git apply "$p"; done
 cd ../../..
 
 # DLLVM_ENABLE_PROJECTS="clang;openmp" OpenMP is optional but many apps use it
@@ -131,7 +131,7 @@ cmake -S llvm -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS="clang;openmp" \
   -DLLVM_TARGETS_TO_BUILD=X86 \
-  -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-20
+  -DCMAKE_INSTALL_PREFIX=$HOME/local/llvm-22
 make -C build -j8 all install
 ```
 
