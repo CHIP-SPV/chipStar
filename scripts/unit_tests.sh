@@ -44,7 +44,7 @@ build_type=$(echo "$1" | tr '[:lower:]' '[:upper:]')
 
 # Check if the second argument starts with "llvm-" and is followed by a valid version number
 if [[ ! "$2" =~ ^llvm-(1[6-9]|[2-9][0-9])$ ]]; then
-  echo "Error: Invalid LLVM version. Must be llvm-20, llvm-21, llvm-22, or higher."
+  echo "Error: Invalid LLVM version. Must be llvm-21, llvm-22, llvm-23, or higher."
   exit 1
 fi
 
@@ -133,13 +133,29 @@ detect_build_tool() {
   echo "Detected CMake generator: $generator, using build tool: $BUILD_TOOL"
 }
 
-# For LLVM 22+ with variant, use module name llvm/22.0-translator or llvm/22.0-native
+# How --variant selects the SPIR-V producer depends on the LLVM version.
+#
+# LLVM 22 has no in-tree HIPSPV backend support (llvm#213052 landed after the 23
+# branch was cut), so the two producers need two separate toolchains and the
+# variant picks between the modules llvm/22.0-translator and llvm/22.0-native.
+#
+# From LLVM 23 on, chipStar patches in llvm#213052, so a single toolchain built
+# with the SPIRV target serves both: the translator is built either way, and the
+# producer is chosen per compilation by -f[no-]integrated-objemitter. One module,
+# llvm/23.0, and the variant becomes a compile flag.
+VARIANT_OPTS=""
 if [[ -n "$variant" ]]; then
   if [[ "$llvm_version" -lt 22 ]]; then
     echo "Error: --variant is only supported for LLVM 22 and later."
     exit 1
   fi
-  CLANG="llvm/${llvm_version}.0-${variant}"
+  if [[ "$llvm_version" -lt 23 ]]; then
+    CLANG="llvm/${llvm_version}.0-${variant}"
+  elif [[ "$variant" == "native" ]]; then
+    VARIANT_OPTS="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON"
+  else
+    VARIANT_OPTS="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF"
+  fi
 fi
 
 # Print out the arguments
@@ -230,7 +246,7 @@ else
 
   echo "building with $CLANG"
   LLVM_CONFIG_BIN=$(module show $CLANG 2>&1 | grep -E 'prepend-path\s+PATH' | awk '{print $NF}' | head -1)/llvm-config
-  cmake ../ -DLLVM_CONFIG_BIN=$LLVM_CONFIG_BIN -DCMAKE_BUILD_TYPE="$build_type"  ${CHIP_OPTIONS}
+  cmake ../ -DLLVM_CONFIG_BIN=$LLVM_CONFIG_BIN -DCMAKE_BUILD_TYPE="$build_type"  ${CHIP_OPTIONS} ${VARIANT_OPTS}
   detect_build_tool
   $BUILD_TOOL all install -j $(nproc) #&> /dev/null
   $BUILD_TOOL build_tests install -j $(nproc) #&> /dev/null
