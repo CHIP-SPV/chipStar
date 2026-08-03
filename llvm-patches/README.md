@@ -11,16 +11,21 @@ llvm-patches/
 ├── llvm-21/
 │   ├── llvm/
 │   └── spirv-translator/
-└── llvm-22/
+├── llvm-22/
+│   ├── llvm/
+│   └── spirv-translator/
+└── llvm-23/
     ├── llvm/
     └── spirv-translator/
 ```
 
-`scripts/configure_llvm.sh --version <20|21|22>` clones the matching upstream
-branches (`release/<version>.x` and `llvm_release_<version>0`) and applies
-every patch in the version's directory, in lexicographic (numeric) order, with
-`git apply`. There is no per-patch version gating: everything in a version
-directory applies to that version, and a failed patch is a hard error.
+`scripts/configure_llvm.sh --version <20|21|22|23>` clones the matching
+upstream LLVM ref (`release/<version>.x`, except 23 which is pinned to the
+tag `llvmorg-23.1.0-rc2`) together with the translator branch
+`llvm_release_<version>0`, and applies every patch in the version's
+directory, in lexicographic (numeric) order, with `git apply`. There is no
+per-patch version gating: everything in a version directory applies to that
+version, and a failed patch is a hard error.
 
 `--version latest` (experimental) is different: it clones the maintained
 branch `chipStar-llvm-23` from
@@ -36,6 +41,7 @@ the release-pinned versions.
 | 20 | `llvm/llvm-project` `release/20.x` | `llvm-patches/llvm-20/` |
 | 21 | `llvm/llvm-project` `release/21.x` | `llvm-patches/llvm-21/` |
 | 22 | `llvm/llvm-project` `release/22.x` | `llvm-patches/llvm-22/` |
+| 23 | `llvm/llvm-project` `llvmorg-23.1.0-rc2` | `llvm-patches/llvm-23/` |
 | latest (experimental) | `CHIP-SPV/llvm-project` `chipStar-llvm-23` | none |
 
 LLVM 17, 18, and 19 support was dropped.
@@ -95,6 +101,36 @@ upstream in translator 220+.
 |---|---|---|
 | 0001-spirv-version-and-extensions | As in llvm-20 | Upstreamed in LLVM 23+ behind `Triple::ChipStar` ([llvm#179902](https://github.com/llvm/llvm-project/pull/179902)) |
 | 0003-macos-hip-spirv | As in llvm-20 | Upstreamed via [llvm#183991](https://github.com/llvm/llvm-project/pull/183991) + [llvm#206902](https://github.com/llvm/llvm-project/pull/206902) |
+
+### spirv-translator/
+
+| Patch | Purpose | Upstream status |
+|---|---|---|
+| 0001-pretend-subgroup-caps-are-spirv-1.2 | As in llvm-20 | Deliberate spec deviation, permanent |
+| 0002-coalesce-duplicate-phi-predecessors | As in llvm-20 | Pending upstream ([KhronosGroup#3866](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3866)) |
+
+## llvm-23
+
+Different in kind from the earlier sets. LLVM 23 already carries the SPIR-V
+version/extension selection (upstreamed behind `Triple::ChipStar`), the
+static-device-library unbundling, the data layout, and the macOS Mach-O
+support, so none of those patches are needed. What it does *not* carry is
+[llvm#213052](https://github.com/llvm/llvm-project/pull/213052), which
+landed after `release/23.x` was cut.
+
+### llvm/
+
+| Patch | Purpose | Upstream status |
+|---|---|---|
+| 0001-hipspv-in-tree-spirv-backend | Drive the in-tree SPIR-V backend from the HIPSPV toolchain by default, falling back to `llvm-spirv` under `-fno-integrated-objemitter`; map the `chipstar` OS to the Kernel execution environment | Backport of [llvm#213052](https://github.com/llvm/llvm-project/pull/213052) (`7ef0ca2b13f9`), first ships in LLVM 24 |
+| 0002-preserve-device-debug-info | Honor `-g` for device code, but only when the in-tree backend is the effective emitter | The ungated form is upstream ([llvm#210504](https://github.com/llvm/llvm-project/pull/210504)); the backend gate is chipStar-specific |
+
+The gate in 0002 is why device `-g` works here and nowhere else: the
+translator's `DebugTypeComposite` `Parent` operand creates a cyclic forward
+reference that `spirv-val` rejects and IGC mis-handles, so `-g` must keep
+being stripped whenever the translator is the producer. Because the strip
+happens in `HIPSPVToolChain::adjustDebugInfoKind`, clang CodeGen never emits
+a `DICompileUnit` on that path.
 
 ### spirv-translator/
 
