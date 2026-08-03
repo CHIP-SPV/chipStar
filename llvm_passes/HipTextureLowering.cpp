@@ -292,7 +292,7 @@ static Type *getPointerTypeToOpaqueStruct(LLVMContext &C, StringRef Name,
   Type *Ty = StructType::getTypeByName(C, Name);
   if (!Ty)
     Ty = StructType::create(C, Name);
-  return Ty->getPointerTo(AddrSpace);
+  return PointerType::get(Ty->getContext(), AddrSpace);
 }
 #endif
 
@@ -384,7 +384,8 @@ static void lowerTextureObjectUses(Function *F,
         for (unsigned I = 1, E = CI->arg_size(); I != E; I++)
           CallArgs.push_back(CI->getArgOperand(I));
         auto *NewCI =
-            CallInst::Create(ImplF->getFunctionType(), ImplF, CallArgs, "", CI);
+            CallInst::Create(ImplF->getFunctionType(), ImplF, CallArgs, "",
+                             CI->getIterator());
         // Calling convention is not inherited from the callee.
         NewCI->setCallingConv(CallingConv::SPIR_FUNC);
 
