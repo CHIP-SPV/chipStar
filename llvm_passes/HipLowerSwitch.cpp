@@ -73,7 +73,8 @@ static bool lowerSwitch(SwitchInst *SI,
   // TODO: Consult computeKnownBits() for optimizing the mask instruction away.
   auto *Mask =
       ConstantInt::get(NewCondTy, cast<IntegerType>(OldType)->getBitMask());
-  NewCond = BinaryOperator::CreateAnd(NewCond, Mask, "switch.mask", SI);
+  NewCond = BinaryOperator::CreateAnd(NewCond, Mask, "switch.mask",
+                                      SI->getIterator());
 
   SI->setCondition(NewCond);
   for (auto Case : SI->cases()) {

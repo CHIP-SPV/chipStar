@@ -211,7 +211,7 @@ static ArgSet getSpillPlan(Function *F) {
 /// Get type presentation for the argument. Always returns a pointer type.
 static Type *getSpillType(const Argument &Arg) {
   auto *ArgTy = Arg.hasByValAttr() ? Arg.getParamByValType() : Arg.getType();
-  return ArgTy->getPointerTo(SPIRV_CROSSWORKGROUP_AS);
+  return PointerType::get(ArgTy->getContext(), SPIRV_CROSSWORKGROUP_AS);
 }
 
 /// Create an alloca placed in function's entry block.
