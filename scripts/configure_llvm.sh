@@ -78,8 +78,8 @@ done
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--variant translator|native] [--with-binutils [path]] [--configure-only] [-N]"
-  echo "--version: LLVM version 20, 21, 22, 23, or latest"
-  echo "           20/21/22: upstream release branch plus patches from llvm-patches/llvm-<version>/"
+  echo "--version: LLVM version 21, 22, 23, or latest"
+  echo "           21/22: upstream release branch plus patches from llvm-patches/llvm-<version>/"
   echo "           23: upstream tag llvmorg-23.1.0-rc2 plus patches from llvm-patches/llvm-23/"
   echo "           latest (experimental): CHIP-SPV/llvm-project branch chipStar-llvm-23, maintained"
   echo "           directly with no patches (patches exist only for the release-pinned versions)"
@@ -99,10 +99,10 @@ if [ -z "$INSTALL_DIR" ]; then
 fi
 
 # validate version argument
-if [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ] \
-       && [ "$VERSION" != "23" ] && [ "$VERSION" != "latest" ]; then
-  echo "Invalid version '$VERSION'. Must be 20, 21, 22, 23, or latest."
-  echo "(Support for LLVM 17, 18, and 19 has been dropped.)"
+if [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ] && [ "$VERSION" != "23" ] \
+       && [ "$VERSION" != "latest" ]; then
+  echo "Invalid version '$VERSION'. Must be 21, 22, 23, or latest."
+  echo "(Support for LLVM 17 through 20 has been dropped.)"
   exit 1
 fi
 

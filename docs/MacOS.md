@@ -199,7 +199,7 @@ Note: `coreutils` provides the `nproc` command which will be used throughout thi
 
 ## Step 2.5: Install Environment Modules (Optional)
 
-Environment Modules provides a convenient way to manage environment variables for different software versions. If you prefer using `module load llvm/20.0` instead of manually setting PATH variables, install it:
+Environment Modules provides a convenient way to manage environment variables for different software versions. If you prefer using `module load llvm/22.0` instead of manually setting PATH variables, install it:
 
 ```bash
 brew install modules
@@ -233,7 +233,7 @@ chipStar requires a specific version of LLVM/Clang (20, 21, or 22) with patches.
 ### Using the chipStar configure script:
 
 ```bash
-./scripts/configure_llvm.sh --version 20 --install-dir $HOME/install/llvm-20
+./scripts/configure_llvm.sh --version 22 --install-dir $HOME/install/llvm-22
 cd llvm-project/llvm/build_20
 make -j$(nproc)
 make install
@@ -242,7 +242,7 @@ make install
 Add LLVM to your PATH:
 
 ```bash
-echo 'export PATH="$HOME/install/llvm-20/bin:$PATH"' >> ~/.zshrc
+echo 'export PATH="$HOME/install/llvm-22/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -269,7 +269,7 @@ spirv-as --version
 
 Note: The `spirv-extractor` tool in chipStar expects SPIRV-Tools headers at `/opt/homebrew/include/spirv-tools/` (Apple Silicon) or `/usr/local/include/spirv-tools/` (Intel).
 
-**Note on SPIRV-LLVM-Translator**: The `llvm-spirv` tool is automatically built as part of the LLVM build process since the chipStar configure script clones it into `llvm-project/llvm/projects/SPIRV-LLVM-Translator`. It will be installed in `$HOME/install/llvm-20/bin/`.
+**Note on SPIRV-LLVM-Translator**: The `llvm-spirv` tool is automatically built as part of the LLVM build process since the chipStar configure script clones it into `llvm-project/llvm/projects/SPIRV-LLVM-Translator`. It will be installed in `$HOME/install/llvm-22/bin/`.
 
 ## Step 5: Build OpenCL Components
 
@@ -320,8 +320,8 @@ mkdir build && cd build
 cmake .. \
   -DCMAKE_INSTALL_PREFIX=$HOME/install \
   -DENABLE_SPIR=ON \
-  -DLLVM_DIR=$HOME/install/llvm-20/lib/cmake/llvm \
-  -DLLVM_CONFIG=$HOME/install/llvm-20/bin/llvm-config
+  -DLLVM_DIR=$HOME/install/llvm-22/lib/cmake/llvm \
+  -DLLVM_CONFIG=$HOME/install/llvm-22/bin/llvm-config
 make -j$(nproc) && make install
 cd ../../..
 
@@ -360,7 +360,7 @@ clinfo -l
 ```bash
 mkdir build && cd build
 cmake .. \
-  -DLLVM_CONFIG_BIN=$HOME/install/llvm-20/bin/llvm-config \
+  -DLLVM_CONFIG_BIN=$HOME/install/llvm-22/bin/llvm-config \
   -DCMAKE_INSTALL_PREFIX=$HOME/install/chipStar \
   -GNinja
 ninja -j$(nproc) all build_tests install
@@ -392,9 +392,9 @@ python3 scripts/check.py build pocl opencl
 ### Installation Locations
 
 All dependencies are installed to `$HOME/install`:
-- **LLVM/Clang**: `$HOME/install/llvm-20/`
+- **LLVM/Clang**: `$HOME/install/llvm-22/`
 - **SPIRV-Tools**: `/opt/homebrew/` or `/usr/local/` (via Homebrew)
-- **SPIRV-LLVM-Translator**: `$HOME/install/llvm-20/`
+- **SPIRV-LLVM-Translator**: `$HOME/install/llvm-22/`
 - **OpenCL Headers**: `$HOME/install/include/CL/`
 - **OpenCL ICD Loader**: `$HOME/install/lib/libOpenCL.dylib`
 - **PoCL**: `$HOME/install/lib/pocl/` or `$HOME/install/lib/`
@@ -412,9 +412,9 @@ All dependencies are installed to `$HOME/install`:
 Add these to your `~/.zshrc`:
 
 ```bash
-export PATH="$HOME/install/llvm-20/bin:$PATH"
+export PATH="$HOME/install/llvm-22/bin:$PATH"
 export PATH="$HOME/install/bin:$PATH"
-export LLVM_DIR="$HOME/install/llvm-20/lib/cmake/llvm"
+export LLVM_DIR="$HOME/install/llvm-22/lib/cmake/llvm"
 export LD_LIBRARY_PATH="$HOME/install/lib:$LD_LIBRARY_PATH"
 export DYLD_LIBRARY_PATH="$HOME/install/lib:$DYLD_LIBRARY_PATH"
 
@@ -460,7 +460,7 @@ which llvm-config-20
 If not found, add to your `~/.zshrc`:
 
 ```bash
-export PATH="$HOME/install/llvm-20/bin:$PATH"
+export PATH="$HOME/install/llvm-22/bin:$PATH"
 source ~/.zshrc
 ```
 

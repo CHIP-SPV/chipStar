@@ -1,10 +1,10 @@
 if((CMAKE_CXX_COMPILER_ID MATCHES "[Cc]lang") OR
    (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM"))
 
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 20.0.0)
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 21.0.0)
     message(FATAL_ERROR
       "Unsupported clang version '${CMAKE_CXX_COMPILER_VERSION}'. "
-      "chipStar requires clang/LLVM 20, 21, or 22 (or the experimental "
+      "chipStar requires clang/LLVM 21, 22, or 23 (or the experimental "
       "'latest' toolchain); see scripts/configure_llvm.sh.")
   endif()
 else()

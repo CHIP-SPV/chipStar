@@ -110,7 +110,7 @@ For macOS development, use **Option A** (dynamic LLVM). The `configure_llvm.sh` 
 
 ### Required Dependencies
 - Homebrew packages: `spirv-tools`, `cmake`, `ninja`
-- Environment modules: `llvm/20.0` (or newer), `ocl-icd-loader`, `pocl`
+- Environment modules: `llvm/22.0` (or newer), `ocl-icd-loader`, `pocl`
 
 ### Build Command
 ```bash
