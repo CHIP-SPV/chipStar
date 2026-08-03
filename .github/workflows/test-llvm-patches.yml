@@ -252,17 +252,54 @@ jobs:
       fail-fast: false
     steps:
       - name: Install LLVM ${{ matrix.build-id }}
+        id: install_llvm
         run: |
+          set -euo pipefail
           STAGED="$HOME/llvm-stage/${{ matrix.build-id }}"
           INSTALL_DIR="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
-          rm -rf "$INSTALL_DIR"
-          mv "${STAGED}${INSTALL_DIR}" "$INSTALL_DIR"
+
+          # This job runs on every push to main, but the stage is produced by a
+          # *prior* pull_request run of this workflow. If that build failed, was
+          # skipped, or the stage was already consumed, there is nothing to
+          # install. Bail out before touching the live toolchain: destroying it
+          # takes CI down for every PR and can only be undone by a full rebuild.
+          if [ ! -d "${STAGED}${INSTALL_DIR}" ]; then
+            echo "No staged build at ${STAGED}${INSTALL_DIR}; leaving $INSTALL_DIR untouched."
+            echo "installed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Keep the previous toolchain until the new one is in place, so a
+          # failure here is recoverable.
+          BACKUP="${INSTALL_DIR}.prev"
+          rm -rf "$BACKUP"
+          if [ -d "$INSTALL_DIR" ]; then
+            mv "$INSTALL_DIR" "$BACKUP"
+          fi
+
+          if ! mv "${STAGED}${INSTALL_DIR}" "$INSTALL_DIR"; then
+            echo "Install failed; restoring previous toolchain."
+            rm -rf "$INSTALL_DIR"
+            [ -d "$BACKUP" ] && mv "$BACKUP" "$INSTALL_DIR"
+            exit 1
+          fi
+          echo "installed=true" >> "$GITHUB_OUTPUT"
         timeout-minutes: 5
       - name: Verify LLVM ${{ matrix.build-id }} installation
+        if: steps.install_llvm.outputs.installed == 'true'
         run: |
-          test -f $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}/bin/clang || exit 1
-          $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}/bin/clang --version
+          set -euo pipefail
+          INSTALL_DIR="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
+          BACKUP="${INSTALL_DIR}.prev"
+          if [ ! -x "$INSTALL_DIR/bin/clang" ]; then
+            echo "Installed toolchain has no usable clang; restoring previous."
+            rm -rf "$INSTALL_DIR"
+            [ -d "$BACKUP" ] && mv "$BACKUP" "$INSTALL_DIR"
+            exit 1
+          fi
+          "$INSTALL_DIR/bin/clang" --version
       - name: Generate modulefile for LLVM ${{ matrix.build-id }}
+        if: steps.install_llvm.outputs.installed == 'true'
         run: |
           MODULE_DIR="$HOME/modulefiles/llvm"
           INSTALL_DIR="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
@@ -288,9 +325,14 @@ jobs:
             echo 'prepend-path CMAKE_PREFIX_PATH $install_dir/lib/cmake'
           } > "$MODULE_DIR/${{ matrix.module-name }}"
           echo "Created modulefile: $MODULE_DIR/${{ matrix.module-name }}"
-      - name: Cleanup staged install
-        if: always()
-        run: rm -rf $HOME/llvm-stage/${{ matrix.build-id }}
+      # Only reap on success. Reaping unconditionally used to discard the stage
+      # even when the install had failed, so the next attempt had nothing to
+      # install from.
+      - name: Cleanup staged install and backup
+        if: success() && steps.install_llvm.outputs.installed == 'true'
+        run: |
+          rm -rf "$HOME/llvm-stage/${{ matrix.build-id }}"
+          rm -rf "$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}.prev"
 
   step1-configure-all-macos:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
@@ -415,17 +457,50 @@ jobs:
       fail-fast: false
     steps:
       - name: Install LLVM 22 (${{ matrix.variant }})
+        id: install_llvm_macos
         run: |
+          set -euo pipefail
           STAGED="$HOME/llvm-stage/22-${{ matrix.variant }}"
           INSTALL_DIR="$HOME/install/llvm/22.0-${{ matrix.variant }}"
-          rm -rf "$INSTALL_DIR"
-          mv "${STAGED}${INSTALL_DIR}" "$INSTALL_DIR"
+
+          # See the Linux job: the stage comes from a prior pull_request run, so
+          # it may not exist. Never delete the live toolchain before we know we
+          # have a replacement for it.
+          if [ ! -d "${STAGED}${INSTALL_DIR}" ]; then
+            echo "No staged build at ${STAGED}${INSTALL_DIR}; leaving $INSTALL_DIR untouched."
+            echo "installed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BACKUP="${INSTALL_DIR}.prev"
+          rm -rf "$BACKUP"
+          if [ -d "$INSTALL_DIR" ]; then
+            mv "$INSTALL_DIR" "$BACKUP"
+          fi
+
+          if ! mv "${STAGED}${INSTALL_DIR}" "$INSTALL_DIR"; then
+            echo "Install failed; restoring previous toolchain."
+            rm -rf "$INSTALL_DIR"
+            [ -d "$BACKUP" ] && mv "$BACKUP" "$INSTALL_DIR"
+            exit 1
+          fi
+          echo "installed=true" >> "$GITHUB_OUTPUT"
         timeout-minutes: 5
       - name: Verify LLVM 22 (${{ matrix.variant }}) installation
+        if: steps.install_llvm_macos.outputs.installed == 'true'
         run: |
-          test -f $HOME/install/llvm/22.0-${{ matrix.variant }}/bin/clang || exit 1
-          $HOME/install/llvm/22.0-${{ matrix.variant }}/bin/clang --version
+          set -euo pipefail
+          INSTALL_DIR="$HOME/install/llvm/22.0-${{ matrix.variant }}"
+          BACKUP="${INSTALL_DIR}.prev"
+          if [ ! -x "$INSTALL_DIR/bin/clang" ]; then
+            echo "Installed toolchain has no usable clang; restoring previous."
+            rm -rf "$INSTALL_DIR"
+            [ -d "$BACKUP" ] && mv "$BACKUP" "$INSTALL_DIR"
+            exit 1
+          fi
+          "$INSTALL_DIR/bin/clang" --version
       - name: Generate modulefile for LLVM 22 (${{ matrix.variant }})
+        if: steps.install_llvm_macos.outputs.installed == 'true'
         shell: /bin/bash {0}
         run: |
           MODULE_DIR="$HOME/modulefiles/llvm"
@@ -455,6 +530,9 @@ jobs:
             echo 'prepend-path CMAKE_PREFIX_PATH $install_dir/lib/cmake'
           } > "$MODULE_DIR/22.0-${{ matrix.variant }}"
           echo "Created modulefile: $MODULE_DIR/22.0-${{ matrix.variant }}"
-      - name: Cleanup staged install
-        if: always()
-        run: rm -rf $HOME/llvm-stage/22-${{ matrix.variant }}
+      # Only reap on success; see the Linux job.
+      - name: Cleanup staged install and backup
+        if: success() && steps.install_llvm_macos.outputs.installed == 'true'
+        run: |
+          rm -rf "$HOME/llvm-stage/22-${{ matrix.variant }}"
+          rm -rf "$HOME/install/llvm/22.0-${{ matrix.variant }}.prev"
