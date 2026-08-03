@@ -28,10 +28,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - llvm-version: 20
-            build-id: "20"
-            install-suffix: ""
-            variant-flag: ""
           - llvm-version: 21
             build-id: "21"
             install-suffix: ""
@@ -43,6 +39,13 @@ jobs:
           - llvm-version: 22
             build-id: "22-native"
             install-suffix: "-native"
+            variant-flag: "--variant native"
+          # LLVM 23 needs only one build: chipStar patches in llvm#213052, so the
+          # SPIRV-target build also serves the translator and the producer is
+          # chosen per compilation by -f[no-]integrated-objemitter.
+          - llvm-version: 23
+            build-id: "23"
+            install-suffix: ""
             variant-flag: "--variant native"
       fail-fast: true
     steps:
@@ -82,9 +85,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - llvm-version: 20
-            build-id: "20"
-            install-suffix: ""
           - llvm-version: 21
             build-id: "21"
             install-suffix: ""
@@ -94,6 +94,9 @@ jobs:
           - llvm-version: 22
             build-id: "22-native"
             install-suffix: "-native"
+          - llvm-version: 23
+            build-id: "23"
+            install-suffix: ""
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -233,10 +236,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - llvm-version: 20
-            build-id: "20"
-            install-suffix: ""
-            module-name: "20.0"
           - llvm-version: 21
             build-id: "21"
             install-suffix: ""
@@ -249,6 +248,10 @@ jobs:
             build-id: "22-native"
             install-suffix: "-native"
             module-name: "22.0-native"
+          - llvm-version: 23
+            build-id: "23"
+            install-suffix: ""
+            module-name: "23.0"
       fail-fast: false
     steps:
       - name: Install LLVM ${{ matrix.build-id }}
