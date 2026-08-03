@@ -78,8 +78,9 @@ done
 # check mandatory argument version
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--variant translator|native] [--with-binutils [path]] [--configure-only] [-N]"
-  echo "--version: LLVM version 20, 21, 22, or latest"
+  echo "--version: LLVM version 20, 21, 22, 23, or latest"
   echo "           20/21/22: upstream release branch plus patches from llvm-patches/llvm-<version>/"
+  echo "           23: upstream tag llvmorg-23.1.0-rc2 plus patches from llvm-patches/llvm-23/"
   echo "           latest (experimental): CHIP-SPV/llvm-project branch chipStar-llvm-23, maintained"
   echo "           directly with no patches (patches exist only for the release-pinned versions)"
   echo "--install-dir: installation directory"
@@ -99,8 +100,8 @@ fi
 
 # validate version argument
 if [ "$VERSION" != "20" ] && [ "$VERSION" != "21" ] && [ "$VERSION" != "22" ] \
-       && [ "$VERSION" != "latest" ]; then
-  echo "Invalid version '$VERSION'. Must be 20, 21, 22, or latest."
+       && [ "$VERSION" != "23" ] && [ "$VERSION" != "latest" ]; then
+  echo "Invalid version '$VERSION'. Must be 20, 21, 22, 23, or latest."
   echo "(Support for LLVM 17, 18, and 19 has been dropped.)"
   exit 1
 fi
@@ -137,10 +138,29 @@ if [ "$VERSION" == "latest" ]; then
   LLVM_REPO="https://github.com/CHIP-SPV/llvm-project.git"
   LLVM_BRANCH="chipStar-llvm-23"
   TRANSLATOR_BRANCH="llvm_release_230"
+elif [ "$VERSION" == "23" ]; then
+  # Pinned to a release candidate tag rather than release/23.x: the branch
+  # moves, and the llvm-patches/llvm-23 series (in particular the llvm#213052
+  # backport) is verified against this exact tree.
+  LLVM_REPO="https://github.com/llvm/llvm-project.git"
+  LLVM_BRANCH="llvmorg-23.1.0-rc2"
+  TRANSLATOR_BRANCH="llvm_release_230"
 else
   LLVM_REPO="https://github.com/llvm/llvm-project.git"
   LLVM_BRANCH="release/${VERSION}.x"
   TRANSLATOR_BRANCH="llvm_release_${VERSION}0"
+fi
+
+# LLVM 23 removed the LLVM_ENABLE_PROJECTS=openmp build mode; openmp has to be
+# built as a runtime there. Earlier versions still expect it as a project, and
+# CI hard-fails when omp.h is missing from the install (TestHipccFopenmp), so
+# this has to stay version conditional.
+if [ "$VERSION" == "23" ] || [ "$VERSION" == "latest" ]; then
+  LLVM_PROJECTS="clang;clang-tools-extra"
+  LLVM_RUNTIMES="openmp"
+else
+  LLVM_PROJECTS="clang;openmp;clang-tools-extra"
+  LLVM_RUNTIMES=""
 fi
 
 export LLVM_DIR=`pwd`/llvm-project/llvm
@@ -301,7 +321,7 @@ COMMON_CMAKE_OPTIONS=(
   "-DCMAKE_C_COMPILER=${CC}"
   "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}"
   "-DCMAKE_BUILD_TYPE=Release"
-  "-DLLVM_ENABLE_PROJECTS=\"clang;openmp;clang-tools-extra\""
+  "-DLLVM_ENABLE_PROJECTS=\"${LLVM_PROJECTS}\""
   "-DLLVM_TARGETS_TO_BUILD=\"${LLVM_TARGETS}\""
   "-DLLVM_ENABLE_ASSERTIONS=On"
   "-DLLVM_INCLUDE_TESTS=OFF"
@@ -309,6 +329,10 @@ COMMON_CMAKE_OPTIONS=(
   "-DLLVM_INCLUDE_BENCHMARKS=OFF"
   "-DLLVM_INCLUDE_DOCS=OFF"
 )
+
+if [ -n "${LLVM_RUNTIMES}" ]; then
+  COMMON_CMAKE_OPTIONS+=("-DLLVM_ENABLE_RUNTIMES=\"${LLVM_RUNTIMES}\"")
+fi
 
 # Linux-specific flags
 if [[ "$(uname)" != "Darwin" ]]; then
