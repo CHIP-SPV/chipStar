@@ -474,38 +474,6 @@ jobs:
   # debug builds. These run ONLY on a manual workflow_dispatch, not on every
   # PR, to keep automatic CI fast. Automatic PRs cover llvm-22 native-release
   # (Stage 1, above) and llvm-22 translator-release (below).
-  unit-tests-llvm-20-debug:
-    needs: build-and-test-libceed
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
-    runs-on: [self-hosted, Linux, X64]
-    env:
-      CHIP_MODULE_CACHE_DIR: ""
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          submodules: 'recursive'
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh debug llvm-20
-        shell: bash
-
-  unit-tests-llvm-20-release:
-    needs: build-and-test-libceed
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
-    runs-on: [self-hosted, Linux, X64]
-    env:
-      CHIP_MODULE_CACHE_DIR: ""
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          submodules: 'recursive'
-      - name: Run unit test checking script
-        run: ./scripts/unit_tests.sh release llvm-20
-        shell: bash
-
   unit-tests-llvm-21-debug:
     needs: build-and-test-libceed
     if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
