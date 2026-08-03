@@ -142,8 +142,30 @@ jobs:
           # install-only runtime headers such as omp.h, which made
           # TestHipccFopenmp fail with "'omp.h' file not found".
           LLVM_PREFIX="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
-          LLVM_BIN="$HOME/llvm-stage/${{ matrix.build-id }}${LLVM_PREFIX}/bin"
+          LLVM_STAGE="$HOME/llvm-stage/${{ matrix.build-id }}${LLVM_PREFIX}"
+          LLVM_BIN="${LLVM_STAGE}/bin"
           test -f "${LLVM_BIN}/clang" || exit 1
+
+          # The staged binaries are thin drivers; all the driver logic lives in
+          # libclang-cpp.so / libLLVM.so. Their RUNPATH points at the *final*
+          # install prefix ($HOME/install/llvm/<ver>), not at the stage, so by
+          # default the staged clang loads the previously installed libraries
+          # and silently runs old code. That makes this lane test the installed
+          # toolchain rather than the one just built from llvm-patches/, which
+          # is precisely what this workflow exists to validate. Pin the loader
+          # to the stage, and persist it to the test steps via GITHUB_ENV since
+          # chipStar invokes clang again at test time.
+          export LD_LIBRARY_PATH="${LLVM_STAGE}/lib:${LLVM_STAGE}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+          echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+          # Fail loudly if the pin did not take effect, rather than silently
+          # validating the wrong toolchain again.
+          RESOLVED=$(ldd "${LLVM_BIN}/clang" 2>/dev/null | awk '/libclang-cpp/{print $3}')
+          case "$RESOLVED" in
+            "${LLVM_STAGE}"/*) echo "OK: clang resolves libclang-cpp from the stage" ;;
+            "") echo "NOTE: clang does not link libclang-cpp dynamically; nothing to pin" ;;
+            *) echo "ERROR: clang resolves libclang-cpp from '$RESOLVED', not the stage"; exit 1 ;;
+          esac
           test -f "${LLVM_BIN}/../lib/clang/${{ matrix.llvm-version }}/include/omp.h" \
             || { echo "ERROR: omp.h missing from LLVM install toolchain at ${LLVM_BIN}"; exit 1; }
           cd ${{ github.workspace }}
@@ -418,10 +440,24 @@ jobs:
           # the build tree, which lacks install-only runtime headers such as
           # omp.h (breaks TestHipccFopenmp with "'omp.h' file not found").
           LLVM_PREFIX="$HOME/install/llvm/22.0-${{ matrix.variant }}"
-          LLVM_BIN="$HOME/llvm-stage/22-${{ matrix.variant }}${LLVM_PREFIX}/bin"
+          LLVM_STAGE="$HOME/llvm-stage/22-${{ matrix.variant }}${LLVM_PREFIX}"
+          LLVM_BIN="${LLVM_STAGE}/bin"
           test -f "${LLVM_BIN}/clang" || exit 1
           test -f "${LLVM_BIN}/../lib/clang/22/include/omp.h" \
             || { echo "ERROR: omp.h missing from LLVM install toolchain at ${LLVM_BIN}"; exit 1; }
+
+          # configure_llvm.sh builds with LLVM_LINK_LLVM_DYLIB=ON and
+          # CMAKE_INSTALL_RPATH pinned to the final install prefix, so a staged
+          # (DESTDIR) clang resolves libclang-cpp/libLLVM from the previously
+          # installed toolchain and runs old driver code. Pin the loader to the
+          # stage so this lane tests what it just built. DYLD_LIBRARY_PATH (not
+          # DYLD_FALLBACK_LIBRARY_PATH) is required: fallback is consulted only
+          # after @rpath resolution fails, and here it succeeds with the wrong
+          # library. Diagnostic only, not fatal, since the macOS linkage layout
+          # is not verified here the way the Linux one is.
+          export DYLD_LIBRARY_PATH="${LLVM_STAGE}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+          echo "clang links against:"
+          otool -L "${LLVM_BIN}/clang" 2>/dev/null | grep -iE "clang-cpp|libLLVM" || true
 
           export PATH="/Users/paulius/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           export CHIP_DEVICE_TYPE=pocl
