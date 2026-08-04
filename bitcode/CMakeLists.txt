@@ -205,8 +205,15 @@ function(embed_spirv_in_cpp
       OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
       DEPENDS "${BC_SOURCE}"
       BYPRODUCTS "${SPIR_BINARY}"
+      # NOTE: the triple must NOT carry the "chipstar" OS component here.
+      # spirv64vX-unknown-chipstar selects the HIPSPV toolchain, whose -c
+      # action emits LLVM bitcode for the offload driver to link later; it
+      # exits 0, so the ".spv" silently contains "BC\xc0\xde" instead of
+      # SPIR-V and every clLinkProgram() of the rtdevlib fails with
+      # CL_LINK_PROGRAM_FAILURE / CL_INVALID_PROGRAM. The plain spirv64vX
+      # triple selects the SPIRV toolchain, which emits SPIR-V directly.
       COMMAND "${CMAKE_CXX_COMPILER}"
-      --target=spirv64v${MAX_SPIRV_VERSION}-unknown-chipstar
+      --target=spirv64v${MAX_SPIRV_VERSION}
       -mllvm -spirv-ext=${SPIRV_EXTENSIONS}
       -c -x ir
       "${BC_SOURCE}" -o "${SPIR_BINARY}"
