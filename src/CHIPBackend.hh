@@ -1395,7 +1395,7 @@ public:
 
   hipDeviceProp_t getDeviceProps() { return HipDeviceProps_; }
   bool getPerThreadStreamUsed() const { return PerThreadStreamUsed_; }
-  std::mutex DeviceVarMtx;
+  std::recursive_mutex DeviceVarMtx;
   std::mutex DeviceMtx;
   std::mutex QueueAddRemoveMtx;
 
