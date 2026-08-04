@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: chipStar <chipstar@example.com>
+Date: Mon, 4 Aug 2026 12:30:00 +0300
+Subject: [PATCH 5/5] [SPIRV] Don't index formal args past a variadic callee
+
+SPIRVEmitIntrinsics::insertPtrCastOrAssignTypeInstr() walks the operands
+of a call with
+
+  for (unsigned OpIdx = 0; OpIdx < CI->arg_size(); OpIdx++)
+    ...
+    Argument *CalledArg = CalledF->getArg(OpIdx);
+
+bounding the loop by the *call's* operand count while indexing the
+*callee's* declared parameters. For a variadic callee those differ, and
+getArg() asserts:
+
+  Function.h:861: llvm::Function::getArg(unsigned):
+    Assertion `i < NumArgs && "getArg() out of range!"' failed.
+
+getArg() is only reached for pointer-typed operands that are not
+Instructions or Arguments, i.e. pointer constants, so it needs a variadic
+call whose variadic argument is a constant pointer. OpenCL printf with a
+"%s" argument is exactly that: the callee declares one parameter (the
+format string) and the call carries several, the extra one being a
+pointer to a string literal.
+
+This does not reproduce while ExpandVariadics lowers printf away before
+this pass runs. It surfaces once printf is correctly left variadic for
+the backend's OpenCL.std lowering (llvm/llvm-project#206998), which is
+why chipStar hit it when backporting that fix onto llvmorg-23.1.0-rc2.
+The same unguarded indexing is present on main, so a kernel calling
+printf("%s", ...) should assert there too.
+
+Reproducer: chipStar's hip-tests catch/unit/printf/printfFlags_exe.cc,
+which crashes clang during hipspv-link.
+
+Applies-to: llvm-project llvmorg-23.1.0-rc2
+Upstream-status: not yet reported; the same code is on main and looks
+like a genuine latent bug rather than a release-branch gap.
+---
+diff --git a/llvm/lib/Target/SPIRV/SPIRVEmitIntrinsics.cpp b/llvm/lib/Target/SPIRV/SPIRVEmitIntrinsics.cpp
+--- a/llvm/lib/Target/SPIRV/SPIRVEmitIntrinsics.cpp
++++ b/llvm/lib/Target/SPIRV/SPIRVEmitIntrinsics.cpp
+@@ -2361,6 +2361,13 @@
+       // However, we may have assumptions about the formal argument's type and
+       // may have a need to insert a ptr cast for the actual parameter of this
+       // call.
++      // A variadic callee has fewer declared parameters than the call has
++      // operands, so OpIdx can address a variadic argument for which no
++      // formal Argument exists. OpenCL kernels reach this with printf, whose
++      // pointer-typed variadic arguments (e.g. "%s") are constants: the
++      // callee declares one parameter but the call carries several.
++      if (OpIdx >= CalledF->arg_size())
++        continue;
+       Argument *CalledArg = CalledF->getArg(OpIdx);
+       if (!GR->findDeducedElementType(CalledArg))
+         continue;
+-- 
+2.43.0
