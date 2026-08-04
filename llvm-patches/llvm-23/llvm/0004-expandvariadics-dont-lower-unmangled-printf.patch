@@ -1,0 +1,60 @@
+From b1d21c6d3121000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@gmail.com>
+Date: Tue, 21 Jul 2026 12:39:16 +0000
+Subject: [PATCH 4/4] [ExpandVariadics] Don't lower unmangled C printf on SPIR-V
+
+Backport of llvm/llvm-project#206998
+(https://github.com/llvm/llvm-project/pull/206998), merged to main on
+2026-07-21 as b1d21c6d3121, after the release/23.x branch was cut. It is
+therefore missing from llvmorg-23.1.0-rc2.
+
+LLVM 23 runs ExpandVariadics in the SPIR-V backend's IR pipeline for
+non-shader targets, i.e. for OpenCL kernels. The pass already skips
+SPIR-V builtins, but its guard tests the *demangled* name against the
+prefix "printf(" and an unmangled C printf demangles to plain "printf",
+with no argument list, so the guard misses it. OpenCL/HIP printf is
+emitted unmangled, so it was lowered: the arguments got packed into a
+Function-storage buffer and a single pointer was passed to the OpenCL.std
+printf extended instruction.
+
+  LLVM 22:  %87 = OpExtInst %uint %1 printf %fmt %arg0 %arg1 %arg2
+  LLVM 23:  %99 = OpExtInst %uint %1 printf %fmt %vararg_buffer
+
+Every device-side printf then printed garbage and crashed. With chipStar's
+samples/cuda_samples/0_Simple/simplePrintf, whose kernel prints
+"[%d, %d]:\t\tValue is:%d\n":
+
+  expected            [0, 0]:         Value is:10
+  LLVM 23 dGPU        [-4120576, ]:   Value is:            (then SIGSEGV)
+  LLVM 23 CPU OpenCL  [540685652, 0]: Value is:0
+
+Independent of device and of IGC: it reproduced on Intel dGPU, iGPU and
+the Intel CPU OpenCL runtime, and -cl-opt-disable did not change it.
+chipStar's own printf lowering is correct and the IR reaching the backend
+is identical on LLVM 22 and 23; feeding that same IR to both backends
+produces the two forms above.
+
+Applies-to: llvm-project llvmorg-23.1.0-rc2
+Upstream-status: merged upstream, drop this patch once release/23.x picks
+it up.
+---
+diff --git a/llvm/lib/Transforms/IPO/ExpandVariadics.cpp b/llvm/lib/Transforms/IPO/ExpandVariadics.cpp
+--- a/llvm/lib/Transforms/IPO/ExpandVariadics.cpp
++++ b/llvm/lib/Transforms/IPO/ExpandVariadics.cpp
+@@ -1067,8 +1067,13 @@
+     StringRef DemangledName(Demangled);
+ 
+     // Skip any SPIR-V builtins.
++    // Note: an unmangled C `printf` declaration demangles to "printf" with no
++    // argument list, so the "printf(" prefix check below misses it. Match the
++    // bare name as well so OpenCL/HIP printf (emitted unmangled) is left as a
++    // variadic call for the backend's OpenCL.std printf lowering to expand
++    // inline, rather than being packed into a vararg buffer here.
+     if (DemangledName.starts_with("__spirv_") ||
+-        DemangledName.starts_with("printf("))
++        DemangledName.starts_with("printf(") || F->getName() == "printf")
+       return true;
+ 
+     return false;
+-- 
+2.43.0
