@@ -187,6 +187,9 @@ jobs:
           elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
           else source /etc/profile.d/modules.sh &> /dev/null; fi
           module use ~/modulefiles
+          # IGC 2.36.3/2.38.2 miscompile chipStar kernels under their
+          # optimizer (TestSnakeMiscompileO2); this build carries the fix.
+          module load igc/all-fixes-2026.07.30
           module load opencl/igpu
           cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
           ../scripts/check.py ./ igpu opencl
@@ -200,6 +203,9 @@ jobs:
           elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
           else source /etc/profile.d/modules.sh &> /dev/null; fi
           module use ~/modulefiles
+          # IGC 2.36.3/2.38.2 miscompile chipStar kernels under their
+          # optimizer (TestSnakeMiscompileO2); this build carries the fix.
+          module load igc/all-fixes-2026.07.30
           module load level-zero/igpu
           cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
           ../scripts/check.py ./ igpu level0
@@ -212,6 +218,9 @@ jobs:
           elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
           else source /etc/profile.d/modules.sh &> /dev/null; fi
           module use ~/modulefiles
+          # IGC 2.36.3/2.38.2 miscompile chipStar kernels under their
+          # optimizer (TestSnakeMiscompileO2); this build carries the fix.
+          module load igc/all-fixes-2026.07.30
           module load level-zero/dgpu
           cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
           ../scripts/check.py ./ dgpu level0
@@ -224,6 +233,9 @@ jobs:
           elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
           else source /etc/profile.d/modules.sh &> /dev/null; fi
           module use ~/modulefiles
+          # IGC 2.36.3/2.38.2 miscompile chipStar kernels under their
+          # optimizer (TestSnakeMiscompileO2); this build carries the fix.
+          module load igc/all-fixes-2026.07.30
           module load opencl/dgpu
           cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
           ../scripts/check.py ./ dgpu opencl
@@ -236,6 +248,9 @@ jobs:
           elif [ -f /etc/profile.d/lmod.sh ]; then source /etc/profile.d/lmod.sh &> /dev/null
           else source /etc/profile.d/modules.sh &> /dev/null; fi
           module use ~/modulefiles
+          # IGC 2.36.3/2.38.2 miscompile chipStar kernels under their
+          # optimizer (TestSnakeMiscompileO2); this build carries the fix.
+          module load igc/all-fixes-2026.07.30
           module load opencl/cpu
           cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
           ../scripts/check.py ./ cpu opencl --num-tries=3
