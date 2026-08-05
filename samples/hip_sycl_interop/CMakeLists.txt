@@ -2,7 +2,14 @@ add_subdirectory(onemkl_gemm_wrapper)
 
 add_chip_binary(hip_sycl_interop hip_sycl_interop.cpp)
 add_dependencies(samples hip_sycl_interop)
-target_link_options(hip_sycl_interop PRIVATE -fsycl -L${MKL_ROOT}/lib -L${CMAKE_BINARY_DIR} ${INTEL_LIBS} -Wl,-rpath=${CMAKE_BINARY_DIR}:${CMAKE_CURRENT_BINARY_DIR}/onemkl_gemm_wrapper:${ICPX_CORE_LIBDIR}:${ICPX_SYCL_LIBDIR})
+
+# No -fsycl here: this executable has no SYCL device code (all of it lives in
+# onemkl_gemm_wrapper, built by icpx), and INTEL_LIBS already supplies -lsycl.
+# -fsycl is a driver mode switch, not a -l shortcut: it routes the link through
+# clang-linker-wrapper, which from LLVM 23 on adds libLLVMSYCL.so to the link.
+# That library only exists in an LLVM built with the SYCL project, which
+# chipStar's is not, so the link fails with "cannot find libLLVMSYCL.so".
+target_link_options(hip_sycl_interop PRIVATE -L${MKL_ROOT}/lib -L${CMAKE_BINARY_DIR} ${INTEL_LIBS} -Wl,-rpath=${CMAKE_BINARY_DIR}:${CMAKE_CURRENT_BINARY_DIR}/onemkl_gemm_wrapper:${ICPX_CORE_LIBDIR}:${ICPX_SYCL_LIBDIR})
 target_link_libraries(hip_sycl_interop onemkl_gemm_wrapper -L${CMAKE_BINARY_DIR} -lCHIP ${LevelZero_LIBRARY} -pthread)
 target_include_directories(hip_sycl_interop PUBLIC ${CHIP_SRC_DIR}/HIP/include ${CHIP_SRC_DIR}/include)
 
