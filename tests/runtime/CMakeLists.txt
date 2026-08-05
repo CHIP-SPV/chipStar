@@ -247,3 +247,6 @@ add_hip_runtime_test(TestSyncthreadsAndOrCount.hip)
 # __clz(0)-poison miscompile only manifests at -O1 and above.
 add_hip_runtime_test(TestSnakeMiscompileO2.hip)
 target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
+
+# __short_as_bfloat16 / __ushort_as_bfloat16 must reinterpret bits (#1385).
+add_hip_runtime_test(TestBFloat16AsCasts.hip)
