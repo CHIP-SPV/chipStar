@@ -18,6 +18,7 @@
 #include "HipCleanup.h"
 #include "HipDefrost.h"
 #include "HipDynMem.h"
+#include "HipStripDebugInfo.h"
 #include "HipStripUsedIntrinsics.h"
 #include "HipWarps.h"
 #include "HipPrintf.h"
@@ -125,7 +126,16 @@ addPassWithVerification(ModulePassManager &MPM, PassT &&P,
 
 static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipFixOpenCLMDPass()); // must be first or else we get OCL Version mismatch
-  
+
+#ifndef CHIP_KEEP_KERNEL_DEBUG_INFO
+  // No SPIR-V producer emits debug information our consumers accept, so drop it
+  // up front unless the build opted in (-DCHIP_KEEP_KERNEL_DEBUG_INFO=ON, which
+  // only makes sense on Intel Data Center GPU Max). Doing it here also spares
+  // the passes below from keeping debug metadata consistent as they erase
+  // globals and functions. See HipStripDebugInfo.cpp.
+  MPM.addPass(HipStripDebugInfoPass());
+#endif
+
   // Clear any previous results at the start of a new pipeline
   HipVerifyPass::clearResults();
 
