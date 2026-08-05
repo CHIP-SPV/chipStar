@@ -98,7 +98,7 @@ endif()
 add_library(LLVMHipStripUsedIntrinsics MODULE HipStripUsedIntrinsics.cpp)
 add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
 add_library(LLVMHipPasses MODULE HipPasses.cpp
-    HipDynMem.cpp HipStripUsedIntrinsics.cpp HipDefrost.cpp
+    HipDynMem.cpp HipStripUsedIntrinsics.cpp HipStripDebugInfo.cpp HipDefrost.cpp
     HipPrintf.cpp HipGlobalVariables.cpp HipCleanup.cpp HipTextureLowering.cpp HipAbort.cpp
     HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
@@ -139,7 +139,8 @@ endif()
 # validation pipeline runs automatically (see HipVerify.cpp::getVerificationMode).
 # Release builds keep it off due to the compile-time cost (CHIP-SPV/chipStar#1047).
 target_compile_definitions(LLVMHipPasses PRIVATE
-  $<$<CONFIG:Debug>:CHIP_DEBUG_BUILD>)
+  $<$<CONFIG:Debug>:CHIP_DEBUG_BUILD>
+  $<$<BOOL:${CHIP_KEEP_KERNEL_DEBUG_INFO}>:CHIP_KEEP_KERNEL_DEBUG_INFO>)
 
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
 target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
