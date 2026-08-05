@@ -30,6 +30,7 @@
 #include "HipLowerSwitch.h"
 #include "HipLowerMemset.h"
 #include "HipIGBADetector.h"
+#include "HipFunctionPointerAS.h"
 #include "HipPromoteInts.h"
 #include "HipSpirvFunctionReorderPass.h"
 #include "HipVerify.h"
@@ -192,6 +193,11 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)), "InferAddressSpacesPass");
 
+  // Move function pointers held in vtables into the generic address space.
+  // Runs after inlining and InferAddressSpaces so that it only has to deal
+  // with the indirect calls which genuinely survive to the SPIR-V module.
+  addPassWithVerification(MPM, HipFunctionPointerASPass(), "HipFunctionPointerASPass");
+
   addPassWithVerification(MPM, HipIGBADetectorPass(), "HipIGBADetectorPass");
 
   // Fix InvalidBitWidth errors due to non-standard integer types
@@ -235,6 +241,12 @@ llvmGetPassPluginInfo() {
                   // Register merged IR+SPIR-V validation pass as standalone (legacy - use hip-verify instead)
                   if (Name == "ir-spirv-validate") {
                     MPM.addPass(HipVerifyPass("IR+SPIR-V validation"));
+                    return true;
+                  }
+                  // Register the vtable function pointer address space pass
+                  // as standalone, which makes it directly testable with opt.
+                  if (Name == "hip-function-pointer-as") {
+                    MPM.addPass(HipFunctionPointerASPass());
                     return true;
                   }
                   // Register SPIR-V function reorder pass as standalone
