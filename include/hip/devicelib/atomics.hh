@@ -299,6 +299,27 @@ atomicDec(unsigned *address, unsigned val) { // Undocumented
   return __chip_atomic_dec2_u(address, val);
 }
 
+// AMD GCN builtins for the wrapping atomic increment/decrement. Clang only
+// declares them for the amdgcn target, so code written against ROCm HIP (for
+// example desul's atomic_fetch_inc_mod / atomic_fetch_dec_mod, which Kokkos
+// bundles) does not compile for SPIR-V. Their semantics are exactly
+// atomicInc/atomicDec, which chipStar already implements, so forward to those.
+// The memory order and scope arguments are accepted and ignored, matching the
+// relaxed device-scope behaviour of __chip_atomic_{inc,dec}2_u.
+extern "C++" inline __device__ unsigned int
+__builtin_amdgcn_atomic_inc32(unsigned int *address, unsigned int val,
+                              int /*order*/, const char * /*scope*/,
+                              bool /*isVolatile*/ = false) {
+  return __chip_atomic_inc2_u(address, val);
+}
+
+extern "C++" inline __device__ unsigned int
+__builtin_amdgcn_atomic_dec32(unsigned int *address, unsigned int val,
+                              int /*order*/, const char * /*scope*/,
+                              bool /*isVolatile*/ = false) {
+  return __chip_atomic_dec2_u(address, val);
+}
+
 extern "C" __device__ int __chip_atomic_cmpxchg_i(int *address, int compare,
                                                   int val);
 extern "C++" inline __device__ int atomicCAS(int *address, int compare,
