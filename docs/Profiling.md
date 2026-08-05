@@ -12,15 +12,19 @@ vary by installation.
 | In-kernel debugging, line info + breakpoints | `-g -O0` | — |
 | In-kernel debugging, readable locals | `-g -O0` | `CHIP_JIT_FLAGS="-cl-opt-disable"` |
 
-Device debug info requires LLVM 23 built by
-`scripts/configure_llvm.sh --version 23`, which applies chipStar's
-`preserve-device-debug-info` patch (upstream from LLVM 24,
-[llvm#210504](https://github.com/llvm/llvm-project/pull/210504)) on top of
-the in-tree SPIR-V backend backport. On LLVM 21 and 22, and on 23 when
-`-fno-integrated-objemitter` selects the SPIRV-LLVM-Translator, device
-debug info is stripped: the translator emits a cyclic
-`DebugTypeComposite` `Parent` reference that `spirv-val` rejects and IGC
-mis-handles.
+Device debug info is stripped by default. No SPIR-V producer emits debug
+information that `spirv-val` accepts: the SPIRV-LLVM-Translator emits a
+cyclic type reference, and the in-tree SPIR-V backend emits a
+`DebugCompilationUnit` whose DWARF version operand is not a 32-bit
+unsigned `OpConstant`. Only IGC on Intel Data Center GPU Max tolerates
+the result, so chipStar drops the debug metadata in an LLVM pass at
+device link time.
+
+To keep it, build chipStar with `-DCHIP_KEEP_KERNEL_DEBUG_INFO=ON` and an
+LLVM 23 toolchain from `scripts/configure_llvm.sh --version 23`, which
+applies chipStar's `preserve-device-debug-info` patch (upstream from LLVM
+24, [llvm#210504](https://github.com/llvm/llvm-project/pull/210504)). That
+combination is only expected to work on Intel Data Center GPU Max.
 
 ## Compile time vs JIT time
 
