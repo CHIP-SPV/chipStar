@@ -141,10 +141,29 @@ jobs:
           export HIPCC_VERIFY=warn
 
           STAGING=/tmp/chipstar-ci-staging/${{ github.event.pull_request.number }}
-          rm -rf $STAGING
 
+          # Reap other PRs' staging trees. Each one is ~9 GB and nothing used to
+          # delete them, which filled the runner's root disk to 100% once and
+          # left the Actions runner crash-looping on its own _diag log while
+          # every queued job merely looked slow. Keeping our own tree between
+          # runs (below) removes the only thing that ever freed space, so age
+          # them out explicitly instead.
+          find /tmp/chipstar-ci-staging -mindepth 1 -maxdepth 1 -type d \
+            -not -name "${{ github.event.pull_request.number }}" \
+            -mtime +7 -exec rm -rf {} + 2>/dev/null || true
+          df -h / | tail -1
+
+          # The staging tree is kept between runs of the same PR and reused via
+          # --reuse-build-dirs, so a push that does not touch a library's inputs
+          # skips recompiling it. The library sources are identical from one PR
+          # to the next; only chipStar changes, and anything that depends on a
+          # changed chipStar header still rebuilds. install_chipstar.py falls
+          # back to a scratch build whenever the compiler, install prefix or
+          # build type in an existing CMakeCache.txt no longer matches -- which
+          # is what happens when the date stamped install prefix rolls over.
           ./install_chipstar.py --all \
             --with-tests \
+            --reuse-build-dirs \
             --install-dir $STAGING \
             --staging-dir $STAGING/staging \
             -j 8
