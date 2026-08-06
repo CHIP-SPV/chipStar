@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tty
 import termios
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
@@ -1050,6 +1051,41 @@ class Builder:
             return False
         return "project(chipStar" in content or "project(chipstar" in content
 
+    def prefetch_sources(self, components: List[Component]) -> None:
+        """Clone every component's source up front, in parallel.
+
+        Builds run one component at a time, and each one used to clone its own
+        source just before configuring it, so every clone sat on the critical
+        path with the CPU idle. Cloning is pure network/IO into per-component
+        directories, so it parallelises safely even though the builds cannot:
+        they share one install prefix and one CMAKE_PREFIX_PATH.
+
+        Failures are ignored here on purpose -- the component's own build still
+        calls clone_or_update_if_needed and will report the error in context.
+        """
+        if self.config.install_only or self.config.dry_run:
+            return
+
+        pending = [c for c in components
+                   if not (c.use_cwd_if_chipstar_repo
+                           and self._is_chipstar_source_tree(Path.cwd()))]
+        if len(pending) < 2:
+            return
+
+        print(f"{Colors.YELLOW}[INFO]{Colors.NC} Prefetching {len(pending)} sources...")
+
+        def fetch(component: Component) -> None:
+            try:
+                self.clone_or_update(component.repo, component.display_name,
+                                     component.branch, self.config.staging_dir)
+            except Exception as e:  # noqa: BLE001 - retried serially in the build
+                print(f"{Colors.YELLOW}[WARN]{Colors.NC} "
+                      f"Prefetch of {component.display_name} failed ({e}); "
+                      f"will retry during its build")
+
+        with ThreadPoolExecutor(max_workers=min(4, len(pending))) as pool:
+            list(pool.map(fetch, pending))
+
     def _resolve_src_dir(self, component: Component) -> Path:
         """Pick the source directory for a component (cwd for in-tree chipStar, else staging)."""
         if component.use_cwd_if_chipstar_repo:
@@ -1425,6 +1461,8 @@ def main():
     
     print(f"\n{Colors.BOLD}Starting installation of {len(components_to_install)} components...{Colors.NC}\n")
     
+    builder.prefetch_sources(components_to_install)
+
     failed = []
     succeeded = []
     
