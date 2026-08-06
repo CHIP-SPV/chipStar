@@ -369,7 +369,8 @@ class InstallConfig:
     """Installation configuration."""
     def __init__(self, install_base=None, module_base=None, staging_dir=None, jobs=None,
                  date_stamp=None, llvm_dir=None, dry_run=False, verbose=True, module_format="tcl",
-                 no_install=False, install_only=False, build_tests=False):
+                 no_install=False, install_only=False, build_tests=False,
+                 reuse_build_dirs=False):
         self.install_base = install_base if install_base else Path.home() / "install" / "HIP"
         self.module_base = module_base if module_base else Path.home() / "modulefiles" / "HIP"
         self.staging_dir = staging_dir if staging_dir else Path("/tmp")
@@ -382,6 +383,7 @@ class InstallConfig:
         self.no_install = no_install
         self.install_only = install_only
         self.build_tests = build_tests
+        self.reuse_build_dirs = reuse_build_dirs
 
 
 # ============================================================================
@@ -980,10 +982,61 @@ class Builder:
             print(f"{Colors.YELLOW}[INFO]{Colors.NC} Cloning {name}...")
             self.run_cmd(["git", "clone", "-b", branch, repo, name], cwd=dest)
 
-    def _prepare_fresh_build_dir(self, build_dir: Path) -> None:
-        """Remove and recreate build_dir unless --install-only (reuse existing build tree)."""
+    @staticmethod
+    def _cmake_cache_value(build_dir: Path, key: str) -> Optional[str]:
+        """Read one KEY:TYPE=VALUE entry out of an existing CMakeCache.txt."""
+        cache = build_dir / "CMakeCache.txt"
+        if not cache.is_file():
+            return None
+        try:
+            for line in cache.read_text(errors="replace").splitlines():
+                name, sep, value = line.partition("=")
+                if sep and name.split(":", 1)[0] == key:
+                    return value.strip()
+        except OSError:
+            return None
+        return None
+
+    def _build_dir_is_reusable(self, build_dir: Path, cmake_args: List[str]) -> bool:
+        """True when an existing build tree was configured the way we want now.
+
+        The install prefix is date stamped (install_base/chipStar/<date>), so the
+        hipcc path baked into CMakeCache.txt changes whenever the stamp does.
+        Handing such a tree back to CMake makes it abort with "the compiler has
+        changed", so compare the cache against the -D flags we are about to pass
+        and start over on any mismatch.
+        """
+        if not (build_dir / "CMakeCache.txt").is_file():
+            return False
+        for arg in cmake_args:
+            if not arg.startswith("-D"):
+                continue
+            name, sep, wanted = arg[2:].partition("=")
+            if not sep:
+                continue
+            key = name.split(":", 1)[0]
+            if key not in ("CMAKE_CXX_COMPILER", "CMAKE_C_COMPILER",
+                           "CMAKE_INSTALL_PREFIX", "CMAKE_BUILD_TYPE"):
+                continue
+            if self._cmake_cache_value(build_dir, key) != wanted:
+                return False
+        return True
+
+    def _prepare_build_dir(self, build_dir: Path, cmake_args: List[str]) -> None:
+        """Make build_dir ready to configure into.
+
+        Wipes it by default so every run is a clean build. With
+        --reuse-build-dirs an already-compatible tree is kept instead, letting
+        make skip everything whose inputs did not change.
+        """
         if self.config.install_only:
             return
+        if self.config.reuse_build_dirs and build_dir.exists():
+            if self._build_dir_is_reusable(build_dir, cmake_args):
+                print(f"{Colors.YELLOW}[INFO]{Colors.NC} Reusing build dir {build_dir}")
+                return
+            print(f"{Colors.YELLOW}[INFO]{Colors.NC} "
+                  f"Build dir {build_dir} was configured differently; rebuilding from scratch")
         if build_dir.exists():
             shutil.rmtree(build_dir)
         build_dir.mkdir(parents=True)
@@ -1129,8 +1182,6 @@ class Builder:
         if component.git_submodule_update and not self.config.install_only:
             self.run_cmd(["git", "submodule", "update", "--init", "--recursive"], cwd=src_dir)
 
-        self._prepare_fresh_build_dir(build_dir)
-
         cmake_args = [
             "cmake", "..",
             f"-DCMAKE_BUILD_TYPE=Release",
@@ -1151,6 +1202,7 @@ class Builder:
             if hip_path:
                 cmake_args.append(f"-DCMAKE_CXX_FLAGS=-I{hip_path}/include")
 
+        self._prepare_build_dir(build_dir, cmake_args)
         self._cmake_configure_and_build(build_dir, cmake_args)
         self._make_install_if_needed(build_dir)
     
@@ -1312,6 +1364,14 @@ Examples:
     )
 
     parser.add_argument(
+        "--reuse-build-dirs", action="store_true",
+        help="Keep existing build dirs and build incrementally instead of wiping "
+             "them. A tree configured with a different compiler, install prefix "
+             "or build type is still rebuilt from scratch. Trades cold-build "
+             "coverage for speed; CI should schedule a periodic clean build."
+    )
+
+    parser.add_argument(
         "--with-tests", action="store_true",
         help="Build each library's test suite (off by default; CI test stages should set this)"
     )
@@ -1360,6 +1420,7 @@ def main():
         no_install=args.no_install,
         install_only=args.install_only,
         build_tests=args.with_tests,
+        reuse_build_dirs=args.reuse_build_dirs,
     )
     
     if args.install_dir:
@@ -1465,7 +1526,7 @@ def main():
 
     failed = []
     succeeded = []
-    
+
     for comp in components_to_install:
         try:
             builder.build(comp)
