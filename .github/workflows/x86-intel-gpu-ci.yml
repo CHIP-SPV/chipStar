@@ -452,9 +452,15 @@ jobs:
           # ~15h and blow the job timeout. Cap the step count to a smoke-test
           # value so it still exercises the chipStar GPU path end-to-end and
           # reaches "End of computation!". (Override honored by the test driver.)
+          #
+          # One step is enough for that: the assertion below is only that the
+          # run reaches "End of computation!", and step 0 already compiles and
+          # JITs every chemistry kernel and round-trips the device data. Extra
+          # steps re-run the same kernels on the same data at ~3.5 min each,
+          # which cost ~14 min of every PR without gating anything new.
           cd ../running_test_aurora
           mkdir -p logs
-          export ZERORK_TEST_N_STEPS=5
+          export ZERORK_TEST_N_STEPS=1
           export CHIP_JIT_FLAGS_OVERRIDE="-ze-opt-enable-auto-large-GRF-mode"
           mpiexec -np 1 \
             ../build_local/applications/cfd_plugin/zerork_random_reactors_test_gpu.x \
