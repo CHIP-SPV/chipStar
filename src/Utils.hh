@@ -169,8 +169,19 @@ template <class T> struct PointerCmp {
 void copyKernelArgs(std::vector<void *> &ArgList, std::vector<char> &ArgData,
                     void **CopyFrom, const SPVFuncInfo &FuncInfo);
 
-/// Collect all environment variables that start with "IGC_" and return them as a string
-/// for use in cache key generation
-std::string collectIGCEnvironmentVariables();
+/// FNV-1a 64-bit hash — portable and deterministic across runs, platforms and
+/// stdlib versions. std::hash<std::string> is implementation-defined and may be
+/// randomized per run or change between compiler/stdlib versions, which makes
+/// any on-disk cache keyed with it effectively write-only on those platforms.
+uint64_t fnv1a64(const std::string &S);
+
+/// Collect the environment variables that can change what the device compiler
+/// emits, as a sorted, ";"-joined "NAME=VALUE" string for cache key generation.
+///
+/// Matching is by name prefix. Beyond IGC's own knobs this has to cover the
+/// Compute Runtime and Level Zero loader ones: OverrideDefaultFP64Settings=1,
+/// for example, changes fp64 codegen and is set by the x86 CI on every job, yet
+/// carries no IGC_ prefix.
+std::string collectCompilerEnvironmentVariables();
 
 #endif
