@@ -258,6 +258,8 @@ set_target_properties(TestModuleCacheInvalidation PROPERTIES CXX_STANDARD_REQUIR
 target_link_libraries(TestModuleCacheInvalidation CHIP deviceInternal)
 target_include_directories(TestModuleCacheInvalidation
   PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+target_compile_definitions(TestModuleCacheInvalidation
+  PRIVATE CHIP_SKIP_TEST=${CHIP_SKIP_TEST})
 add_test(NAME TestModuleCacheInvalidation
   COMMAND ${CMAKE_COMMAND}
     -DTEST_EXECUTABLE=$<TARGET_FILE:TestModuleCacheInvalidation>

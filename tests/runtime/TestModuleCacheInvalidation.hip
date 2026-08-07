@@ -13,11 +13,26 @@
 
 #include <hip/hip_runtime.h>
 #include <cstdio>
+#include <cstring>
 
 __global__ void accumulate(float *Out) { atomicAdd(Out, 1.0f); }
 
 int main() {
   constexpr int NumThreads = 64;
+
+  // Mali's OpenCL driver rejects clLinkProgram outright (observed as error
+  // -59 regardless of module content), so the compile+link path this test
+  // exists to exercise cannot run there at all -- a pre-existing platform
+  // gap unrelated to cache correctness, the same reason PR #1341 moved warp
+  // shuffle off the rtdevlib-link path for this GPU family. Skip the same
+  // way TestBallot.hip gates on Props.arch.hasWarpBallot rather than let an
+  // unrelated platform limitation read as a cache bug.
+  hipDeviceProp_t Props;
+  if (hipGetDeviceProperties(&Props, 0) == hipSuccess &&
+      strstr(Props.name, "Mali")) {
+    printf("HIP_SKIP_THIS_TEST: clLinkProgram is not functional on Mali\n");
+    return CHIP_SKIP_TEST;
+  }
 
   float *DevOut = nullptr;
   if (hipMalloc(&DevOut, sizeof(float)) != hipSuccess) {

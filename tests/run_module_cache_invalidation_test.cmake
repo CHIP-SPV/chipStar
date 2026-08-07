@@ -61,6 +61,25 @@ function(run_and_count LABEL OUT_COUNT)
     RESULT_VARIABLE RUN_RC
     OUTPUT_VARIABLE RUN_OUT
     ERROR_VARIABLE RUN_ERR)
+  # The payload signals a platform it cannot run on (e.g. Mali, whose
+  # clLinkProgram is unconditionally broken) the same way every other test in
+  # this suite does: HIP_SKIP_THIS_TEST on stdout. Surface that as a skip of
+  # the whole ctest test rather than letting a non-zero exit fall through to
+  # the FATAL_ERROR below, whose message happens to also contain the marker --
+  # relying on that would make the skip path fragile to unrelated wording
+  # changes in the error message.
+  #
+  # return() here only exits this function, not the script, so the actual
+  # abort happens at the call site below via RUN_SKIPPED: every remaining
+  # run would hit the identical, deterministic platform gate, so it is
+  # enough to check once, after the first (cold) call.
+  set(RUN_SKIPPED FALSE PARENT_SCOPE)
+  if(RUN_OUT MATCHES "HIP_SKIP_THIS_TEST")
+    message(STATUS "${RUN_OUT}")
+    message(STATUS "HIP_SKIP_THIS_TEST: ${LABEL} reported an unsupported platform")
+    set(RUN_SKIPPED TRUE PARENT_SCOPE)
+    return()
+  endif()
   if(NOT RUN_RC EQUAL 0)
     message(FATAL_ERROR
       "${LABEL}: test executable failed (exit ${RUN_RC})\n${RUN_OUT}\n${RUN_ERR}")
@@ -88,6 +107,10 @@ endfunction()
 
 # 1. Cold: the first compile must populate the cache.
 run_and_count("cold run" N1)
+if(RUN_SKIPPED)
+  file(REMOVE_RECURSE "${CACHE_DIR}")
+  return()
+endif()
 if(N1 LESS 1)
   file(REMOVE_RECURSE "${CACHE_DIR}")
   message(FATAL_ERROR
