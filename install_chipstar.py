@@ -1022,59 +1022,30 @@ class Builder:
                 return False
         return True
 
-    def _prepare_build_dir(self, build_dir: Path, cmake_args: List[str]) -> bool:
-        """Make build_dir ready to configure into. Returns True if reused.
+    def _prepare_build_dir(self, build_dir: Path, cmake_args: List[str]) -> None:
+        """Make build_dir ready to configure into.
 
         Wipes it by default so every run is a clean build. With
         --reuse-build-dirs an already-compatible tree is kept instead, letting
         make skip everything whose inputs did not change.
         """
         if self.config.install_only:
-            return False
+            return
         if self.config.reuse_build_dirs and build_dir.exists():
             if self._build_dir_is_reusable(build_dir, cmake_args):
                 print(f"{Colors.YELLOW}[INFO]{Colors.NC} Reusing build dir {build_dir}")
-                return True
+                return
             print(f"{Colors.YELLOW}[INFO]{Colors.NC} "
                   f"Build dir {build_dir} was configured differently; rebuilding from scratch")
         if build_dir.exists():
             shutil.rmtree(build_dir)
         build_dir.mkdir(parents=True)
-        return False
 
-    def _cmake_configure_and_build(self, build_dir: Path, cmake_args: List[str],
-                                   reused: bool = False) -> None:
-        """Run cmake + make unless --install-only.
-
-        A reused build dir can still fail to reconfigure for reasons that have
-        nothing to do with chipStar: rocPRIM's cmake/Dependencies.cmake, for
-        one, only re-runs FetchContent_Populate for rocm-cmake when
-        _deps/rocm-cmake-src is absent, so on a second configure of the same
-        tree rocm-cmake_SOURCE_DIR is empty and find_package(ROCM) fails with
-        the config file "not found" even though it is sitting on disk. That
-        bug is latent in rocPRIM itself and was invisible before this project
-        ever reconfigured a build dir twice; --reuse-build-dirs is what
-        exposes it. Rather than special-case every dependency that might do
-        something similar, self-heal the one case that matters: a reused
-        configure that fails gets one retry from a full wipe, which is
-        exactly the guarantee --reuse-build-dirs already documents (falls
-        back to a scratch build whenever the reused state is not safe to
-        trust). A failure on a genuinely fresh dir is real and propagates.
-        """
+    def _cmake_configure_and_build(self, build_dir: Path, cmake_args: List[str]) -> None:
+        """Run cmake + make unless --install-only."""
         if self.config.install_only:
             return
-        try:
-            self.run_cmd(cmake_args, cwd=build_dir)
-        except subprocess.CalledProcessError:
-            if not reused:
-                raise
-            print(f"{Colors.YELLOW}[WARN]{Colors.NC} "
-                  f"Reused build dir {build_dir} failed to reconfigure; "
-                  f"retrying from a clean wipe")
-            if build_dir.exists():
-                shutil.rmtree(build_dir)
-            build_dir.mkdir(parents=True)
-            self.run_cmd(cmake_args, cwd=build_dir)
+        self.run_cmd(cmake_args, cwd=build_dir)
         self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
 
     def _make_install_if_needed(self, build_dir: Path) -> None:
@@ -1231,8 +1202,8 @@ class Builder:
             if hip_path:
                 cmake_args.append(f"-DCMAKE_CXX_FLAGS=-I{hip_path}/include")
 
-        reused = self._prepare_build_dir(build_dir, cmake_args)
-        self._cmake_configure_and_build(build_dir, cmake_args, reused=reused)
+        self._prepare_build_dir(build_dir, cmake_args)
+        self._cmake_configure_and_build(build_dir, cmake_args)
         self._make_install_if_needed(build_dir)
     
     def _generate_module(self, name: str, install_dir: Path, version: Optional[str] = None):
