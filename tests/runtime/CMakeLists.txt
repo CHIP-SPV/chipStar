@@ -247,3 +247,22 @@ add_hip_runtime_test(TestSyncthreadsAndOrCount.hip)
 # __clz(0)-poison miscompile only manifests at -O1 and above.
 add_hip_runtime_test(TestSnakeMiscompileO2.hip)
 target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
+
+# Module cache invalidation. The executable is built like any other runtime
+# test, but it has to be run several times with different compilation inputs
+# under one fresh cache directory, so it is registered through a driver script
+# instead of add_hip_runtime_test's single invocation.
+set_source_files_properties(TestModuleCacheInvalidation.hip PROPERTIES LANGUAGE CXX)
+add_executable(TestModuleCacheInvalidation TestModuleCacheInvalidation.hip)
+set_target_properties(TestModuleCacheInvalidation PROPERTIES CXX_STANDARD_REQUIRED ON)
+target_link_libraries(TestModuleCacheInvalidation CHIP deviceInternal)
+target_include_directories(TestModuleCacheInvalidation
+  PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+target_compile_definitions(TestModuleCacheInvalidation
+  PRIVATE CHIP_SKIP_TEST=${CHIP_SKIP_TEST})
+add_test(NAME TestModuleCacheInvalidation
+  COMMAND ${CMAKE_COMMAND}
+    -DTEST_EXECUTABLE=$<TARGET_FILE:TestModuleCacheInvalidation>
+    -P ${CMAKE_SOURCE_DIR}/tests/run_module_cache_invalidation_test.cmake)
+set_tests_properties(TestModuleCacheInvalidation PROPERTIES
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")

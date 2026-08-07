@@ -3172,6 +3172,65 @@ static std::string dumpBuildLog(ze_module_build_log_handle_t &&Log) {
   return LogStr;
 }
 
+/// Compute the Level Zero module cache key.
+///
+/// Unlike the OpenCL path this hashes every input module handed to
+/// zeModuleCreate, so the runtime device library modules are already covered:
+/// they are passed in as additional ILs rather than linked in afterwards.
+///
+/// The device driver is the compiler here, so its version has to be part of the
+/// key -- without it an IGC or Level Zero upgrade keeps serving binaries built
+/// by the previous compiler. The device name alone does not change across such
+/// an upgrade.
+static std::string
+computeLevel0CacheKey(const ze_module_program_exp_desc_t *ProgramDesc,
+                      CHIPDeviceLevel0 *device) {
+  std::string Combined;
+  for (int i = 0; i < static_cast<int>(ProgramDesc->count); i++) {
+    Combined.append(
+        reinterpret_cast<const char *>(ProgramDesc->pInputModules[i]),
+        ProgramDesc->inputSizes[i]);
+    if (ProgramDesc->pBuildFlags && ProgramDesc->pBuildFlags[i])
+      Combined.append(ProgramDesc->pBuildFlags[i]);
+    Combined.append(std::to_string(ProgramDesc->inputSizes[i]));
+  }
+
+  Combined.append("\n---device---\n");
+  Combined.append(device->getName());
+
+  ze_device_properties_t DeviceProperties{};
+  DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+  DeviceProperties.pNext = nullptr;
+  if (zeDeviceGetProperties(device->get(), &DeviceProperties) ==
+      ZE_RESULT_SUCCESS) {
+    Combined.append("\n");
+    Combined.append(std::to_string(DeviceProperties.deviceId));
+    Combined.append("\n");
+    Combined.append(std::to_string(DeviceProperties.vendorId));
+  }
+
+  if (auto *CtxLz = static_cast<CHIPContextLevel0 *>(device->getContext())) {
+    ze_driver_properties_t DriverProperties{};
+    DriverProperties.stype = ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES;
+    DriverProperties.pNext = nullptr;
+    if (zeDriverGetProperties(CtxLz->ZeDriver, &DriverProperties) ==
+        ZE_RESULT_SUCCESS) {
+      Combined.append("\n");
+      Combined.append(std::to_string(DriverProperties.driverVersion));
+    }
+  }
+
+  Combined.append("\n---env---\n");
+  std::string EnvVars = collectCompilerEnvironmentVariables();
+  logDebug("Level0: compiler env vars for cache key: '{}'", EnvVars);
+  Combined.append(EnvVars);
+
+  // fnv1a64 rather than std::hash: std::hash<std::string> is
+  // implementation-defined and may differ between stdlib versions or even runs,
+  // which would make these on-disk entries unreadable after a toolchain change.
+  return std::to_string(fnv1a64(Combined));
+}
+
 void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
           CHIPDeviceLevel0 *device) {
   const void *pNextConst = desc.pNext;
@@ -3184,29 +3243,8 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
           reinterpret_cast<const ze_module_program_exp_desc_t *>(pNextConst));
   int numILs = ProgramDesc->count;
 
-  std::hash<std::string> hasher;
-  std::string combinedInput;
-  for (int i = 0; i < numILs; i++) {
-    combinedInput.append(
-        reinterpret_cast<const char *>(ProgramDesc->pInputModules[i]),
-        ProgramDesc->inputSizes[i]);
-    combinedInput.append(ProgramDesc->pBuildFlags[i]);
-    combinedInput.append(std::to_string(ProgramDesc->inputSizes[i]));
-  }
-
-  // Add device name to the hash input
-  combinedInput.append(device->getName());
-
-  // Include IGC_ environment variables in cache key
-  std::string igcVars = collectIGCEnvironmentVariables();
-  logDebug("Level0: IGC variables for cache key: '{}'", igcVars);
-  if (!igcVars.empty()) {
-    combinedInput.append(";");
-    combinedInput.append(igcVars);
-  }
-
-  size_t hash = hasher(combinedInput);
-  logDebug("Level0: Generated cache hash: '{}'", std::to_string(hash));
+  std::string hash = computeLevel0CacheKey(ProgramDesc, device);
+  logDebug("Level0: Generated cache hash: '{}'", hash);
 
   if (!ChipEnvVars.getModuleCacheDir().has_value()) {
     logTrace("Module caching is disabled");
@@ -3216,8 +3254,8 @@ void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
   // Create the cache directory if it doesn't exist
   std::filesystem::create_directories(cacheDir);
-  std::string fullPath = cacheDir + "/" + std::to_string(hash);
-  std::string fullPath_tmp = cacheDir + "/" + std::to_string(hash) +"_tmp";
+  std::string fullPath = cacheDir + "/" + hash;
+  std::string fullPath_tmp = cacheDir + "/" + hash +"_tmp";
 
   size_t binarySize;
   zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
@@ -3280,36 +3318,15 @@ bool load(ze_module_desc_t &desc, CHIPDeviceLevel0 *device) {
           reinterpret_cast<const ze_module_program_exp_desc_t *>(pNextConst));
   int numILs = ProgramDesc->count;
 
-  std::hash<std::string> hasher;
-  std::string combinedInput;
-  for (int i = 0; i < numILs; i++) {
-    combinedInput.append(
-        reinterpret_cast<const char *>(ProgramDesc->pInputModules[i]),
-        ProgramDesc->inputSizes[i]);
-    combinedInput.append(ProgramDesc->pBuildFlags[i]);
-    combinedInput.append(std::to_string(ProgramDesc->inputSizes[i]));
-  }
-
-  // Add device name to the hash input
-  combinedInput.append(device->getName());
-
-  // Include IGC_ environment variables in cache key
-  std::string igcVars = collectIGCEnvironmentVariables();
-  logDebug("Level0 load: IGC variables for cache key: '{}'", igcVars);
-  if (!igcVars.empty()) {
-    combinedInput.append(";");
-    combinedInput.append(igcVars);
-  }
-
-  size_t hash = hasher(combinedInput);
-  logDebug("Level0 load: Generated cache hash: '{}'", std::to_string(hash));
+  std::string hash = computeLevel0CacheKey(ProgramDesc, device);
+  logDebug("Level0 load: Generated cache hash: '{}'", hash);
 
   if (!ChipEnvVars.getModuleCacheDir().has_value()) {
     return false;
   }
 
   std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
-  std::string fullPath = cacheDir + "/" + std::to_string(hash);
+  std::string fullPath = cacheDir + "/" + hash;
 
   logTrace("Loading kernel binary from cache at {}", fullPath);
   std::ifstream inFile(fullPath, std::ios::in | std::ios::binary);

@@ -278,35 +278,56 @@ bool startsWith(std::string_view Str, std::string_view WithStr) {
          Str.substr(0, WithStr.size()) == WithStr;
 }
 
-std::string collectIGCEnvironmentVariables() {
-  std::vector<std::string> igcVars;
-  logDebug("Collecting IGC environment variables...");
-  
+uint64_t fnv1a64(const std::string &S) {
+  uint64_t Hash = UINT64_C(14695981039346656037);
+  for (unsigned char C : S) {
+    Hash ^= C;
+    Hash *= UINT64_C(1099511628211);
+  }
+  return Hash;
+}
+
+std::string collectCompilerEnvironmentVariables() {
+  // Prefixes of variables that reach the device compiler. IGC_ covers IGC's
+  // own knobs; the rest are Compute Runtime / Level Zero loader settings that
+  // change codegen without carrying that prefix.
+  // OverrideDefaultFP64Settings is the motivating case: it switches on fp64
+  // emulation and the x86 CI exports it on every job, so leaving it out lets
+  // an emulated-fp64 binary be served to a run that did not ask for it.
+  static constexpr const char *CompilerEnvPrefixes[] = {
+      "IGC_", "NEO", "Override", "ZE_", "ZET_", "cl_cache_dir"};
+
+  std::vector<std::string> Vars;
+  logDebug("Collecting device compiler environment variables...");
+
   // Access the environment variables through the global environ variable
   extern char **environ;
-  
-  for (char **env = environ; *env != nullptr; ++env) {
-    std::string envVar(*env);
-    if (startsWith(envVar, "IGC_")) {
-      logDebug("Found IGC variable: {}", envVar);
-      igcVars.push_back(envVar);
+
+  for (char **Env = environ; *Env != nullptr; ++Env) {
+    std::string EnvVar(*Env);
+    for (const char *Prefix : CompilerEnvPrefixes) {
+      if (startsWith(EnvVar, Prefix)) {
+        logDebug("Found compiler variable: {}", EnvVar);
+        Vars.push_back(EnvVar);
+        break;
+      }
     }
   }
-  
-  // Sort to ensure consistent ordering for cache key generation
-  std::sort(igcVars.begin(), igcVars.end());
-  
-  // Concatenate all IGC_ variables into a single string
-  std::string result;
-  for (const auto& var : igcVars) {
-    if (!result.empty()) {
-      result += ";";
+
+  // Sort so the key does not depend on the order the environment happens to be
+  // laid out in.
+  std::sort(Vars.begin(), Vars.end());
+
+  std::string Result;
+  for (const auto &Var : Vars) {
+    if (!Result.empty()) {
+      Result += ";";
     }
-    result += var;
+    Result += Var;
   }
-  
-  logDebug("Collected IGC variables string: '{}'", result);
-  return result;
+
+  logDebug("Collected compiler variables string: '{}'", Result);
+  return Result;
 }
 
 /// Deep copies kernel arguments pointed by 'CopyArg'. Bytes of the

@@ -27,9 +27,12 @@
 #include <sstream>
 
 #include "Utils.hh"
+#include <algorithm>
 #include <chrono>
+#include <map>
 #include <thread>
 #include <fstream>
+#include <unistd.h>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
@@ -938,6 +941,50 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   return compileIL(Ctx, ChipDev, IL.data(), IL.size());
 }
 
+/// One rtdevlib module selected for linking into a device program.
+struct RtDevLibModule {
+  const char *Name;
+  const unsigned char *Data;
+  size_t Size;
+};
+
+/// Pick the rtdevlib modules to link into a program on this device.
+///
+/// Which implementation is chosen depends on device capabilities (native vs
+/// emulated atomics, fp64 support, ballot), so the selection is part of what
+/// determines the final binary. The cache key hashes the modules this returns,
+/// which is why selection lives here rather than inline in the link path: the
+/// key and the link have to agree, and duplicating the capability checks would
+/// let them drift apart silently.
+static std::vector<RtDevLibModule>
+selectRuntimeObjects(CHIPDeviceOpenCL &ChipDev) {
+  std::vector<RtDevLibModule> Modules;
+  auto Add = [&](auto &Source, const char *Name) -> void {
+    Modules.push_back({Name, Source.data(), Source.size()});
+  };
+
+  if (ChipDev.hasFP32AtomicAdd())
+    Add(chipstar::atomicAddFloat_native, "atomicAddFloat_native");
+  else
+    Add(chipstar::atomicAddFloat_emulation, "atomicAddFloat_emulation");
+
+  if (ChipDev.hasDoubles()) {
+    if (ChipDev.hasFP64AtomicAdd())
+      Add(chipstar::atomicAddDouble_native, "atomicAddDouble_native");
+    else
+      Add(chipstar::atomicAddDouble_emulation, "atomicAddDouble_emulation");
+  }
+
+  Add(chipstar::atomicMinMaxFloat_emulation, "atomicMinMaxFloat_emulation");
+
+  if (ChipDev.hasBallot())
+    Add(chipstar::ballot_native, "ballot_native");
+
+  // No fall-back implementation for ballot - let linker raise an error.
+
+  return Modules;
+}
+
 static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
                                  std::vector<cl::Program> &Objects) {
 
@@ -946,36 +993,69 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 
   // TODO: Reuse already compiled modules.
 
-  auto AppendSource = [&](auto &Source, const std::string &Name) -> void {
+  for (const auto &Module : selectRuntimeObjects(ChipDev)) {
     if (ChipEnvVars.getDumpSpirv()) {
-      auto Str = std::string_view(reinterpret_cast<const char *>(Source.data()),
-                                  Source.size());
-      if (auto DumpPath = dumpSpirv(Str, Name))
-        logDebug("Dumped runtime object '{}' SPIR-V binary to '{}'", Name,
-                 fs::absolute(*DumpPath).c_str());
+      auto Str = std::string_view(reinterpret_cast<const char *>(Module.Data),
+                                  Module.Size);
+      if (auto DumpPath = dumpSpirv(Str, Module.Name))
+        logDebug("Dumped runtime object '{}' SPIR-V binary to '{}'",
+                 Module.Name, fs::absolute(*DumpPath).c_str());
     }
-    Objects.push_back(compileIL(Ctx, ChipDev, Source));
-  };
-
-  if (ChipDev.hasFP32AtomicAdd())
-    AppendSource(chipstar::atomicAddFloat_native, "atomicAddFloat_native");
-  else
-    AppendSource(chipstar::atomicAddFloat_emulation, "atomicAddFloat_emulation");
-
-  if (ChipDev.hasDoubles()) {
-    if (ChipDev.hasFP64AtomicAdd())
-      AppendSource(chipstar::atomicAddDouble_native, "atomicAddDouble_native");
-    else
-      AppendSource(chipstar::atomicAddDouble_emulation, "atomicAddDouble_emulation");
+    Objects.push_back(compileIL(Ctx, ChipDev, Module.Data, Module.Size));
   }
-
-  AppendSource(chipstar::atomicMinMaxFloat_emulation, "atomicMinMaxFloat_emulation");
-
-  if (ChipDev.hasBallot())
-    AppendSource(chipstar::ballot_native, "ballot_native");
-
-  // No fall-back implementation for ballot - let linker raise an error.
 }
+
+/// Flags passed to clLinkProgram for the rtdevlib link step.
+///
+/// Intel's driver is the only one given optimization flags here, so the value
+/// depends on the device as well as the environment. Computed in one place so
+/// the cache key and the actual link cannot disagree.
+static std::string computeLinkFlags(CHIPDeviceOpenCL &ChipDev) {
+  std::string Vendor = ChipDev.get()->getInfo<CL_DEVICE_VENDOR>();
+  bool IsIntelGPU = (Vendor.find("Intel") != std::string::npos) &&
+                    (ChipDev.get()->getInfo<CL_DEVICE_TYPE>() &
+                     CL_DEVICE_TYPE_GPU);
+  if (!IsIntelGPU)
+    return "";
+  return ChipEnvVars.hasJitOverride()
+             ? ChipEnvVars.getJitFlagsOverride()
+             : ChipEnvVars.getJitFlags() + " " + Backend->getDefaultJitFlags();
+}
+
+// Module cache file format (binary, host byte order):
+//
+//   magic[4]        = 'C','H','M','1'
+//   device_count    = uint32_t
+//   per device:
+//     name_len      = uint32_t
+//     name          = name_len bytes   (CL_DEVICE_NAME)
+//     binary_size   = uint64_t
+//     binary        = binary_size bytes
+//
+// The previous format concatenated every device's binary with no header and no
+// sizes, and the reader handed the whole blob back as device 0's binary. That
+// silently produced a corrupt program for any multi-device context. Framing the
+// entries and tagging them with the device name makes the file self describing,
+// and the magic lets an old or truncated file be rejected as a miss instead of
+// being fed to the driver.
+namespace {
+constexpr char ModuleCacheMagic[4] = {'C', 'H', 'M', '1'};
+
+template <typename T> void appendPod(std::vector<char> &Out, const T &Value) {
+  const char *Bytes = reinterpret_cast<const char *>(&Value);
+  Out.insert(Out.end(), Bytes, Bytes + sizeof(T));
+}
+
+/// Read a POD from Data at Offset, advancing it. False if the file is too short.
+template <typename T>
+bool readPod(const std::vector<char> &Data, size_t &Offset, T &Value) {
+  if (Offset + sizeof(T) > Data.size())
+    return false;
+  std::memcpy(&Value, Data.data() + Offset, sizeof(T));
+  Offset += sizeof(T);
+  return true;
+}
+} // namespace
 
 static void save(const cl::Program &program, const std::string &cacheName) {
   if (!ChipEnvVars.getModuleCacheDir().has_value()) {
@@ -988,101 +1068,91 @@ static void save(const cl::Program &program, const std::string &cacheName) {
   std::filesystem::create_directories(cacheDir);
   std::string fullPath = cacheDir + "/" + cacheName;
 
-  // Step 1: Get the sizes of the binaries for each device
   std::vector<size_t> binarySizes;
   program.getInfo(CL_PROGRAM_BINARY_SIZES, &binarySizes);
-
   size_t numDevices = binarySizes.size();
-
   if (numDevices == 0) {
     logError("No devices associated with the program.");
     return;
   }
 
-  // Step 2: Allocate memory for each binary
+  std::vector<cl::Device> devices;
+  program.getInfo(CL_PROGRAM_DEVICES, &devices);
+  if (devices.size() != numDevices) {
+    logError("Program reports {} binaries but {} devices; not caching.",
+             numDevices, devices.size());
+    return;
+  }
+
+  // Owning storage, so an early return cannot leak (the previous version hand
+  // rolled new[]/delete[] across six exit paths).
+  std::vector<std::vector<unsigned char>> binaryStorage(numDevices);
   std::vector<unsigned char *> binaries(numDevices, nullptr);
   for (size_t i = 0; i < numDevices; ++i) {
-    if (binarySizes[i] > 0) {
-      binaries[i] = new unsigned char[binarySizes[i]];
-    } else {
+    if (binarySizes[i] == 0) {
       logError("Binary size for device {} is zero.", i);
       return;
     }
+    binaryStorage[i].resize(binarySizes[i]);
+    binaries[i] = binaryStorage[i].data();
   }
 
-  // Step 3: Retrieve the binaries
   cl_int err = clGetProgramInfo(program(), CL_PROGRAM_BINARIES,
                                 numDevices * sizeof(unsigned char *),
                                 binaries.data(), nullptr);
   if (err != CL_SUCCESS) {
     logError("clGetProgramInfo(CL_PROGRAM_BINARIES) failed with error {}", err);
-    // Clean up allocated memory
-    for (auto ptr : binaries) {
-      delete[] ptr;
-    }
     return;
   }
 
-  // Step 4: Write the binaries to the output file
-  std::ofstream outFile(fullPath, std::ios::out | std::ios::binary);
-  if (!outFile) {
-    logError("Failed to open file for writing kernel binary");
-    // Clean up allocated memory
-    for (auto ptr : binaries) {
-      delete[] ptr;
-    }
-    return;
-  }
-
-  size_t totalBinarySize = 0;
+  std::vector<char> Out;
+  Out.insert(Out.end(), std::begin(ModuleCacheMagic),
+             std::end(ModuleCacheMagic));
+  appendPod(Out, static_cast<uint32_t>(numDevices));
   for (size_t i = 0; i < numDevices; ++i) {
-    logTrace("Writing binary for device {}: {} bytes", i, binarySizes[i]);
-    outFile.write(reinterpret_cast<const char *>(binaries[i]), binarySizes[i]);
-    if (!outFile) {
-      logError("Failed to write binary data to file");
-      outFile.close();
-      // Clean up allocated memory
-      for (auto ptr : binaries) {
-        delete[] ptr;
-      }
+    std::string Name;
+    if (devices[i].getInfo(CL_DEVICE_NAME, &Name) != CL_SUCCESS) {
+      logError("Failed to query device name while caching; not caching.");
       return;
     }
-    totalBinarySize += binarySizes[i];
+    appendPod(Out, static_cast<uint32_t>(Name.size()));
+    Out.insert(Out.end(), Name.begin(), Name.end());
+    appendPod(Out, static_cast<uint64_t>(binarySizes[i]));
+    Out.insert(Out.end(), binaryStorage[i].begin(), binaryStorage[i].end());
+    logTrace("Caching binary for device '{}': {} bytes", Name, binarySizes[i]);
   }
 
-  outFile.close();
-
-  // Step 5: Verify the file size
-  std::ifstream inFile(fullPath,
-                       std::ios::in | std::ios::binary | std::ios::ate);
-  if (!inFile) {
-    logError("Failed to open file for reading to verify size");
-    // Clean up allocated memory
-    for (auto ptr : binaries) {
-      delete[] ptr;
+  // Write to a private temp file and rename into place. rename(2) is atomic, so
+  // a concurrent reader sees either no file or a complete one. The library test
+  // suites run ctest with -j, so several processes can be compiling the same
+  // module at once; writing straight to the final path let one of them read a
+  // half written file.
+  std::string tmpPath =
+      fullPath + ".tmp." + std::to_string(static_cast<long>(::getpid()));
+  {
+    std::ofstream outFile(tmpPath, std::ios::out | std::ios::binary);
+    if (!outFile) {
+      logError("Failed to open {} for writing kernel binary", tmpPath);
+      return;
     }
+    outFile.write(Out.data(), Out.size());
+    if (!outFile) {
+      logError("Failed to write binary data to {}", tmpPath);
+      outFile.close();
+      std::remove(tmpPath.c_str());
+      return;
+    }
+  }
+
+  std::error_code EC;
+  std::filesystem::rename(tmpPath, fullPath, EC);
+  if (EC) {
+    logError("Failed to rename {} into place: {}", tmpPath, EC.message());
+    std::remove(tmpPath.c_str());
     return;
   }
-  std::streampos fileSize = inFile.tellg();
-  inFile.close();
 
-  if (fileSize != static_cast<std::streampos>(totalBinarySize)) {
-    logError("File size mismatch. Expected: {}, Actual: {}", totalBinarySize,
-             fileSize);
-    // Clean up allocated memory
-    for (auto ptr : binaries) {
-      delete[] ptr;
-    }
-    return;
-  }
-
-  logTrace("Kernel binary cached as {}", fullPath);
-  logTrace("Number of binaries: {}", numDevices);
-
-  // Step 6: Clean up allocated memory
-  for (auto ptr : binaries) {
-    delete[] ptr;
-  }
+  logTrace("Kernel binary cached as {} ({} devices)", fullPath, numDevices);
 }
 
 static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
@@ -1107,30 +1177,75 @@ static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
 
   inFile.seekg(0, std::ios::beg);
 
-  std::vector<char> binary(size);
-  inFile.read(binary.data(), size);
+  std::vector<char> fileData(size);
+  inFile.read(fileData.data(), size);
 
   if (inFile.fail()) {
     logError("Failed to read file. Error: {}", strerror(errno));
     return false;
   }
 
-  size_t bytesRead = inFile.gcount();
-  logTrace("Bytes actually read: {}", bytesRead);
-
   inFile.close();
 
-  try {
-    cl::Program::Binaries binaries(
-        1, std::vector<unsigned char>(binary.begin(), binary.end()));
-    logTrace("loading Binary size: {}", binary.size());
+  // Any malformed, truncated or old-format file is treated as a miss rather
+  // than an error: the caller just recompiles and overwrites it.
+  if (fileData.size() < sizeof(ModuleCacheMagic) ||
+      !std::equal(std::begin(ModuleCacheMagic), std::end(ModuleCacheMagic),
+                  fileData.begin())) {
+    logTrace("Cache file {} has no recognised header; ignoring", fullPath);
+    return false;
+  }
 
-    if (binary.empty()) {
-      logError("Binary data is empty. Deleting the cache file.");
-      std::remove(fullPath.c_str());
+  size_t Offset = sizeof(ModuleCacheMagic);
+  uint32_t DeviceCount = 0;
+  if (!readPod(fileData, Offset, DeviceCount)) {
+    logTrace("Cache file {} is truncated; ignoring", fullPath);
+    return false;
+  }
+
+  std::map<std::string, std::vector<unsigned char>> BinariesByDevice;
+  for (uint32_t i = 0; i < DeviceCount; ++i) {
+    uint32_t NameLen = 0;
+    if (!readPod(fileData, Offset, NameLen) ||
+        Offset + NameLen > fileData.size()) {
+      logTrace("Cache file {} is truncated; ignoring", fullPath);
       return false;
     }
+    std::string Name(fileData.data() + Offset, NameLen);
+    Offset += NameLen;
 
+    uint64_t BinarySize = 0;
+    if (!readPod(fileData, Offset, BinarySize) ||
+        Offset + BinarySize > fileData.size()) {
+      logTrace("Cache file {} is truncated; ignoring", fullPath);
+      return false;
+    }
+    const unsigned char *Start =
+        reinterpret_cast<const unsigned char *>(fileData.data() + Offset);
+    BinariesByDevice.emplace(std::move(Name),
+                             std::vector<unsigned char>(Start, Start + BinarySize));
+    Offset += BinarySize;
+  }
+
+  // Hand each device the binary that was compiled for it. Matching by name
+  // keeps this correct when the cached program covered a different device set
+  // or a different device order than the one being loaded now.
+  cl::Program::Binaries binaries;
+  binaries.reserve(devices.size());
+  for (const auto &Dev : devices) {
+    std::string Name;
+    if (Dev.getInfo(CL_DEVICE_NAME, &Name) != CL_SUCCESS)
+      return false;
+    auto It = BinariesByDevice.find(Name);
+    if (It == BinariesByDevice.end() || It->second.empty()) {
+      logTrace("Cache file {} has no binary for device '{}'; ignoring",
+               fullPath, Name);
+      return false;
+    }
+    binaries.push_back(It->second);
+  }
+
+  try {
     cl_int err;
     program = cl::Program(context, devices, binaries, nullptr, &err);
     assert(err == CL_SUCCESS);
@@ -1177,24 +1292,84 @@ static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
   return true;
 }
 
-std::string generateCacheName(const std::string &strIn,
-                              const std::string &deviceName) {
-  std::hash<std::string> hasher;
-  std::string combinedStr = strIn + deviceName;
+/// Compute the module cache key.
+///
+/// The cached artifact is the device binary the driver produces, which is a
+/// pure function of the inputs handed to it: the IL, the flags, the rtdevlib
+/// modules linked alongside it, which driver compiled it, and the environment
+/// that driver reads. Every one of those is hashed here, so the key changes if
+/// and only if the resulting binary would.
+///
+/// Deliberately NOT a chipStar version or build id. Such a token changes on
+/// every commit and would evict the whole cache for changes that cannot affect
+/// a single kernel -- the common case, since most chipStar work is host side
+/// and leaves the SPIR-V byte identical. Keying the real inputs keeps those
+/// entries valid while still invalidating exactly when the output moves.
+///
+/// Fields are separated by markers so that no concatenation of one field can
+/// be mistaken for a different split across two.
+static std::string
+generateCacheName(const std::string &IL, const std::string &BuildOptions,
+                  const std::string &LinkFlags, bool NeedsRtDevLib,
+                  const std::vector<RtDevLibModule> &RtDevLibModules,
+                  CHIPDeviceOpenCL &ChipDev) {
+  std::string Combined;
 
-  // Include IGC_ environment variables in cache key
-  std::string igcVars = collectIGCEnvironmentVariables();
-  logDebug("IGC variables for cache key: '{}'", igcVars);
-  if (!igcVars.empty()) {
-    combinedStr += ";" + igcVars;
+  Combined += "---il---\n";
+  Combined += IL;
+
+  Combined += "\n---build-options---\n";
+  Combined += BuildOptions;
+
+  // Applied by the link step below and previously unkeyed: setting
+  // CHIP_JIT_FLAGS_OVERRIDE changed the produced binary without changing the
+  // key. The x86 CI sets it for the Zero-RK stage.
+  Combined += "\n---link-flags---\n";
+  Combined += LinkFlags;
+
+  // The override also feeds clBuildProgram on the direct (no rtdevlib) path,
+  // which is taken on every vendor, whereas LinkFlags above is empty off Intel.
+  // Keyed separately so the override is covered on both paths and all devices.
+  Combined += "\n---jit-override---\n";
+  if (ChipEnvVars.hasJitOverride())
+    Combined += ChipEnvVars.getJitFlagsOverride();
+
+  // compile+link and a direct clCreateProgramWithIL+clBuildProgram do not
+  // produce the same binary, so which path ran is part of the key.
+  Combined += "\n---needs-rtdevlib---\n";
+  Combined += NeedsRtDevLib ? "1" : "0";
+
+  // The rtdevlib modules are linked in after the cache lookup, so without this
+  // an edit to e.g. bitcode/atomicAddFloat_emulation.cl would keep serving the
+  // kernel built against the old one. Hashing the selected bytes also captures
+  // the capability-driven choice between the native and emulated variants.
+  Combined += "\n---rtdevlib---\n";
+  for (const auto &Module : RtDevLibModules) {
+    Combined += Module.Name;
+    Combined += ":";
+    Combined.append(reinterpret_cast<const char *>(Module.Data), Module.Size);
+    Combined += "\n";
   }
 
-  logDebug("Combined string for cache key: '{}'",
-           combinedStr.substr(0, 200) + "...");
-  size_t hash = hasher(combinedStr);
-  std::string cacheKey = std::to_string(hash);
-  logDebug("Generated cache key: '{}'", cacheKey);
-  return cacheKey;
+  // The device compiler is the JIT here, so its version belongs in the key just
+  // as the LLVM version belongs in the HIPRTC one. Without the driver version
+  // an IGC or Compute Runtime upgrade silently reuses binaries built by the
+  // previous compiler.
+  Combined += "\n---device---\n";
+  Combined += ChipDev.get()->getInfo<CL_DEVICE_NAME>();
+  Combined += "\n";
+  Combined += ChipDev.get()->getInfo<CL_DRIVER_VERSION>();
+  Combined += "\n";
+  Combined += ChipDev.get()->getInfo<CL_DEVICE_VERSION>();
+
+  Combined += "\n---env---\n";
+  std::string EnvVars = collectCompilerEnvironmentVariables();
+  logDebug("Compiler env vars for cache key: '{}'", EnvVars);
+  Combined += EnvVars;
+
+  std::string CacheKey = std::to_string(fnv1a64(Combined));
+  logDebug("Generated cache key: '{}'", CacheKey);
+  return CacheKey;
 }
 
 void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
@@ -1210,16 +1385,24 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       Backend->getDefaultJitFlags() + " " + ChipEnvVars.getJitFlags();
   std::string binAsStr = std::string(SrcBin.begin(), SrcBin.end());
 
-  // Include device name in cache key
-  std::string deviceName = ChipDevOcl->getName();
+  // Everything the driver will be given has to be known before the lookup, so
+  // that the key covers it. These were previously computed inside the miss path
+  // and therefore could not be keyed.
+  bool NeedsRtDevLib = spirvNeedsRtdevlib(SrcBin);
+  std::vector<RtDevLibModule> RtDevLibModules;
+  if (NeedsRtDevLib)
+    RtDevLibModules = selectRuntimeObjects(*ChipDevOcl);
+  std::string Flags = computeLinkFlags(*ChipDevOcl);
+
   std::string cacheName =
-      generateCacheName(binAsStr + buildOptions, deviceName);
+      generateCacheName(binAsStr, buildOptions, Flags, NeedsRtDevLib,
+                        RtDevLibModules, *ChipDevOcl);
 
   bool cached =
       load(*ChipCtxOcl->get(), {*ChipDevOcl->get()}, cacheName, Program_);
 
   if (!cached) {
-    if (spirvNeedsRtdevlib(Src_->getBinary())) {
+    if (NeedsRtDevLib) {
       // Compile + link: compile main module, append rtdevlib, link together.
       cl::Program ClMainObj =
           compileIL(*ChipCtxOcl->get(), *ChipDevOcl, SrcBin.data(),
@@ -1228,15 +1411,6 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       ClObjects.push_back(ClMainObj);
       appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
 
-      std::string Flags = "";
-      std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
-      bool isIntelGPU =
-          (vendor.find("Intel") != std::string::npos) &&
-          (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
-      if (isIntelGPU)
-        Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
-                                             : ChipEnvVars.getJitFlags() + " " +
-                                                   Backend->getDefaultJitFlags();
       logInfo("Linking {} program objects", ClObjects.size());
       Program_ =
           cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
