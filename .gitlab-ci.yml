@@ -121,7 +121,6 @@ chipStar_aurora_script_test:
     - NO_FRESH_CHIPSTAR_PULL=true temp=${WRK_DIR}/script_llvm21 MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm21/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release chipStar/.llvm21/20260808-21/release
     - cd ${WRK_DIR}/modulefiles/chipStar
     - echo 'module_version("llvm21", "default")' > .modulerc.lua
-  allow_failure: true
   
 chipStar_aurora_script_test_run:
   stage: runs_chipstar_aurora_script_llvm21
@@ -135,7 +134,6 @@ chipStar_aurora_script_test_run:
     - CHIP_BE=level0 make build_tests -j
     - module load cmake
     - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-  allow_failure: true
   
 chipStar_aurora_script_test_llvm22:
   stage: builds_chipstar_aurora_script_llvm22
@@ -147,7 +145,6 @@ chipStar_aurora_script_test_llvm22:
     - mkdir ${WRK_DIR}/script_llvm_22
     - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm_22
     - NO_FRESH_CHIPSTAR_PULL=true llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
-  allow_failure: true
   
 chipStar_aurora_script_test_llvm22_run:
   stage: runs_chipstar_aurora_script_llvm22
@@ -161,7 +158,6 @@ chipStar_aurora_script_test_llvm22_run:
     - rm -rf $HOME/.cache/chipStar
     - CHIP_BE=level0 make build_tests -j
     - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-  allow_failure: true
 
 # hoMusic application build and run
 hoMusic_build:
