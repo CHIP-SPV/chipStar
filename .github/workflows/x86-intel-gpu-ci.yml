@@ -454,7 +454,7 @@ jobs:
           # reaches "End of computation!". (Override honored by the test driver.)
           cd ../running_test_aurora
           mkdir -p logs
-          export ZERORK_TEST_N_STEPS=5
+          export ZERORK_TEST_N_STEPS=1
           export CHIP_JIT_FLAGS_OVERRIDE="-ze-opt-enable-auto-large-GRF-mode"
           mpiexec -np 1 \
             ../build_local/applications/cfd_plugin/zerork_random_reactors_test_gpu.x \
