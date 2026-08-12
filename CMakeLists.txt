@@ -211,6 +211,7 @@ set(CHIP_SRC
   src/CHIPBindings.cc
   src/logging.cc
   src/Utils.cc
+  src/ModuleCache.cc
   src/SPIRVFuncInfo.cc
 )
 
