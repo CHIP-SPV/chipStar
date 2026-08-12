@@ -375,11 +375,6 @@ std::string collectCompilerEnvironmentVariables() {
   return Result;
 }
 
-// Old spelling, retained for callers that have not moved to the new name.
-std::string collectIGCEnvironmentVariables() {
-  return collectCompilerEnvironmentVariables();
-}
-
 /// Deep copies kernel arguments pointed by 'CopyArg'. Bytes of the
 /// argument values are stored in 'ArgData'. 'ArgList[I]' points to
 /// the argument value in 'ArgData' for Ith kernel argument.

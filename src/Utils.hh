@@ -184,7 +184,4 @@ uint64_t fnv1a64(const std::string &S);
 /// carries no IGC_ prefix.
 std::string collectCompilerEnvironmentVariables();
 
-/// Old spelling of collectCompilerEnvironmentVariables.
-std::string collectIGCEnvironmentVariables();
-
 #endif

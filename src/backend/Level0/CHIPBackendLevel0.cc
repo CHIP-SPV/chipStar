@@ -21,6 +21,7 @@
  */
 
 #include "CHIPBackendLevel0.hh"
+#include "ModuleCache.hh"
 #include "Utils.hh"
 
 #include <chrono>
@@ -3172,195 +3173,133 @@ static std::string dumpBuildLog(ze_module_build_log_handle_t &&Log) {
   return LogStr;
 }
 
-void save(const ze_module_desc_t &desc, const ze_module_handle_t &module,
-          CHIPDeviceLevel0 *device) {
-  const void *pNextConst = desc.pNext;
-  // If pNext is null, we can't use the experimental multi-input path for caching
-  if (!pNextConst) {
-    return;
+/// Compute the Level Zero module cache key.
+///
+/// Unlike the OpenCL path this hashes every input module handed to
+/// zeModuleCreate, so the runtime device library modules are already covered:
+/// they are passed in as additional ILs rather than linked in afterwards.
+///
+/// The driver version is only the floor: it identifies the Compute Runtime
+/// build but provably not the device compiler (an IGC-only upgrade leaves it
+/// bit-identical). The loader-delta digest is what covers the compiler.
+static std::string
+computeLevel0CacheKey(const ze_module_program_exp_desc_t *ProgramDesc,
+                      CHIPDeviceLevel0 *Device) {
+  namespace cache = chipstar::cache;
+  cache::KeyBuilder KB;
+  KB.add(cache::KeyField::BackendTag, "level0");
+  for (uint32_t I = 0; I < ProgramDesc->count; ++I) {
+    KB.add(cache::KeyField::Il, ProgramDesc->pInputModules[I],
+           ProgramDesc->inputSizes[I]);
+    KB.add(cache::KeyField::BuildOptions,
+           ProgramDesc->pBuildFlags && ProgramDesc->pBuildFlags[I]
+               ? std::string_view(ProgramDesc->pBuildFlags[I])
+               : std::string_view(""));
   }
-  ze_module_program_exp_desc_t *ProgramDesc =
-      const_cast<ze_module_program_exp_desc_t *>(
-          reinterpret_cast<const ze_module_program_exp_desc_t *>(pNextConst));
-  int numILs = ProgramDesc->count;
+  KB.add(cache::KeyField::DeviceName, Device->getName());
 
-  std::hash<std::string> hasher;
-  std::string combinedInput;
-  for (int i = 0; i < numILs; i++) {
-    combinedInput.append(
-        reinterpret_cast<const char *>(ProgramDesc->pInputModules[i]),
-        ProgramDesc->inputSizes[i]);
-    combinedInput.append(ProgramDesc->pBuildFlags[i]);
-    combinedInput.append(std::to_string(ProgramDesc->inputSizes[i]));
-  }
-
-  // Add device name to the hash input
-  combinedInput.append(device->getName());
-
-  // Include IGC_ environment variables in cache key
-  std::string igcVars = collectIGCEnvironmentVariables();
-  logDebug("Level0: IGC variables for cache key: '{}'", igcVars);
-  if (!igcVars.empty()) {
-    combinedInput.append(";");
-    combinedInput.append(igcVars);
-  }
-
-  size_t hash = hasher(combinedInput);
-  logDebug("Level0: Generated cache hash: '{}'", std::to_string(hash));
-
-  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
-    logTrace("Module caching is disabled");
-    return;
+  ze_device_properties_t DeviceProperties{};
+  DeviceProperties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+  DeviceProperties.pNext = nullptr;
+  if (zeDeviceGetProperties(Device->get(), &DeviceProperties) ==
+      ZE_RESULT_SUCCESS) {
+    KB.add(cache::KeyField::DeviceId,
+           static_cast<uint64_t>(DeviceProperties.deviceId));
+    KB.add(cache::KeyField::VendorId,
+           static_cast<uint64_t>(DeviceProperties.vendorId));
   }
 
-  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
-  // Create the cache directory if it doesn't exist
-  std::filesystem::create_directories(cacheDir);
-  std::string fullPath = cacheDir + "/" + std::to_string(hash);
-  std::string fullPath_tmp = cacheDir + "/" + std::to_string(hash) +"_tmp";
-
-  size_t binarySize;
-  zeStatus = zeModuleGetNativeBinary(module, &binarySize, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetNativeBinary);
-
-  std::vector<uint8_t> binary(binarySize);
-  zeStatus = zeModuleGetNativeBinary(module, &binarySize, binary.data());
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleGetNativeBinary);
-  
-  // for c++23 we could use std::ios::noreplace in the future
-  // try to create a file. This is atomic, so one process will succeed and the
-  int fd = open(fullPath_tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
-
-  if( fd == -1 ) {
-    // file already exists or another error occurred
-    if( errno == EEXIST ) {
-
-      // file already exists. wait until the final file appears
-      double duration = 0; //
-      double duration_limit = 3600; // waits 60 min roughly and then will stop
-      while (!std::filesystem::exists(fullPath) and duration < duration_limit ) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-	duration+=0.5;
-      }
-    } else {
-      logError("Failed to open file for writing module binary");
-      std::abort();
-    }
-  } else {
-    // this process opened the file
-    ssize_t bytes = write(fd,reinterpret_cast<const char *>(binary.data()), binary.size() );
-    if( bytes == -1 ) {
-      logError("Failed to write file for module binary");
-      close(fd);
-      std::abort();
-    }
-    if( fsync(fd) == -1 ) {
-      logError("Failed to write file for module binary");
-      close(fd);
-      std::abort();
-    }
-    close(fd);
-    // rename, also atomic
-    if( rename(fullPath_tmp.c_str(), fullPath.c_str() ) == -1) {
-      logError("Failed to write file for module binary");
-    }
-    
-    logTrace("Module binary cached as {}", fullPath);
+  if (auto *CtxLz = static_cast<CHIPContextLevel0 *>(Device->getContext())) {
+    ze_driver_properties_t DriverProperties{};
+    DriverProperties.stype = ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES;
+    DriverProperties.pNext = nullptr;
+    if (zeDriverGetProperties(CtxLz->ZeDriver, &DriverProperties) ==
+        ZE_RESULT_SUCCESS)
+      KB.add(cache::KeyField::DriverVersion,
+             static_cast<uint64_t>(DriverProperties.driverVersion));
   }
+
+  KB.add(cache::KeyField::LoaderDelta, cache::loaderDeltaDigest());
+  KB.add(cache::KeyField::Environment, collectCompilerEnvironmentVariables());
+  std::string Key = KB.finish();
+  logDebug("Level0: generated cache key: '{}'", Key);
+  return Key;
 }
 
-bool load(ze_module_desc_t &desc, CHIPDeviceLevel0 *device) {
-  const void *pNextConst = desc.pNext;
-  // If pNext is null, we can't use the experimental multi-input path for caching
-  if (!pNextConst) {
-    return false;
-  }
-  ze_module_program_exp_desc_t *ProgramDesc =
-      const_cast<ze_module_program_exp_desc_t *>(
-          reinterpret_cast<const ze_module_program_exp_desc_t *>(pNextConst));
-  int numILs = ProgramDesc->count;
-
-  std::hash<std::string> hasher;
-  std::string combinedInput;
-  for (int i = 0; i < numILs; i++) {
-    combinedInput.append(
-        reinterpret_cast<const char *>(ProgramDesc->pInputModules[i]),
-        ProgramDesc->inputSizes[i]);
-    combinedInput.append(ProgramDesc->pBuildFlags[i]);
-    combinedInput.append(std::to_string(ProgramDesc->inputSizes[i]));
-  }
-
-  // Add device name to the hash input
-  combinedInput.append(device->getName());
-
-  // Include IGC_ environment variables in cache key
-  std::string igcVars = collectIGCEnvironmentVariables();
-  logDebug("Level0 load: IGC variables for cache key: '{}'", igcVars);
-  if (!igcVars.empty()) {
-    combinedInput.append(";");
-    combinedInput.append(igcVars);
-  }
-
-  size_t hash = hasher(combinedInput);
-  logDebug("Level0 load: Generated cache hash: '{}'", std::to_string(hash));
-
-  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
-    return false;
-  }
-
-  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
-  std::string fullPath = cacheDir + "/" + std::to_string(hash);
-
-  logTrace("Loading kernel binary from cache at {}", fullPath);
-  std::ifstream inFile(fullPath, std::ios::in | std::ios::binary);
-  if (!inFile) {
-    return false;
-  }
-
-  // Get file size
-  inFile.seekg(0, std::ios::end);
-  size_t fileSize = inFile.tellg();
-  inFile.seekg(0, std::ios::beg);
-
-  assert(fileSize > 0 && "Cache file is empty");
-
-  // Read the binary data
-  auto binary = std::make_unique<std::vector<uint8_t>>(fileSize);
-  inFile.read(reinterpret_cast<char *>(binary->data()), fileSize);
-  inFile.close();
-
-  desc.format = ZE_MODULE_FORMAT_NATIVE;
-  desc.pNext = nullptr;
-  desc.inputSize = binary->size();
-  desc.pInputModule = binary->data();
-  desc.pBuildFlags = nullptr;
-  desc.pConstants = nullptr;
-
-  // Store the unique_ptr in a static variable to keep it alive
-  static std::vector<std::unique_ptr<std::vector<uint8_t>>> binaryStorage;
-  binaryStorage.push_back(std::move(binary));
-
-  logTrace("Module binary loaded from cache, size: {} bytes", fileSize);
-  return true;
+/// Persist a compiled module's native binary under CacheKey. Never throws:
+/// any failure only costs a later process a recompile.
+static void storeModule(ze_module_handle_t Module,
+                        const std::string &CacheKey) {
+  namespace cache = chipstar::cache;
+  if (CacheKey.empty() || !ChipEnvVars.getModuleCacheDir().has_value())
+    return;
+  size_t BinarySize = 0;
+  if (zeModuleGetNativeBinary(Module, &BinarySize, nullptr) !=
+          ZE_RESULT_SUCCESS ||
+      BinarySize == 0)
+    return;
+  std::vector<uint8_t> Binary(BinarySize);
+  if (zeModuleGetNativeBinary(Module, &BinarySize, Binary.data()) !=
+      ZE_RESULT_SUCCESS)
+    return;
+  cache::store(ChipEnvVars.getModuleCacheDir().value(), "level0", CacheKey,
+               Binary.data(), Binary.size());
 }
 
+/// Create a module, consulting the cache when CacheKey is non-empty. An
+/// empty key bypasses the cache entirely (the relink fallback builds
+/// intermediate objects that must be neither loaded nor stored).
 static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
                                     ze_device_handle_t ZeDev,
-                                    ze_module_desc_t &ModuleDesc,
-                                    CHIPDeviceLevel0 *device) {
+                                    const ze_module_desc_t &BuildDesc,
+                                    CHIPDeviceLevel0 *Device,
+                                    const std::string &CacheKey = "",
+                                    bool *WasCachedOut = nullptr) {
+  namespace cache = chipstar::cache;
+
+  // The Entry owns the cached bytes and zeModuleCreate reads them through a
+  // raw pointer, so it is declared before the descriptor that points into
+  // it and stays alive across the call.
+  cache::Entry Cached;
+  if (!CacheKey.empty() && ChipEnvVars.getModuleCacheDir().has_value())
+    Cached = cache::load(ChipEnvVars.getModuleCacheDir().value(), "level0",
+                         CacheKey); // emits the MISS marker itself
+
+  // A local copy: a cache hit retargets it at the native binary without
+  // mutating the caller's descriptor.
+  ze_module_desc_t Desc = BuildDesc;
+  if (Cached) {
+    Desc.pNext = nullptr;
+    Desc.format = ZE_MODULE_FORMAT_NATIVE;
+    Desc.inputSize = Cached.data().size();
+    Desc.pInputModule = Cached.data().data();
+    Desc.pBuildFlags = nullptr;
+    Desc.pConstants = nullptr;
+  }
 
   ze_module_build_log_handle_t Log;
   ze_module_handle_t Object;
-  bool cached = load(ModuleDesc, device);
   auto start = std::chrono::high_resolution_clock::now();
-  zeStatus = zeModuleCreate(ZeCtx, ZeDev, &ModuleDesc, &Object, &Log);
+  zeStatus = zeModuleCreate(ZeCtx, ZeDev, &Desc, &Object, &Log);
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end - start;
-  if (cached)
+
+  if (Cached && zeStatus != ZE_RESULT_SUCCESS) {
+    // The driver refused the cached native binary. Reject it and recompile
+    // from IL instead of failing the application.
+    cache::logOutcome("level0", CacheKey, cache::Outcome::Rejected,
+                      "zeModuleCreate");
+    dumpBuildLog(std::move(Log));
+    Cached = cache::Entry();
+    Desc = BuildDesc;
+    zeStatus = zeModuleCreate(ZeCtx, ZeDev, &Desc, &Object, &Log);
+  }
+
+  if (Cached)
     logTrace("Loaded from cache, zeModuleCreate took {} seconds",
              elapsed.count());
   else
-    logTrace("zeModulerCeate took {} seconds", elapsed.count());
+    logTrace("zeModuleCreate took {} seconds", elapsed.count());
   std::string BuildLog = dumpBuildLog(std::move(Log));
 
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleCreate);
@@ -3378,8 +3317,12 @@ static ze_module_handle_t compileIL(ze_context_handle_t ZeCtx,
   logTrace("LZ CREATE MODULE via calling zeModuleCreate {} ",
            resultToString(zeStatus));
 
-  if (!cached)
-    save(ModuleDesc, Object, device);
+  if (Cached)
+    cache::logOutcome("level0", CacheKey, cache::Outcome::Hit, "");
+  // The store happens in compile(), not here: the module has not yet passed
+  // the unlinked-module probe, and only a module known to link may be cached.
+  if (WasCachedOut)
+    *WasCachedOut = static_cast<bool>(Cached);
 
   return Object;
 }
@@ -3463,9 +3406,16 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
                                  // description is provided.
                                  0, nullptr, nullptr, nullptr};
 
+  // Key the compile request once, up front. The relink fallback below
+  // passes no key to its inner compileIL calls: those build intermediate
+  // objects, not the artifact this key names.
+  std::string CacheKey = computeLevel0CacheKey(&ProgramDesc, LzDev);
+
   auto *ChipCtxLz = static_cast<CHIPContextLevel0 *>(ChipDev->getContext());
   auto start = std::chrono::high_resolution_clock::now();
-  ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc, LzDev);
+  bool WasCached = false;
+  ZeModule_ = compileIL(ChipCtxLz->get(), LzDev->get(), ModuleDesc, LzDev,
+                        CacheKey, &WasCached);
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double, std::milli> duration = end - start;
 
@@ -3569,6 +3519,14 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   if (!ZeModule_) {
     CHIPERR_LOG_AND_THROW("Module is null after compilation", hipErrorTbd);
   }
+
+  // Persist only a module that is known good: the unlinked-module probe has
+  // run, and on the multi-input path a module that failed it has been
+  // replaced by the fallback. The fallback result itself is deliberately
+  // not cached: whether a dynamically linked module's native binary is
+  // independently reloadable is unverified.
+  if (!WasCached && !ModuleNeedsRelink)
+    storeModule(ZeModule_, CacheKey);
 
   uint32_t KernelCount = 0;
   zeStatus = zeModuleGetKernelNames(ZeModule_, &KernelCount, nullptr);
