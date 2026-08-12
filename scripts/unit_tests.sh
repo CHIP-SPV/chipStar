@@ -6,7 +6,13 @@ echo '#include <sys/mman.h>
 #include <stdlib.h>
 int main() { void *p = malloc(4096); return mlock(p, 4096); }' | gcc -x c - -o /tmp/mlocktest && /tmp/mlocktest && echo "Page locking works" || { echo "Page locking failed"; exit 1; }
 
-export CHIP_MODULE_CACHE_DIR=""
+# Default to a cold module cache, so a plain invocation still compiles every
+# kernel from scratch. A caller that sets CHIP_MODULE_CACHE_DIR explicitly
+# keeps its value: CI points the lanes where kernel JIT dominates at a shared
+# cache, while leaving at least one lane unset so every run continues to
+# exercise compilation from cold. ${VAR-} keeps an explicitly empty value
+# empty, so a lane can still ask for cold by setting it to "".
+export CHIP_MODULE_CACHE_DIR="${CHIP_MODULE_CACHE_DIR-}"
 host=`hostname`
 echo "Running on ${host}"
 # If not on Salami read the file /opt/actions-runner/num-threads.txt and set the number of threads to the value in the file
@@ -25,7 +31,13 @@ build_only=false
 # __device__/__constant__ globals are lowered to kernel arguments instead.
 psg_off=false
 
-rm -rf ~/.cache/chipStar
+# Clearing the default cache location is only meaningful when running cold.
+# With an explicit cache dir, keeping its contents is the entire point, and
+# wiping ~/.cache/chipStar would also destroy a developer's cache behind their
+# back on a run that never intended to use it.
+if [ -z "$CHIP_MODULE_CACHE_DIR" ]; then
+  rm -rf ~/.cache/chipStar
+fi
 
 # Check if at least one argument is provided
 if [ "$#" -lt 2 ]; then

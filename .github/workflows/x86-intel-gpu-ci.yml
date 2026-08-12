@@ -76,7 +76,11 @@ jobs:
     needs: refuse-chipfft-chipblas-on-level-zero
     runs-on: [self-hosted, Linux, X64]
     env:
-      CHIP_MODULE_CACHE_DIR: ""
+      # Shares the kernel cache; see build-and-test-libraries for why that is
+      # safe across PRs. This job runs the suite twice (globals on and off),
+      # and those two builds emit different SPIR-V, so they key separately
+      # rather than polluting each other.
+      CHIP_MODULE_CACHE_DIR: /home/pvelesko/.cache/chipstar-ci
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,7 +99,25 @@ jobs:
     needs: chipstar-llvm22-native-release
     runs-on: [self-hosted, Linux, X64]
     env:
-      CHIP_MODULE_CACHE_DIR: ""
+      # Kernel cache ON for the library stages, which are dominated by
+      # SPIR-V to ISA JIT rather than GPU work.
+      #
+      # Persistent and shared across PRs on purpose: the key is content
+      # addressed (module SPIR-V, driver option strings, linked rtdevlib
+      # modules, device identity, the loader-delta digest of the libraries
+      # the runtime loaded at init, and the compiler environment), so an
+      # entry outlives its PR and a chipStar change that alters device
+      # output misses. Known gaps are documented in the README's Module
+      # Cache section.
+      #
+      # Not under /tmp: this runner reboots and clears it.
+      #
+      # unit-tests-llvm-22-translator-release is deliberately left cold and is
+      # the one lane that still compiles every kernel from scratch on every
+      # PR, so a regression in the SPIR-V to ISA path cannot hide behind a
+      # warm cache. It always runs on pull_request, unlike the two debug
+      # lanes, which makes it the reliable place to keep that coverage.
+      CHIP_MODULE_CACHE_DIR: /home/pvelesko/.cache/chipstar-ci
     steps:
       - uses: actions/checkout@v4
         with:
@@ -281,7 +303,9 @@ jobs:
     needs: build-and-test-libraries
     runs-on: [self-hosted, Linux, X64]
     env:
-      CHIP_MODULE_CACHE_DIR: ""
+      # Same shared kernel cache as build-and-test-libraries; see the note
+      # there for why it is safe to share across PRs.
+      CHIP_MODULE_CACHE_DIR: /home/pvelesko/.cache/chipstar-ci
     steps:
       - uses: actions/checkout@v4
         with:
@@ -373,7 +397,10 @@ jobs:
     needs: build-and-test-libceed
     runs-on: [self-hosted, Linux, X64]
     env:
-      CHIP_MODULE_CACHE_DIR: ""
+      # Same shared kernel cache as build-and-test-libraries; see the note
+      # there. Zero-RK's chemistry kernels are compiled under IGC software
+      # fp64 emulation on this GPU, which is the slowest JIT in the matrix.
+      CHIP_MODULE_CACHE_DIR: /home/pvelesko/.cache/chipstar-ci
     steps:
       - uses: actions/checkout@v4
         with:
@@ -520,7 +547,9 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }}
     runs-on: [self-hosted, Linux, X64]
     env:
-      CHIP_MODULE_CACHE_DIR: ""
+      # Shares the kernel cache; see build-and-test-libraries. The
+      # translator-release lane stays cold as the per-PR cold-JIT gate.
+      CHIP_MODULE_CACHE_DIR: /home/pvelesko/.cache/chipstar-ci
     steps:
       - uses: actions/checkout@v4
         with:
@@ -553,7 +582,9 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }}
     runs-on: [self-hosted, Linux, X64]
     env:
-      CHIP_MODULE_CACHE_DIR: ""
+      # Shares the kernel cache; see build-and-test-libraries. The
+      # translator-release lane stays cold as the per-PR cold-JIT gate.
+      CHIP_MODULE_CACHE_DIR: /home/pvelesko/.cache/chipstar-ci
     steps:
       - uses: actions/checkout@v4
         with:
