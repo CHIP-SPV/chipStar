@@ -385,6 +385,28 @@ export CHIP_DEVICE=0
 *NOTE: Level Zero doesn't have a clinfo equivalent. Normally if you have more than one Level Zero device, there will only be a single platform so set CHIP_PLATFORM=0 and then CHIP_DEVICE to the device you want to use.*
 *You can check the name of the device by running a sample which prints the name such as `build/samples/0_MatrixMultiply/MatrixMultiply`
 
+### Module Cache
+
+Compiled device binaries are cached under `CHIP_MODULE_CACHE_DIR` (default
+`$HOME/.cache/chipStar`). The cache key covers the SPIR-V, the option strings
+the driver receives, the linked device-library modules, device identity, the
+set of libraries the runtime loaded during initialization (so upgrading or
+`LD_LIBRARY_PATH`-swapping the driver or the Intel Graphics Compiler
+invalidates entries, even when the driver version string does not change),
+and compiler-relevant environment variables. Known limitations:
+
+* Intel Compute Runtime settings supplied through an `igdrcl.config` /
+  `neo.config` file in the working directory are **not** part of the key.
+  Note NEO reads that file *instead of* the environment when it exists, so
+  the same variable set via the file and via the environment produce
+  different driver behavior with the file route invisible to the cache. If
+  you use these files, disable the cache or clear it when changing them.
+* Library observation uses `/proc/self/maps` (Linux only), and only sees
+  libraries loaded during chipStar's backend initialization. If the
+  application initializes OpenCL or Level Zero itself before the first HIP
+  call, the compiler identity degrades to a fixed token and a
+  compiler-only upgrade will not invalidate the cache (a warning is logged).
+
 ## Troubleshooting
 
 ### Clang++ Cannot Find libstdc++ When Building chipStar
