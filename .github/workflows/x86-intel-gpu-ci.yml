@@ -357,6 +357,11 @@ jobs:
           rm -rf libCEED
           git clone https://github.com/CEED/libCEED.git
           cd libCEED
+          # Pinned rather than tracking main: libCEED's hip-gen backend calls
+          # hipModuleOccupancyMaxPotentialBlockSize as of CEED/libCEED#1993,
+          # which chipStar does not implement yet. Unpin once the occupancy
+          # APIs land in chipStar.
+          git checkout --quiet 0e106d7233437044812fe246c3ab6acf256ef7a7
 
           # Build + test libCEED in double precision (default).
           # Arc A380 has no native fp64 — IGC_EnableDPEmulation=1 plus
