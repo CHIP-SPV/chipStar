@@ -21,15 +21,18 @@
  */
 
 #include "CHIPBackendOpenCL.hh"
+#include "ModuleCache.hh"
 #include "Utils.hh"
 
 #include <cstring>
 #include <sstream>
 
-#include "Utils.hh"
+#include <algorithm>
 #include <chrono>
+#include <map>
 #include <thread>
 #include <fstream>
+#include <unistd.h>
 
 // Auto-generated header that lives in <build-dir>/bitcode.
 #include "rtdevlib-modules.h"
@@ -938,6 +941,50 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   return compileIL(Ctx, ChipDev, IL.data(), IL.size());
 }
 
+/// One rtdevlib module selected for linking into a device program.
+struct RtDevLibModule {
+  const char *Name;
+  const unsigned char *Data;
+  size_t Size;
+};
+
+/// Pick the rtdevlib modules to link into a program on this device.
+///
+/// Which implementation is chosen depends on device capabilities (native vs
+/// emulated atomics, fp64 support, ballot), so the selection is part of what
+/// determines the final binary. The cache key hashes the modules this returns,
+/// which is why selection lives here rather than inline in the link path: the
+/// key and the link have to agree, and duplicating the capability checks would
+/// let them drift apart silently.
+static std::vector<RtDevLibModule>
+selectRuntimeObjects(CHIPDeviceOpenCL &ChipDev) {
+  std::vector<RtDevLibModule> Modules;
+  auto Add = [&](auto &Source, const char *Name) -> void {
+    Modules.push_back({Name, Source.data(), Source.size()});
+  };
+
+  if (ChipDev.hasFP32AtomicAdd())
+    Add(chipstar::atomicAddFloat_native, "atomicAddFloat_native");
+  else
+    Add(chipstar::atomicAddFloat_emulation, "atomicAddFloat_emulation");
+
+  if (ChipDev.hasDoubles()) {
+    if (ChipDev.hasFP64AtomicAdd())
+      Add(chipstar::atomicAddDouble_native, "atomicAddDouble_native");
+    else
+      Add(chipstar::atomicAddDouble_emulation, "atomicAddDouble_emulation");
+  }
+
+  Add(chipstar::atomicMinMaxFloat_emulation, "atomicMinMaxFloat_emulation");
+
+  if (ChipDev.hasBallot())
+    Add(chipstar::ballot_native, "ballot_native");
+
+  // No fall-back implementation for ballot - let linker raise an error.
+
+  return Modules;
+}
+
 static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
                                  std::vector<cl::Program> &Objects) {
 
@@ -946,255 +993,172 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 
   // TODO: Reuse already compiled modules.
 
-  auto AppendSource = [&](auto &Source, const std::string &Name) -> void {
+  for (const auto &Module : selectRuntimeObjects(ChipDev)) {
     if (ChipEnvVars.getDumpSpirv()) {
-      auto Str = std::string_view(reinterpret_cast<const char *>(Source.data()),
-                                  Source.size());
-      if (auto DumpPath = dumpSpirv(Str, Name))
-        logDebug("Dumped runtime object '{}' SPIR-V binary to '{}'", Name,
-                 fs::absolute(*DumpPath).c_str());
+      auto Str = std::string_view(reinterpret_cast<const char *>(Module.Data),
+                                  Module.Size);
+      if (auto DumpPath = dumpSpirv(Str, Module.Name))
+        logDebug("Dumped runtime object '{}' SPIR-V binary to '{}'",
+                 Module.Name, fs::absolute(*DumpPath).c_str());
     }
-    Objects.push_back(compileIL(Ctx, ChipDev, Source));
-  };
-
-  if (ChipDev.hasFP32AtomicAdd())
-    AppendSource(chipstar::atomicAddFloat_native, "atomicAddFloat_native");
-  else
-    AppendSource(chipstar::atomicAddFloat_emulation, "atomicAddFloat_emulation");
-
-  if (ChipDev.hasDoubles()) {
-    if (ChipDev.hasFP64AtomicAdd())
-      AppendSource(chipstar::atomicAddDouble_native, "atomicAddDouble_native");
-    else
-      AppendSource(chipstar::atomicAddDouble_emulation, "atomicAddDouble_emulation");
+    Objects.push_back(compileIL(Ctx, ChipDev, Module.Data, Module.Size));
   }
-
-  AppendSource(chipstar::atomicMinMaxFloat_emulation, "atomicMinMaxFloat_emulation");
-
-  if (ChipDev.hasBallot())
-    AppendSource(chipstar::ballot_native, "ballot_native");
-
-  // No fall-back implementation for ballot - let linker raise an error.
 }
 
-static void save(const cl::Program &program, const std::string &cacheName) {
+/// Flags passed to clLinkProgram for the rtdevlib link step.
+///
+/// Intel's driver is the only one given optimization flags here, so the value
+/// depends on the device as well as the environment. Computed in one place so
+/// the cache key and the actual link cannot disagree.
+static std::string computeLinkFlags(CHIPDeviceOpenCL &ChipDev) {
+  std::string Vendor = ChipDev.get()->getInfo<CL_DEVICE_VENDOR>();
+  bool IsIntelGPU = (Vendor.find("Intel") != std::string::npos) &&
+                    (ChipDev.get()->getInfo<CL_DEVICE_TYPE>() &
+                     CL_DEVICE_TYPE_GPU);
+  if (!IsIntelGPU)
+    return "";
+  return ChipEnvVars.hasJitOverride()
+             ? ChipEnvVars.getJitFlagsOverride()
+             : ChipEnvVars.getJitFlags() + " " + Backend->getDefaultJitFlags();
+}
+
+/// The options string handed to clBuildProgram / clCompileProgram.
+///
+/// Computed in one place for both the rtdevlib (compile+link) path and the
+/// direct clBuildProgram path, so the two cannot disagree and the cache key
+/// hashes exactly what the driver receives.
+static std::string computeBuildOptions() {
+  return ChipEnvVars.hasJitOverride()
+             ? ChipEnvVars.getJitFlagsOverride()
+             : Backend->getDefaultJitFlags() + " " + ChipEnvVars.getJitFlags();
+}
+
+/// Compute the module cache key.
+///
+/// The cached artifact is the device binary the driver produces, which is a
+/// pure function of the inputs handed to it: the IL, the options and link
+/// flags exactly as the driver receives them, the rtdevlib modules linked
+/// alongside (chosen per device capability, and linked after the cache
+/// lookup, so nothing else covers them), which device for, which driver and
+/// device compiler will do the compiling (the loader delta -- the driver
+/// version string alone provably misses a compiler-only upgrade), and the
+/// environment that compiler reads.
+///
+/// Deliberately NOT a chipStar version or build id. Such a token changes on
+/// every commit and would evict the whole cache for changes that cannot
+/// affect a single kernel -- the common case, since most chipStar work is
+/// host side and leaves the SPIR-V byte identical.
+static std::string
+computeCacheKey(std::string_view Il, const std::string &BuildOptions,
+                const std::string &LinkFlags, bool NeedsRtDevLib,
+                const std::vector<RtDevLibModule> &RtDevLibModules,
+                CHIPDeviceOpenCL &ChipDev) {
+  namespace cache = chipstar::cache;
+  cache::KeyBuilder KB;
+  KB.add(cache::KeyField::BackendTag, "opencl")
+      .add(cache::KeyField::Il, Il)
+      .add(cache::KeyField::BuildOptions, BuildOptions)
+      .add(cache::KeyField::LinkFlags, LinkFlags)
+      // compile+link and a direct clCreateProgramWithIL+clBuildProgram do
+      // not produce the same binary, so which path ran is part of the key.
+      .add(cache::KeyField::BranchFlag, NeedsRtDevLib);
+  for (const auto &Module : RtDevLibModules) {
+    KB.add(cache::KeyField::RtDevLibName, Module.Name);
+    KB.add(cache::KeyField::RtDevLibBytes, Module.Data, Module.Size);
+  }
+  KB.add(cache::KeyField::DeviceName,
+         ChipDev.get()->getInfo<CL_DEVICE_NAME>())
+      .add(cache::KeyField::DriverVersion,
+           ChipDev.get()->getInfo<CL_DRIVER_VERSION>())
+      .add(cache::KeyField::LoaderDelta, cache::loaderDeltaDigest())
+      .add(cache::KeyField::Environment,
+           collectCompilerEnvironmentVariables());
+  std::string Key = KB.finish();
+  logDebug("Generated cache key: '{}'", Key);
+  return Key;
+}
+
+/// Extract this device's compiled binary from a built program. Empty on any
+/// failure (which simply means the module is not cached this time).
+static std::vector<unsigned char>
+extractDeviceBinary(const cl::Program &Program, cl_device_id DevId) {
+  std::vector<size_t> Sizes;
+  std::vector<cl::Device> Devices;
+  if (Program.getInfo(CL_PROGRAM_BINARY_SIZES, &Sizes) != CL_SUCCESS ||
+      Program.getInfo(CL_PROGRAM_DEVICES, &Devices) != CL_SUCCESS ||
+      Sizes.size() != Devices.size())
+    return {};
+
+  size_t Index = Devices.size();
+  for (size_t I = 0; I < Devices.size(); ++I)
+    if (Devices[I]() == DevId) {
+      Index = I;
+      break;
+    }
+  if (Index == Devices.size() || Sizes[Index] == 0)
+    return {};
+
+  // CL_PROGRAM_BINARIES takes one destination pointer per device; leave the
+  // others null so the driver skips them.
+  std::vector<std::vector<unsigned char>> Storage(Devices.size());
+  std::vector<unsigned char *> Pointers(Devices.size(), nullptr);
+  Storage[Index].resize(Sizes[Index]);
+  Pointers[Index] = Storage[Index].data();
+  if (clGetProgramInfo(Program(), CL_PROGRAM_BINARIES,
+                       Pointers.size() * sizeof(unsigned char *),
+                       Pointers.data(), nullptr) != CL_SUCCESS)
+    return {};
+  return std::move(Storage[Index]);
+}
+
+/// Try to reconstruct a program for this device from a cached entry.
+/// A hit means "we did not JIT": the marker is emitted only after the
+/// binary actually built. Bytes that fail to build are REJECTED and the
+/// caller recompiles.
+static bool loadCachedProgram(cl::Context &Ctx, CHIPDeviceOpenCL &ChipDev,
+                              const std::string &Key, cl::Program &ProgramOut) {
+  namespace cache = chipstar::cache;
+  if (!ChipEnvVars.getModuleCacheDir().has_value())
+    return false;
+
+  auto Entry = cache::load(ChipEnvVars.getModuleCacheDir().value(), "opencl",
+                           Key); // emits the MISS marker itself
+  if (!Entry)
+    return false;
+
+  std::vector<cl::Device> Devices{*ChipDev.get()};
+  cl::Program::Binaries Binaries{std::vector<unsigned char>(
+      Entry.data().begin(), Entry.data().end())};
+  cl_int Err = CL_SUCCESS;
+  cl::Program Program(Ctx, Devices, Binaries, nullptr, &Err);
+  if (Err == CL_SUCCESS)
+    Err = Program.build();
+  if (Err != CL_SUCCESS) {
+    cache::logOutcome("opencl", Key, cache::Outcome::Rejected,
+                      "build-from-binary");
+    return false;
+  }
+  ProgramOut = Program;
+  cache::logOutcome("opencl", Key, cache::Outcome::Hit, "");
+  return true;
+}
+
+/// Store the binary just built for this device. Failure only costs the next
+/// process a recompile.
+static void storeProgram(const cl::Program &Program, CHIPDeviceOpenCL &ChipDev,
+                         const std::string &Key) {
+  namespace cache = chipstar::cache;
   if (!ChipEnvVars.getModuleCacheDir().has_value()) {
     logTrace("Module caching is disabled");
     return;
   }
-
-  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
-  // Create the cache directory if it doesn't exist
-  std::filesystem::create_directories(cacheDir);
-  std::string fullPath = cacheDir + "/" + cacheName;
-
-  // Step 1: Get the sizes of the binaries for each device
-  std::vector<size_t> binarySizes;
-  program.getInfo(CL_PROGRAM_BINARY_SIZES, &binarySizes);
-
-  size_t numDevices = binarySizes.size();
-
-  if (numDevices == 0) {
-    logError("No devices associated with the program.");
+  auto Binary = extractDeviceBinary(Program, ChipDev.get()->get());
+  if (Binary.empty()) {
+    logDebug("No binary to cache for this device");
     return;
   }
-
-  // Step 2: Allocate memory for each binary
-  std::vector<unsigned char *> binaries(numDevices, nullptr);
-  for (size_t i = 0; i < numDevices; ++i) {
-    if (binarySizes[i] > 0) {
-      binaries[i] = new unsigned char[binarySizes[i]];
-    } else {
-      logError("Binary size for device {} is zero.", i);
-      return;
-    }
-  }
-
-  // Step 3: Retrieve the binaries
-  cl_int err = clGetProgramInfo(program(), CL_PROGRAM_BINARIES,
-                                numDevices * sizeof(unsigned char *),
-                                binaries.data(), nullptr);
-  if (err != CL_SUCCESS) {
-    logError("clGetProgramInfo(CL_PROGRAM_BINARIES) failed with error {}", err);
-    // Clean up allocated memory
-    for (auto ptr : binaries) {
-      delete[] ptr;
-    }
-    return;
-  }
-
-  // Step 4: Write the binaries to the output file
-  std::ofstream outFile(fullPath, std::ios::out | std::ios::binary);
-  if (!outFile) {
-    logError("Failed to open file for writing kernel binary");
-    // Clean up allocated memory
-    for (auto ptr : binaries) {
-      delete[] ptr;
-    }
-    return;
-  }
-
-  size_t totalBinarySize = 0;
-  for (size_t i = 0; i < numDevices; ++i) {
-    logTrace("Writing binary for device {}: {} bytes", i, binarySizes[i]);
-    outFile.write(reinterpret_cast<const char *>(binaries[i]), binarySizes[i]);
-    if (!outFile) {
-      logError("Failed to write binary data to file");
-      outFile.close();
-      // Clean up allocated memory
-      for (auto ptr : binaries) {
-        delete[] ptr;
-      }
-      return;
-    }
-    totalBinarySize += binarySizes[i];
-  }
-
-  outFile.close();
-
-  // Step 5: Verify the file size
-  std::ifstream inFile(fullPath,
-                       std::ios::in | std::ios::binary | std::ios::ate);
-  if (!inFile) {
-    logError("Failed to open file for reading to verify size");
-    // Clean up allocated memory
-    for (auto ptr : binaries) {
-      delete[] ptr;
-    }
-    return;
-  }
-  std::streampos fileSize = inFile.tellg();
-  inFile.close();
-
-  if (fileSize != static_cast<std::streampos>(totalBinarySize)) {
-    logError("File size mismatch. Expected: {}, Actual: {}", totalBinarySize,
-             fileSize);
-    // Clean up allocated memory
-    for (auto ptr : binaries) {
-      delete[] ptr;
-    }
-    return;
-  }
-
-  logTrace("Kernel binary cached as {}", fullPath);
-  logTrace("Number of binaries: {}", numDevices);
-
-  // Step 6: Clean up allocated memory
-  for (auto ptr : binaries) {
-    delete[] ptr;
-  }
-}
-
-static bool load(cl::Context &context, const std::vector<cl::Device> &devices,
-                 const std::string &cacheName, cl::Program &program) {
-  if (!ChipEnvVars.getModuleCacheDir().has_value()) {
-    return false;
-  }
-
-  std::string cacheDir = ChipEnvVars.getModuleCacheDir().value();
-  std::string fullPath = cacheDir + "/" + cacheName;
-
-  logTrace("Loading kernel binary from cache at {}", fullPath);
-
-  std::ifstream inFile(fullPath,
-                       std::ios::in | std::ios::binary | std::ios::ate);
-  if (!inFile) {
-    return false;
-  }
-
-  size_t size = inFile.tellg();
-  logTrace("File size according to tellg(): {}", size);
-
-  inFile.seekg(0, std::ios::beg);
-
-  std::vector<char> binary(size);
-  inFile.read(binary.data(), size);
-
-  if (inFile.fail()) {
-    logError("Failed to read file. Error: {}", strerror(errno));
-    return false;
-  }
-
-  size_t bytesRead = inFile.gcount();
-  logTrace("Bytes actually read: {}", bytesRead);
-
-  inFile.close();
-
-  try {
-    cl::Program::Binaries binaries(
-        1, std::vector<unsigned char>(binary.begin(), binary.end()));
-    logTrace("loading Binary size: {}", binary.size());
-
-    if (binary.empty()) {
-      logError("Binary data is empty. Deleting the cache file.");
-      std::remove(fullPath.c_str());
-      return false;
-    }
-
-    cl_int err;
-    program = cl::Program(context, devices, binaries, nullptr, &err);
-    assert(err == CL_SUCCESS);
-    logTrace("Program created successfully");
-
-    auto buildStart = std::chrono::high_resolution_clock::now();
-    err = program.build();
-    auto buildEnd = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> buildElapsed = buildEnd - buildStart;
-    logInfo("clProgramBuild took {} seconds", buildElapsed.count());
-    if (err != CL_SUCCESS) {
-      logError("Failed to build program from binary: {}", err);
-      return false;
-    }
-
-    // Print kernels available in the program
-    std::vector<cl::Kernel> kernels;
-    err = program.createKernels(&kernels);
-    if (err != CL_SUCCESS) {
-      logError("Failed to create kernels: {}", err);
-    } else {
-      logTrace("Kernels available in the program:");
-      for (const auto &kernel : kernels) {
-        std::string kernelName;
-        err = kernel.getInfo(CL_KERNEL_FUNCTION_NAME, &kernelName);
-        if (err == CL_SUCCESS) {
-          logTrace("  {}", kernelName);
-        } else {
-          logError("Failed to get kernel name: {}", err);
-        }
-      }
-    }
-
-    if (err != CL_SUCCESS) {
-      logError("Failed to create program from binary: {}", err);
-      return false;
-    }
-  } catch (const std::exception &e) {
-    logError("OpenCL error creating program from binary: {}", e.what());
-    return false;
-  }
-
-  logTrace("Kernel binary loaded from cache as {}", fullPath);
-  return true;
-}
-
-std::string generateCacheName(const std::string &strIn,
-                              const std::string &deviceName) {
-  std::hash<std::string> hasher;
-  std::string combinedStr = strIn + deviceName;
-
-  // Include IGC_ environment variables in cache key
-  std::string igcVars = collectIGCEnvironmentVariables();
-  logDebug("IGC variables for cache key: '{}'", igcVars);
-  if (!igcVars.empty()) {
-    combinedStr += ";" + igcVars;
-  }
-
-  logDebug("Combined string for cache key: '{}'",
-           combinedStr.substr(0, 200) + "...");
-  size_t hash = hasher(combinedStr);
-  std::string cacheKey = std::to_string(hash);
-  logDebug("Generated cache key: '{}'", cacheKey);
-  return cacheKey;
+  cache::store(ChipEnvVars.getModuleCacheDir().value(), "opencl", Key,
+               Binary.data(), Binary.size());
 }
 
 void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
@@ -1206,20 +1170,25 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
   int Err;
   auto SrcBin = Src_->getBinary();
-  std::string buildOptions =
-      Backend->getDefaultJitFlags() + " " + ChipEnvVars.getJitFlags();
-  std::string binAsStr = std::string(SrcBin.begin(), SrcBin.end());
 
-  // Include device name in cache key
-  std::string deviceName = ChipDevOcl->getName();
-  std::string cacheName =
-      generateCacheName(binAsStr + buildOptions, deviceName);
+  // Everything the driver will be given has to be known before the lookup, so
+  // that the key covers it.
+  std::string buildOptions = computeBuildOptions();
+  bool NeedsRtDevLib = spirvNeedsRtdevlib(SrcBin);
+  std::vector<RtDevLibModule> RtDevLibModules;
+  if (NeedsRtDevLib)
+    RtDevLibModules = selectRuntimeObjects(*ChipDevOcl);
+  std::string Flags = computeLinkFlags(*ChipDevOcl);
+
+  std::string CacheKey = computeCacheKey(SrcBin, buildOptions, Flags,
+                                         NeedsRtDevLib, RtDevLibModules,
+                                         *ChipDevOcl);
 
   bool cached =
-      load(*ChipCtxOcl->get(), {*ChipDevOcl->get()}, cacheName, Program_);
+      loadCachedProgram(*ChipCtxOcl->get(), *ChipDevOcl, CacheKey, Program_);
 
   if (!cached) {
-    if (spirvNeedsRtdevlib(Src_->getBinary())) {
+    if (NeedsRtDevLib) {
       // Compile + link: compile main module, append rtdevlib, link together.
       cl::Program ClMainObj =
           compileIL(*ChipCtxOcl->get(), *ChipDevOcl, SrcBin.data(),
@@ -1228,15 +1197,6 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       ClObjects.push_back(ClMainObj);
       appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
 
-      std::string Flags = "";
-      std::string vendor = ChipDevOcl->get()->getInfo<CL_DEVICE_VENDOR>();
-      bool isIntelGPU =
-          (vendor.find("Intel") != std::string::npos) &&
-          (ChipDevOcl->get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU);
-      if (isIntelGPU)
-        Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
-                                             : ChipEnvVars.getJitFlags() + " " +
-                                                   Backend->getDefaultJitFlags();
       logInfo("Linking {} program objects", ClObjects.size());
       Program_ =
           cl::linkProgram(ClObjects, Flags.c_str(), nullptr, nullptr, &Err);
@@ -1256,11 +1216,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
           ChipCtxOcl->get()->get(), SrcBin.data(), SrcBin.size(), &CreateErr));
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateProgramWithIL);
       cl_device_id DevId = ChipDevOcl->get()->get();
-      auto Flags = ChipEnvVars.hasJitOverride()
-                       ? ChipEnvVars.getJitFlagsOverride()
-                       : ChipEnvVars.getJitFlags() + " " +
-                             Backend->getDefaultJitFlags();
-      Err = clBuildProgram(Program_.get(), 1, &DevId, Flags.c_str(),
+      Err = clBuildProgram(Program_.get(), 1, &DevId, buildOptions.c_str(),
                            nullptr, nullptr);
       dumpProgramLog(*ChipDevOcl, Program_);
       if (Err != CL_SUCCESS)
@@ -1268,7 +1224,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
                               hipErrorInitializationError);
     }
 
-    save(Program_, cacheName);
+    storeProgram(Program_, *ChipDevOcl, CacheKey);
   }
 
   std::vector<cl::Kernel> Kernels;
