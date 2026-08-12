@@ -460,20 +460,8 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
   return HIPRTC_SUCCESS;
 }
 
-/// FNV-1a 64-bit hash — portable, deterministic across runs and platforms.
-/// std::hash<std::string> is implementation-defined and may produce different
-/// values across program runs (some libc++ randomize it) or across different
-/// compiler/stdlib versions, making the cache effectively write-only on those
-/// platforms. A stable on-disk hash is required for the versioned cache file
-/// format ('CHC1' magic) to be useful.
-static uint64_t fnv1a64(const std::string &s) {
-  uint64_t hash = UINT64_C(14695981039346656037);
-  for (unsigned char c : s) {
-    hash ^= c;
-    hash *= UINT64_C(1099511628211);
-  }
-  return hash;
-}
+// fnv1a64 lives in Utils.hh: the module cache needs the same stable hash, and
+// two copies would be free to drift.
 
 /// Compute a cache key for HIPRTC output based on source, headers, options,
 /// and registered name expressions.

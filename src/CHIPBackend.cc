@@ -21,6 +21,7 @@
  */
 
 #include "CHIPBackend.hh"
+#include "ModuleCache.hh"
 #include <atomic>
 
 // Definition of thread_local static member (required when not using 'inline')
@@ -1722,7 +1723,14 @@ void chipstar::Backend::waitForThreadExit() {
   }
 }
 void chipstar::Backend::initialize() {
+  // Bracket backend init with loaded-library snapshots: this is the window
+  // in which the runtime driver loads its device compiler (NEO dlopens
+  // libigc during device enumeration), and the delta between the snapshots
+  // identifies runtime + compiler for the module cache key. See
+  // ModuleCache.hh.
+  auto MappedBefore = cache::snapshotMappedObjects();
   initializeImpl();
+  cache::recordLoaderDelta(MappedBefore);
   if (ChipContexts.size() == 0) {
     std::string Msg = "No CHIPContexts were initialized";
     CHIPERR_LOG_AND_THROW(Msg, hipErrorInitializationError);
