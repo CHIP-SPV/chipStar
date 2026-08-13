@@ -1,0 +1,73 @@
+diff --color -ruN orig/clang/lib/Driver/ToolChains/Darwin.cpp new/clang/lib/Driver/ToolChains/Darwin.cpp
+--- orig/clang/lib/Driver/ToolChains/Darwin.cpp	2026-07-28 15:11:17.000000000 +0300
++++ new/clang/lib/Driver/ToolChains/Darwin.cpp	2026-08-13 13:36:58.147176236 +0300
+@@ -1210,7 +1210,16 @@
+   else if (getTriple().isMacCatalystEnvironment())
+     Environment = MacCatalyst;
+ 
+-  VersionTuple OsVer = getTriple().getOSVersion();
++  VersionTuple OsVer;
++  if (Platform == MacOS) {
++    // Use getMacOSXVersion() to properly convert Darwin kernel versions (e.g.
++    // darwin24.3.0) to macOS versions (e.g. 15.3.0). Raw getOSVersion() would
++    // return the kernel version, causing a mismatch with AddDeploymentTarget.
++    if (!getTriple().getMacOSXVersion(OsVer))
++      return;
++  } else {
++    OsVer = getTriple().getOSVersion();
++  }
+   setTarget(Platform, Environment, OsVer.getMajor(),
+             OsVer.getMinor().value_or(0), OsVer.getSubminor().value_or(0),
+             VersionTuple());
+diff --color -ruN orig/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp new/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
+--- orig/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp	2026-07-28 15:11:17.000000000 +0300
++++ new/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp	2026-08-13 13:36:58.536194848 +0300
+@@ -471,7 +471,8 @@
+   llvm::Triple HostTriple(
+       Args.getLastArgValue(OPT_host_triple_EQ, sys::getDefaultTargetTriple()));
+   SmallVector<StringRef> Targets = {
+-      Saver.save("-targets=host-" + HostTriple.normalize())};
++      Saver.save("-targets=host-" +
++                 HostTriple.normalize(llvm::Triple::CanonicalForm::FOUR_IDENT))};
+   for (const auto &[File, TripleRef, Arch] : InputFiles) {
+     std::string NormalizedTriple =
+         normalizeForBundler(Triple(TripleRef), !Arch.empty());
+@@ -1250,6 +1251,9 @@
+                       ArrayRef<StringRef> SearchPaths) {
+   for (StringRef Dir : SearchPaths) {
+     if (std::optional<std::string> File =
++            findFile(Dir, Root, "lib" + Name + ".dylib"))
++      return File;
++    if (std::optional<std::string> File =
+             findFile(Dir, Root, "lib" + Name + ".so"))
+       return File;
+     if (std::optional<std::string> File =
+@@ -1365,8 +1369,11 @@
+             ? searchLibrary(Arg->getValue(), Root, LibraryPaths)
+             : std::string(Arg->getValue());
+ 
++    // A library the wrapper cannot locate (e.g. Darwin .tbd stubs inside the
++    // SDK) cannot contain extractable device code; leave it to the host
++    // linker to resolve rather than failing the link here.
+     if (!Filename && Arg->getOption().matches(OPT_library))
+-      return createStringError("unable to find library -l%s", Arg->getValue());
++      continue;
+ 
+     if (!Filename || !sys::fs::exists(*Filename) ||
+         sys::fs::is_directory(*Filename))
+diff --color -ruN orig/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td new/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td
+--- orig/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td	2026-07-28 15:11:17.000000000 +0300
++++ new/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td	2026-08-13 13:36:58.926213507 +0300
+@@ -117,6 +117,12 @@
+ def library_path_EQ : Joined<["--", "-"], "library-path=">, Flags<[HelpHidden]>,
+   Alias<library_path>;
+ 
++// ld64 (Darwin) options that begin with -l and would otherwise be parsed as
++// -l<libname>. They take a separate path argument and are forwarded verbatim.
++def lto_library : Separate<["-"], "lto_library">, Flags<[HelpHidden]>,
++  MetaVarName<"<path>">, HelpText<"ld64 libLTO path (forwarded)">;
++def lto_object_path : Separate<["-"], "lto_object_path">, Flags<[HelpHidden]>,
++  MetaVarName<"<path>">, HelpText<"ld64 LTO object path (forwarded)">;
+ def library : JoinedOrSeparate<["-"], "l">, MetaVarName<"<libname>">,
+   HelpText<"Search for library <libname>">;
+ def library_S : Separate<["--", "-"], "library">, Flags<[HelpHidden]>,
