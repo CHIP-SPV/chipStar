@@ -1211,9 +1211,12 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       // compile+link. This avoids clLinkProgram which can trigger Intel
       // driver issues with certain in-tree SPIR-V backend structures.
       logInfo("No rtdevlib imports, building directly");
-      cl_int CreateErr;
+      // CHIPERR_CHECK_LOG_AND_THROW_TABLE reads the thread_local named
+      // clStatus, so the create status must land there; a differently named
+      // local would leave the macro testing whatever clStatus last held
+      // (e.g. a benign CL_INVALID_VALUE from an earlier SVM map attempt).
       Program_ = cl::Program(clCreateProgramWithIL(
-          ChipCtxOcl->get()->get(), SrcBin.data(), SrcBin.size(), &CreateErr));
+          ChipCtxOcl->get()->get(), SrcBin.data(), SrcBin.size(), &clStatus));
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateProgramWithIL);
       cl_device_id DevId = ChipDevOcl->get()->get();
       Err = clBuildProgram(Program_.get(), 1, &DevId, buildOptions.c_str(),
@@ -1240,7 +1243,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   logTrace("Kernels in CHIPModuleOpenCL: {} \n", Kernels.size());
   for (auto &Krnl : Kernels) {
     std::string HostFName;
-    Err = Krnl.getInfo(CL_KERNEL_FUNCTION_NAME, &HostFName);
+    clStatus = Krnl.getInfo(CL_KERNEL_FUNCTION_NAME, &HostFName);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetKernelInfo);
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
@@ -1319,9 +1322,8 @@ Borrowed<cl::Kernel> CHIPKernelOpenCL::borrowUniqueKernelHandle() {
   // NOTE: clCloneKernel is not used here due to its experience on
   // Intel (GPU) OpenCL which crashed if clSetKernelArgSVMPointer() was
   // called on the original cl_kernel.
-  cl_int Err;
-  auto *NewK = new cl::Kernel(*Module->get(), Name_.c_str(), &Err);
-  if (Err != CL_SUCCESS) {
+  auto *NewK = new cl::Kernel(*Module->get(), Name_.c_str(), &clStatus);
+  if (clStatus != CL_SUCCESS) {
     delete NewK;
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateKernel);
   }
