@@ -17,3 +17,12 @@ Replacement for running `make check`. Allows for selecting the backend and runni
 ## unit_tests.sh
 
 Run the unit tests on the CI machine `cupcake`. This script will exclude the known failures and bind/unbind iGPU/dGPU from the i915 driver to mitigate the driver instability.
+
+## module-env.sh
+
+Source this to initialize Environment Modules (user-local install, Lmod, or
+the system package, in that order) and register the shared modulefiles trees.
+CI workflow steps use it as a one-line replacement for the init boilerplate;
+building and testing is then explicit per step (cmake + make + `check.py`),
+which is what the removed `unit_tests.sh` wrapper used to do behind one
+opaque invocation.
