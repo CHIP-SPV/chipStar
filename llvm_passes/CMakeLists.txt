@@ -162,3 +162,4 @@ install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics LLVMHipDefrost LLVMHipP
         LIBRARY DESTINATION lib/llvm
         ARCHIVE DESTINATION lib/llvm
         )
+target_compile_definitions(LLVMHipPasses PRIVATE CHIP_COMBINED_PASS_PLUGIN)

@@ -74,6 +74,7 @@ PreservedAnalyses HipStripUsedIntrinsicsPass::run(Module &M,
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
+#ifndef CHIP_COMBINED_PASS_PLUGIN
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, "hip-strip-compiler-used",
@@ -89,3 +90,4 @@ llvmGetPassPluginInfo() {
                 });
           }};
 }
+#endif // CHIP_COMBINED_PASS_PLUGIN

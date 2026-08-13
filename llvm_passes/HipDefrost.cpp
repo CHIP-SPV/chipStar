@@ -69,6 +69,7 @@ PreservedAnalyses HipDefrostPass::run(Function &F,
   return defrost(F) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
+#ifndef CHIP_COMBINED_PASS_PLUGIN
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, "hip-defrost",
@@ -84,3 +85,4 @@ llvmGetPassPluginInfo() {
                 });
           }};
 }
+#endif // CHIP_COMBINED_PASS_PLUGIN
