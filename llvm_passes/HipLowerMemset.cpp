@@ -57,6 +57,7 @@ PreservedAnalyses HipLowerMemsetPass::run(Function &F,
   return lowerMemsets(F) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
+#ifndef CHIP_COMBINED_PASS_PLUGIN
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, "hip-lower-memset", LLVM_VERSION_STRING,
@@ -72,3 +73,4 @@ llvmGetPassPluginInfo() {
                 });
           }};
 }
+#endif // CHIP_COMBINED_PASS_PLUGIN

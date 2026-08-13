@@ -221,7 +221,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 #define PASS_ID "hip-post-link-passes"
 #endif
 
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+extern "C" ::llvm::PassPluginLibraryInfo
 llvmGetPassPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, "hip-passes", LLVM_VERSION_STRING,
           [](PassBuilder &PB) {
