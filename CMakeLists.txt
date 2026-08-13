@@ -383,11 +383,9 @@ endif()
 set(SPIRV_EMITTER_OPTS "")
 if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
-elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
-  # LLVM 23's HIPSPV toolchain defaults to the in-tree SPIR-V backend when it
-  # is built; explicitly request the llvm-spirv translator.
-  set(SPIRV_EMITTER_OPTS "-fno-integrated-objemitter")
 endif()
+# The translator variant's flag is appended next to the OFFLOAD_TRIPLE
+# definition below: it needs the triple for its -Xoffload-compiler prefix.
 
 if(CHIP_VERBOSE)
   set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -462,7 +460,11 @@ message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
   # On LLVM-23+ the emitted SPIR-V version can be controlled with the
   # subarch string (v#.#). The "chipstar" OS component sets allowed
-  # SPIR-V extensions tailored for chipStar.
+  # SPIR-V extensions tailored for chipStar; both variants use it, since
+  # a plain spirv64 triple would select the generic SPIRV toolchain,
+  # whose in-tree backend emission rejects chipStar's printf lowering
+  # (SPV_EXT_relaxed_printf_string_address_space is not in its allow
+  # list) and whose device link runs spirv-link.
   #
   # v1.3: Arm Mali's clLinkProgram is broken, so shuffles cannot come
   # from a runtime-linked rtdevlib module and are inlined into user
@@ -476,6 +478,20 @@ if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
   set(OFFLOAD_TRIPLE spirv64v1.3-unknown-chipstar)
 else()
   set(OFFLOAD_TRIPLE spirv64)
+endif()
+
+# RDC links run the device link inside clang-linker-wrapper, so the
+# translator selection must also ride the RDC supplement flags.
+set(RDC_EMITTER_SUPPLEMENT "")
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 23 AND NOT CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  # Select the llvm-spirv translator in the HIPSPV toolchain. The flag must
+  # travel via -Xoffload-compiler: passed plainly in -xhip offload mode the
+  # driver validates it against the host toolchain, which rejects it, and
+  # -Xarch_device silently drops it before the device link.
+  list(APPEND SPIRV_EMITTER_OPTS
+    -Xoffload-compiler-${OFFLOAD_TRIPLE} -fno-integrated-objemitter)
+  set(RDC_EMITTER_SUPPLEMENT
+    " -Xoffload-compiler-${OFFLOAD_TRIPLE} -fno-integrated-objemitter")
 endif()
 
 # =============================================================================
@@ -935,7 +951,7 @@ add_to_config(_hipInfo_install
 if(USE_NEW_OFFLOAD_DRIVER)
   add_to_config(_hipInfo_install
     HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
-    "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} -Xoffload-compiler-${OFFLOAD_TRIPLE} --hip-path=${CMAKE_INSTALL_PREFIX}")
+    "${HIP_RDC_SUPPLEMENT_LINK_FLAGS}${RDC_EMITTER_SUPPLEMENT} -Xoffload-compiler-${OFFLOAD_TRIPLE} --hip-path=${CMAKE_INSTALL_PREFIX}")
 else()
   add_to_config(_hipInfo_install
     HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
@@ -956,7 +972,7 @@ add_to_config(_hipInfo_build
 if(USE_NEW_OFFLOAD_DRIVER)
   add_to_config(_hipInfo_build
     HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
-    "${HIP_RDC_SUPPLEMENT_LINK_FLAGS} -Xoffload-compiler-${OFFLOAD_TRIPLE} --hip-path=${CMAKE_BINARY_DIR}")
+    "${HIP_RDC_SUPPLEMENT_LINK_FLAGS}${RDC_EMITTER_SUPPLEMENT} -Xoffload-compiler-${OFFLOAD_TRIPLE} --hip-path=${CMAKE_BINARY_DIR}")
 else()
   add_to_config(_hipInfo_build
     HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
