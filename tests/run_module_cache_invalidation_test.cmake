@@ -67,11 +67,12 @@ function(run_and_expect LABEL EXPECT_HITS EXPECT_MISSES)
       --unset=OverrideDefaultFP64Settings
       --unset=NEOReadDebugKeys
       --unset=IGC_ShaderDumpRegexFilter
-      --unset=OCL_ICD_FILENAMES
-      # OCL_ICD_VENDORS is deliberately NOT unset: macOS and the hosted
-      # runners have no /etc/OpenCL/vendors and register pocl through it, so
-      # stripping it leaves the loader with no platforms at all. The
-      # loader-delta step overrides it per run instead.
+      # OCL_ICD_VENDORS and OCL_ICD_FILENAMES are deliberately NOT unset:
+      # macOS and the hosted runners register pocl through OCL_ICD_VENDORS,
+      # and the meatloaf lanes register the Intel driver through
+      # OCL_ICD_FILENAMES (the oneAPI Khronos loader honors it; with it
+      # stripped the loader has no platforms and init fails). The
+      # loader-delta step overrides both per run instead.
       "CHIP_MODULE_CACHE_DIR=${CACHE_DIR}"
       "CHIP_LOGLEVEL=info"
       ${ARGN}
@@ -192,11 +193,21 @@ run_and_expect("back to baseline (expect hit)" ${N} 0)
 #    /etc/OpenCL/vendors/*.icd to copy.
 if(SEEN_BACKEND STREQUAL "opencl")
   set(ICD_COPY "")
+  # Candidate driver libraries: the first entry of every /etc/OpenCL/vendors
+  # .icd, plus an OCL_ICD_FILENAMES value when the environment registers the
+  # driver that way (meatloaf's module env does).
+  set(ICD_CANDIDATES "")
   file(GLOB ICD_FILES "/etc/OpenCL/vendors/*.icd")
   foreach(ICD_FILE IN LISTS ICD_FILES)
     file(STRINGS "${ICD_FILE}" ICD_LINES LIMIT_COUNT 1)
     list(GET ICD_LINES 0 ICD_PATH)
     string(STRIP "${ICD_PATH}" ICD_PATH)
+    list(APPEND ICD_CANDIDATES "${ICD_PATH}")
+  endforeach()
+  if(DEFINED ENV{OCL_ICD_FILENAMES})
+    list(APPEND ICD_CANDIDATES "$ENV{OCL_ICD_FILENAMES}")
+  endif()
+  foreach(ICD_PATH IN LISTS ICD_CANDIDATES)
     if(ICD_PATH MATCHES "^/" AND EXISTS "${ICD_PATH}")
       set(ICD_COPY "${SCRATCH_DIR}/icd-copy.so")
       # copy_file in script mode needs CMake >= 3.21; -E copy works on 3.20.
@@ -215,13 +226,19 @@ if(SEEN_BACKEND STREQUAL "opencl")
     # CHIP_DEVICE_TYPE (set per lane by check.py) may point at a platform
     # that no longer exists; select platform 0 device 0 explicitly for
     # these two runs.
+    # OCL_ICD_FILENAMES is overridden too: left at its ambient value the
+    # Khronos loader would keep the original driver registered alongside the
+    # copy, and platform 0 could still resolve to the original, leaving the
+    # loader delta unchanged.
     run_and_expect("with relocated ICD library (expect miss)" 0 ${N}
       "OCL_ICD_VENDORS=${SCRATCH_DIR}/vendors"
+      "OCL_ICD_FILENAMES=${ICD_COPY}"
       "CHIP_PLATFORM=0" "CHIP_DEVICE=0" --unset=CHIP_DEVICE_TYPE)
     # ...and the digest must be deterministic, not merely different: the same
     # setup again must hit the entries just written.
     run_and_expect("relocated ICD library again (expect hit)" ${N} 0
       "OCL_ICD_VENDORS=${SCRATCH_DIR}/vendors"
+      "OCL_ICD_FILENAMES=${ICD_COPY}"
       "CHIP_PLATFORM=0" "CHIP_DEVICE=0" --unset=CHIP_DEVICE_TYPE)
   else()
     message(STATUS
