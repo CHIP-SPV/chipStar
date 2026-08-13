@@ -332,6 +332,15 @@ COMMON_CMAKE_OPTIONS=(
 
 if [ -n "${LLVM_RUNTIMES}" ]; then
   COMMON_CMAKE_OPTIONS+=("-DLLVM_ENABLE_RUNTIMES=\"${LLVM_RUNTIMES}\"")
+  if [[ "$(uname)" == "Darwin" ]]; then
+    # Runtimes (libomp) are compiled with the just-built clang, which ships no
+    # compiler-rt builtins on macOS; libomp's complex division needs __divdc3
+    # and friends, so link the runtimes against Apple's builtins archive.
+    apple_builtins="$(clang -print-resource-dir)/lib/darwin/libclang_rt.osx.a"
+    COMMON_CMAKE_OPTIONS+=(
+      "-DRUNTIMES_CMAKE_ARGS=\"-DCMAKE_EXE_LINKER_FLAGS=${apple_builtins};-DCMAKE_SHARED_LINKER_FLAGS=${apple_builtins}\""
+    )
+  fi
 fi
 
 # Linux-specific flags
