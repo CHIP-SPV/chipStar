@@ -118,29 +118,31 @@ all_test_list = f"./test_lists/ALL.txt"
 failed_test_list = f"./test_lists/{args.backend.upper()}_{device_type_stripped.upper()}.txt"
 
 def run_tests(num_tries):
-    if len(args.regex_exclude) > 0:
-        args.regex_exclude = f"{args.regex_exclude}|"
-    if len(args.regex_include) > 0:
-        args.regex_include = f"{args.regex_include}|"
-    
+    # ctest takes -R (must match) and -E (must not match) independently, so
+    # the include regex becomes a -R filter and only the exclude regex joins
+    # the known-failure exclusion pattern. Local variables, not args mutation:
+    # run_tests is called twice when --total-runtime is set.
+    regex_exclude = f"{args.regex_exclude}|" if args.regex_exclude else ""
+    include_flag = f" -R \"{args.regex_include}\"" if args.regex_include else ""
+
     # Determine the test mode based on the new argument
     test_mode = "-E" if args.test_mode_failures == "exclude" else "-R"
-    
+
     # Handle samples-only mode
     if args.samples_only:
         # For samples-only, we still need to exclude failed tests, texture, and double tests
         # if failed_test_list is not empty, separator is |, otherwise it is empty
         separator = "|" if os.path.exists(failed_test_list) and os.path.getsize(failed_test_list) > 0 else ""
-        
+
         # Build exclusion pattern for samples
-        exclusion_pattern = f"{args.regex_exclude}{args.regex_include}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}{double_cmd}"
-        
-        cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -L SAMPLE -E \"{exclusion_pattern}\" -O checkpy_{args.backend}_{args.device_type}.txt"
+        exclusion_pattern = f"{regex_exclude}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}{double_cmd}"
+
+        cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -L SAMPLE{include_flag} -E \"{exclusion_pattern}\" -O checkpy_{args.backend}_{args.device_type}.txt"
     else:
         # if failed_test_list is not empty, separator is |, otherwise it is empty
         separator = "|" if os.path.exists(failed_test_list) and os.path.getsize(failed_test_list) > 0 else ""
-        
-        cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} {test_mode} \"{args.regex_exclude}{args.regex_include}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}{double_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
+
+        cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads}{include_flag} {test_mode} \"{regex_exclude}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}{double_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
     
     res, err = run_cmd(cmd)
 
