@@ -460,10 +460,20 @@ endif()
 message(STATUS "chipStar will be installed to: ${CMAKE_INSTALL_PREFIX}")
 
 if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
-  # On LLVM-23+ the emitted SPIR-V version can be controlled with
-  # subarch string (v#.#). The new "chipstar" OS component sets
-  # allowed SPIR-V extensions tailored for chipStar.
-  set(OFFLOAD_TRIPLE spirv64v1.2-unknown-chipstar)
+  # On LLVM-23+ the emitted SPIR-V version can be controlled with the
+  # subarch string (v#.#). The "chipstar" OS component sets allowed
+  # SPIR-V extensions tailored for chipStar.
+  #
+  # v1.3: Arm Mali's clLinkProgram is broken, so shuffles cannot come
+  # from a runtime-linked rtdevlib module and are inlined into user
+  # kernels instead. An inlined shuffle is a GroupNonUniform* op whose
+  # capability is SPIR-V 1.3, so shuffle-using modules genuinely require
+  # a 1.3 stamp; the versioned triple applies it to every module, which
+  # over-stamps shuffle-free ones. All targeted runtimes accept 1.3
+  # headers (LLVM 22's unversioned triple shipped them all along, and
+  # Intel NEO and Mali were verified by direct clCreateProgramWithIL
+  # probe).
+  set(OFFLOAD_TRIPLE spirv64v1.3-unknown-chipstar)
 else()
   set(OFFLOAD_TRIPLE spirv64)
 endif()
