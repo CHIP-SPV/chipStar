@@ -384,8 +384,9 @@ set(SPIRV_EMITTER_OPTS "")
 if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   set(SPIRV_EMITTER_OPTS "-fintegrated-objemitter")
 endif()
-# The translator variant's flag is appended next to the OFFLOAD_TRIPLE
-# definition below: it needs the triple for its -Xoffload-compiler prefix.
+# The translator variant's flag is defined next to the OFFLOAD_TRIPLE
+# definition below: it needs the triple for its -Xoffload-compiler prefix
+# and, unlike this one, it may only reach non-RDC compilations.
 
 if(CHIP_VERBOSE)
   set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -480,19 +481,25 @@ else()
   set(OFFLOAD_TRIPLE spirv64)
 endif()
 
-# RDC links run the device link inside clang-linker-wrapper, so the
-# translator selection must also ride the RDC supplement flags.
+# Translator selection is emitted twice because SPIR-V is produced in a
+# different job depending on the mode: at compile time without -fgpu-rdc
+# (NONRDC_EMITTER_OPTS) and inside clang-linker-wrapper at link time with
+# -fgpu-rdc (RDC_EMITTER_SUPPLEMENT). An RDC compile has no device codegen
+# job at all, so a single always-on flag would sit unclaimed there and
+# clang reports it as an unused argument.
 set(RDC_EMITTER_SUPPLEMENT "")
+set(NONRDC_EMITTER_OPTS "")
 if(LLVM_VERSION_MAJOR GREATER_EQUAL 23 AND NOT CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Select the llvm-spirv translator in the HIPSPV toolchain. The flag must
   # travel via -Xoffload-compiler: passed plainly in -xhip offload mode the
   # driver validates it against the host toolchain, which rejects it, and
   # -Xarch_device silently drops it before the device link.
-  list(APPEND SPIRV_EMITTER_OPTS
+  set(NONRDC_EMITTER_OPTS
     -Xoffload-compiler-${OFFLOAD_TRIPLE} -fno-integrated-objemitter)
   set(RDC_EMITTER_SUPPLEMENT
     " -Xoffload-compiler-${OFFLOAD_TRIPLE} -fno-integrated-objemitter")
 endif()
+string(REPLACE ";" " " NONRDC_EMITTER_OPTS_STR "${NONRDC_EMITTER_OPTS}")
 
 # =============================================================================
 # chipStar BINARIES & TESTS
@@ -831,12 +838,17 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 # TODO: Is there a better way to do this?
 add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE
-  $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_})
+  $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_}
+  # Not part of HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_: those flags are also
+  # published in .hipInfo, where hipcc must be free to withhold the emitter
+  # selection from RDC compiles.
+  ${NONRDC_EMITTER_OPTS})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE
-  $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_})
+  $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_}
+  ${NONRDC_EMITTER_OPTS})
 target_link_libraries(device INTERFACE CHIP)
 
 # same as device on chipStar but provides compatibility with AMD
@@ -948,6 +960,11 @@ add_to_config(_hipInfo_install
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL}")
 add_to_config(_hipInfo_install
   HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_INSTALL}")
+# Emitter selection for compilations that do their device codegen at compile
+# time. hipcc withholds it from RDC compiles, where codegen is deferred to the
+# link and the flag would go unclaimed.
+add_to_config(_hipInfo_install
+  HIP_OFFLOAD_NONRDC_COMPILE_SUPPLEMENT_OPTIONS "${NONRDC_EMITTER_OPTS_STR}")
 if(USE_NEW_OFFLOAD_DRIVER)
   add_to_config(_hipInfo_install
     HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
@@ -969,6 +986,8 @@ add_to_config(_hipInfo_build
   HIP_OFFLOAD_COMPILE_OPTIONS "${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD}")
 add_to_config(_hipInfo_build
   HIP_OFFLOAD_LINK_OPTIONS "${HIP_OFFLOAD_LINK_OPTIONS_BUILD}")
+add_to_config(_hipInfo_build
+  HIP_OFFLOAD_NONRDC_COMPILE_SUPPLEMENT_OPTIONS "${NONRDC_EMITTER_OPTS_STR}")
 if(USE_NEW_OFFLOAD_DRIVER)
   add_to_config(_hipInfo_build
     HIP_OFFLOAD_RDC_SUPPLEMENT_LINK_OPTIONS
