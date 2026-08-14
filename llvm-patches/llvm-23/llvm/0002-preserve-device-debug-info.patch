@@ -28,8 +28,14 @@ those flags are no-ops when the bitcode carries no debug info.
 Refs: CHIP-SPV/chipStar#1004
 Applies-to: LLVM llvmorg-23.1.0-rc2
 Upstream-status: the unconditional form was upstreamed in
-llvm/llvm-project#210504 (3093d8c577d7); the backend gate added here is
-chipStar-specific and not upstream.
+llvm/llvm-project#210504 (3093d8c577d71a98ec4d9a2bdf26b196cc7a0f8d); the
+backend gate added here is chipStar-specific and not upstream. Verified
+2026-08-14: the shared part is the removal of the same four forced
+NoDebugInfo lines that #210504 removes; upstream leaves DebugInfoKind
+untouched unconditionally, while this patch re-forces NoDebugInfo on the
+translator path. The rest of #210504 (the -g-gated translator flags and
+hipspv-toolchain.hip DEBUG/NODEBUG tests) is folded, in unconditional
+form, into 0001-hipspv-in-tree-spirv-backend.patch.
 ---
 diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
 index 98bec18..e4aaf79 100644

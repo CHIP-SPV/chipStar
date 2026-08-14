@@ -25,8 +25,17 @@ SPIR-V extension list and debug-info flags that main's HIPSPV.cpp had at
 the time of the merge; both are folded in here so a patched 23 behaves
 exactly like main.
 
+Verified hunk-by-hunk against the upstream commit on 2026-08-14: the code
+changes (HIPSPV.cpp, HIPSPV.h, SPIRVSubtarget.cpp) and test additions are
+identical, except for one dropped comment cross-reference in HIPSPV.cpp
+("(see the comment on the equivalent block in the non-chipStar path
+below)") that refers to the #210504 block release/23.x does not have, and
+the hipspv-toolchain.hip hunk, which reaches the same final content from
+the pre-#210504 base.
+
 Applies-to: LLVM llvmorg-23.1.0-rc2
-Upstream-status: merged upstream as 7ef0ca2b13f9, first ships in LLVM 24.
+Backport-of: llvm/llvm-project#213052 (7ef0ca2b13f9ee1061f2e3ec5a622f4ad74fe4b7)
+Upstream-status: merged upstream, first ships in LLVM 24.
 ---
 diff --git a/clang/lib/Driver/ToolChains/HIPSPV.cpp b/clang/lib/Driver/ToolChains/HIPSPV.cpp
 index d6900c7..98bec18 100644

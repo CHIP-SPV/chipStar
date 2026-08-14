@@ -36,7 +36,10 @@ which crashes clang during hipspv-link.
 
 Applies-to: llvm-project llvmorg-23.1.0-rc2
 Upstream-status: not yet reported; the same code is on main and looks
-like a genuine latent bug rather than a release-branch gap.
+like a genuine latent bug rather than a release-branch gap. Re-verified
+2026-08-14: main's SPIRVEmitIntrinsics.cpp still indexes
+CalledF->getArg(OpIdx) inside a loop bounded by CI->arg_size(), with no
+variadic guard.
 ---
 diff --git a/llvm/lib/Target/SPIRV/SPIRVEmitIntrinsics.cpp b/llvm/lib/Target/SPIRV/SPIRVEmitIntrinsics.cpp
 --- a/llvm/lib/Target/SPIRV/SPIRVEmitIntrinsics.cpp
