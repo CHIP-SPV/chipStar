@@ -1,16 +1,11 @@
 name: Test LLVM Patches
 
+# Manual-only: this workflow rebuilds four LLVM toolchains on the meatloaf
+# runner (hours on 8 cores, starving the main x86 CI queue) and two more on
+# pastrami, whose disk cannot hold its build trees alongside the installed
+# toolchains. Run it deliberately via workflow_dispatch after touching
+# llvm-patches/, rather than on every push of a PR that does.
 on:
-  push:
-    paths:
-      - 'llvm-patches/**'
-      - 'scripts/configure_llvm.sh'
-      - '.github/workflows/test-llvm-patches.yml'
-  pull_request:
-    paths:
-      - 'llvm-patches/**'
-      - 'scripts/configure_llvm.sh'
-      - '.github/workflows/test-llvm-patches.yml'
   workflow_dispatch:
 
 concurrency:
