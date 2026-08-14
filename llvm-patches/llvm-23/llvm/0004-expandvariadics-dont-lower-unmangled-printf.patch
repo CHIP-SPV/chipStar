@@ -35,8 +35,11 @@ is identical on LLVM 22 and 23; feeding that same IR to both backends
 produces the two forms above.
 
 Applies-to: llvm-project llvmorg-23.1.0-rc2
+Backport-of: llvm/llvm-project#206998 (b1d21c6d3121898dc13c0df8cf9e4410bee75cfb)
 Upstream-status: merged upstream, drop this patch once release/23.x picks
-it up.
+it up. Verified 2026-08-14: the ExpandVariadics.cpp hunk is byte-identical
+to the upstream commit; the upstream test
+llvm/test/Transforms/ExpandVariadics/spirv-printf.ll is not carried here.
 ---
 diff --git a/llvm/lib/Transforms/IPO/ExpandVariadics.cpp b/llvm/lib/Transforms/IPO/ExpandVariadics.cpp
 --- a/llvm/lib/Transforms/IPO/ExpandVariadics.cpp

@@ -12,7 +12,10 @@ The decay cannot be done in IR: with opaque pointers a zero-index GEP
 is a no-op that constant-folds away before the backend runs.
 
 Applies-to: llvmorg-23.1.0-rc2 + chipStar llvm-23 patch series
-Upstream-status: not yet submitted
+Upstream-status: not yet submitted. Re-verified 2026-08-14: main's
+SPIRVBuiltins.cpp generateExtInst() has no printf format-operand
+handling; the deduced pointer type still flows into the OpExtInst
+unchanged.
 ---
 --- orig/llvm/lib/Target/SPIRV/SPIRVBuiltins.cpp
 +++ new/llvm/lib/Target/SPIRV/SPIRVBuiltins.cpp

@@ -1,16 +1,62 @@
-diff --color -ruN orig/clang/lib/Driver/ToolChains/Darwin.cpp new/clang/lib/Driver/ToolChains/Darwin.cpp
---- orig/clang/lib/Driver/ToolChains/Darwin.cpp	2026-07-28 15:11:17.000000000 +0300
-+++ new/clang/lib/Driver/ToolChains/Darwin.cpp	2026-08-13 13:36:58.147176236 +0300
-@@ -1210,7 +1210,16 @@
+From f90e121dde60bea7e2988cf277ca4a484bce33b9 Mon Sep 17 00:00:00 2001
+From: Paulius Velesko <pvelesko@gmail.com>
+Date: Mon, 21 Jul 2026 12:39:12 +0000
+Subject: [PATCH] macOS driver and linker-wrapper fixes for HIP-SPIR-V offload
+
+Two independent sets of changes needed to compile and link HIP-SPIR-V
+offload programs on macOS hosts.
+
+1. Darwin driver (clang/lib/Driver/ToolChains/Darwin.cpp, Darwin.h, and
+the new clang/test/Driver/darwin-hip-spirv-version.hip test):
+Backport of llvm/llvm-project#206902, merged to main on 2026-07-21 as
+f90e121dde60bea7e2988cf277ca4a484bce33b9, after the release/23.x branch
+was cut. Taken verbatim from that commit; it applies to llvmorg-23.1.0-rc2
+without modification.
+
+Darwin::ensureTargetInitialized() recorded the raw triple OS version from
+getOSVersion(), which on macOS is the Darwin kernel version (e.g. 24.3.0),
+not the macOS product version (15.x). The offload host job later calls
+setTarget() again from AddDeploymentTarget() with the product version;
+the mismatch trips assert(!TargetInitialized && "Target already
+initialized!") and clang aborts on every
+-x hip --offload=spirv64* --target=arm64-apple-darwin compile. Convert
+macOS kernel versions via getMacOSXVersion(), and mark the lazy init with
+TargetInitializedLazily so an authoritative deployment target computed
+later (from -mmacosx-version-min, MACOSX_DEPLOYMENT_TARGET, or the SDK)
+may overwrite the guess instead of asserting.
+
+2. clang-linker-wrapper (ClangLinkerWrapper.cpp, LinkerWrapperOpts.td):
+chipStar-local, no upstream counterpart (verified absent from
+llvm-project main as of 2026-08-14):
+- Normalize the bundler host triple with CanonicalForm::FOUR_IDENT so it
+  matches the four-component triples clang's HIPUtility.cpp records in
+  bundle entry IDs; a three-component host entry fails bundle lookup.
+- Search lib<name>.dylib in searchLibrary() ahead of .so/.a.
+- Leave a -l library the wrapper cannot locate (e.g. Darwin .tbd stubs
+  inside the SDK) to the host linker instead of failing the link; such a
+  library cannot contain extractable device code.
+- Accept ld64's -lto_library/-lto_object_path as separate-argument
+  options so their path arguments are not parsed as -l<libname>.
+
+Applies-to: LLVM llvmorg-23.1.0-rc2
+Backport-of: llvm/llvm-project#206902 (f90e121dde60bea7e2988cf277ca4a484bce33b9) [Darwin.cpp, Darwin.h, darwin-hip-spirv-version.hip only]
+Upstream-status: Darwin driver part merged upstream, first ships in
+LLVM 24; linker-wrapper part not yet submitted upstream.
+---
+diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
+index a729fb4..d3de04f 100644
+--- a/clang/lib/Driver/ToolChains/Darwin.cpp
++++ b/clang/lib/Driver/ToolChains/Darwin.cpp
+@@ -1210,10 +1210,23 @@ void Darwin::ensureTargetInitialized() const {
    else if (getTriple().isMacCatalystEnvironment())
      Environment = MacCatalyst;
  
 -  VersionTuple OsVer = getTriple().getOSVersion();
 +  VersionTuple OsVer;
 +  if (Platform == MacOS) {
-+    // Use getMacOSXVersion() to properly convert Darwin kernel versions (e.g.
-+    // darwin24.3.0) to macOS versions (e.g. 15.3.0). Raw getOSVersion() would
-+    // return the kernel version, causing a mismatch with AddDeploymentTarget.
++    // Record the macOS product version (e.g. macosx15), not the Darwin kernel
++    // version (e.g. darwin24.3): version checks against the lazily-recorded
++    // target must behave as if AddDeploymentTarget() had computed it.
 +    if (!getTriple().getMacOSXVersion(OsVer))
 +      return;
 +  } else {
@@ -19,10 +65,93 @@ diff --color -ruN orig/clang/lib/Driver/ToolChains/Darwin.cpp new/clang/lib/Driv
    setTarget(Platform, Environment, OsVer.getMajor(),
              OsVer.getMinor().value_or(0), OsVer.getSubminor().value_or(0),
              VersionTuple());
-diff --color -ruN orig/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp new/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
---- orig/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp	2026-07-28 15:11:17.000000000 +0300
-+++ new/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp	2026-08-13 13:36:58.536194848 +0300
-@@ -471,7 +471,8 @@
++  // The version above is a guess from the triple alone; AddDeploymentTarget()
++  // may later derive a different deployment target from flags, environment
++  // variables, or the SDK, and overwrite this initialization.
++  TargetInitializedLazily = true;
+ }
+ 
+ AppleMachO::~AppleMachO() {}
+diff --git a/clang/lib/Driver/ToolChains/Darwin.h b/clang/lib/Driver/ToolChains/Darwin.h
+index 97520a8..c41bb6c 100644
+--- a/clang/lib/Driver/ToolChains/Darwin.h
++++ b/clang/lib/Driver/ToolChains/Darwin.h
+@@ -355,6 +355,11 @@ public:
+   // the argument translation business.
+   mutable bool TargetInitialized;
+ 
++  /// Whether the target was lazily initialized from the triple by
++  /// ensureTargetInitialized() rather than by AddDeploymentTarget(). Such a
++  /// target is a best-effort guess that setTarget() may overwrite.
++  mutable bool TargetInitializedLazily = false;
++
+   // TODO: Are these useful? Can we use Triple::OSType/EnvironmentType instead?
+   enum DarwinPlatformKind {
+     MacOS,
+@@ -447,10 +452,17 @@ protected:
+     if (TargetInitialized && TargetPlatform == Platform &&
+         TargetEnvironment == Environment &&
+         (Environment == MacCatalyst ? OSTargetVersion : TargetVersion) ==
+-            VersionTuple(Major, Minor, Micro))
++            VersionTuple(Major, Minor, Micro)) {
++      TargetInitializedLazily = false;
+       return;
++    }
+ 
+-    assert(!TargetInitialized && "Target already initialized!");
++    // A lazily-initialized target (see ensureTargetInitialized()) is a
++    // best-effort guess from the triple alone; the authoritative
++    // initialization from AddDeploymentTarget() may overwrite it.
++    assert((!TargetInitialized || TargetInitializedLazily) &&
++           "Target already initialized!");
++    TargetInitializedLazily = false;
+     TargetInitialized = true;
+     TargetPlatform = Platform;
+     TargetEnvironment = Environment;
+diff --git a/clang/test/Driver/darwin-hip-spirv-version.hip b/clang/test/Driver/darwin-hip-spirv-version.hip
+new file mode 100644
+index 0000000..754c7a1
+--- /dev/null
++++ b/clang/test/Driver/darwin-hip-spirv-version.hip
+@@ -0,0 +1,33 @@
++// The HIP-SPIR-V offload path lazily initializes the Darwin host target from
++// the triple (ensureTargetInitialized) before AddDeploymentTarget() computes
++// the authoritative deployment target; a disagreement between the two used to
++// trip setTarget()'s "Target already initialized!" assertion.
++
++// REQUIRES: spirv-registered-target
++// UNSUPPORTED: system-windows, system-cygwin
++
++// A Darwin *kernel* version in the triple (darwin24.3.0) is recorded as the
++// macOS *product* version (macosx15) and the driver does not crash.
++// RUN: %clang -### -x hip --offload=spirv64 --target=arm64-apple-darwin24.3.0 \
++// RUN:   -nogpulib -nogpuinc %s 2>&1 | FileCheck %s
++// CHECK: "-triple" "arm64-apple-macosx15{{[0-9.]*}}"
++// CHECK-NOT: "-triple" "arm64-apple-darwin
++
++// A deployment target from the environment overrides the lazily-recorded
++// triple version instead of asserting.
++// RUN: env MACOSX_DEPLOYMENT_TARGET=14.0 %clang -### -x hip \
++// RUN:   --offload=spirv64 --target=arm64-apple-darwin24.3.0 \
++// RUN:   -nogpulib -nogpuinc %s 2>&1 | FileCheck --check-prefix=DEPLOY %s
++// DEPLOY: "-triple" "arm64-apple-macosx14.0.0"
++
++// Same for -mmacosx-version-min.
++// RUN: %clang -### -x hip --offload=spirv64 --target=arm64-apple-darwin24.3.0 \
++// RUN:   -mmacosx-version-min=14.0 -nogpulib -nogpuinc %s 2>&1 \
++// RUN:   | FileCheck --check-prefix=VERMIN %s
++// VERMIN: "-triple" "arm64-apple-macosx14.0.0"
++
++// An unversioned triple must not crash either; the version is inferred (and
++// on a macOS host may differ from the lazily-recorded default).
++// RUN: %clang -### -x hip --offload=spirv64 --target=arm64-apple-darwin \
++// RUN:   -nogpulib -nogpuinc %s 2>&1 | FileCheck --check-prefix=NOVER %s
++// NOVER: "-triple" "arm64-apple-macosx{{[0-9.]+}}"
+diff --git a/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp b/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
+index 12b6cae..e694fb7 100644
+--- a/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
++++ b/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
+@@ -471,7 +471,8 @@ fatbinary(ArrayRef<std::tuple<StringRef, StringRef, StringRef>> InputFiles,
    llvm::Triple HostTriple(
        Args.getLastArgValue(OPT_host_triple_EQ, sys::getDefaultTargetTriple()));
    SmallVector<StringRef> Targets = {
@@ -32,17 +161,17 @@ diff --color -ruN orig/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp n
    for (const auto &[File, TripleRef, Arch] : InputFiles) {
      std::string NormalizedTriple =
          normalizeForBundler(Triple(TripleRef), !Arch.empty());
-@@ -1250,6 +1251,9 @@
+@@ -1249,6 +1250,9 @@ std::optional<std::string>
+ searchLibraryBaseName(StringRef Name, StringRef Root,
                        ArrayRef<StringRef> SearchPaths) {
    for (StringRef Dir : SearchPaths) {
-     if (std::optional<std::string> File =
++    if (std::optional<std::string> File =
 +            findFile(Dir, Root, "lib" + Name + ".dylib"))
 +      return File;
-+    if (std::optional<std::string> File =
+     if (std::optional<std::string> File =
              findFile(Dir, Root, "lib" + Name + ".so"))
        return File;
-     if (std::optional<std::string> File =
-@@ -1365,8 +1369,11 @@
+@@ -1365,8 +1369,11 @@ getDeviceInput(const ArgList &Args) {
              ? searchLibrary(Arg->getValue(), Root, LibraryPaths)
              : std::string(Arg->getValue());
  
@@ -55,10 +184,11 @@ diff --color -ruN orig/clang/tools/clang-linker-wrapper/ClangLinkerWrapper.cpp n
  
      if (!Filename || !sys::fs::exists(*Filename) ||
          sys::fs::is_directory(*Filename))
-diff --color -ruN orig/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td new/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td
---- orig/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td	2026-07-28 15:11:17.000000000 +0300
-+++ new/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td	2026-08-13 13:36:58.926213507 +0300
-@@ -117,6 +117,12 @@
+diff --git a/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td b/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td
+index 53b6c59..cc1a6a6 100644
+--- a/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td
++++ b/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td
+@@ -117,6 +117,12 @@ def library_path_S : Separate<["--", "-"], "library-path">, Flags<[HelpHidden]>,
  def library_path_EQ : Joined<["--", "-"], "library-path=">, Flags<[HelpHidden]>,
    Alias<library_path>;
  
@@ -71,3 +201,6 @@ diff --color -ruN orig/clang/tools/clang-linker-wrapper/LinkerWrapperOpts.td new
  def library : JoinedOrSeparate<["-"], "l">, MetaVarName<"<libname>">,
    HelpText<"Search for library <libname>">;
  def library_S : Separate<["--", "-"], "library">, Flags<[HelpHidden]>,
+-- 
+2.43.0
+
