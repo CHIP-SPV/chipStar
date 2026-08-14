@@ -1,11 +1,16 @@
 name: Test LLVM Patches
 
-# Manual-only: this workflow rebuilds four LLVM toolchains on the meatloaf
-# runner (hours on 8 cores, starving the main x86 CI queue) and two more on
-# pastrami, whose disk cannot hold its build trees alongside the installed
-# toolchains. Run it deliberately via workflow_dispatch after touching
-# llvm-patches/, rather than on every push of a PR that does.
 on:
+  push:
+    paths:
+      - 'llvm-patches/**'
+      - 'scripts/configure_llvm.sh'
+      - '.github/workflows/test-llvm-patches.yml'
+  pull_request:
+    paths:
+      - 'llvm-patches/**'
+      - 'scripts/configure_llvm.sh'
+      - '.github/workflows/test-llvm-patches.yml'
   workflow_dispatch:
 
 concurrency:
@@ -13,35 +18,87 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Policy: test only the versions whose patch series changed; configure_llvm.sh
+  # or workflow changes test everything (as does a manual dispatch). Each
+  # toolchain rebuild costs hours of self-hosted runner time, so an
+  # llvm-23-only change must not rebuild 21/22. Runs on GitHub-hosted ubuntu
+  # so it never queues behind the self-hosted build runners.
+  detect:
+    name: Detect changed LLVM versions
+    runs-on: ubuntu-latest
+    outputs:
+      any: ${{ steps.diff.outputs.any }}
+      run_21: ${{ steps.diff.outputs.run_21 }}
+      run_22: ${{ steps.diff.outputs.run_22 }}
+      run_23: ${{ steps.diff.outputs.run_23 }}
+      matrix1: ${{ steps.diff.outputs.matrix1 }}
+      matrix2: ${{ steps.diff.outputs.matrix2 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - id: diff
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$PR_BASE_SHA"
+          elif [ "$EVENT_NAME" = "push" ]; then
+            BASE="$PUSH_BEFORE_SHA"
+          else
+            BASE=""   # workflow_dispatch: test everything
+          fi
+          # New branches push with an all-zero before-sha; an unknown base
+          # object cannot be diffed either. Both mean: treat as all-changed.
+          case "$BASE" in
+            ""|0000000000000000000000000000000000000000) BASE="" ;;
+            *) git cat-file -e "$BASE" 2>/dev/null || BASE="" ;;
+          esac
+          if [ -z "$BASE" ] || ! git diff --quiet "$BASE"...HEAD -- scripts/configure_llvm.sh .github/workflows/test-llvm-patches.yml; then
+            v21=true; v22=true; v23=true
+          else
+            v21=false; v22=false; v23=false
+            git diff --quiet "$BASE"...HEAD -- llvm-patches/llvm-21 || v21=true
+            git diff --quiet "$BASE"...HEAD -- llvm-patches/llvm-22 || v22=true
+            git diff --quiet "$BASE"...HEAD -- llvm-patches/llvm-23 || v23=true
+          fi
+          any=false
+          { $v21 || $v22 || $v23; } && any=true
+          echo "run_21=$v21" >> "$GITHUB_OUTPUT"
+          echo "run_22=$v22" >> "$GITHUB_OUTPUT"
+          echo "run_23=$v23" >> "$GITHUB_OUTPUT"
+          echo "any=$any" >> "$GITHUB_OUTPUT"
+          m1="["; m2="["
+          $v21 && { m1="$m1{\"llvm-version\":21,\"build-id\":\"21\",\"install-suffix\":\"\",\"variant-flag\":\"\"},"; m2="$m2{\"llvm-version\":21,\"build-id\":\"21\",\"install-suffix\":\"\"},"; }
+          $v22 && { m1="$m1{\"llvm-version\":22,\"build-id\":\"22-translator\",\"install-suffix\":\"-translator\",\"variant-flag\":\"--variant translator\"},{\"llvm-version\":22,\"build-id\":\"22-native\",\"install-suffix\":\"-native\",\"variant-flag\":\"--variant native\"},"; m2="$m2{\"llvm-version\":22,\"build-id\":\"22-translator\",\"install-suffix\":\"-translator\"},{\"llvm-version\":22,\"build-id\":\"22-native\",\"install-suffix\":\"-native\"},"; }
+          $v23 && { m1="$m1{\"llvm-version\":23,\"build-id\":\"23\",\"install-suffix\":\"\",\"variant-flag\":\"--variant native\"},"; m2="$m2{\"llvm-version\":23,\"build-id\":\"23\",\"install-suffix\":\"\"},"; }
+          m1="${m1%,}]"; m2="${m2%,}]"
+          echo "matrix1=$m1" >> "$GITHUB_OUTPUT"
+          echo "matrix2=$m2" >> "$GITHUB_OUTPUT"
+          echo "changed: 21=$v21 22=$v22 23=$v23 (base: ${BASE:-<none, all versions>})"
+
   step1-configure-all:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: detect
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+      && needs.detect.outputs.any == 'true'
     name: 'Step 1: Configure all LLVM versions and verify patches'
     runs-on:
       - self-hosted
       - Linux
       - X64
     strategy:
+      # Matrix entries come from the detect job; only changed versions appear.
+      # LLVM 23 needs only one build: chipStar patches in llvm#213052, so the
+      # SPIRV-target build also serves the translator and the producer is
+      # chosen per compilation by -f[no-]integrated-objemitter.
       matrix:
-        include:
-          - llvm-version: 21
-            build-id: "21"
-            install-suffix: ""
-            variant-flag: ""
-          - llvm-version: 22
-            build-id: "22-translator"
-            install-suffix: "-translator"
-            variant-flag: "--variant translator"
-          - llvm-version: 22
-            build-id: "22-native"
-            install-suffix: "-native"
-            variant-flag: "--variant native"
-          # LLVM 23 needs only one build: chipStar patches in llvm#213052, so the
-          # SPIRV-target build also serves the translator and the producer is
-          # chosen per compilation by -f[no-]integrated-objemitter.
-          - llvm-version: 23
-            build-id: "23"
-            install-suffix: ""
-            variant-flag: "--variant native"
+        include: ${{ fromJSON(needs.detect.outputs.matrix1) }}
       fail-fast: true
     steps:
       - uses: actions/checkout@v3
@@ -63,8 +120,10 @@ jobs:
             ${{ matrix.variant-flag }} --configure-only
 
   step2-build-test:
-    needs: step1-configure-all
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: [detect, step1-configure-all]
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+      && needs.detect.outputs.any == 'true'
     name: Build LLVM ${{ matrix.build-id }} and test chipStar
     runs-on:
       - self-hosted
@@ -78,20 +137,9 @@ jobs:
       POCL_KERNEL_CACHE: 0
       CHIP_L0_EVENT_TIMEOUT: 1790
     strategy:
+      # Matrix entries come from the detect job; only changed versions appear.
       matrix:
-        include:
-          - llvm-version: 21
-            build-id: "21"
-            install-suffix: ""
-          - llvm-version: 22
-            build-id: "22-translator"
-            install-suffix: "-translator"
-          - llvm-version: 22
-            build-id: "22-native"
-            install-suffix: "-native"
-          - llvm-version: 23
-            build-id: "23"
-            install-suffix: ""
+        include: ${{ fromJSON(needs.detect.outputs.matrix2) }}
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -259,7 +307,13 @@ jobs:
             ${{ github.workspace }}/build-llvm${{ matrix.build-id }}/Testing/Temporary/LastTest.log
 
   install-llvm-on-main:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: detect
+    # Gated on 'any' (not per-version) because this one job installs all
+    # versions; each matrix entry already bails cleanly when its stage is
+    # missing, so unchanged versions are a no-op.
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.detect.outputs.any == 'true'
     name: Install LLVM ${{ matrix.build-id }} on main branch
     runs-on:
       - self-hosted
@@ -370,7 +424,10 @@ jobs:
           rm -rf "$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}.prev"
 
   step1-configure-all-macos:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: detect
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+      && needs.detect.outputs.run_22 == 'true'
     name: 'Step 1: Configure LLVM 22 (macOS)'
     runs-on: [self-hosted, ARM64, MacOS]
     strategy:
@@ -400,8 +457,10 @@ jobs:
             --variant ${{ matrix.variant }} --configure-only
 
   step2-build-test-macos:
-    needs: step1-configure-all-macos
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: [detect, step1-configure-all-macos]
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+      && needs.detect.outputs.run_22 == 'true'
     name: Build LLVM 22 (${{ matrix.variant }}) (macOS) and test chipStar
     runs-on: [self-hosted, ARM64, MacOS]
     env:
@@ -497,7 +556,10 @@ jobs:
             build-22-${{ matrix.variant }}/Testing/Temporary/LastTest.log
 
   install-llvm-on-main-macos:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: detect
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.detect.outputs.run_22 == 'true'
     name: Install LLVM 22 (${{ matrix.variant }}) on main branch (macOS)
     runs-on: [self-hosted, ARM64, MacOS]
     strategy:
