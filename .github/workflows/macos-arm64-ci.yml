@@ -42,8 +42,10 @@ jobs:
           export SPIRV_TOOLS_PREFIX=$(brew --prefix spirv-tools)
           export CMAKE_PREFIX_PATH="${SPIRV_TOOLS_PREFIX}:${CMAKE_PREFIX_PATH}"
 
-          # Patch PoCL rpaths if not already done
-          for lib in /Users/paulius/install/pocl/lib/libpocl.2.15.0.dylib /Users/paulius/install/pocl/lib/libpocl.2.dylib; do
+          # Patch PoCL rpaths if not already done. Globbed rather than spelled
+          # out, so that rebuilding PoCL at a new version does not silently
+          # leave its library unpatched.
+          for lib in /Users/paulius/install/pocl/lib/libpocl.*.dylib; do
             if [ -f "$lib" ]; then
               otool -l "$lib" | grep -q "path ${LLVM_LIBDIR}" || install_name_tool -add_rpath "${LLVM_LIBDIR}" "$lib" || true
             fi
