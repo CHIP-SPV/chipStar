@@ -15,12 +15,12 @@ the machine that first built it.
 | --- | --- |
 | `Dockerfile` | Ubuntu 22.04 image with `g++-aarch64-linux-gnu`. 22.04 is load-bearing: its cross toolchain targets glibc 2.35 and gcc 11's libstdc++, which is exactly salami's userland, so no sysroot has to be copied off the target. |
 | `aarch64-toolchain.cmake` | CMake cross toolchain file for that compiler. |
-| `build.sh` | Runs inside the container: fetches and patches the LLVM sources via `scripts/configure_llvm.sh --version 23 --source-only`, configures/builds the cross LLVM, then builds the openmp runtime standalone, and stages the install. |
+| `cross-build.sh` | Runs inside the container: fetches and patches the LLVM sources via `scripts/configure_llvm.sh --version 23 --source-only`, configures/builds the cross LLVM, then builds the openmp runtime standalone, and stages the install. |
 
-`build.sh` deliberately does **not** re-implement the source setup. The pinned
+`cross-build.sh` deliberately does **not** re-implement the source setup. The pinned
 refs (`llvmorg-23.1.0-rc2`, SPIRV-LLVM-Translator `llvm_release_230`) and the
 `llvm-patches/llvm-23/` series stay solely in `scripts/configure_llvm.sh`,
-which grew a `--source-only` mode for this. What `build.sh` does own is the
+which grew a `--source-only` mode for this. What `cross-build.sh` does own is the
 cmake configure, because the cross build genuinely differs from the native one:
 an explicit `LLVM_TARGETS_TO_BUILD=AArch64;SPIRV` (host detection would pick
 x86), `LLVM_HOST_TRIPLE`/`LLVM_DEFAULT_TARGET_TRIPLE`, a native tablegen
@@ -42,7 +42,7 @@ docker run --rm \
   -v "$PWD":/chipstar:ro \
   -v "$WORK":/work \
   chipstar-llvm-cross-aarch64 \
-  /chipstar/scripts/cross-aarch64/build.sh 8
+  /chipstar/scripts/cross-aarch64/cross-build.sh 8
 ```
 
 The container is run as the invoking user so the staged tree is not left
@@ -71,7 +71,7 @@ gated on `detect.outputs.run_23` (a change under `llvm-patches/llvm-23/` or
 under this directory):
 
 * `cross-build-llvm23-aarch64` on `[self-hosted, Linux, X64]`: picks a
-  workspace, builds the image, runs `build.sh` with `-j(nproc-1)`, rsyncs the
+  workspace, builds the image, runs `cross-build.sh` with `-j(nproc-1)`, rsyncs the
   stage to `salami:install/llvm/23.0/`, writes salami's `llvm/23.0` modulefile,
   and runs `clang --version` on salami as a smoke test.
 * `step2-build-test-salami` on `[self-hosted, Linux, ARM64]`: builds chipStar
