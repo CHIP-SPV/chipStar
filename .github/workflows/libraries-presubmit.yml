@@ -69,6 +69,12 @@ jobs:
           module load ocl-icd-loader
           module load pocl
 
+          # PoCL JIT-compiles every OpenCL kernel with its bundled clang, and
+          # upstream clang has no built-in macOS sysroot, so without this the
+          # kernel .so cannot link against libSystem and kernels silently
+          # produce garbage ("ld: library 'System' not found").
+          export SDKROOT=$(xcrun --show-sdk-path)
+
           CHIP_INSTALL=$(ls -d $STAGING/chipStar/*/ | head -1)
           export PATH=$CHIP_INSTALL/bin:$PATH
           export DYLD_LIBRARY_PATH=$CHIP_INSTALL/lib:${DYLD_LIBRARY_PATH:-}
