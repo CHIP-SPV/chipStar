@@ -1,7 +1,12 @@
 name: Test LLVM Patches
 
 on:
+  # Only main: every job that runs on a push is gated on the main branch
+  # (they install the built toolchains). Without this, pushing a PR branch
+  # starts a second run that shares the concurrency group below with the
+  # pull_request run and cancels it, and every job reports as failed.
   push:
+    branches: [main]
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
