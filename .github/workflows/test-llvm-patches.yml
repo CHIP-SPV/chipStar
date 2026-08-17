@@ -307,6 +307,15 @@ jobs:
           cd ${{ github.workspace }}/build-llvm${{ matrix.build-id }}
           ../scripts/check.py ./ cpu opencl --num-tries=3
         timeout-minutes: 60
+      # install-llvm-on-main promotes a stage to the live toolchain that every
+      # other PR then compiles against, so it must only ever promote one that
+      # got this far. The stage is written before the tests because the tests
+      # run against it, which means its mere existence proves nothing.
+      - name: Mark the stage as validated
+        if: success()
+        run: |
+          echo "${{ github.event.pull_request.head.sha || github.sha }}" \
+            > "$HOME/llvm-stage/${{ matrix.build-id }}/.chipstar-validated"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -318,8 +327,8 @@ jobs:
   install-llvm-on-main:
     needs: detect
     # Gated on 'any' (not per-version) because this one job installs all
-    # versions; each matrix entry already bails cleanly when its stage is
-    # missing, so unchanged versions are a no-op.
+    # versions; each matrix entry consults its own run_NN flag and is a no-op
+    # for a version this merge did not touch.
     if: >-
       github.event_name == 'push' && github.ref == 'refs/heads/main'
       && needs.detect.outputs.any == 'true'
@@ -351,21 +360,47 @@ jobs:
     steps:
       - name: Install LLVM ${{ matrix.build-id }}
         id: install_llvm
+        env:
+          RUN_21: ${{ needs.detect.outputs.run_21 }}
+          RUN_22: ${{ needs.detect.outputs.run_22 }}
+          RUN_23: ${{ needs.detect.outputs.run_23 }}
         run: |
           set -euo pipefail
           STAGED="$HOME/llvm-stage/${{ matrix.build-id }}"
           INSTALL_DIR="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
 
+          # Whether the merge being installed actually rebuilt this version.
+          case "${{ matrix.llvm-version }}" in
+            21) CHANGED="$RUN_21" ;;
+            22) CHANGED="$RUN_22" ;;
+            23) CHANGED="$RUN_23" ;;
+            *)  CHANGED=false ;;
+          esac
+
           # This job runs on every push to main, but the stage is produced by a
-          # *prior* pull_request run of this workflow. If that build failed, was
-          # skipped, or the stage was already consumed, there is nothing to
-          # install. Bail out before touching the live toolchain: destroying it
-          # takes CI down for every PR and can only be undone by a full rebuild.
+          # *prior* pull_request run of this workflow. A version this merge did
+          # not touch legitimately has no stage. A version it *did* touch must
+          # have one: silently skipping there leaves main's toolchain older than
+          # the patches on main, and every later PR is then validated against a
+          # compiler that does not match the tree.
           if [ ! -d "${STAGED}${INSTALL_DIR}" ]; then
-            echo "No staged build at ${STAGED}${INSTALL_DIR}; leaving $INSTALL_DIR untouched."
+            if [ "$CHANGED" = "true" ]; then
+              echo "::error::LLVM ${{ matrix.build-id }} changed in this merge but has no staged build at ${STAGED}${INSTALL_DIR}. The PR run never staged it."
+              exit 1
+            fi
+            echo "LLVM ${{ matrix.build-id }} unchanged by this merge and not staged; leaving $INSTALL_DIR untouched."
             echo "installed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          # Written by the PR run only after chipStar built and its dGPU and CPU
+          # test lanes passed against this very stage. Without it the stage is
+          # just "LLVM compiled", which is not enough to hand every other PR.
+          if [ ! -f "${STAGED}/.chipstar-validated" ]; then
+            echo "::error::Stage at ${STAGED} carries no .chipstar-validated marker; refusing to promote an untested toolchain."
+            exit 1
+          fi
+          echo "Promoting stage built from $(cat "${STAGED}/.chipstar-validated")"
 
           # Keep the previous toolchain until the new one is in place, so a
           # failure here is recoverable.
@@ -552,6 +587,14 @@ jobs:
           ninja
           ../scripts/check.py ./ pocl opencl
         timeout-minutes: 60
+      # See the Linux lane: the stage exists from before the tests ran, so only
+      # this marker distinguishes a validated toolchain from a merely compiled
+      # one.
+      - name: Mark the stage as validated
+        if: success()
+        run: |
+          echo "${{ github.event.pull_request.head.sha || github.sha }}" \
+            > "$HOME/llvm-stage/23/.chipstar-validated"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -575,14 +618,19 @@ jobs:
           STAGED="$HOME/llvm-stage/23"
           INSTALL_DIR="$HOME/install/llvm/23.0"
 
-          # See the Linux job: the stage comes from a prior pull_request run, so
-          # it may not exist. Never delete the live toolchain before we know we
-          # have a replacement for it.
+          # This job only runs when LLVM 23 changed, so a missing stage means
+          # the PR run never produced one rather than that there is nothing to
+          # do. Never delete the live toolchain before we know we have a
+          # replacement for it.
           if [ ! -d "${STAGED}${INSTALL_DIR}" ]; then
-            echo "No staged build at ${STAGED}${INSTALL_DIR}; leaving $INSTALL_DIR untouched."
-            echo "installed=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "::error::LLVM 23 changed in this merge but has no staged build at ${STAGED}${INSTALL_DIR}. The PR run never staged it."
+            exit 1
           fi
+          if [ ! -f "${STAGED}/.chipstar-validated" ]; then
+            echo "::error::Stage at ${STAGED} carries no .chipstar-validated marker; refusing to promote an untested toolchain."
+            exit 1
+          fi
+          echo "Promoting stage built from $(cat "${STAGED}/.chipstar-validated")"
 
           BACKUP="${INSTALL_DIR}.prev"
           rm -rf "$BACKUP"
