@@ -21,6 +21,15 @@ jobs:
         with:
           submodules: recursive
       - name: Run C/C++ Linter
+        env:
+          # --files-changed-only makes cpp-linter ask the API which lines the
+          # commit touched. Unauthenticated it shares the 60/hour anonymous
+          # budget for the whole runner IP, which other jobs routinely exhaust:
+          #   response returned 403 from GET .../commits/<sha>
+          #   API rate limit exceeded for 52.150.29.102.
+          # cpp_linter/rest_api/github_api.py sends this as an Authorization
+          # header when set, moving the request onto the repo's own budget.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ml StdEnv
           . /home/chipStarUser/venv/bin/activate
