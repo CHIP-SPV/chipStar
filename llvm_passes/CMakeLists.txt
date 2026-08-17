@@ -104,7 +104,7 @@ add_library(LLVMHipPasses MODULE HipPasses.cpp
     HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
     HipLowerMemset.cpp HipIGBADetector.cpp HipPromoteInts.cpp
     HipSpirvFunctionReorderPass.cpp
-    HipVerify.cpp
+    HipVerify.cpp HipCanonicalizeGEP.cpp
     ${EXTRA_OBJS})
 
 # macOS Linking Requirements:
