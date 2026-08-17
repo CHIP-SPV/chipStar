@@ -159,7 +159,6 @@ jobs:
           submodules: 'recursive'
       - name: Build LLVM ${{ matrix.build-id }}
         id: build_llvm
-        continue-on-error: true
         run: |
           BUILD_DIR="$HOME/llvm-builds/${{ matrix.build-id }}/llvm-project/llvm/build_${{ matrix.llvm-version }}"
           if [ ! -d "$BUILD_DIR" ]; then
@@ -486,7 +485,6 @@ jobs:
       - name: Build LLVM 23
         id: build_llvm
         shell: /bin/bash {0}
-        continue-on-error: true
         run: |
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           BUILD_DIR="$HOME/llvm-builds/23/llvm-project/llvm/build_23"
