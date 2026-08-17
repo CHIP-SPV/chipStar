@@ -24,6 +24,7 @@ retry() {
 LINK_TYPE="dynamic"
 EMIT_ONLY="off"
 CONFIGURE_ONLY="off"
+SOURCE_ONLY="off"
 WITH_BINUTILS=""
 VARIANT="translator"
 
@@ -64,6 +65,10 @@ while [ $# -gt 0 ]; do
       CONFIGURE_ONLY="on"
       shift 1
       ;;
+    --source-only)
+      SOURCE_ONLY="on"
+      shift 1
+      ;;
     --variant)
       VARIANT="$2"
       shift 2
@@ -88,6 +93,10 @@ if [ -z "$VERSION" ]; then
   echo "--variant: translator (host only) or native (host;SPIRV) (default: translator)"
   echo "--with-binutils [path]: enable binutils support with optional path to header directory (default: disabled)"
   echo "--configure-only: only clone, patch, and run cmake configure (skip build and install)"
+  echo "--source-only: only clone and patch (skip cmake configure, build and install)."
+  echo "               Used by scripts/cross-aarch64/build.sh, which supplies its own"
+  echo "               cross-compilation cmake configure but must not duplicate the"
+  echo "               pinned refs or the patch series."
   echo "-N: only emit the cmake configure command without executing it"
   echo "By default, the script will clone, patch, configure, build, and install LLVM."
   exit 1
@@ -242,6 +251,11 @@ if [ "$EMIT_ONLY" != "on" ]; then
     done
 
     echo "All patches applied successfully"
+  fi
+
+  if [ "$SOURCE_ONLY" == "on" ]; then
+    echo "Source tree ready at ${initial_pwd}/llvm-project (--source-only)."
+    exit 0
   fi
 
   cd ${LLVM_DIR}
