@@ -123,6 +123,11 @@ jobs:
           module load ocl-icd-loader
           module load pocl
 
+          # Every test compiles device code with clang, and upstream clang has
+          # no built-in macOS sysroot, so without this the driver cannot find
+          # libSystem and every test fails to link.
+          export SDKROOT=$(xcrun --show-sdk-path)
+
           cd build-${{ matrix.variant }}
           ../scripts/check.py ./ pocl opencl
         timeout-minutes: 60
