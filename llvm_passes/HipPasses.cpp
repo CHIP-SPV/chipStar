@@ -34,6 +34,7 @@
 #include "HipPromoteInts.h"
 #include "HipSpirvFunctionReorderPass.h"
 #include "HipVerify.h"
+#include "HipCanonicalizeGEP.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -210,6 +211,11 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Must be last: removes __chip_*/__hip_* globals and stubs their users.
   // Runs after HipIGBADetectorPass which creates __chip_module_has_no_IGBAs.
   addPassWithVerification(MPM, HipCleanupPass(), "HipCleanupPass");
+
+  // Steers SPIR-V emission away from an access chain form IGC miscompiles.
+  // Runs last so nothing downstream reintroduces the canonicalized shape.
+  addPassWithVerification(MPM, HipCanonicalizeGEPPass(),
+                          "HipCanonicalizeGEPPass");
 
   // Final verification pass with summary printing
   MPM.addPass(HipVerifyPass("Post-HIP passes", true)); // true = print final summary
