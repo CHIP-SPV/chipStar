@@ -728,7 +728,7 @@ jobs:
             -v "${{ github.workspace }}":/chipstar:ro \
             -v "$CROSS_WORK":/work \
             chipstar-llvm-cross-aarch64 \
-            /chipstar/scripts/cross-aarch64/build.sh "$JOBS"
+            /chipstar/scripts/cross-aarch64/cross-build.sh "$JOBS"
         # ~29 min at -j26 on a 32-core box; 8-16 core nodes take a few hours.
         timeout-minutes: 420
       - name: Ship the toolchain to salami
