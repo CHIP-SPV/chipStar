@@ -20,6 +20,7 @@ Usage:
 
 import argparse
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -47,6 +48,9 @@ class Component:
       compiler: "llvm" (chipStar), "hipcc", or "icpx".
       cmake_flags: extra -D flags appended to the cmake command.
       test_cmake_flags: -D flags appended only when --with-tests is passed.
+      test_build_targets: extra make targets built only when --with-tests is
+                       passed. chipStar's unit tests are a separate target
+                       rather than a cmake option, so they need this.
       with_clang_compiler_path: append -DCLANG_COMPILER_PATH=<llvm_clang>.
       with_hip_include_flag: append -DCMAKE_CXX_FLAGS=-I<HIP_PATH>/include.
       with_plain_clang_compiler: append -DCMAKE_CXX_COMPILER=<llvm_clang>,
@@ -62,6 +66,7 @@ class Component:
                  compiler="hipcc",
                  cmake_flags=None,
                  test_cmake_flags=None,
+                 test_build_targets=None,
                  with_clang_compiler_path=False,
                  with_hip_include_flag=False,
                  with_plain_clang_compiler=False,
@@ -77,6 +82,7 @@ class Component:
         self.compiler = compiler
         self.cmake_flags = list(cmake_flags) if cmake_flags else []
         self.test_cmake_flags = list(test_cmake_flags) if test_cmake_flags else []
+        self.test_build_targets = list(test_build_targets) if test_build_targets else []
         self.with_clang_compiler_path = with_clang_compiler_path
         self.with_hip_include_flag = with_hip_include_flag
         self.with_plain_clang_compiler = with_plain_clang_compiler
@@ -95,6 +101,9 @@ COMPONENTS = [
         repo="git@github.com:CHIP-SPV/chipStar.git",
         description="Core HIP runtime for SPIR-V (required)",
         compiler="llvm",
+        # chipStar's unit tests are built by a dedicated target, not enabled by
+        # a cmake option, so `make` alone leaves them unbuilt.
+        test_build_targets=["build_tests"],
         use_cwd_if_chipstar_repo=True,
         git_submodule_update=True,
     ),
@@ -369,7 +378,8 @@ class InstallConfig:
     """Installation configuration."""
     def __init__(self, install_base=None, module_base=None, staging_dir=None, jobs=None,
                  date_stamp=None, llvm_dir=None, dry_run=False, verbose=True, module_format="tcl",
-                 no_install=False, install_only=False, build_tests=False):
+                 no_install=False, install_only=False, build_tests=False,
+                 cmake_flags=None):
         self.install_base = install_base if install_base else Path.home() / "install" / "HIP"
         self.module_base = module_base if module_base else Path.home() / "modulefiles" / "HIP"
         self.staging_dir = staging_dir if staging_dir else Path("/tmp")
@@ -382,6 +392,7 @@ class InstallConfig:
         self.no_install = no_install
         self.install_only = install_only
         self.build_tests = build_tests
+        self.cmake_flags = list(cmake_flags) if cmake_flags else []
 
 
 # ============================================================================
@@ -988,12 +999,15 @@ class Builder:
             shutil.rmtree(build_dir)
         build_dir.mkdir(parents=True)
 
-    def _cmake_configure_and_build(self, build_dir: Path, cmake_args: List[str]) -> None:
+    def _cmake_configure_and_build(self, build_dir: Path, cmake_args: List[str],
+                                   extra_targets: Optional[List[str]] = None) -> None:
         """Run cmake + make unless --install-only."""
         if self.config.install_only:
             return
         self.run_cmd(cmake_args, cwd=build_dir)
         self.run_cmd(["make", f"-j{self.config.jobs}"], cwd=build_dir)
+        for target in extra_targets or []:
+            self.run_cmd(["make", f"-j{self.config.jobs}", target], cwd=build_dir)
 
     def _make_install_if_needed(self, build_dir: Path) -> None:
         """Run make install unless --no-install."""
@@ -1151,7 +1165,11 @@ class Builder:
             if hip_path:
                 cmake_args.append(f"-DCMAKE_CXX_FLAGS=-I{hip_path}/include")
 
-        self._cmake_configure_and_build(build_dir, cmake_args)
+        # Appended last so a caller-supplied -D overrides anything above it.
+        cmake_args.extend(self.config.cmake_flags)
+
+        extra_targets = component.test_build_targets if self.config.build_tests else []
+        self._cmake_configure_and_build(build_dir, cmake_args, extra_targets)
         self._make_install_if_needed(build_dir)
     
     def _generate_module(self, name: str, install_dir: Path, version: Optional[str] = None):
@@ -1315,6 +1333,14 @@ Examples:
         "--with-tests", action="store_true",
         help="Build each library's test suite (off by default; CI test stages should set this)"
     )
+    parser.add_argument(
+        "--cmake-flags", default="",
+        help='Extra -D flags appended to every component\'s cmake configure. '
+             'Pass with an equals sign, --cmake-flags="-DFOO=ON", because '
+             'argparse rejects a space-separated value that starts with a '
+             'dash unless it happens to contain a space. Appended last, so '
+             'they override the built-in flags.'
+    )
 
     return parser.parse_args()
 
@@ -1360,6 +1386,7 @@ def main():
         no_install=args.no_install,
         install_only=args.install_only,
         build_tests=args.with_tests,
+        cmake_flags=shlex.split(args.cmake_flags) if args.cmake_flags else [],
     )
     
     if args.install_dir:
