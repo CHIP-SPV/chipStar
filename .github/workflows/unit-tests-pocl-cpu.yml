@@ -1,4 +1,4 @@
-name: pocl-cpu
+name: Unit tests (PoCL CPU)
 
 on:
   push:

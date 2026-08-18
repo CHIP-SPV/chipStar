@@ -122,7 +122,7 @@ cmake .. -G Ninja \
 ```
 
 ### CI Configuration
-The macOS ARM64 CI workflow (`.github/workflows/macos-arm64-ci.yml`) currently uses LLVM 22.0 with dynamic linking (the `configure_llvm.sh` default).
+The macOS ARM64 CI workflow (`.github/workflows/unit-tests-macos-pocl.yml`) currently uses LLVM 23.0 with dynamic linking (the `configure_llvm.sh` default).
 
 ---
 
