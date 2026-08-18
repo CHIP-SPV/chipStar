@@ -8,9 +8,11 @@ name: Unit tests (ARM64 Mali)
 # so two legs would fight over the same directory if the runner ever gained a
 # second job slot.
 
+# Manual dispatch only. A chipStar build takes 61 minutes on this box, so the
+# two lanes put the PR gate at 132 minutes while every other host finishes in
+# under 30. Mali coverage therefore moves off the blocking path; run it by hand
+# before merging anything that touches SPIR-V emission or subgroup handling.
 on:
-  pull_request:
-    paths-ignore: "docs/**"
   workflow_dispatch:
 
 concurrency:
