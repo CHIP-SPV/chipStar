@@ -1,18 +1,20 @@
 name: Unit tests (ARM64 Mali)
 
 # salami: ARM64 Linux with a Mali-G52 iGPU, OpenCL only (no Level Zero).
-# Both SPIR-V producers are built from the same LLVM 23 toolchain.
 #
-# Single job with two sequential lanes rather than a matrix: install_chipstar.py
-# builds in-tree at <source>/build, and matrix legs share one runner workspace,
-# so two legs would fight over the same directory if the runner ever gained a
-# second job slot.
+# salami builds chipStar in 61 minutes and runs the tests in 4, so the build
+# happens on an x86 runner in a container and only the tests run on salami.
+# Both SPIR-V producers are covered; each is a separate cross build.
+#
+# The two jobs share nothing on disk. The handoff is an rsync to
+# salami:~/ci-stage/<sha>/, keyed by commit rather than PR number so two
+# pushes to one PR in quick succession cannot overwrite each other's tree.
+# See scripts/cross-aarch64/README.md for how the cross build works and
+# which tests it deliberately leaves to the x86 gate.
 
-# Manual dispatch only. A chipStar build takes 61 minutes on this box, so the
-# two lanes put the PR gate at 132 minutes while every other host finishes in
-# under 30. Mali coverage therefore moves off the blocking path; run it by hand
-# before merging anything that touches SPIR-V emission or subgroup handling.
 on:
+  pull_request:
+    paths-ignore: "docs/**"
   workflow_dispatch:
 
 concurrency:
@@ -20,86 +22,109 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-tests-salami:
-    name: chipStar unit tests (LLVM 23, native + translator)
-    runs-on: [self-hosted, Linux, ARM64]
-    env:
-      CHIP_MODULE_CACHE_DIR: ""
-      CHIP_LOGLEVEL: err
-      POCL_KERNEL_CACHE: "0"
+  cross-compile:
+    name: cross-compile for salami (${{ matrix.variant }})
+    runs-on: [self-hosted, Linux, X64]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: native
+            integrated_spirv: "ON"
+          - variant: translator
+            integrated_spirv: "OFF"
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
 
-      - name: Check OpenCL devices
-        shell: bash
-        run: |
-          set -e
-          source scripts/module-env.sh
-          module load llvm/23.0
-          clinfo -l | grep "Platform #0" || { echo "No OpenCL devices detected."; exit 1; }
+      - id: sha
+        run: echo "sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
 
-      # =====================================================================
-      # Lane 1: in-tree SPIR-V backend
-      #
-      # CHIP_MALI_GPU_WORKAROUNDS: Mali rejects the SubgroupDispatch
-      # capability outright, so the subgroup-size pin has to be stripped.
-      # CHIP_SKIP_TESTS_WITH_DOUBLES: Mali-G52 has no fp64.
-      # =====================================================================
-      - name: Build chipStar (native SPIR-V backend)
-        shell: bash
+      # The image carries an LLVM 23 build (~40 min) and is cached by
+      # docker; this is a no-op after the first run on a given runner and
+      # after any change to the image inputs.
+      - name: Ensure cross image
         run: |
-          set -e
-          source scripts/module-env.sh
-          module load llvm/23.0
-          # Cold-cache lane: start from a cold default cache dir too.
+          set -euo pipefail
+          W=/space/pvelesko/cross-chipstar-work
+          [ -d /space ] || W=$HOME/cross-chipstar-work
+          mkdir -p "$W"
+          echo "CROSS_WORK=$W" >> "$GITHUB_ENV"
+          if docker image inspect chipstar-cross-aarch64:llvm23 >/dev/null 2>&1; then
+            echo "image present"; exit 0
+          fi
+          docker build -t chipstar-cross-aarch64:base scripts/cross-aarch64
+          U="$(id -u):$(id -g)"
+          docker run --rm --user "$U" -e HOME=/work -v "$PWD":/chipstar:ro -v "$W":/work \
+            chipstar-cross-aarch64:base /chipstar/scripts/cross-aarch64/image-llvm.sh
+          docker run --rm --user "$U" -e HOME=/work -v "$PWD/scripts/cross-aarch64":/s:ro -v "$W":/work \
+            chipstar-cross-aarch64:base /s/image-spirv-tools.sh
+          rm -rf "$W/image-ctx" && mkdir -p "$W/image-ctx/opt"
+          cp -a "$W"/x86-stage/opt/* "$W"/spirv-stage/opt/* "$W/image-ctx/opt/"
+          docker build -f scripts/cross-aarch64/Dockerfile.chipstar \
+            -t chipstar-cross-aarch64:llvm23 "$W/image-ctx"
+        timeout-minutes: 90
+
+      - name: Cross-compile chipStar + tests (${{ matrix.variant }})
+        run: |
+          set -euo pipefail
+          JOBS=$(nproc); JOBS=$(( JOBS > 1 ? JOBS - 1 : 1 ))
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work \
+            -e INTEGRATED_SPIRV=${{ matrix.integrated_spirv }} \
+            -e STAGE_PREFIX=/home/pvelesko/ci-stage/${{ steps.sha.outputs.sha }}-${{ matrix.variant }} \
+            -v "$PWD":/chipstar:ro -v "$CROSS_WORK":/work \
+            chipstar-cross-aarch64:llvm23 \
+            /chipstar/scripts/cross-aarch64/cross-chipstar.sh \
+              ${{ steps.sha.outputs.sha }}-${{ matrix.variant }} "$JOBS"
+        timeout-minutes: 30
+
+      - name: Ship to salami
+        run: |
+          set -euo pipefail
+          scripts/cross-aarch64/ship-to-salami.sh \
+            "$CROSS_WORK/cross-${{ steps.sha.outputs.sha }}-${{ matrix.variant }}" \
+            ${{ steps.sha.outputs.sha }}-${{ matrix.variant }}
+        timeout-minutes: 15
+
+  test-mali:
+    name: run on Mali (${{ matrix.variant }})
+    needs: cross-compile
+    runs-on: [self-hosted, Linux, ARM64]
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [native, translator]
+    env:
+      CHIP_MODULE_CACHE_DIR: ""
+      CHIP_LOGLEVEL: err
+      POCL_KERNEL_CACHE: "0"
+    steps:
+      - name: Test igpu opencl (${{ matrix.variant }})
+        run: |
+          set -euo pipefail
+          T=$HOME/ci-stage/${{ needs.cross-compile.outputs.sha }}-${{ matrix.variant }}
+          [ -x "$T/hipInfo" ] || { echo "::error::no cross-built tree at $T"; exit 1; }
+          cd "$T"
           rm -rf ~/.cache/chipStar
-          ./install_chipstar.py -c chipstar --with-tests --no-install -j $(nproc) \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
-                           -DCHIP_MALI_GPU_WORKAROUNDS=ON \
-                           -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON"
-
-      - name: Test native, igpu opencl
-        shell: bash
-        run: |
-          set -e
-          source scripts/module-env.sh
-          module load llvm/23.0
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+          LD_LIBRARY_PATH=$PWD python3 src/scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+        timeout-minutes: 30
 
-      # =====================================================================
-      # Lane 2: llvm-spirv translator
-      # =====================================================================
-      - name: Build chipStar (llvm-spirv translator)
-        shell: bash
-        run: |
-          set -e
-          source scripts/module-env.sh
-          module load llvm/23.0
-          rm -rf ~/.cache/chipStar
-          ./install_chipstar.py -c chipstar --with-tests --no-install -j $(nproc) \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
-                           -DCHIP_MALI_GPU_WORKAROUNDS=ON \
-                           -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON"
-
-      - name: Test translator, igpu opencl
-        shell: bash
-        run: |
-          set -e
-          source scripts/module-env.sh
-          module load llvm/23.0
-          nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+      # Reap stage trees older than a week so salami's disk does not fill.
+      - name: Reap old stage trees
+        if: always()
+        run: find "$HOME/ci-stage" -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-logs-salami
+          name: test-logs-salami-${{ matrix.variant }}
           path: |
-            build/checkpy_*.txt
-            build/Testing/**/LastTest.log
+            ~/ci-stage/${{ needs.cross-compile.outputs.sha }}-${{ matrix.variant }}/checkpy_*.txt
+            ~/ci-stage/${{ needs.cross-compile.outputs.sha }}-${{ matrix.variant }}/Testing/**/LastTest.log
           if-no-files-found: ignore
