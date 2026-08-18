@@ -1,4 +1,4 @@
-name: rusticl AMD GPU CI
+name: Unit tests (AMD rusticl)
 
 # Builds chipStar (+ all tests) on the self-hosted rusticl runner (AMD Radeon Pro
 # W6400, navi24/radeonsi/ACO) and verifies the GPU is visible to chipStar via
