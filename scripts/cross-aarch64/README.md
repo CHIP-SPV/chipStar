@@ -97,3 +97,54 @@ setup.
    if none qualifies. This matters because the two nodes differ: ramen's `/`
    has only ~48 GB free (and a history of filling up) but a separate 3.6 TB
    `/space`, while meatloaf has no separate `/space` and ~76 GB on `/`.
+
+## Cross-compiling chipStar and its tests for salami
+
+The second use of this directory. A chipStar build takes 61 minutes on
+salami (an ODROID-N2+), of which the tests are only 4 minutes to *run*.
+So the tests are built on an x86 runner and only executed on salami.
+
+| file | role |
+| --- | --- |
+| `Dockerfile.chipstar` | Extends the base image with two prebuilt dependencies chipStar cannot produce for itself in a cross build: an x86-hosted LLVM 23 with `X86;AArch64;SPIRV` (`image-llvm.sh`) and an aarch64 SPIRV-Tools (`image-spirv-tools.sh`). |
+| `cross-chipstar.sh` | Runs inside that image. Two passes: a native x86 configure that builds only the tools chipStar *executes during its own build* (hipcc.bin, hipconfig.bin, the pass plugin, prepare-builtins), then the aarch64 build of chipStar + `build_tests`, with those x86 tools swapped in. |
+| `chipstar-aarch64-toolchain.cmake` | Keeps clang as the compiler (chipStar's CMake rejects anything else, and device bitcode needs it) and retargets it via `CMAKE_<LANG>_COMPILER_TARGET`, which chipStar's `CMAKE_CXX_FLAGS` assignments cannot drop. |
+| `libmali-stub/` | Salami's OpenCL is `libmali.so.0` loaded directly, no ICD. The stub carries that SONAME and defines every `cl*` the real driver exports (`cl-symbols.txt`, from `nm -D` on salami) as an empty function, so executables that call the API directly link. Nothing from it ships. |
+| `ship-to-salami.sh` | Relocates the baked build-machine paths in every `CTestTestfile.cmake`, drops the tests that invoke a compiler at test time, and rsyncs to `salami:~/ci-stage/<sha>/`. |
+
+Why the toolchain-invoking tests are dropped rather than run: the tree's
+hipcc, opt and cucc are x86 binaries (they had to be, to run on the
+builder), and a compiler that *did* run on aarch64 would be testing the
+aarch64 host compiler, not Mali. Every one of those tests already runs on
+the x86 gate with a working toolchain. The split is made by the test's
+command shape in `CTestTestfile.cmake`, not by name, so a new test is
+classified by what it does. On the last measurement 164 of 260 tests
+survive the cut and 110 of those run (the rest skip for fp64); all pass.
+
+Two things in chipStar are worked around here rather than fixed, and
+should be fixed there:
+
+* `CMakeLists.txt` derives `HOST_ARCH` from `llvm-config --host-target`
+  and passes it as `--target=` to every host compile, after the toolchain
+  file's `--target`, so it wins. It is a plain `set()` and cannot be
+  overridden with `-D`. Pass 2 hands chipStar an `llvm-config` wrapper
+  that answers `--host-target` with the aarch64 triple.
+* hipcc drops `HIPCC_LINK_FLAGS_APPEND` on its `-no-hip-rt` link path
+  (`hipBin_spirv.h`: the no-hip-rt copy is taken before the append is
+  applied). Pass 2 wraps `bin/hipcc` to put the flags on every invocation.
+
+Reproduce locally (image build is a one-off, ~40 min for the LLVM):
+
+```
+docker build -t chipstar-cross-aarch64:base scripts/cross-aarch64
+docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:base \
+  /chipstar/scripts/cross-aarch64/image-llvm.sh
+docker run --rm -v $PWD/scripts/cross-aarch64:/s:ro -v $WORK:/work chipstar-cross-aarch64:base \
+  /s/image-spirv-tools.sh
+mkdir -p $WORK/image-ctx/opt && cp -a $WORK/x86-stage/opt/* $WORK/spirv-stage/opt/* $WORK/image-ctx/opt/
+docker build -f scripts/cross-aarch64/Dockerfile.chipstar -t chipstar-cross-aarch64:llvm23 $WORK/image-ctx
+docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:llvm23 \
+  /chipstar/scripts/cross-aarch64/cross-chipstar.sh <sha>
+scripts/cross-aarch64/ship-to-salami.sh $WORK/cross-<sha> <sha>
+ssh salami "cd ci-stage/<sha> && LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl"
+```
