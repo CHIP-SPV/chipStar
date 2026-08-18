@@ -1,11 +1,15 @@
 name: Libraries Presubmit
 
+# Manual dispatch only for now. These lanes build chipStar on pastrami and
+# salami against llvm/22.0-native and llvm/21.0 respectively, while the unit
+# gates on those same machines have moved to llvm/23.0, so on every PR each
+# host built chipStar twice against different toolchains. Run it by hand when
+# touching the libraries until the toolchains are unified.
 on:
-  pull_request:
-    paths-ignore: "docs/**"
+  workflow_dispatch:
 
 concurrency:
-  group: libraries-${{ github.event.pull_request.number }}
+  group: libraries-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -48,7 +52,7 @@ jobs:
           export CMAKE_INCLUDE_PATH=${OpenCL_ROOT}/include:${CMAKE_INCLUDE_PATH:-}
           export SDKROOT=$(xcrun --show-sdk-path)
 
-          STAGING=${{ runner.temp }}/chipstar-ci-staging/${{ github.event.pull_request.number }}
+          STAGING=${{ runner.temp }}/chipstar-ci-staging/${{ github.event.pull_request.number || 'dispatch' }}
           rm -rf $STAGING
 
           ./install_chipstar.py -c chipfft,chipblas \
@@ -125,7 +129,7 @@ jobs:
         with:
           name: library-test-logs-pastrami
           path: |
-            ${{ runner.temp }}/chipstar-ci-staging/${{ github.event.pull_request.number }}/staging/*/build/Testing/**/LastTest*.log
+            ${{ runner.temp }}/chipstar-ci-staging/${{ github.event.pull_request.number || 'dispatch' }}/staging/*/build/Testing/**/LastTest*.log
           if-no-files-found: ignore
 
   # chipFFT + chipBLAS positive verification on Linux ARM64 (salami, Mali-G52
@@ -155,7 +159,7 @@ jobs:
           export LLVM_DIR=$(module show llvm/21.0 2>&1 | grep -E 'prepend-path\s+PATH' | awk '{print $NF}' | head -1 | xargs dirname)
           echo "LLVM_DIR=$LLVM_DIR"
 
-          STAGING=/tmp/chipstar-ci-staging-salami/${{ github.event.pull_request.number }}
+          STAGING=/tmp/chipstar-ci-staging-salami/${{ github.event.pull_request.number || 'dispatch' }}
           rm -rf $STAGING
 
           ./install_chipstar.py -c chipfft,chipblas \
@@ -239,5 +243,5 @@ jobs:
         with:
           name: library-test-logs-salami
           path: |
-            /tmp/chipstar-ci-staging-salami/${{ github.event.pull_request.number }}/staging/*/build/Testing/**/LastTest*.log
+            /tmp/chipstar-ci-staging-salami/${{ github.event.pull_request.number || 'dispatch' }}/staging/*/build/Testing/**/LastTest*.log
           if-no-files-found: ignore
