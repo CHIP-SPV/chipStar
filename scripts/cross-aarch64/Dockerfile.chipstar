@@ -1,0 +1,19 @@
+# Cross-compile image for chipStar + tests. Extends the base cross image with
+# two prebuilt dependencies the chipStar build cannot produce for itself in a
+# cross configuration:
+#   /opt/llvm-x86-aarch64      x86-hosted LLVM 23 with X86;AArch64;SPIRV, from
+#                              image-llvm.sh. The runners' LLVM 23 cannot
+#                              emit aarch64 and the aarch64-hosted one from
+#                              cross-build.sh runs only on salami.
+#   /opt/spirv-tools-aarch64   aarch64 SPIRV-Tools, from image-spirv-tools.sh.
+#                              chipStar's ExternalProject hardcodes gcc/g++ for
+#                              this sub-build and would produce x86 archives.
+#
+# Build context is a directory holding both stages under opt/:
+#   docker build -f Dockerfile.chipstar -t chipstar-cross-aarch64:llvm23 <ctx>
+FROM chipstar-cross-aarch64:base
+COPY opt/llvm-x86-aarch64    /opt/llvm-x86-aarch64
+COPY opt/spirv-tools-aarch64 /opt/spirv-tools-aarch64
+ENV PATH=/opt/llvm-x86-aarch64/bin:$PATH
+RUN /opt/llvm-x86-aarch64/bin/llvm-config --targets-built | grep -q AArch64 \
+ && aarch64-linux-gnu-readelf -h /opt/spirv-tools-aarch64/lib/libSPIRV-Tools.a | grep -q AArch64
