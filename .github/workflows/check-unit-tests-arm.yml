@@ -1,25 +1,103 @@
-# Workflow syntax:
-# https://help.github.com/en/articles/workflow-syntax-for-github-actions
+name: Unit tests (ARM64 Mali)
+
+# salami: ARM64 Linux with a Mali-G52 iGPU, OpenCL only (no Level Zero).
+# Both SPIR-V producers are built from the same LLVM 23 toolchain.
+#
+# Single job with two sequential lanes rather than a matrix: install_chipstar.py
+# builds in-tree at <source>/build, and matrix legs share one runner workspace,
+# so two legs would fight over the same directory if the runner ever gained a
+# second job slot.
 
 on:
   pull_request:
     paths-ignore: "docs/**"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  unit-tests-llvm-18-release-salami:
+  unit-tests-salami:
+    name: chipStar unit tests (LLVM 23, native + translator)
     runs-on: [self-hosted, Linux, ARM64]
     env:
       CHIP_MODULE_CACHE_DIR: ""
+      CHIP_LOGLEVEL: err
+      POCL_KERNEL_CACHE: "0"
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
-      - name: Run unit test checking script
-        run:  ./scripts/unit_tests.sh release llvm-21
+
+      - name: Check OpenCL devices
         shell: bash
+        run: |
+          set -e
+          source scripts/module-env.sh
+          module load llvm/23.0
+          clinfo -l | grep "Platform #0" || { echo "No OpenCL devices detected."; exit 1; }
+
+      # =====================================================================
+      # Lane 1: in-tree SPIR-V backend
+      #
+      # CHIP_MALI_GPU_WORKAROUNDS: Mali rejects the SubgroupDispatch
+      # capability outright, so the subgroup-size pin has to be stripped.
+      # CHIP_SKIP_TESTS_WITH_DOUBLES: Mali-G52 has no fp64.
+      # =====================================================================
+      - name: Build chipStar (native SPIR-V backend)
+        shell: bash
+        run: |
+          set -e
+          source scripts/module-env.sh
+          module load llvm/23.0
+          # Cold-cache lane: start from a cold default cache dir too.
+          rm -rf ~/.cache/chipStar
+          ./install_chipstar.py -c chipstar --with-tests --no-install -j $(nproc) \
+            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
+                           -DCHIP_MALI_GPU_WORKAROUNDS=ON \
+                           -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON"
+
+      - name: Test native, igpu opencl
+        shell: bash
+        run: |
+          set -e
+          source scripts/module-env.sh
+          module load llvm/23.0
+          nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
+          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+
+      # =====================================================================
+      # Lane 2: llvm-spirv translator
+      # =====================================================================
+      - name: Build chipStar (llvm-spirv translator)
+        shell: bash
+        run: |
+          set -e
+          source scripts/module-env.sh
+          module load llvm/23.0
+          rm -rf ~/.cache/chipStar
+          ./install_chipstar.py -c chipstar --with-tests --no-install -j $(nproc) \
+            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
+                           -DCHIP_MALI_GPU_WORKAROUNDS=ON \
+                           -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON"
+
+      - name: Test translator, igpu opencl
+        shell: bash
+        run: |
+          set -e
+          source scripts/module-env.sh
+          module load llvm/23.0
+          nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
+          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-salami
+          path: |
+            build/checkpy_*.txt
+            build/Testing/**/LastTest.log
+          if-no-files-found: ignore

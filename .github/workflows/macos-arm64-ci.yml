@@ -1,8 +1,17 @@
-name: macOS ARM64 CI
+name: Unit tests (macOS PoCL)
+
+# pastrami: Apple Silicon, OpenCL only via PoCL (no Level Zero). Both SPIR-V
+# producers are built from the same LLVM 23 toolchain.
+#
+# Single job with two sequential lanes rather than a matrix: install_chipstar.py
+# builds in-tree at <source>/build, and matrix legs share one runner workspace,
+# so two legs would fight over the same directory if the runner ever gained a
+# second job slot.
 
 on:
   pull_request:
     paths-ignore: "docs/**"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -10,11 +19,8 @@ concurrency:
 
 jobs:
   build-and-test:
+    name: chipStar unit tests (LLVM 23, native + translator)
     runs-on: [self-hosted, ARM64, MacOS]
-    strategy:
-      matrix:
-        variant: [translator, native]
-      fail-fast: false
     env:
       CHIP_MODULE_CACHE_DIR: ""
     steps:
@@ -33,14 +39,19 @@ jobs:
           module load ocl-icd-loader
           module load pocl
 
-          LLVM_CONFIG=$HOME/install/llvm/22.0-${{ matrix.variant }}/bin/llvm-config
-          export LLVM_LIBDIR=$(${LLVM_CONFIG} --libdir)
+          export LLVM_DIR=$HOME/install/llvm/23.0
+          export LLVM_LIBDIR=$($LLVM_DIR/bin/llvm-config --libdir)
           export CHIP_DEVICE_TYPE=pocl
           export OCL_ICD_VENDORS=/Users/paulius/install/pocl/etc/OpenCL/vendors/
 
           # Add SPIRV-Tools from homebrew to CMAKE_PREFIX_PATH
           export SPIRV_TOOLS_PREFIX=$(brew --prefix spirv-tools)
           export CMAKE_PREFIX_PATH="${SPIRV_TOOLS_PREFIX}:${CMAKE_PREFIX_PATH}"
+
+          # Every test compiles device code with clang, and upstream clang has
+          # no built-in macOS sysroot, so without this the driver cannot find
+          # libSystem and every test fails to link.
+          export SDKROOT=$(xcrun --show-sdk-path)
 
           # Patch PoCL rpaths if not already done. Globbed rather than spelled
           # out, so that rebuilding PoCL at a new version does not silently
@@ -51,55 +62,31 @@ jobs:
             fi
           done
 
-          # Export to GITHUB_ENV
-          echo "PATH=${PATH}" >> $GITHUB_ENV
-          echo "LLVM_LIBDIR=${LLVM_LIBDIR}" >> $GITHUB_ENV
-          echo "CHIP_DEVICE_TYPE=${CHIP_DEVICE_TYPE}" >> $GITHUB_ENV
-          echo "OCL_ICD_VENDORS=${OCL_ICD_VENDORS}" >> $GITHUB_ENV
-          echo "CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-          echo "LIBRARY_PATH=${LIBRARY_PATH}" >> $GITHUB_ENV
+          for v in PATH LLVM_DIR LLVM_LIBDIR CHIP_DEVICE_TYPE OCL_ICD_VENDORS \
+                   CMAKE_PREFIX_PATH PKG_CONFIG_PATH LIBRARY_PATH SDKROOT; do
+            echo "$v=${!v}" >> $GITHUB_ENV
+          done
 
-      - name: Build
+      # =====================================================================
+      # Lane 1: in-tree SPIR-V backend
+      # =====================================================================
+      - name: Build chipStar (native SPIR-V backend)
         shell: /bin/bash {0}
         run: |
-          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
-          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load ocl-icd-loader
-          module load pocl
+          set -e
+          ./install_chipstar.py -c chipstar --with-tests -j $(sysctl -n hw.ncpu) \
+            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
+                           -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON \
+                           -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib \
+                           -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/install-native"
 
-          LLVM_CONFIG_BIN=$HOME/install/llvm/22.0-${{ matrix.variant }}/bin/llvm-config
-
-          rm -rf build-${{ matrix.variant }} install
-          mkdir -p build-${{ matrix.variant }}
-          cd build-${{ matrix.variant }}
-          cmake .. -G Ninja -DLLVM_CONFIG_BIN=$LLVM_CONFIG_BIN -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/install-${{ matrix.variant }}
-          ninja && ninja build_tests
-
-      - name: Install
+      - name: Test install (native)
         shell: /bin/bash {0}
         run: |
-          cd build-${{ matrix.variant }}
-          ninja install
-
-      - name: Test Install
-        shell: /bin/bash {0}
-        run: |
-          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
-          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load ocl-icd-loader
-          module load pocl
-
-          INSTALL_DIR=${{ github.workspace }}/install-${{ matrix.variant }}
-          export PATH="${INSTALL_DIR}/bin:$PATH"
-          export DYLD_LIBRARY_PATH="${INSTALL_DIR}/lib:$DYLD_LIBRARY_PATH"
-          export SDKROOT=$(xcrun --show-sdk-path)
-
-          # Verify hipcc exists and works
-          which hipcc
-          hipcc --version
-
-          # Compile and run a simple test using installed hipcc
+          set -e
+          export PATH="$GITHUB_WORKSPACE/install-native/bin:$PATH"
+          export DYLD_LIBRARY_PATH="$GITHUB_WORKSPACE/install-native/lib:$DYLD_LIBRARY_PATH"
+          which hipcc && hipcc --version
           TEST_DIR=${{ runner.temp }}/install_test
           mkdir -p ${TEST_DIR}
           cat > ${TEST_DIR}/test_install.cpp << 'EOF'
@@ -113,31 +100,43 @@ jobs:
               return err == hipSuccess ? 0 : 1;
           }
           EOF
-
           hipcc ${TEST_DIR}/test_install.cpp -o ${TEST_DIR}/test_install
           ${TEST_DIR}/test_install
 
-      - name: Run (PoCL OpenCL)
+      - name: Test native, pocl opencl
         shell: /bin/bash {0}
         run: |
-          source /opt/homebrew/Cellar/modules/5.6.0/init/bash
-          export MODULEPATH="/Users/paulius/modulefiles:$MODULEPATH"
-          module load ocl-icd-loader
-          module load pocl
+          set -e
+          cd build && ../scripts/check.py ./ pocl opencl
+        timeout-minutes: 60
 
-          # Every test compiles device code with clang, and upstream clang has
-          # no built-in macOS sysroot, so without this the driver cannot find
-          # libSystem and every test fails to link.
-          export SDKROOT=$(xcrun --show-sdk-path)
+      # =====================================================================
+      # Lane 2: llvm-spirv translator
+      #
+      # The installer wipes and recreates build/ per invocation, so the two
+      # configurations never share incremental state.
+      # =====================================================================
+      - name: Build chipStar (llvm-spirv translator)
+        shell: /bin/bash {0}
+        run: |
+          set -e
+          ./install_chipstar.py -c chipstar --with-tests --no-install -j $(sysctl -n hw.ncpu) \
+            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
+                           -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON \
+                           -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib"
 
-          cd build-${{ matrix.variant }}
-          ../scripts/check.py ./ pocl opencl
+      - name: Test translator, pocl opencl
+        shell: /bin/bash {0}
+        run: |
+          set -e
+          cd build && ../scripts/check.py ./ pocl opencl
         timeout-minutes: 60
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-logs-macos-llvm22-${{ matrix.variant }}
+          name: test-logs-macos-llvm23
           path: |
-            build-${{ matrix.variant }}/checkpy_*.txt
-            build-${{ matrix.variant }}/Testing/Temporary/LastTest.log
+            build/checkpy_*.txt
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
