@@ -10,13 +10,15 @@ on:
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
-      - 'scripts/cross-aarch64/**'
+      - 'scripts/cross-aarch64/Dockerfile'
+      - 'scripts/cross-aarch64/cross-build.sh'
       - '.github/workflows/test-llvm-patches.yml'
   pull_request:
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
-      - 'scripts/cross-aarch64/**'
+      - 'scripts/cross-aarch64/Dockerfile'
+      - 'scripts/cross-aarch64/cross-build.sh'
       - '.github/workflows/test-llvm-patches.yml'
   workflow_dispatch:
 
@@ -73,9 +75,13 @@ jobs:
             git diff --quiet "$BASE"...HEAD -- llvm-patches/llvm-21 || v21=true
             git diff --quiet "$BASE"...HEAD -- llvm-patches/llvm-22 || v22=true
             git diff --quiet "$BASE"...HEAD -- llvm-patches/llvm-23 || v23=true
-            # The aarch64 cross-build scripts only feed the LLVM 23 salami
-            # lane, so a change there rebuilds 23 alone, not 21/22.
-            git diff --quiet "$BASE"...HEAD -- scripts/cross-aarch64 || v23=true
+            # Only the two files that determine the aarch64 LLVM itself: the
+            # base image it builds in, and the script that builds it. The rest
+            # of scripts/cross-aarch64 cross-builds chipStar, not LLVM, and
+            # must not cost a toolchain rebuild. Feeds the 23 lane alone.
+            git diff --quiet "$BASE"...HEAD -- \
+                scripts/cross-aarch64/Dockerfile \
+                scripts/cross-aarch64/cross-build.sh || v23=true
           fi
           any=false
           { $v21 || $v22 || $v23; } && any=true
