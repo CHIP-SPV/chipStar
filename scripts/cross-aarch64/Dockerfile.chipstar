@@ -12,6 +12,13 @@
 # Build context is a directory holding both stages under opt/:
 #   docker build -f Dockerfile.chipstar -t chipstar-cross-aarch64:llvm23 <ctx>
 FROM chipstar-cross-aarch64:base
+# Build-time dependencies of chipStar itself, kept here rather than in the base
+# image: the base is also the build host for the aarch64 LLVM that
+# test-llvm-patches.yml verifies, and any edit to it re-triggers that
+# multi-hour toolchain rebuild.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl-dev pkg-config python3-yaml xxd \
+ && rm -rf /var/lib/apt/lists/*
 COPY opt/llvm-x86-aarch64    /opt/llvm-x86-aarch64
 COPY opt/spirv-tools-aarch64 /opt/spirv-tools-aarch64
 ENV PATH=/opt/llvm-x86-aarch64/bin:$PATH
