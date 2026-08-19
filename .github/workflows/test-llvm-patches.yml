@@ -12,6 +12,7 @@ on:
       - 'scripts/configure_llvm.sh'
       - 'scripts/cross-aarch64/Dockerfile'
       - 'scripts/cross-aarch64/cross-build.sh'
+      - 'scripts/cross-aarch64/aarch64-toolchain.cmake'
       - '.github/workflows/test-llvm-patches.yml'
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - 'scripts/configure_llvm.sh'
       - 'scripts/cross-aarch64/Dockerfile'
       - 'scripts/cross-aarch64/cross-build.sh'
+      - 'scripts/cross-aarch64/aarch64-toolchain.cmake'
       - '.github/workflows/test-llvm-patches.yml'
   workflow_dispatch:
 
@@ -81,7 +83,8 @@ jobs:
             # must not cost a toolchain rebuild. Feeds the 23 lane alone.
             git diff --quiet "$BASE"...HEAD -- \
                 scripts/cross-aarch64/Dockerfile \
-                scripts/cross-aarch64/cross-build.sh || v23=true
+                scripts/cross-aarch64/cross-build.sh \
+                scripts/cross-aarch64/aarch64-toolchain.cmake || v23=true
           fi
           any=false
           { $v21 || $v22 || $v23; } && any=true
