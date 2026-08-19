@@ -45,6 +45,16 @@ endif()
 # If we have this, a pass won't help
 # list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/func-return-nonstd.ll)
 
+# LLVM_SPIRV holds the translator resolved by FindLLVM.cmake, which may live
+# outside LLVM_TOOLS_BINARY_DIR when one is passed via -DLLVM_SPIRV=. It carries
+# the sentinel "NOT_NEEDED" when chipStar targets LLVM's integrated SPIR-V
+# backend; these tests still translate to SPIR-V to validate the pass output, so
+# they fall back to a translator sitting next to the other LLVM tools.
+set(PROMOTE_INT_LLVM_SPIRV "${LLVM_SPIRV}")
+if(NOT PROMOTE_INT_LLVM_SPIRV OR PROMOTE_INT_LLVM_SPIRV STREQUAL "NOT_NEEDED")
+  set(PROMOTE_INT_LLVM_SPIRV "${LLVM_TOOLS_BINARY_DIR}/llvm-spirv")
+endif()
+
 foreach(IR_FILE ${TEST_IR_FILES})
   get_filename_component(FILENAME ${IR_FILE} NAME)
   get_filename_component(BASENAME ${IR_FILE} NAME_WE)
@@ -60,7 +70,7 @@ foreach(IR_FILE ${TEST_IR_FILES})
     NAME hipPromoteInt-${BASENAME}
     COMMAND env 
       LLVM_OPT=${LLVM_TOOLS_BINARY_DIR}/opt
-      LLVM_SPIRV=${LLVM_SPIRV}
+      LLVM_SPIRV=${PROMOTE_INT_LLVM_SPIRV}
       LLVM_DIS=${LLVM_TOOLS_BINARY_DIR}/llvm-dis
       HIP_SPV_PASSES_LIB=${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
       ${CMAKE_CURRENT_BINARY_DIR}/run_promote_int_pass.bash ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME}
