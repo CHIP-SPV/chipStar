@@ -45,9 +45,14 @@ jobs:
       - id: sha
         run: echo "sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
 
-      # The image carries an LLVM 23 build (~40 min) and is cached by
-      # docker; this is a no-op after the first run on a given runner and
-      # after any change to the image inputs.
+      # The image bakes in an LLVM 23 built from llvm-patches/llvm-23, so a
+      # change to any patch changes the compiler that builds the Mali test
+      # binaries. The tag is a digest of the patch series, configure_llvm.sh
+      # and the image recipe, so a changed input yields a tag that does not
+      # exist locally and the image is rebuilt (~40 min); an unchanged one is
+      # a cache hit and costs nothing. Tagging by content rather than by a
+      # fixed name is what stops Mali validating device code built by a
+      # compiler that predates the patch under test.
       - name: Ensure cross image
         run: |
           set -euo pipefail
@@ -55,11 +60,15 @@ jobs:
           [ -d /space ] || W=$HOME/cross-chipstar-work
           mkdir -p "$W"
           echo "CROSS_WORK=$W" >> "$GITHUB_ENV"
-          if docker image inspect chipstar-cross-aarch64:llvm23 >/dev/null 2>&1; then
-            echo "image present"; exit 0
+          TAG=$(scripts/cross-aarch64/image-tag.sh)
+          echo "CROSS_IMAGE=chipstar-cross-aarch64:$TAG" >> "$GITHUB_ENV"
+          if docker image inspect "chipstar-cross-aarch64:$TAG" >/dev/null 2>&1; then
+            echo "image chipstar-cross-aarch64:$TAG present"; exit 0
           fi
+          echo "building chipstar-cross-aarch64:$TAG"
           docker build -t chipstar-cross-aarch64:base scripts/cross-aarch64
           U="$(id -u):$(id -g)"
+          rm -rf "$W/x86-stage" "$W/spirv-stage"
           docker run --rm --user "$U" -e HOME=/work -v "$PWD":/chipstar:ro -v "$W":/work \
             chipstar-cross-aarch64:base /chipstar/scripts/cross-aarch64/image-llvm.sh
           docker run --rm --user "$U" -e HOME=/work -v "$PWD/scripts/cross-aarch64":/s:ro -v "$W":/work \
@@ -67,7 +76,11 @@ jobs:
           rm -rf "$W/image-ctx" && mkdir -p "$W/image-ctx/opt"
           cp -a "$W"/x86-stage/opt/* "$W"/spirv-stage/opt/* "$W/image-ctx/opt/"
           docker build -f scripts/cross-aarch64/Dockerfile.chipstar \
-            -t chipstar-cross-aarch64:llvm23 "$W/image-ctx"
+            -t "chipstar-cross-aarch64:$TAG" "$W/image-ctx"
+          # Keep only the two newest cross images; each is ~1.6 GB.
+          docker images chipstar-cross-aarch64 --format '{{.Tag}} {{.CreatedAt}}' \
+            | grep -v '^base ' | sort -k2 -r | tail -n +3 | awk '{print $1}' \
+            | xargs -r -I{} docker rmi "chipstar-cross-aarch64:{}" || true
         timeout-minutes: 90
 
       - name: Cross-compile chipStar + tests (${{ matrix.variant }})
@@ -78,7 +91,7 @@ jobs:
             -e INTEGRATED_SPIRV=${{ matrix.integrated_spirv }} \
             -e STAGE_PREFIX=/home/pvelesko/ci-stage/${{ steps.sha.outputs.sha }}-${{ matrix.variant }} \
             -v "$PWD":/chipstar:ro -v "$CROSS_WORK":/work \
-            chipstar-cross-aarch64:llvm23 \
+            "$CROSS_IMAGE" \
             /chipstar/scripts/cross-aarch64/cross-chipstar.sh \
               ${{ steps.sha.outputs.sha }}-${{ matrix.variant }} "$JOBS"
         timeout-minutes: 30
