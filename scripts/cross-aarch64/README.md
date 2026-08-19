@@ -110,6 +110,7 @@ So the tests are built on an x86 runner and only executed on salami.
 | `cross-chipstar.sh` | Runs inside that image. Two passes: a native x86 configure that builds only the tools chipStar *executes during its own build* (hipcc.bin, hipconfig.bin, the pass plugin, prepare-builtins), then the aarch64 build of chipStar + `build_tests`, with those x86 tools swapped in. |
 | `chipstar-aarch64-toolchain.cmake` | Keeps clang as the compiler (chipStar's CMake rejects anything else, and device bitcode needs it) and retargets it via `CMAKE_<LANG>_COMPILER_TARGET`, which chipStar's `CMAKE_CXX_FLAGS` assignments cannot drop. |
 | `libmali-stub/` | Salami's OpenCL is `libmali.so.0` loaded directly, no ICD. The stub carries that SONAME and defines every `cl*` the real driver exports (`cl-symbols.txt`, from `nm -D` on salami) as an empty function, so executables that call the API directly link. Nothing from it ships. |
+| `image-tag.sh` | Prints the image tag: a digest of `llvm-patches/llvm-23/`, `configure_llvm.sh` and the image recipe. The image bakes in an LLVM built from that patch series, so tagging by content is what forces a rebuild when a patch changes instead of silently validating Mali against a compiler that predates it. |
 | `ship-to-salami.sh` | Relocates the baked build-machine paths in every `CTestTestfile.cmake`, drops the tests that invoke a compiler at test time, and rsyncs to `salami:~/ci-stage/<sha>/`. |
 
 Why the toolchain-invoking tests are dropped rather than run: the tree's
@@ -142,8 +143,9 @@ docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:base 
 docker run --rm -v $PWD/scripts/cross-aarch64:/s:ro -v $WORK:/work chipstar-cross-aarch64:base \
   /s/image-spirv-tools.sh
 mkdir -p $WORK/image-ctx/opt && cp -a $WORK/x86-stage/opt/* $WORK/spirv-stage/opt/* $WORK/image-ctx/opt/
-docker build -f scripts/cross-aarch64/Dockerfile.chipstar -t chipstar-cross-aarch64:llvm23 $WORK/image-ctx
-docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:llvm23 \
+TAG=$(scripts/cross-aarch64/image-tag.sh)
+docker build -f scripts/cross-aarch64/Dockerfile.chipstar -t chipstar-cross-aarch64:$TAG $WORK/image-ctx
+docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:$TAG \
   /chipstar/scripts/cross-aarch64/cross-chipstar.sh <sha>
 scripts/cross-aarch64/ship-to-salami.sh $WORK/cross-<sha> <sha>
 ssh salami "cd ci-stage/<sha> && LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl"
