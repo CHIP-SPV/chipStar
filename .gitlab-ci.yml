@@ -17,6 +17,7 @@ variables:
   WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/pipeline_${CI_PIPELINE_ID}"
   ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=${TIME},filesystems=home -A ${PROJ}"
   GENESIS_CI_PROJECT_DIR: "/home/bertoni/projects/p01.chipStar/GENESIS-Share-CI/"
+  GIT_SSL_NO_VERIFY: "true"
 
 stages:
     - .pre
