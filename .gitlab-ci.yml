@@ -32,6 +32,8 @@ stages:
     - performance_hoMusic
     - builds_zeroRK
     - runs_zeroRK
+    - correctness_zeroRK_hydrogen
+    - correctness_zeroRK_box_reactor
     - performance_zeroRK
     - builds_opensn
     - runs_opensn
@@ -237,6 +239,36 @@ zeroRK_run:
   - rm -f output
   - set -o pipefail
   - ./submit_job.sh |& tee -a output
+
+zeroRK_correctness_hydrogen:
+  stage: correctness_zeroRK_hydrogen
+  resource_group: aurora_pipeline
+  extends: .aurora-batch-runner
+  script:
+  - cd ${WRK_DIR}/zero-rk
+  - module use /soft/modulefiles
+  - module use ${WRK_DIR}/modulefiles
+  - module load chipStar/llvm21
+  # run the CPU-vs-GPU comparison in both LU modes; report both before failing
+  - rc=0
+  - bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh 1 || rc=1
+  - bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh 0 || rc=1
+  - exit $rc
+
+zeroRK_correctness_box_reactor:
+  stage: correctness_zeroRK_box_reactor
+  resource_group: aurora_pipeline
+  extends: .aurora-batch-runner
+  script:
+  - cd ${WRK_DIR}/zero-rk
+  - module use /soft/modulefiles
+  - module use ${WRK_DIR}/modulefiles
+  - module load chipStar/llvm21
+  # run the temperature-trend check in both LU modes; report both before failing
+  - rc=0
+  - bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_box_reactor.sh 1 || rc=1
+  - bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_box_reactor.sh 0 || rc=1
+  - exit $rc
 
 zeroRK_performance:
   stage: performance_zeroRK
