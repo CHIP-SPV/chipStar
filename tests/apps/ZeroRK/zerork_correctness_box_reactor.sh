@@ -99,4 +99,4 @@ awk -F, -v dip_tol=${TMAX_DIP_TOL} -v final_min=${TMAX_FINAL_MIN} \
     }
     if (fail) exit 1
     print "PASS: temperature trend OK (finite, T_max non-decreasing and reached " prev_tmax " K, T_min in band)"
-  }'
+  }' "${results_csv}"
