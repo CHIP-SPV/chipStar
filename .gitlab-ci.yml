@@ -314,7 +314,9 @@ opensn_build:
    - export BASE=$PWD
    - git clone git@github.com:Open-Sn/opensn.git
    - cd opensn
-   - git checkout d0644cd9c633c6ae5e7110d3f8721641e5ef2982
+   - git checkout d0644cd9c633c6ae5e7110d3f8721641e5ef2982                                          
+   - grep -q -- '--download-f2cblaslapack=yes' tools/dependencies/CMakeLists.txt                                                                                                                                                            
+   - sed -i 's|--download-f2cblaslapack=yes|--download-f2cblaslapack=/lus/flare/projects/chipStar_test/chipStar/dependencies/f2cblaslapack-3.8.0.q2.tar.gz|' tools/dependencies/CMakeLists.txt 
    - mkdir -p build_deps
    - cd build_deps
    - cmake -DCMAKE_INSTALL_PREFIX=$BASE/dependencies ../tools/dependencies
