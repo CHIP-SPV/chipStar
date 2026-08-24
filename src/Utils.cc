@@ -24,6 +24,7 @@
 
 #include "logging.hh"
 
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -289,6 +290,35 @@ uint64_t fnv1a64(const std::string &S) {
   return Hash;
 }
 
+/// True when 'Name' has the shape of a Compute Runtime debug key.
+///
+/// NEO reads every declared key by bare name: EnvironmentVariableReader::
+/// getSetting() calls getenv(prefix + settingName) for each valid prefix and
+/// "" is one of them (shared/source/os_interface/debug_env_reader.cpp; the
+/// prefixes come from api_specific_config_{ocl,l0}.cpp and are
+/// {"NEO_OCL_"/"NEO_L0_", "NEO_", ""}). Under NEOReadDebugKeys any variable
+/// named like a declared key can therefore reach the compiler, and the cache
+/// key has to cover all of them.
+///
+/// Every one of the 750 names in shared/source/debug_settings/
+/// debug_variables_base.inl is a CamelCase C++ identifier: none contains an
+/// underscore and each has at least one lower-case letter. That is what
+/// separates them from the batch scheduler and launcher variables (PBS_*,
+/// PMIX_*, SLURM_*, HOSTNAME, PALS_APID, TMPDIR), which take a fresh value on
+/// every launch and, when hashed, make the key unique per run so the cache can
+/// never hit.
+static bool looksLikeNeoDebugKey(std::string_view Name) {
+  if (Name.empty() || !std::isalpha(static_cast<unsigned char>(Name.front())))
+    return false;
+  bool HasLower = false;
+  for (char C : Name) {
+    if (C == '_')
+      return false;
+    HasLower |= std::islower(static_cast<unsigned char>(C)) != 0;
+  }
+  return HasLower;
+}
+
 std::string collectCompilerEnvironmentVariables() {
   // Environment variables that reach the device compiler and change the
   // binary it produces.
@@ -327,35 +357,35 @@ std::string collectCompilerEnvironmentVariables() {
   // With NEOReadDebugKeys set to a nonzero value, Compute Runtime reads all
   // of its ~750 debug variables by bare name, and any of them may reach the
   // compiler (InjectInternalBuildOptions is an arbitrary string appended to
-  // the build options). No prefix list can cover that, so hash the entire
-  // environment instead. With the gate off (the normal case), none of those
-  // variables are read at all and the narrow list above is sufficient.
+  // the build options). The prefix list above cannot cover those, so while the
+  // gate is on every variable shaped like a debug key is hashed as well. With
+  // the gate off (the normal case) none of them is read at all.
   const char *DebugKeys = std::getenv("NEOReadDebugKeys");
-  bool HashWholeEnvironment = DebugKeys && std::atoll(DebugKeys) != 0;
-  if (HashWholeEnvironment)
-    logWarn("NEOReadDebugKeys is set: hashing the entire environment into "
-            "the module cache key; expect few or no cache hits");
+  const bool DebugKeysEnabled = DebugKeys && std::atoll(DebugKeys) != 0;
 
   for (char **Env = environ; *Env != nullptr; ++Env) {
-    std::string EnvVar(*Env);
-    bool Match = HashWholeEnvironment;
+    std::string_view EnvVar(*Env);
+    auto Eq = EnvVar.find('=');
+    if (Eq == std::string_view::npos)
+      continue; // Not a NAME=VALUE entry.
+    auto Name = EnvVar.substr(0, Eq);
+
+    bool Match = DebugKeysEnabled && looksLikeNeoDebugKey(Name);
     if (!Match)
       for (const char *Prefix : CompilerEnvPrefixes)
-        if (startsWith(EnvVar, Prefix)) {
+        if (startsWith(Name, Prefix)) {
           Match = true;
           break;
         }
     if (!Match)
-      for (const char *Name : CompilerEnvExact)
-        if (startsWith(EnvVar, Name) &&
-            EnvVar.size() > std::strlen(Name) &&
-            EnvVar[std::strlen(Name)] == '=') {
+      for (const char *Exact : CompilerEnvExact)
+        if (Name == Exact) {
           Match = true;
           break;
         }
     if (Match) {
       logDebug("Found compiler variable: {}", EnvVar);
-      Vars.push_back(std::move(EnvVar));
+      Vars.emplace_back(EnvVar);
     }
   }
 
