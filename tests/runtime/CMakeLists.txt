@@ -59,62 +59,34 @@ function(add_shell_test SCRIPT)
     COMMAND /bin/bash ${CMAKE_CURRENT_BINARY_DIR}/${SCRIPT})
 endfunction()
 
-# TODO - this should check if immediate cmd lists are being used
-add_hip_runtime_test(TestRecordEventBlocking.cpp)
-# This test checks if zeEventQuery is a blocking operation
-set_tests_properties(TestRecordEventBlocking PROPERTIES
-  TIMEOUT 60)
+# Tests are registered by globbing Test*.hip and Test*.cpp, so adding one is a
+# matter of dropping the file into this directory. CONFIGURE_DEPENDS re-runs the
+# glob during the build when the set of matching files changes.
+#
+# Anything that needs more than a plain add_hip_runtime_test() call is listed
+# here and registered by hand below instead.
+set(RUNTIME_TESTS_MANUAL
+  TestBufferDevAddr.hip           # guarded on OpenCL_LIBRARY
+  TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
+  TestFixLlvmUsedAddrspace.hip    # not registered as a test
+  TestModuleCacheInvalidation.hip # run several times through a driver script
+  TestStreamWaitEventOrdering.cpp # not registered as a test
+  TestTemplateKernelModules.hip   # multi-TU, linked from hand-built objects
+)
 
-add_hip_runtime_test(TestLazyModuleInit.cpp)
-add_hip_runtime_test(TestKernelArgs.hip)
-add_hip_runtime_test(TestFixByvalStructArgSize.hip)
-add_hip_runtime_test(TestUndefKernelArg.hip)
+file(GLOB RUNTIME_TEST_SOURCES CONFIGURE_DEPENDS
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/Test*.hip
+  ${CMAKE_CURRENT_SOURCE_DIR}/Test*.cpp)
+list(REMOVE_ITEM RUNTIME_TEST_SOURCES ${RUNTIME_TESTS_MANUAL})
+list(SORT RUNTIME_TEST_SOURCES)
+foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
+  add_hip_runtime_test(${RUNTIME_TEST_SOURCE})
+endforeach()
+
+# Names that the Test* glob does not match.
 add_hip_runtime_test(RegressionTest302.hip)
-add_hip_runtime_test(TestLargeGlobalVar.hip)
-add_hip_runtime_test(TestCompileError.hip)
-# TestCompileError intentionally triggers ZE_RESULT_ERROR_MODULE_LINK_FAILURE
-# so we need to clear the default FAIL regex which would match "FAILURE"
-set_tests_properties(TestCompileError PROPERTIES FAIL_REGULAR_EXPRESSION "")
-add_hip_runtime_test(TestGlobalVarInit.hip)
-add_hip_runtime_test(TestArgVisitors.cpp)
-add_hip_runtime_test(TestModuleCacheKey.cpp)
-add_hip_runtime_test(TestLargeKernelArgLists.hip)
-add_hip_runtime_test(TestStlFunctions.hip)
-add_hip_runtime_test(TestStlFunctionsDouble.hip)
-add_hip_runtime_test(TestHIPMathFunctions.hip)
-add_hip_runtime_test(TestAtomics.hip)
-add_hip_runtime_test(TestSyncThreadsGlobalMem.hip)
-# Reproducer for issue #632: __syncthreads() must fence global memory.
-set_tests_properties(TestSyncThreadsGlobalMem PROPERTIES TIMEOUT 300)
-add_hip_runtime_test(TestIndirectMappedHostAlloc.hip)
-add_hip_runtime_test(TestHostRegisterGetDevicePointer.hip)
-add_hip_runtime_test(TestHostRegisterLazyAlloc.hip)
-add_hip_runtime_test(TestThreadDetachCleanup.cpp)
-
-add_shell_test(TestAssert.bash)
-add_shell_test(TestAssertFail.bash)
-add_shell_test(TestForgottenModuleUnload.bash)
-add_shell_test(TestModuleLoadFromFile.bash)
-add_shell_test(TestLinkHiprtc.bash)
-
-add_hip_runtime_test(TestIndirectCall.hip)
-add_hip_runtime_test(TestStructWithFnPtr.hip)
-add_hip_runtime_test(TestHipInit.hip)
-
-add_shell_test(TestRuntimeWarnings.bash)
-
-add_hip_runtime_test(TestAPIs.hip)
-add_hip_runtime_test(TestFix499ErrorType.hip)
-add_hip_runtime_test(TestHipPointerAttributesMemoryType.hip)
-add_hip_runtime_test(TestMemFunctions.hip)
-add_hip_runtime_test(TestAlignAttrRuntime.hip)
-
-add_hip_runtime_test(TestBitInsert.hip)
-add_hip_runtime_test(TestBallot.hip)
-
-add_hip_runtime_test(TestNegativeHasNoIGBAs1.hip)
-add_hip_runtime_test(TestNegativeHasNoIGBAs2.hip)
-add_hip_runtime_test(TestPositiveHasNoIGBAs.hip)
+add_hip_runtime_test(host-math-funcs.hip)
 
 # CatchMemLeak1 monitors RSS growth which is unreliable on macOS
 # (different ru_maxrss units, PoCL JIT memory behavior varies)
@@ -124,8 +96,84 @@ endif()
 if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
 endif()
-add_hip_runtime_test(Test887.hip)
-add_hip_runtime_test(TestTemplatedConstantMemcpy.hip)
+
+add_shell_test(TestAssert.bash)
+add_shell_test(TestAssertFail.bash)
+add_shell_test(TestForgottenModuleUnload.bash)
+add_shell_test(TestModuleLoadFromFile.bash)
+add_shell_test(TestLinkHiprtc.bash)
+add_shell_test(TestRuntimeWarnings.bash)
+
+find_program(SPIRV_DIS spirv-dis)
+find_program(
+  CLANG_OFFLOAD_BUNDLER
+  NAMES clang-offload-bundler-${LLVM_VERSION_MAJOR} clang-offload-bundler
+  PATHS ${HIP_CLANG_PATH})
+if(SPIRV_DIS AND (NOT USE_NEW_OFFLOAD_DRIVER OR CLANG_OFFLOAD_BUNDLER))
+  add_shell_test(TestBoolKernelParamSPIRV.bash)
+endif()
+
+add_shell_test(../run_testenvvars.sh)
+set_tests_properties(run_testenvvars PROPERTIES
+  TIMEOUT 60)
+
+######################################
+# Per-test properties, for tests registered above.
+######################################
+
+# This test checks if zeEventQuery is a blocking operation
+# TODO - this should check if immediate cmd lists are being used
+set_tests_properties(TestRecordEventBlocking PROPERTIES
+  TIMEOUT 60)
+
+# TestCompileError intentionally triggers ZE_RESULT_ERROR_MODULE_LINK_FAILURE
+# so we need to clear the default FAIL regex which would match "FAILURE"
+set_tests_properties(TestCompileError PROPERTIES FAIL_REGULAR_EXPRESSION "")
+
+# Reproducer for issue #632: __syncthreads() must fence global memory.
+set_tests_properties(TestSyncThreadsGlobalMem PROPERTIES TIMEOUT 300)
+
+set_tests_properties(TestIGCCaching PROPERTIES
+  TIMEOUT 60
+  ENVIRONMENT "CHIP_MODULE_CACHE_DIR=/tmp/chipstar_test_cache_igc")
+
+# Test hipLaunchHostFunc with multi-stream and events (from PR #1071)
+set_tests_properties(TestHipLaunchHostFuncMultiStream PROPERTIES
+  TIMEOUT 30)
+
+set_tests_properties(TestEventResetWarnFlood PROPERTIES
+  ENVIRONMENT "CHIP_LOGLEVEL=warn"
+  FAIL_REGULAR_EXPRESSION "FAIL;reset\\(\\) called while event is recording")
+
+# Reproducer for #1360 (sneaky_snake miscompile). Force -O2: the
+# __clz(0)-poison miscompile only manifests at -O1 and above.
+target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
+
+######################################
+# Extra ctest invocations of already-registered executables.
+######################################
+
+add_test(NAME TestDefaultBackend_NoBE
+  COMMAND env -u CHIP_BE -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE
+    ${CMAKE_CURRENT_BINARY_DIR}/TestDefaultBackend)
+set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS")
+
+# Regression test for https://github.com/CHIP-SPV/chipStar/issues/1199
+# hipGetBackendNativeHandles must return "opencl" or "level0" in NativeHandles[0],
+# never "default", even when CHIP_BE is unset.
+add_test(NAME TestNativeHandlesBackendName_NoBE
+  COMMAND env -u CHIP_BE -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE
+    ${CMAKE_CURRENT_BINARY_DIR}/TestNativeHandlesBackendName)
+set_tests_properties(TestNativeHandlesBackendName_NoBE PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS"
+  SKIP_RETURN_CODE ${CHIP_SKIP_TEST}
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+######################################
+# Tests built by hand.
+######################################
+
 # Multi-TU test: same template instantiation in two separate TUs (#808)
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
@@ -171,82 +219,6 @@ set_tests_properties(TestTemplateKernelModules PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
   TIMEOUT 60)
 
-add_shell_test(../run_testenvvars.sh)
-set_tests_properties(run_testenvvars PROPERTIES
-  TIMEOUT 60)
-
-add_hip_runtime_test(TestIGCCaching.hip)
-set_tests_properties(TestIGCCaching PROPERTIES
-  TIMEOUT 60
-  ENVIRONMENT "CHIP_MODULE_CACHE_DIR=/tmp/chipstar_test_cache_igc")
-
-add_hip_runtime_test(host-math-funcs.hip)
-add_hip_runtime_test(TestMemcpyAsyncPageable.hip)
-
-# Test that hipStreamWaitEvent correctly enforces cross-stream ordering.
-add_hip_runtime_test(TestEventRecordCircularDep.cpp)
-
-# Test that blocking streams implicitly synchronize with the default stream.
-add_hip_runtime_test(TestDefaultStreamImplicitSync.hip)
-
-add_hip_runtime_test(TestTypeCastIntrinsics.hip)
-add_hip_runtime_test(TestHipLaunchHostFunc.cpp)
-
-add_hip_runtime_test(TestBoolKernelParam.hip)
-add_hip_runtime_test(TestBoolParamShuffle.cpp)
-find_program(SPIRV_DIS spirv-dis)
-find_program(
-  CLANG_OFFLOAD_BUNDLER
-  NAMES clang-offload-bundler-${LLVM_VERSION_MAJOR} clang-offload-bundler
-  PATHS ${HIP_CLANG_PATH})
-if(SPIRV_DIS AND (NOT USE_NEW_OFFLOAD_DRIVER OR CLANG_OFFLOAD_BUNDLER))
-  add_shell_test(TestBoolKernelParamSPIRV.bash)
-endif()
-# Test hipLaunchHostFunc with multi-stream and events (from PR #1071)
-add_hip_runtime_test(TestHipLaunchHostFuncMultiStream.cpp)
-set_tests_properties(TestHipLaunchHostFuncMultiStream PROPERTIES
-  TIMEOUT 30)
-
-add_hip_runtime_test(TestDefaultBackend.cpp)
-add_test(NAME TestDefaultBackend_NoBE
-  COMMAND env -u CHIP_BE -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE
-    ${CMAKE_CURRENT_BINARY_DIR}/TestDefaultBackend)
-set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
-  PASS_REGULAR_EXPRESSION "PASS")
-
-# Regression test for https://github.com/CHIP-SPV/chipStar/issues/1199
-# hipGetBackendNativeHandles must return "opencl" or "level0" in NativeHandles[0],
-# never "default", even when CHIP_BE is unset.
-add_hip_runtime_test(TestNativeHandlesBackendName.cpp)
-add_test(NAME TestNativeHandlesBackendName_NoBE
-  COMMAND env -u CHIP_BE -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE
-    ${CMAKE_CURRENT_BINARY_DIR}/TestNativeHandlesBackendName)
-set_tests_properties(TestNativeHandlesBackendName_NoBE PROPERTIES
-  PASS_REGULAR_EXPRESSION "PASS"
-  SKIP_RETURN_CODE ${CHIP_SKIP_TEST}
-  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
-
-add_hip_runtime_test(TestHeCBenchF16Max.hip)
-add_hip_runtime_test(TestHeCBenchLebesgue.hip)
-
-add_hip_runtime_test(TestGraphAddDependenciesMulti.hip)
-add_hip_runtime_test(TestHipMemcpyInvalidPtr.hip)
-
-add_hip_runtime_test(TestGraphNullPtrValidation.hip)
-add_hip_runtime_test(TestEventResetWarnFlood.hip)
-set_tests_properties(TestEventResetWarnFlood PROPERTIES
-  ENVIRONMENT "CHIP_LOGLEVEL=warn"
-  FAIL_REGULAR_EXPRESSION "FAIL;reset\\(\\) called while event is recording")
-add_hip_runtime_test(TestFixHostNativeAtomicSupported.hip)
-# Reproducer for issue #1359: __syncthreads_and/or/count unresolved
-# (__chip_group_all/any/ballot missing from the device library).
-add_hip_runtime_test(TestSyncthreadsAndOrCount.hip)
-
-# Reproducer for #1360 (sneaky_snake miscompile). Force -O2: the
-# __clz(0)-poison miscompile only manifests at -O1 and above.
-add_hip_runtime_test(TestSnakeMiscompileO2.hip)
-target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
-
 # Module cache invalidation. The executable is built like any other runtime
 # test, but it has to be run several times with different compilation inputs
 # under one fresh cache directory, so it is registered through a driver script
@@ -265,6 +237,3 @@ add_test(NAME TestModuleCacheInvalidation
     -P ${CMAKE_SOURCE_DIR}/tests/run_module_cache_invalidation_test.cmake)
 set_tests_properties(TestModuleCacheInvalidation PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
-
-# __short_as_bfloat16 / __ushort_as_bfloat16 must reinterpret bits (#1385).
-add_hip_runtime_test(TestBFloat16AsCasts.hip)

@@ -1,3 +1,5 @@
+// Test that hipStreamWaitEvent correctly enforces cross-stream ordering.
+
 #include <hip/hip_runtime.h>
 #include <iostream>
 

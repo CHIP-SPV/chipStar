@@ -1,3 +1,5 @@
+// Test that blocking streams implicitly synchronize with the default stream.
+
 #include <hip/hip_runtime.h>
 #include <iostream>
 
