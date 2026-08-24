@@ -165,9 +165,20 @@ run_and_expect("with OverrideDefaultFP64Settings (expect miss)" 0 ${N}
 
 # 5. A Compute Runtime variable that does NOT change device capabilities must
 #    still invalidate: NEOReadDebugKeys makes NEO read all of its debug
-#    variables, so the runtime hashes the entire environment under it.
+#    variables by bare name, so it is hashed like any other NEO variable and
+#    widens what the environment digest covers.
 run_and_expect("with NEOReadDebugKeys (expect miss)" 0 ${N}
   "NEOReadDebugKeys=1")
+
+# 5b. The other half of that rule: with the gate on, a variable NEO cannot read
+#     as a debug key must NOT move the key. Batch schedulers hand every launch
+#     fresh PBS_*/PALS_*/HOSTNAME values, and hashing them made the key unique
+#     per run, so a job could never hit the cache written by the previous one.
+#     Both runs reuse the entries step 5 wrote, so both must hit.
+run_and_expect("NEOReadDebugKeys plus launcher variables (expect hit)" ${N} 0
+  "NEOReadDebugKeys=1" "PBS_JOBID=1.aurora" "PALS_APID=aaa" "HOSTNAME=x4001")
+run_and_expect("NEOReadDebugKeys plus different launcher variables (expect hit)" ${N} 0
+  "NEOReadDebugKeys=1" "PBS_JOBID=2.aurora" "PALS_APID=bbb" "HOSTNAME=x4002")
 
 # 6. An IGC_-prefixed variable must invalidate purely through the environment
 #    digest -- IGC reads every IGC_* name from the environment, and the value
