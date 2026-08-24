@@ -97,15 +97,38 @@ endif()
 
 add_library(LLVMHipStripUsedIntrinsics MODULE HipStripUsedIntrinsics.cpp)
 add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
-add_library(LLVMHipPasses MODULE HipPasses.cpp
-    HipDynMem.cpp HipStripUsedIntrinsics.cpp HipStripDebugInfo.cpp HipDefrost.cpp
-    HipPrintf.cpp HipGlobalVariables.cpp HipCleanup.cpp HipTextureLowering.cpp HipAbort.cpp
-    HipEmitLoweredNames.cpp HipWarps.cpp HipKernelArgSpiller.cpp
-    HipLowerZeroLengthArrays.cpp HipSanityChecks.cpp HipLowerSwitch.cpp
-    HipLowerMemset.cpp HipLowerFPAtomicMinMax.cpp HipIGBADetector.cpp HipPromoteInts.cpp
+# One source per line, alphabetically sorted, so that two branches each adding
+# a pass insert at different anchors and merge without a conflict.
+#
+# HipPasses.cpp must stay first: fifteen of these sources define
+# llvmGetPassPluginInfo, which LLVM declares LLVM_ATTRIBUTE_WEAK, so the link
+# keeps whichever object comes first instead of reporting a duplicate, and only
+# HipPasses.cpp registers the hip-post-link-passes pipeline.
+add_library(LLVMHipPasses MODULE
+    HipPasses.cpp
+    HipAbort.cpp
+    HipCanonicalizeGEP.cpp
+    HipCleanup.cpp
+    HipDefrost.cpp
+    HipDynMem.cpp
+    HipEmitLoweredNames.cpp
+    HipGlobalVariables.cpp
+    HipIGBADetector.cpp
+    HipKernelArgSpiller.cpp
+    HipLowerFPAtomicMinMax.cpp
+    HipLowerMemset.cpp
     HipLowerOverflowIntrinsics.cpp
+    HipLowerSwitch.cpp
+    HipLowerZeroLengthArrays.cpp
+    HipPrintf.cpp
+    HipPromoteInts.cpp
+    HipSanityChecks.cpp
     HipSpirvFunctionReorderPass.cpp
-    HipVerify.cpp HipCanonicalizeGEP.cpp
+    HipStripDebugInfo.cpp
+    HipStripUsedIntrinsics.cpp
+    HipTextureLowering.cpp
+    HipVerify.cpp
+    HipWarps.cpp
     ${EXTRA_OBJS})
 
 # macOS Linking Requirements:
