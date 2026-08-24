@@ -118,6 +118,7 @@ add_library(LLVMHipPasses MODULE
     HipLowerFPAtomicMinMax.cpp
     HipLowerMemset.cpp
     HipLowerOverflowIntrinsics.cpp
+    HipLowerRoundIntrinsics.cpp
     HipLowerSwitch.cpp
     HipLowerZeroLengthArrays.cpp
     HipPasses.cpp
