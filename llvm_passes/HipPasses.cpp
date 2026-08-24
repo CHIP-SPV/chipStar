@@ -31,6 +31,7 @@
 #include "HipLowerSwitch.h"
 #include "HipLowerMemset.h"
 #include "HipLowerFPAtomicMinMax.h"
+#include "HipLowerRoundIntrinsics.h"
 #include "HipIGBADetector.h"
 #include "HipPromoteInts.h"
 #include "HipLowerOverflowIntrinsics.h"
@@ -185,6 +186,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipDefrostPass()), "HipDefrostPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemsetPass()), "HipLowerMemsetPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerFPAtomicMinMaxPass()), "HipLowerFPAtomicMinMaxPass");
+  addPassWithVerification(MPM, HipLowerRoundIntrinsicsPass(), "HipLowerRoundIntrinsicsPass");
   addPassWithVerification(MPM, HipAbortPass(), "HipAbortPass");
   // This pass must appear after HipDynMemExternReplaceNewPass.
   addPassWithVerification(MPM, HipGlobalVariablesPass(), "HipGlobalVariablesPass");
