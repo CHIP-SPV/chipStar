@@ -26,14 +26,18 @@
 // llvm.smul.with.overflow has no lowering at all and translation aborts with
 // "InvalidFunctionCall: Unexpected llvm intrinsic". Since chipStar puts all of
 // a binary's device code in one module, either failure takes down every kernel
-// in the program.
+// in the program. Issue #1475 tracks both upstream gaps and the conditions
+// under which this pass can be dropped again.
 //
 // Expanding both intrinsics here means neither construct reaches SPIR-V.
 // The overflow predicate is computed with a division rather than a 128-bit
-// multiply because i128 is not portable across the SPIR-V consumers chipStar
-// targets. These intrinsics come from allocation-size checks, which are not
-// hot code. The pass must stay after any InstCombine run, which re-forms both
-// intrinsics from exactly the shapes emitted here.
+// multiply because 128-bit integers are outside the OpenCL SPIR-V environment,
+// which requires only the Int8, Int16 and Int64 capabilities: llvm-spirv
+// rejects them with "InvalidBitWidth: Invalid bit width in input: 128" and the
+// in-tree backend demands SPV_ALTERA_arbitrary_precision_integers, an
+// extension IGC does not know. These intrinsics come from allocation-size
+// checks, which are not hot code. The pass must stay after any InstCombine
+// run, which re-forms both intrinsics from exactly the shapes emitted here.
 //
 // Copyright (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
