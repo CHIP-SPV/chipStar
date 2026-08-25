@@ -132,6 +132,23 @@ add_library(LLVMHipPasses MODULE
     HipWarps.cpp
     ${EXTRA_OBJS})
 
+# The plugin registers its pipeline through llvmGetPassPluginInfo, and the
+# ordering note above explains how easily that registration is lost: the link
+# still succeeds, the symbol is still exported, and only an actual opt run
+# notices. Without this test the failure surfaces as every hipcc invocation
+# reporting "unknown pass name" with no build error anywhere.
+find_program(LLVM_OPT NAMES opt-${LLVM_VERSION_MAJOR} opt
+  NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
+if(LLVM_OPT)
+  set(PLUGIN_PROBE_IR ${CMAKE_CURRENT_BINARY_DIR}/plugin-probe.ll)
+  file(WRITE ${PLUGIN_PROBE_IR} "define void @probe() { ret void }\n")
+  add_test(NAME PassPluginRegistersPipeline
+    COMMAND ${LLVM_OPT} -load-pass-plugin $<TARGET_FILE:LLVMHipPasses>
+            -passes=hip-post-link-passes ${PLUGIN_PROBE_IR} -o /dev/null)
+else()
+  message(STATUS "opt not found; skipping the pass plugin registration test")
+endif()
+
 # macOS Linking Requirements:
 # On macOS, the linker requires all symbols to be resolved at link time for
 # MODULE (plugin) libraries, unlike Linux where unresolved symbols can be
