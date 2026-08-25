@@ -118,7 +118,7 @@ PreservedAnalyses HipWarpsPass::run(Module &Mod, ModuleAnalysisManager &AM) {
   // Since one shuffle declaration anywhere in the module stamps every kernel,
   // and Kokkos_Core.hpp declares the shuffle intrinsics, a single #include used
   // to break device-side virtual dispatch for a whole application. See
-  // tests/runtime/TestIndirectCallWithWarpPrimitive.hip.
+  // tests/runtime/TestIndirectCall.hip.
   //
   // Everything else keeps the existing conservative behaviour. Narrowing the
   // stamp to kernels that provably reach a sensitive function was tried and is
