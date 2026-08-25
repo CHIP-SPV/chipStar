@@ -25,6 +25,29 @@ __global__ void k(int *Data, int Sel) {
   *Data = Fns[Sel](*Data);
 }
 
+// A warp primitive anywhere in the module makes HipWarpsPass stamp
+// intel_reqd_sub_group_size. A stamped kernel loses the arguments of an
+// indirect call after the first one, so the callees below take two arguments
+// and the kernel that reaches them must come out unstamped. touchShfl is never
+// launched; it only has to exist so the shuffle declaration is in the module.
+// One #include of Kokkos_Core.hpp was enough to trigger this, which broke
+// device-side dispatch for every Kokkos application (CHIP-SPV/chipStar#1380).
+__device__ int Sink;
+__global__ void touchShfl(int V) { Sink = __shfl(V, 0); }
+
+static __device__ double implA(double X, int I) {
+  return X * 1000.0 + I * 10.0 + 6.0;
+}
+static __device__ double implB(double X, int I) { return -1.0; }
+
+typedef double (*Callee)(double, int);
+
+// Select through a kernel argument so the indirect call survives the optimizer.
+__global__ void dispatch(double *Out, int Sel) {
+  Callee Fns[] = {implA, implB};
+  Out[0] = Fns[Sel](7.0, 3);
+}
+
 int main() {
   int *DataD = nullptr, DataH = 1000;
   (void)hipMalloc(&DataD, sizeof(int));
@@ -32,10 +55,23 @@ int main() {
   k<<<1,1>>>(DataD, 0);
   k<<<1,1>>>(DataD, 1);
   (void)hipMemcpy(&DataH, DataD, sizeof(int), hipMemcpyDeviceToHost);
-  if (DataH == 802) {
-    std::cout << "PASSED\n";
-  } else {
-    std::cout << "FAILED\n";
+  if (DataH != 802) {
+    std::cout << "FAILED: indirect f(1000) chain = " << DataH
+              << ", want 802\n";
+    return 1;
   }
-  return !(DataH == 802);
+
+  double *OutD = nullptr, OutH = -1.0;
+  (void)hipMalloc(&OutD, sizeof(double));
+  dispatch<<<1,1>>>(OutD, 0);
+  (void)hipMemcpy(&OutH, OutD, sizeof(double), hipMemcpyDeviceToHost);
+  // 7.0 * 1000 + 3 * 10 + 6.0. A dropped second argument gives 7006.0.
+  if (OutH != 7036.0) {
+    std::cout << "FAILED: indirect f(7.0, 3) = " << OutH
+              << ", want 7036\n";
+    return 1;
+  }
+
+  std::cout << "PASSED\n";
+  return 0;
 }
