@@ -26,6 +26,15 @@
 #include <cstdio>
 #include <cstdint>
 
+#define CHECK(Expr)                                                            \
+  do {                                                                         \
+    hipError_t Err = (Expr);                                                   \
+    if (Err != hipSuccess) {                                                   \
+      printf("FAIL: %s returned %s\n", #Expr, hipGetErrorString(Err));         \
+      return 1;                                                                \
+    }                                                                          \
+  } while (0)
+
 __global__ void testUmulOverflow(uint64_t *Lo, uint64_t *Ov) {
   uint64_t R = 0;
 
@@ -61,8 +70,8 @@ int main() {
     printf("SKIP: no GPU\n");
     return 0;
   }
-  hipMemset(DLo, 0, N * sizeof(uint64_t));
-  hipMemset(DOv, 0, N * sizeof(uint64_t));
+  CHECK(hipMemset(DLo, 0, N * sizeof(uint64_t)));
+  CHECK(hipMemset(DOv, 0, N * sizeof(uint64_t)));
 
   hipLaunchKernelGGL(testUmulOverflow, dim3(1), dim3(1), 0, 0, DLo, DOv);
   if (hipDeviceSynchronize() != hipSuccess) {
@@ -71,10 +80,10 @@ int main() {
   }
 
   uint64_t HLo[N] = {0}, HOv[N] = {0};
-  hipMemcpy(HLo, DLo, sizeof(HLo), hipMemcpyDeviceToHost);
-  hipMemcpy(HOv, DOv, sizeof(HOv), hipMemcpyDeviceToHost);
-  hipFree(DLo);
-  hipFree(DOv);
+  CHECK(hipMemcpy(HLo, DLo, sizeof(HLo), hipMemcpyDeviceToHost));
+  CHECK(hipMemcpy(HOv, DOv, sizeof(HOv), hipMemcpyDeviceToHost));
+  CHECK(hipFree(DLo));
+  CHECK(hipFree(DOv));
 
   const uint64_t WantLo[N] = {42, UINT64_MAX - 1, 0, 0};
   const uint64_t WantOv[N] = {0, 1, 0, 1};
