@@ -200,6 +200,35 @@ endif()
 # Test for math header conflicts between system cmath and HIP device math
 add_hipcc_test(TestMathHeaderConsolidated.hip HIPCC_OPTIONS -fsyntax-only)
 
+# Intrinsics that clang emits for ordinary builtins and that at least one of
+# the two SPIR-V producers refuses. Without HipLowerHintIntrinsicsPass, and the
+# llvm.memcpy.inline case in HipLowerMemIntrinsicsPass, hipcc -c on these
+# sources fails at the device link step with "InvalidFunctionCall: Unexpected
+# llvm intrinsic" from the llvm-spirv translator, or "unable to legalize
+# instruction" from the in-tree SPIR-V backend. Built at -O0 and -O3 because
+# the intrinsics do not all survive to the device link at the same level.
+set(HINT_INTRINSIC_TESTS
+  TestBuiltinPrefetch
+  TestBuiltinReadCycleCounter
+  TestBuiltinReadSteadyCounter
+  TestBuiltinFltRounds
+  TestBuiltinAllowRuntimeCheck
+  TestBuiltinReturnAddress
+  TestBuiltinFrameAddress
+  TestBuiltinMemcpyInline)
+foreach(HINT_TEST IN LISTS HINT_INTRINSIC_TESTS)
+  foreach(HINT_OPT -O0 -O3)
+    add_hipcc_test(${HINT_TEST}.hip TEST_NAME ${HINT_TEST}${HINT_OPT}
+      HIPCC_OPTIONS ${HINT_OPT} -c)
+  endforeach()
+endforeach()
+
+# llvm.objectsize is checked at -O0 only: from -O1 up LLVM's own
+# LowerConstantIntrinsics pass folds it away before the device link, so a
+# higher level passes whether or not chipStar handles the intrinsic.
+add_hipcc_test(TestBuiltinObjectSize.hip TEST_NAME TestBuiltinObjectSize-O0
+  HIPCC_OPTIONS -O0 -c)
+
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
 
