@@ -27,7 +27,6 @@ ANY:
     Unit_hipMemset_Negative_OutOfBoundsSize: 'Subprocess aborted'
     Unit_hipMemset_Negative_OutOfBoundsPtr: 'SEGFAULT'
     Print_Out_Attributes: 'old HIP tests + new HIP API'
-    TestIndirectCall: ''
     Unit_HMM_OverSubscriptionTst: ''
     Unit_hipMemRangeGetAttribute_TstCountParam: 'hipMemRangeGetAttribute is not implemented'
     Unit_hipGraphAddKernelNode_Negative: 'Invalid test'
@@ -729,6 +728,7 @@ ANY:
     TestWholeProgramCompilation: 'Timeout'
     TestHiprtcOptions: 'Timeout'
   OPENCL_POCL:
+    TestIndirectCall: 'PoCL does not enable SPV_INTEL_function_pointers, so its SPIR-V reader rejects the module'
     TestRecordEventBlocking: 'pass, then pure virtual method called'
     hipDeviceMalloc: 'Either segfault or hang inside the malloc kernel'
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'
@@ -852,6 +852,7 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
   OPENCL_CPU:
   OPENCL_POCL:
   OPENCL_GPU:
+    TestIndirectCall: 'rusticl/radeonsi: spirv_to_nir implements no FunctionPointersINTEL capability'
     manyMallocMemcopies: 'rusticl/radeonsi driver-side O(N) per-buffer memcpy overhead: with ~15000 live allocations the per-op memcpy time grows ~13x. rusticl is experimental; the scaling is in mesa/radeonsi BufferDevAddr residency, not chipStar.'
     Unit_kernel_chkConstantViaKernel_KernelTest: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (device/__constant__ globals, symbols, static vars): "Initializer for CrossWorkgroup variable not yet supported in Mesa"'
     Unit_kernel_chkGlobalArrAndGlobalVaribleViaKernelFn_KernelTest: 'rusticl/radeonsi cannot consume program-scope CrossWorkgroup globals (device/__constant__ globals, symbols, static vars): "Initializer for CrossWorkgroup variable not yet supported in Mesa"'
