@@ -100,12 +100,12 @@ add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
 # One source per line, alphabetically sorted, so that two branches each adding
 # a pass insert at different anchors and merge without a conflict.
 #
-# HipPasses.cpp must stay first: fifteen of these sources define
-# llvmGetPassPluginInfo, which LLVM declares LLVM_ATTRIBUTE_WEAK, so the link
-# keeps whichever object comes first instead of reporting a duplicate, and only
-# HipPasses.cpp registers the hip-post-link-passes pipeline.
+# Order is not load-bearing, but only because every pass guards its standalone
+# llvmGetPassPluginInfo with CHIP_COMBINED_PASS_PLUGIN, leaving HipPasses.cpp
+# as the single definition here. A pass that forgets the guard adds a second
+# LLVM_ATTRIBUTE_WEAK definition, which the link resolves silently by position
+# rather than rejecting; PassPluginRegistersPipeline below catches that.
 add_library(LLVMHipPasses MODULE
-    HipPasses.cpp
     HipAbort.cpp
     HipCanonicalizeGEP.cpp
     HipCleanup.cpp
@@ -120,6 +120,7 @@ add_library(LLVMHipPasses MODULE
     HipLowerOverflowIntrinsics.cpp
     HipLowerSwitch.cpp
     HipLowerZeroLengthArrays.cpp
+    HipPasses.cpp
     HipPrintf.cpp
     HipPromoteInts.cpp
     HipSanityChecks.cpp

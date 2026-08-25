@@ -125,6 +125,7 @@ PreservedAnalyses HipLowerFPAtomicMinMaxPass::run(Function &F,
                                 : PreservedAnalyses::all();
 }
 
+#ifndef CHIP_COMBINED_PASS_PLUGIN
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, PASS_NAME, LLVM_VERSION_STRING,
@@ -140,3 +141,4 @@ llvmGetPassPluginInfo() {
                 });
           }};
 }
+#endif // CHIP_COMBINED_PASS_PLUGIN
