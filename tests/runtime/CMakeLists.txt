@@ -68,6 +68,7 @@ endfunction()
 set(RUNTIME_TESTS_MANUAL
   TestBufferDevAddr.hip           # guarded on OpenCL_LIBRARY
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
+  TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
   TestModuleCacheInvalidation.hip # run several times through a driver script
   TestStreamWaitEventOrdering.cpp # not registered as a test
@@ -237,3 +238,39 @@ add_test(NAME TestModuleCacheInvalidation
     -P ${CMAKE_SOURCE_DIR}/tests/run_module_cache_invalidation_test.cmake)
 set_tests_properties(TestModuleCacheInvalidation PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+# A device compiler that terminates the process during a module build must not
+# leave the runtime deadlocked in its own exit handler (#1393). The exit is
+# injected by an LD_PRELOAD interposer rather than by feeding a backend a module
+# it rejects, so the test does not move with backend compiler behaviour, and a
+# driver script owns the verdict because the expected outcome is a specific
+# non-zero exit status.
+if(UNIX AND NOT APPLE)
+  set_source_files_properties(TestFix1393ExitDuringModuleBuild.hip
+    PROPERTIES LANGUAGE CXX)
+  add_executable(TestFix1393ExitDuringModuleBuild
+    TestFix1393ExitDuringModuleBuild.hip)
+  set_target_properties(TestFix1393ExitDuringModuleBuild PROPERTIES
+    CXX_STANDARD_REQUIRED ON)
+  target_link_libraries(TestFix1393ExitDuringModuleBuild CHIP deviceInternal)
+  target_include_directories(TestFix1393ExitDuringModuleBuild
+    PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+  add_library(ExitDuringModuleBuildInterposer MODULE
+    ExitDuringModuleBuildInterposer.cpp)
+  target_link_libraries(ExitDuringModuleBuildInterposer ${CMAKE_DL_LIBS})
+  # backtrace_symbols() names a frame only if its symbol is in a dynamic symbol
+  # table, which is how the interposer recognises getOrCreateModule.
+  target_link_options(ExitDuringModuleBuildInterposer PRIVATE -rdynamic)
+
+  add_test(NAME TestFix1393ExitDuringModuleBuild
+    COMMAND ${CMAKE_COMMAND}
+      -DTEST_EXECUTABLE=$<TARGET_FILE:TestFix1393ExitDuringModuleBuild>
+      -DINTERPOSER=$<TARGET_FILE:ExitDuringModuleBuildInterposer>
+      -DEXPECTED_EXIT_CODE=93
+      -DTEST_TIMEOUT=60
+      -P ${CMAKE_SOURCE_DIR}/tests/run_exit_during_module_build_test.cmake)
+  set_tests_properties(TestFix1393ExitDuringModuleBuild PROPERTIES
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
+    TIMEOUT 120)
+endif()
