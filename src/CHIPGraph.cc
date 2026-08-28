@@ -32,6 +32,8 @@
 
 #include "CHIPBackend.hh"
 #include "CHIPBindingsInternal.hh"
+
+#include <sstream>
 // CHIPGraphNode
 //*************************************************************************************
 void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,
@@ -98,6 +100,10 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other)
 CHIPGraphNode *CHIPGraphNodeKernel::clone() const {
   auto NewNode = new CHIPGraphNodeKernel(*this);
   return NewNode;
+}
+
+std::string CHIPGraphNodeKernel::getKernelName() const {
+  return ExecItem_->getKernel()->getName();
 }
 
 void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
@@ -195,6 +201,137 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
   // hipKernelNodeParams constructor above).
   Dev->prepareDeviceVariables(HostPtr(HostFunction));
   ExecItem_->setupAllArgs();
+}
+
+static std::string dotEscape(const std::string &Str) {
+  std::string Out;
+  for (char C : Str) {
+    if (C == '"' || C == '\\')
+      Out += '\\';
+    Out += C;
+  }
+  return Out;
+}
+
+static std::string dim3ToString(dim3 Dim) {
+  return "(" + std::to_string(Dim.x) + "," + std::to_string(Dim.y) + "," +
+         std::to_string(Dim.z) + ")";
+}
+
+static std::string ptrToString(const void *Ptr) {
+  std::ostringstream Out;
+  Out << Ptr;
+  return Out.str();
+}
+
+/// Emits the nodes and edges of Graph; child graphs become nested clusters.
+static void writeDotBody(CHIPGraph *Graph, std::ostream &Out, unsigned Flags) {
+  const bool Verbose = Flags & hipGraphDebugDotFlagsVerbose;
+  const bool KernelParams =
+      Verbose || (Flags & hipGraphDebugDotFlagsKernelNodeParams);
+  const bool MemsetParams =
+      Verbose || (Flags & hipGraphDebugDotFlagsMemsetNodeParams);
+  const bool HostParams =
+      Verbose || (Flags & hipGraphDebugDotFlagsHostNodeParams);
+  const bool EventParams =
+      Verbose || (Flags & hipGraphDebugDotFlagsEventNodeParams);
+  const bool Handles = Verbose || (Flags & hipGraphDebugDotFlagsHandles);
+
+  for (auto *Node : Graph->getNodes()) {
+    std::string Label;
+    switch (Node->getType()) {
+    case hipGraphNodeTypeKernel: {
+      auto *Kernel = static_cast<CHIPGraphNodeKernel *>(Node);
+      Label = "KERNEL\\n" + dotEscape(Kernel->getKernelName());
+      if (KernelParams) {
+        auto Params = Kernel->getParams();
+        Label += "\\ngrid " + dim3ToString(Params.gridDim) + " block " +
+                 dim3ToString(Params.blockDim) + " sharedMem " +
+                 std::to_string(Params.sharedMemBytes);
+      }
+      break;
+    }
+    case hipGraphNodeTypeMemcpy:
+      Label = "MEMCPY";
+      break;
+    case hipGraphNodeTypeMemset: {
+      Label = "MEMSET";
+      if (MemsetParams) {
+        auto Params = static_cast<CHIPGraphNodeMemset *>(Node)->getParams();
+        Label += "\\ndst " + ptrToString(Params.dst) + " value " +
+                 std::to_string(Params.value) + " elementSize " +
+                 std::to_string(Params.elementSize) + " width " +
+                 std::to_string(Params.width) + " height " +
+                 std::to_string(Params.height);
+      }
+      break;
+    }
+    case hipGraphNodeTypeHost: {
+      Label = "HOST";
+      if (HostParams) {
+        auto Params = static_cast<CHIPGraphNodeHost *>(Node)->getParams();
+        Label += "\\nfn " + ptrToString((const void *)Params.fn) +
+                 " userData " + ptrToString(Params.userData);
+      }
+      break;
+    }
+    case hipGraphNodeTypeGraph:
+      Label = "CHILD_GRAPH";
+      break;
+    case hipGraphNodeTypeEmpty:
+      Label = "EMPTY";
+      break;
+    case hipGraphNodeTypeWaitEvent: {
+      Label = "WAIT_EVENT";
+      if (EventParams)
+        Label += "\\nevent " +
+                 ptrToString(
+                     static_cast<CHIPGraphNodeWaitEvent *>(Node)->getEvent());
+      break;
+    }
+    case hipGraphNodeTypeEventRecord: {
+      Label = "EVENT_RECORD";
+      if (EventParams)
+        Label +=
+            "\\nevent " +
+            ptrToString(
+                static_cast<CHIPGraphNodeEventRecord *>(Node)->getEvent());
+      break;
+    }
+    case hipGraphNodeTypeMemcpyFromSymbol:
+      Label = "MEMCPY_FROM_SYMBOL";
+      break;
+    case hipGraphNodeTypeMemcpyToSymbol:
+      Label = "MEMCPY_TO_SYMBOL";
+      break;
+    default:
+      Label = "NODE_TYPE_" + std::to_string(Node->getType());
+      break;
+    }
+    if (Handles)
+      Label += "\\n" + ptrToString(Node);
+
+    Out << "  \"" << ptrToString(Node) << "\" [label=\"" << Label << "\"];\n";
+
+    if (Node->getType() == hipGraphNodeTypeGraph) {
+      Out << "  subgraph \"cluster_" << ptrToString(Node)
+          << "\" {\n  label=\"CHILD_GRAPH\";\n";
+      writeDotBody(static_cast<CHIPGraphNodeGraph *>(Node)->getGraph(), Out,
+                   Flags);
+      Out << "  }\n";
+    }
+  }
+
+  for (auto *Node : Graph->getNodes())
+    for (auto *Dep : Node->getDependencies())
+      Out << "  \"" << ptrToString(Dep) << "\" -> \"" << ptrToString(Node)
+          << "\";\n";
+}
+
+void CHIPGraph::writeDot(std::ostream &Out, unsigned Flags) {
+  Out << "digraph {\n  node [shape=box];\n";
+  writeDotBody(this, Out, Flags);
+  Out << "}\n";
 }
 
 int NodeCounter = 1;

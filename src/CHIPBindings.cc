@@ -227,7 +227,14 @@ hipError_t hipGraphDebugDotPrint(hipGraph_t graph, const char *path,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  if (!graph || !path)
+    RETURN(hipErrorInvalidValue);
+  std::ofstream Out(path);
+  if (!Out)
+    RETURN(hipErrorOperatingSystem);
+  GRAPH(graph)->writeDot(Out, flags);
+  Out.close();
+  RETURN(Out.good() ? hipSuccess : hipErrorOperatingSystem);
   CHIP_CATCH
 }
 
