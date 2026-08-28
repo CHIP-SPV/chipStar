@@ -2215,7 +2215,12 @@ void chipstar::Queue::updateLastNode(CHIPGraphNode *NewNode) {
   LastNode_ = NewNode;
 }
 
-void chipstar::Queue::initCaptureGraph() { CaptureGraph_ = new CHIPGraph(); }
+void chipstar::Queue::initCaptureGraph() {
+  CaptureGraph_ = new CHIPGraph();
+  // The first node recorded into the new graph is a root; a node left over
+  // from an earlier capture on this stream belongs to another graph.
+  LastNode_ = nullptr;
+}
 
 std::shared_ptr<chipstar::Event>
 chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
