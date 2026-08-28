@@ -32,6 +32,7 @@
 #include "HipLowerMemset.h"
 #include "HipLowerFPAtomicMinMax.h"
 #include "HipLowerRoundIntrinsics.h"
+#include "HipLowerSubwordAtomics.h"
 #include "HipIGBADetector.h"
 #include "HipPromoteInts.h"
 #include "HipLowerOverflowIntrinsics.h"
@@ -186,6 +187,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipDefrostPass()), "HipDefrostPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemsetPass()), "HipLowerMemsetPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerFPAtomicMinMaxPass()), "HipLowerFPAtomicMinMaxPass");
+  // OpenCL SPIR-V consumers implement 32 and 64 bit atomics only; rewrite 8
+  // and 16 bit ones onto their containing word. Runs after the fmin / fmax
+  // expansion so the i16 cmpxchg it produces for half gets lowered too, and
+  // before InferAddressSpaces so the word address it forms with a GEP is
+  // still narrowed to the global or local address space.
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerSubwordAtomicsPass()), "HipLowerSubwordAtomicsPass");
   addPassWithVerification(MPM, HipLowerRoundIntrinsicsPass(), "HipLowerRoundIntrinsicsPass");
   addPassWithVerification(MPM, HipAbortPass(), "HipAbortPass");
   // This pass must appear after HipDynMemExternReplaceNewPass.
@@ -271,6 +278,13 @@ llvmGetPassPluginInfo() {
                   // which makes it directly testable with opt.
                   if (Name == "hip-lower-overflow-intrinsics") {
                     MPM.addPass(HipLowerOverflowIntrinsicsPass());
+                    return true;
+                  }
+                  // Register the 8 and 16 bit atomic lowering as standalone,
+                  // which makes it directly testable with opt.
+                  if (Name == "hip-lower-subword-atomics") {
+                    MPM.addPass(createModuleToFunctionPassAdaptor(
+                        HipLowerSubwordAtomicsPass()));
                     return true;
                   }
                   // Register SPIR-V function reorder pass as standalone
