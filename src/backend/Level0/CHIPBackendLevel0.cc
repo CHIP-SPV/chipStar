@@ -1562,9 +1562,21 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
     bool Expected = false;
     if (ChipKernel->IndirectAccessSet_.compare_exchange_strong(
             Expected, true, std::memory_order_acq_rel)) {
+      // Declare indirect access to all three USM kinds, mirroring the
+      // OpenCL backend's CL_KERNEL_EXEC_INFO_INDIRECT_{HOST,DEVICE,SHARED}
+      // _ACCESS_INTEL. SHARED covers hipMallocManaged memory backed by
+      // zeMemAllocShared (see allocateImpl()): the driver only migrates a
+      // shared allocation for a launch when the kernel declares indirect
+      // shared access, and a pointer reached through a by-value struct or
+      // another buffer is not visible to it as a kernel argument. A no-op
+      // where no shared allocations exist.
+      logInfo("Kernel {}: zeKernelSetIndirectAccess(DEVICE|HOST|SHARED), "
+              "module has indirect global buffer accesses",
+              ChipKernel->getName());
       zeStatus = zeKernelSetIndirectAccess(
           KernelZe, ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE |
-                        ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST);
+                        ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST |
+                        ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED);
       if (zeStatus != ZE_RESULT_SUCCESS) {
         // Reset the flag so a future launch can retry.
         ChipKernel->IndirectAccessSet_.store(false, std::memory_order_release);
