@@ -2309,7 +2309,6 @@ public:
    */
   template <class GraphNodeType, class... ArgTypes>
   bool captureIntoGraph(ArgTypes... ArgsPack) {
-    return false; // TODO: fix this in graphs refactor
     if (getCaptureStatus() == hipStreamCaptureStatusActive) {
       auto Graph = getCaptureGraph();
       auto Node = new GraphNodeType(ArgsPack...);
