@@ -1273,15 +1273,32 @@ hipError_t hipGraphGetEdges(hipGraph_t graph, hipGraphNode_t *from,
   CHIP_CATCH
 }
 
+/// Shared body of hipGraphGetNodes and hipGraphGetRootNodes. A null Out
+/// array asks for the count only; otherwise *Count is the array's capacity on
+/// entry and the number of entries written on return.
+static hipError_t copyGraphNodes(const std::vector<CHIPGraphNode *> &Nodes,
+                                 hipGraphNode_t *Out, size_t *Count) {
+  if (!Count)
+    return hipErrorInvalidValue;
+  if (!Out) {
+    *Count = Nodes.size();
+    return hipSuccess;
+  }
+  size_t NumToCopy = std::min(*Count, Nodes.size());
+  for (size_t i = 0; i < NumToCopy; i++)
+    Out[i] = Nodes[i];
+  *Count = NumToCopy;
+  return hipSuccess;
+}
+
 hipError_t hipGraphGetNodes(hipGraph_t graph, hipGraphNode_t *nodes,
                             size_t *numNodes) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  auto Nodes = GRAPH(graph)->getNodes();
-  *nodes = *(Nodes.data());
-  *numNodes = GRAPH(graph)->getNodes().size();
-  RETURN(hipSuccess);
+  if (!graph)
+    RETURN(hipErrorInvalidValue);
+  RETURN(copyGraphNodes(GRAPH(graph)->getNodes(), nodes, numNodes));
   CHIP_CATCH
 }
 
@@ -1290,10 +1307,10 @@ hipError_t hipGraphGetRootNodes(hipGraph_t graph, hipGraphNode_t *pRootNodes,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  auto Nodes = GRAPH(graph)->getRootNodes();
-  *pRootNodes = *(Nodes.data());
-  *pNumRootNodes = GRAPH(graph)->getNodes().size();
-  RETURN(hipSuccess);
+  if (!graph)
+    RETURN(hipErrorInvalidValue);
+  RETURN(copyGraphNodes(GRAPH(graph)->getRootNodes(), pRootNodes,
+                        pNumRootNodes));
   CHIP_CATCH
 }
 
