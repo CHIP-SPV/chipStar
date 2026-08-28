@@ -26,6 +26,15 @@
 // definitions for mapping the C math calls to corresponding OpenCL
 // built-ins.
 //
+// The C names arrive from several directions: HIP device built-ins in
+// include/hip/devicelib that expand to __builtin_*, libstdc++'s <cmath>
+// float and long double overloads (constexpr wrappers around __builtin_*f
+// and __builtin_*l, which HIP makes implicitly __host__ __device__ so they
+// win overload resolution in device code), and calls the optimizer
+// synthesises itself (pow(2, i) -> ldexp(1, i)). Only the built-ins that
+// have no LLVM intrinsic reach a C name; the rest become intrinsics that
+// the SPIR-V producer maps to OpenCL.std instructions directly.
+//
 // We can't define non-overloaded function that would call the builtin
 // by the same in OpenCL in the same translation unit. To get around
 // it we define the former in C source file, for example:
@@ -37,27 +46,59 @@
 //   double __chip_c2ocl_lgamma(double x) { return lgamma(x); }
 //
 // In this file we define the functions which receive this treatment.
+//
+// long double is a 64-bit double on spirv64, in HIP device code and in the
+// C compile of c_to_opencl.c alike, so the *l names carry a double. OpenCL C
+// has no long double, so the entries spell it C2OCL_LONG_DOUBLE: the C side
+// defines it as long double (matching the C library prototypes, so clang
+// does not flag an incompatible library redeclaration) and the OpenCL side
+// takes the default below.
 
 // Note: Include guards are not desired here.
 
-// DEF_UNARY_FN_MAP(FROM_FN, TO_FN, TYPE)
+#ifndef C2OCL_LONG_DOUBLE
+#define C2OCL_LONG_DOUBLE double
+#endif
+
+// DEF_UNARY_FN_MAP(FROM_FN, TO_FN, TYPE): TYPE FROM_FN(TYPE)
 #ifndef DEF_UNARY_FN_MAP
 #define DEF_UNARY_FN_MAP
 #endif
 
-// DEF_BINARY_FN_MAP(FROM_FN, TO_FN, TYPE)
+// DEF_BINARY_FN_MAP(FROM_FN, TO_FN, TYPE): TYPE FROM_FN(TYPE, TYPE)
 #ifndef DEF_BINARY_FN_MAP
 #define DEF_BINARY_FN_MAP
 #endif
 
+// DEF_UNARY_FN_MAP_RET(FROM_FN, TO_FN, RET_TYPE, TYPE): RET_TYPE FROM_FN(TYPE)
+#ifndef DEF_UNARY_FN_MAP_RET
+#define DEF_UNARY_FN_MAP_RET
+#endif
+
+// DEF_BINARY_FN_MAP_MIXED(FROM_FN, TO_FN, TYPE, TYPE2):
+//   TYPE FROM_FN(TYPE, TYPE2)
+#ifndef DEF_BINARY_FN_MAP_MIXED
+#define DEF_BINARY_FN_MAP_MIXED
+#endif
+
 DEF_UNARY_FN_MAP(acos, acos, double)
 DEF_UNARY_FN_MAP(acosf, acos, float)
+DEF_UNARY_FN_MAP(acosh, acosh, double)
+DEF_UNARY_FN_MAP(acoshf, acosh, float)
+DEF_UNARY_FN_MAP(acoshl, acosh, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(asin, asin, double)
 DEF_UNARY_FN_MAP(asinf, asin, float)
+DEF_UNARY_FN_MAP(asinh, asinh, double)
+DEF_UNARY_FN_MAP(asinhf, asinh, float)
+DEF_UNARY_FN_MAP(asinhl, asinh, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(atan, atan, double)
 DEF_UNARY_FN_MAP(atanf, atan, float)
+DEF_UNARY_FN_MAP(atanh, atanh, double)
+DEF_UNARY_FN_MAP(atanhf, atanh, float)
+DEF_UNARY_FN_MAP(atanhl, atanh, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(cbrt, cbrt, double)
 DEF_UNARY_FN_MAP(cbrtf, cbrt, float)
+DEF_UNARY_FN_MAP(cbrtl, cbrt, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(ceil, ceil, double)
 DEF_UNARY_FN_MAP(ceilf, ceil, float)
 DEF_UNARY_FN_MAP(cos, cos, double)
@@ -66,12 +107,15 @@ DEF_UNARY_FN_MAP(cosh, cosh, double)
 DEF_UNARY_FN_MAP(coshf, cosh, float)
 DEF_UNARY_FN_MAP(erf, erf, double)
 DEF_UNARY_FN_MAP(erff, erf, float)
+DEF_UNARY_FN_MAP(erfl, erf, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(erfc, erfc, double)
 DEF_UNARY_FN_MAP(erfcf, erfc, float)
+DEF_UNARY_FN_MAP(erfcl, erfc, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(exp, exp, double)
 DEF_UNARY_FN_MAP(expf, exp, float)
 DEF_UNARY_FN_MAP(expm1, expm1, double)
 DEF_UNARY_FN_MAP(expm1f, expm1, float)
+DEF_UNARY_FN_MAP(expm1l, expm1, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(exp2, exp2, double)
 DEF_UNARY_FN_MAP(exp2f, exp2, float)
 DEF_UNARY_FN_MAP(fabs, fabs, double)
@@ -80,10 +124,17 @@ DEF_UNARY_FN_MAP(floor, floor, double)
 DEF_UNARY_FN_MAP(floorf, floor, float)
 DEF_UNARY_FN_MAP(lgamma, lgamma, double)
 DEF_UNARY_FN_MAP(lgammaf, lgamma, float)
+DEF_UNARY_FN_MAP(lgammal, lgamma, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(log, log, double)
 DEF_UNARY_FN_MAP(logf, log, float)
 DEF_UNARY_FN_MAP(log10, log10, double)
 DEF_UNARY_FN_MAP(log10f, log10, float)
+DEF_UNARY_FN_MAP(log1p, log1p, double)
+DEF_UNARY_FN_MAP(log1pf, log1p, float)
+DEF_UNARY_FN_MAP(log1pl, log1p, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(logb, logb, double)
+DEF_UNARY_FN_MAP(logbf, logb, float)
+DEF_UNARY_FN_MAP(logbl, logb, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(rint, rint, double)
 DEF_UNARY_FN_MAP(rintf, rint, float)
 DEF_UNARY_FN_MAP(round, round, double)
@@ -100,10 +151,20 @@ DEF_UNARY_FN_MAP(tan, tan, double)
 DEF_UNARY_FN_MAP(tanf, tan, float)
 DEF_UNARY_FN_MAP(tanh, tanh, double)
 DEF_UNARY_FN_MAP(tanhf, tanh, float)
+DEF_UNARY_FN_MAP(tgamma, tgamma, double)
+DEF_UNARY_FN_MAP(tgammaf, tgamma, float)
+DEF_UNARY_FN_MAP(tgammal, tgamma, C2OCL_LONG_DOUBLE)
 DEF_UNARY_FN_MAP(trunc, trunc, double)
 DEF_UNARY_FN_MAP(truncf, trunc, float)
 
+DEF_UNARY_FN_MAP_RET(ilogb, ilogb, int, double)
+DEF_UNARY_FN_MAP_RET(ilogbf, ilogb, int, float)
+DEF_UNARY_FN_MAP_RET(ilogbl, ilogb, int, C2OCL_LONG_DOUBLE)
+
 DEF_BINARY_FN_MAP(copysign, copysign, double)
+DEF_BINARY_FN_MAP(fdim, fdim, double)
+DEF_BINARY_FN_MAP(fdimf, fdim, float)
+DEF_BINARY_FN_MAP(fdiml, fdim, C2OCL_LONG_DOUBLE)
 DEF_BINARY_FN_MAP(fmax, fmax, double)
 DEF_BINARY_FN_MAP(fmaxf, fmax, float)
 DEF_BINARY_FN_MAP(fmin, fmin, double)
@@ -112,4 +173,32 @@ DEF_BINARY_FN_MAP(fmod, fmod, double)
 DEF_BINARY_FN_MAP(fmodf, fmod, float)
 DEF_BINARY_FN_MAP(hypot, hypot, double)
 DEF_BINARY_FN_MAP(hypotf, hypot, float)
+DEF_BINARY_FN_MAP(hypotl, hypot, C2OCL_LONG_DOUBLE)
 DEF_BINARY_FN_MAP(nextafter, nextafter, double)
+DEF_BINARY_FN_MAP(nextafterf, nextafter, float)
+DEF_BINARY_FN_MAP(nextafterl, nextafter, C2OCL_LONG_DOUBLE)
+// nexttowardl(x, y) differs from nextafter only in y's type, long double,
+// which is the same 64-bit double here.
+DEF_BINARY_FN_MAP(nexttowardl, nextafter, C2OCL_LONG_DOUBLE)
+DEF_BINARY_FN_MAP(remainder, remainder, double)
+DEF_BINARY_FN_MAP(remainderf, remainder, float)
+DEF_BINARY_FN_MAP(remainderl, remainder, C2OCL_LONG_DOUBLE)
+
+// nexttoward(x, y) takes a long double y, the same 64-bit double as x here,
+// so it is nextafter. nexttowardf(x, y) narrows it; __chip_nexttoward
+// (devicelib.cl) applies C's rule that y is returned converted to float when
+// x == y.
+DEF_BINARY_FN_MAP_MIXED(nexttoward, nextafter, double, C2OCL_LONG_DOUBLE)
+DEF_BINARY_FN_MAP_MIXED(nexttowardf, __chip_nexttoward, float,
+                        C2OCL_LONG_DOUBLE)
+// C's scalbn(x, n) is x * FLT_RADIX^n. OpenCL C fixes FLT_RADIX at 2 and
+// defines ldexp(x, k) as "Multiply x by 2 to the power k", so scalbn is
+// ldexp. scalbln takes a long exponent; __chip_scalbln (devicelib.cl) clamps
+// it to int first, which is exact because ldexp saturates to 0 or infinity
+// long before either end of int.
+DEF_BINARY_FN_MAP_MIXED(scalbln, __chip_scalbln, double, long)
+DEF_BINARY_FN_MAP_MIXED(scalblnf, __chip_scalbln, float, long)
+DEF_BINARY_FN_MAP_MIXED(scalblnl, __chip_scalbln, C2OCL_LONG_DOUBLE, long)
+DEF_BINARY_FN_MAP_MIXED(scalbn, ldexp, double, int)
+DEF_BINARY_FN_MAP_MIXED(scalbnf, ldexp, float, int)
+DEF_BINARY_FN_MAP_MIXED(scalbnl, ldexp, C2OCL_LONG_DOUBLE, int)

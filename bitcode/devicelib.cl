@@ -1107,11 +1107,36 @@ EXPORT OVLD void __chip_syncwarp() {
   return sub_group_barrier(CLK_GLOBAL_MEM_FENCE);
 }
 
+// Targets of the c_to_opencl.def entries whose OpenCL counterpart is not a
+// plain builtin.
+//
+// scalbln takes a long exponent and ldexp an int. ldexp already returns 0 or
+// infinity for any finite nonzero x once |k| passes a few thousand, so
+// clamping the exponent to int changes nothing.
+static OVLD float __chip_scalbln(float x, long n) {
+  return ldexp(x, (int)clamp(n, (long)INT_MIN, (long)INT_MAX));
+}
+static OVLD double __chip_scalbln(double x, long n) {
+  return ldexp(x, (int)clamp(n, (long)INT_MIN, (long)INT_MAX));
+}
+// nexttowardf(x, y): y is a long double, a 64-bit double on spirv64. C
+// returns y converted to float when x == y (which is how -0.0f steps to
+// +0.0f), and otherwise the next float after x in the direction of y.
+static float __chip_nexttoward(float x, double y) {
+  if (isnan(y) || x == y)
+    return (float)y;
+  return nextafter(x, y > x ? INFINITY : -INFINITY);
+}
+
 // See c_to_opencl.def for details.
 #define DEF_UNARY_FN_MAP(FROM_FN_, TO_FN_, TYPE_)                              \
   TYPE_ __chip_c2ocl_##FROM_FN_(TYPE_ x) { return TO_FN_(x); }
 #define DEF_BINARY_FN_MAP(FROM_FN_, TO_FN_, TYPE_)                             \
   TYPE_ __chip_c2ocl_##FROM_FN_(TYPE_ x, TYPE_ y) { return TO_FN_(x, y); }
+#define DEF_UNARY_FN_MAP_RET(FROM_FN_, TO_FN_, RET_TYPE_, TYPE_)               \
+  RET_TYPE_ __chip_c2ocl_##FROM_FN_(TYPE_ x) { return TO_FN_(x); }
+#define DEF_BINARY_FN_MAP_MIXED(FROM_FN_, TO_FN_, TYPE_, TYPE2_)               \
+  TYPE_ __chip_c2ocl_##FROM_FN_(TYPE_ x, TYPE2_ y) { return TO_FN_(x, y); }
 #include "c_to_opencl.def"
 #undef UNARY_FN
 #undef BINARY_FN
