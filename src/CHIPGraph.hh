@@ -286,7 +286,7 @@ private:
   std::vector<void *> ArgList_;
 
   hipKernelNodeParams Params_;
-  chipstar::ExecItem *ExecItem_;
+  chipstar::ExecItem *ExecItem_ = nullptr;
 
 public:
   CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other);
@@ -296,7 +296,7 @@ public:
   CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim, dim3 BlockDim,
                       void **Args, size_t SharedMem);
 
-  virtual ~CHIPGraphNodeKernel() override {}
+  virtual ~CHIPGraphNodeKernel() override { delete ExecItem_; }
 
   virtual void execute(chipstar::Queue *Queue) const override;
 
@@ -304,7 +304,14 @@ public:
 
   std::string getKernelName() const;
 
-  void setParams(const hipKernelNodeParams Params) { Params_ = Params; }
+  /**
+   * @brief Set the kernel, launch configuration and arguments.
+   *
+   * Copies the argument bytes, so Params.kernelParams only has to stay valid
+   * for the call, and rebuilds the exec item so that the next execute()
+   * launches with these parameters.
+   */
+  void setParams(const hipKernelNodeParams &Params);
   /**
    * @brief Createa a copy of this node
    * Must copy over all the arguments

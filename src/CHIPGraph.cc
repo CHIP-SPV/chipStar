@@ -93,8 +93,10 @@ CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const CHIPGraphNodeKernel &Other)
     : CHIPGraphNode(Other) {
-  Params_ = Other.Params_;
-  ExecItem_ = Other.ExecItem_->clone();
+  // Other.Params_.kernelParams points into Other's own argument buffer.
+  // Going through setParams() gives the copy its own argument bytes, exec
+  // item and kernel handle, so it does not depend on Other staying alive.
+  setParams(Other.Params_);
 }
 
 CHIPGraphNode *CHIPGraphNodeKernel::clone() const {
@@ -138,22 +140,47 @@ void CHIPGraphNodeKernel::execute(chipstar::Queue *Queue) const {
 
 CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
     : CHIPGraphNode(hipGraphNodeTypeKernel) {
-  Params_.blockDim = TheParams->blockDim;
-  Params_.extra = TheParams->extra;
-  Params_.func = TheParams->func;
-  Params_.gridDim = TheParams->gridDim;
-  Params_.sharedMemBytes = TheParams->sharedMemBytes;
+  setParams(*TheParams);
+}
 
-  auto Dev = Backend->getActiveDevice();
-  chipstar::Kernel *ChipKernel = Dev->findKernel(HostPtr(Params_.func));
+CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
+                                         dim3 BlockDim, void **Args,
+                                         size_t SharedMem)
+    : CHIPGraphNode(hipGraphNodeTypeKernel) {
+  hipKernelNodeParams Params = {};
+  Params.func = const_cast<void *>(HostFunction);
+  Params.gridDim = GridDim;
+  Params.blockDim = BlockDim;
+  Params.sharedMemBytes = SharedMem;
+  Params.kernelParams = Args;
+  Params.extra = nullptr;
+  setParams(Params);
+}
+
+void CHIPGraphNodeKernel::setParams(const hipKernelNodeParams &Params) {
+  auto *Dev = Backend->getActiveDevice();
+  chipstar::Kernel *ChipKernel = Dev->findKernel(HostPtr(Params.func));
   if (!ChipKernel)
     CHIPERR_LOG_AND_THROW("Could not find requested kernel",
                           hipErrorInvalidDeviceFunction);
 
-  copyKernelArgs(ArgList_, ArgData_, TheParams->kernelParams,
+  // Copy into fresh buffers before touching the members: Params may be this
+  // node's own getParams() result, whose kernelParams point into ArgData_.
+  std::vector<char> ArgData;
+  std::vector<void *> ArgList;
+  copyKernelArgs(ArgList, ArgData, Params.kernelParams,
                  *ChipKernel->getFuncInfo());
+  ArgData_.swap(ArgData);
+  ArgList_.swap(ArgList);
+
+  Params_.func = Params.func;
+  Params_.gridDim = Params.gridDim;
+  Params_.blockDim = Params.blockDim;
+  Params_.sharedMemBytes = Params.sharedMemBytes;
+  Params_.extra = Params.extra;
   Params_.kernelParams = ArgList_.data();
 
+  delete ExecItem_;
   ExecItem_ = Backend->createExecItem(Params_.gridDim, Params_.blockDim,
                                       Params_.sharedMemBytes, nullptr);
   ExecItem_->setKernel(ChipKernel);
@@ -161,45 +188,11 @@ CHIPGraphNodeKernel::CHIPGraphNodeKernel(const hipKernelNodeParams *TheParams)
   // launching the same kernel does not clobber this node's argument
   // bindings when both are queued before execution (issue #782).
   ExecItem_->useIndependentKernelHandle();
-  ExecItem_->setArgs(TheParams->kernelParams);
-  // setupAllArgs() binds implicit device-global address arguments, so the
-  // module's device variables must be allocated first. The normal launch path
-  // does this, but graph-node construction happens before any launch.
-  Dev->prepareDeviceVariables(HostPtr(Params_.func));
-  ExecItem_->setupAllArgs();
-}
-
-CHIPGraphNodeKernel::CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim,
-                                         dim3 BlockDim, void **Args,
-                                         size_t SharedMem)
-    : CHIPGraphNode(hipGraphNodeTypeKernel) {
-  Type_ = hipGraphNodeTypeKernel;
-  Params_.blockDim = BlockDim;
-  Params_.extra = nullptr;
-  Params_.func = const_cast<void *>(HostFunction);
-  Params_.gridDim = GridDim;
-  Params_.sharedMemBytes = SharedMem;
-
-  auto Dev = Backend->getActiveDevice();
-  chipstar::Kernel *ChipKernel = Dev->findKernel(HostPtr(HostFunction));
-  if (!ChipKernel)
-    CHIPERR_LOG_AND_THROW("Could not find requested kernel",
-                          hipErrorInvalidDeviceFunction);
-
-  copyKernelArgs(ArgList_, ArgData_, Args, *ChipKernel->getFuncInfo());
-  Params_.kernelParams = ArgList_.data();
-
-  ExecItem_ = Backend->createExecItem(GridDim, BlockDim, SharedMem, nullptr);
-  ExecItem_->setKernel(ChipKernel);
-  // Give this graph node a private kernel handle so that another node
-  // launching the same kernel does not clobber this node's argument
-  // bindings when both are queued before execution (issue #782).
-  ExecItem_->useIndependentKernelHandle();
   ExecItem_->setArgs(Params_.kernelParams);
   // setupAllArgs() binds implicit device-global address arguments, so the
-  // module's device variables must be allocated first (see the
-  // hipKernelNodeParams constructor above).
-  Dev->prepareDeviceVariables(HostPtr(HostFunction));
+  // module's device variables must be allocated first. The normal launch path
+  // does this, but a graph node is built before any launch.
+  Dev->prepareDeviceVariables(HostPtr(Params_.func));
   ExecItem_->setupAllArgs();
 }
 
