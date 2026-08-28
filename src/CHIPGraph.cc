@@ -253,7 +253,12 @@ void unchainUnnecessaryDeps(std::vector<CHIPGraphNode *> Path,
 
   for (int i = 0; i < SubPath.size(); i++) {
     if (SubPath[i] != Path[i]) {
-      SubPath[i - 1]->removeDependency(SubPath[i]);
+      // Paths were enumerated before any pruning, so several (Path, SubPath)
+      // pairs can single out the same redundant edge; an earlier pair may
+      // already have removed it.
+      auto Deps = SubPath[i - 1]->getDependencies();
+      if (std::find(Deps.begin(), Deps.end(), SubPath[i]) != Deps.end())
+        SubPath[i - 1]->removeDependency(SubPath[i]);
       break;
     }
   }
