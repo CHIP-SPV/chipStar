@@ -359,16 +359,19 @@ void CHIPGraphExec::launch(chipstar::Queue *Queue) {
     }
     logDebug("Executing nodes: {}", NodesInThisLevel);
     for (auto Node : Nodes) {
-      // The schedule is built from the original nodes; the per-exec enabled
-      // switch (hipGraphNodeSetEnabled) lives on their compiled copies. A
-      // disabled node behaves like an empty node.
+      // The schedule is built from the original nodes, but what runs is the
+      // node's copy in the compiled graph: it holds the parameters set through
+      // hipGraphExec*NodeSetParams and the hipGraphNodeSetEnabled switch, and
+      // edits to the original node after instantiation do not reach it. A
+      // node the original graph gained after instantiation has no copy and
+      // runs as it is. A disabled node behaves like an empty node.
       auto *ExecNode = CompiledGraph_.nodeLookup(Node);
       if (ExecNode && !ExecNode->isEnabled()) {
         logDebug("Skipping disabled {}", Node->Msg);
         continue;
       }
       logDebug("Executing {}", Node->Msg);
-      Node->execute(Queue);
+      (ExecNode ? ExecNode : Node)->execute(Queue);
       Queue->finish();
     }
 
