@@ -397,6 +397,38 @@ chipstar::DeviceVar *chipstar::Module::getGlobalVar(const char *VarName) {
   return *VarFound;
 }
 
+void chipstar::Module::addUnregisteredDeviceVariables() {
+  // A __chip_var_info_<X> shadow kernel means HipGlobalVariables.cpp lowered X
+  // into a __chip_var_<X> address slot: the module's code reads X through the
+  // slot and __chip_var_init_all writes X's initializer through it, so the
+  // slot must be bound to storage before the module's first launch whether or
+  // not the host registered X. clang emits no __hipRegisterVar for a
+  // function-local static __device__ variable, for an inline __device__
+  // variable or a template static data member that host code does not ODR-use
+  // (clang/lib/CodeGen/CGCUDANV.cpp, handleVarRegistration), or for any
+  // variable of a code object loaded through hipModuleLoadData. Such
+  // variables have no host pointer; they are looked up by name only.
+  static int NoHostPtr = 0;
+  for (auto *Kernel : ChipKernels_) {
+    const std::string &KernelName = Kernel->getName();
+    if (KernelName.rfind(ChipVarInfoPrefix, 0) != 0)
+      continue;
+    std::string VarName = KernelName.substr(strlen(ChipVarInfoPrefix));
+    bool HasVar = std::any_of(ChipVars_.begin(), ChipVars_.end(),
+                              [&VarName](chipstar::DeviceVar *Var) {
+                                return Var->getName() == VarName;
+                              });
+    if (HasVar)
+      continue;
+    logTrace("Device variable {} has no host registration in module {}, "
+             "binding it from its shadow kernels",
+             VarName, (void *)this);
+    UnregisteredVars_.push_back(std::make_unique<SPVVariable>(SPVVariable{
+        {const_cast<SPVModule *>(Src_), HostPtr(&NoHostPtr), VarName}, 0}));
+    addDeviceVariable(new chipstar::DeviceVar(UnregisteredVars_.back().get()));
+  }
+}
+
 hipError_t
 chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
                                                 chipstar::Queue *Queue) {
@@ -1268,36 +1300,9 @@ void chipstar::Device::registerModuleVariables(chipstar::Module *ChipModule,
     DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
   }
 
-  // For hipRTC modules, discover variables from shadow kernels
-  // (SrcMod->Variables is empty for hipRTC)
-  if (SrcMod->Variables.empty()) {
-    auto &Kernels = ChipModule->getKernels();
-
-    // Create fake SPVVariables for hipRTC - these will be owned by SrcMod
-    auto *MutableSrcMod = const_cast<SPVModule *>(SrcMod);
-
-    for (auto *Kernel : Kernels) {
-      std::string KernelName = Kernel->getName();
-
-      // Look for variable info shadow kernels
-      if (KernelName.find(ChipVarInfoPrefix) == 0) {
-        // Extract variable name from __chip_var_info_<varname>
-        std::string VarName = KernelName.substr(strlen(ChipVarInfoPrefix));
-
-        // Create fake SPVVariable for hipRTC - add to SrcMod's Variables list
-        // Use a dummy host pointer since hipRTC variables don't have real host
-        // pointers
-        void *DummyPtr = reinterpret_cast<void *>(
-            static_cast<uintptr_t>(0x1000 + MutableSrcMod->Variables.size()));
-        MutableSrcMod->Variables.emplace_back(
-            SPVVariable{{MutableSrcMod, HostPtr(DummyPtr), VarName}, 0});
-
-        // Now register this variable with the module
-        auto *Var = new chipstar::DeviceVar(&MutableSrcMod->Variables.back());
-        ChipModule->addDeviceVariable(Var);
-      }
-    }
-  }
+  // hipRTC and hipModuleLoadData code objects have no host registration at
+  // all; a HIP fat binary may still carry variables the host did not register.
+  ChipModule->addUnregisteredDeviceVariables();
 }
 
 void chipstar::Device::invalidateDeviceVariables() {
@@ -1376,68 +1381,9 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
     HostPtrToCompiledMod_[Info.Ptr] = Mod;
   }
 
-  // Discover device-only variables (e.g., template instantiations) that weren't
-  // registered via __hipRegisterVar. These have shadow kernels but no host symbol.
-  // Static variables protected by DeviceVarMtx to ensure thread safety.
-  static int DummyHostPtr = 0;
-  // Use unique_ptr for automatic cleanup when the program exits
-  static std::vector<std::unique_ptr<SPVVariable>> SyntheticVars;
-
   {
-    LOCK(DeviceVarMtx); // Protect static SyntheticVars from concurrent access
-    for (auto *Kernel : Mod->getKernels()) {
-      const std::string &KernelName = Kernel->getName();
-      size_t PrefixLen = strlen(ChipVarInfoPrefix);
-
-      // Check if this is a variable info shadow kernel
-      if (KernelName.length() <= PrefixLen ||
-          KernelName.substr(0, PrefixLen) != ChipVarInfoPrefix)
-        continue;
-
-      // Extract variable name
-      std::string VarName = KernelName.substr(PrefixLen);
-
-      // Check if we already processed this variable
-      bool AlreadyRegistered = false;
-      for (const auto &Info : SrcMod->Variables) {
-        std::string NameTmp(Info.Name.begin(), Info.Name.end());
-        if (NameTmp == VarName) {
-          AlreadyRegistered = true;
-          break;
-        }
-      }
-
-      if (AlreadyRegistered)
-        continue;
-
-      // Check if already in SyntheticVars (another thread may have added it)
-      bool AlreadySynthesized = false;
-      for (const auto &SV : SyntheticVars) {
-        if (SV->Name == VarName) {
-          AlreadySynthesized = true;
-          break;
-        }
-      }
-      if (AlreadySynthesized)
-        continue;
-
-      // This is a device-only variable - create a DeviceVar for it
-      logTrace("Found device-only variable: {} (no host symbol)", VarName);
-
-      // Create a synthetic SPVVariable for this device-only variable
-      // Use aggregate initialization since SPVVariable has no default constructor
-      auto *RawVar = new SPVVariable{
-          {const_cast<SPVModule *>(SrcMod), HostPtr(&DummyHostPtr), VarName}, 0};
-      std::unique_ptr<SPVVariable> SyntheticVar(RawVar);
-
-      auto *Var = new chipstar::DeviceVar(SyntheticVar.get());
-      Mod->addDeviceVariable(Var);
-
-      // Store the synthetic variable so it persists (unique_ptr handles cleanup)
-      SyntheticVars.push_back(std::move(SyntheticVar));
-
-      // Note: We don't add to DeviceVarLookup_ since there's no host pointer
-    }
+    LOCK(DeviceVarMtx); // chipstar::Module::ChipVars_
+    Mod->addUnregisteredDeviceVariables();
   }
 
 #ifndef NDEBUG
