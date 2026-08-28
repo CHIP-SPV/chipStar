@@ -260,17 +260,21 @@ void *MemoryManager::allocate(size_t Size, size_t Alignment,
   assert(Allocations_.find(Ptr) == Allocations_.end());
   Allocations_.emplace(Ptr, Size);
 
-  // Set the appropriate bool based on the MemType
+  // Record which USM kinds exist so annotateIndirectPointers() can set the
+  // matching CL_KERNEL_EXEC_INFO_INDIRECT_*_ACCESS_INTEL flags. Managed and
+  // unified allocations are host USM (allocateUSM() uses
+  // clHostMemAllocINTEL for them), so they count as host allocations: the
+  // Intel CPU runtime rejects a launch (CL_INVALID_OPERATION) when a USM
+  // pointer in CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL lacks the indirect access
+  // flag of its own kind.
   switch (MemType) {
   case hipMemoryTypeHost:
+  case hipMemoryTypeManaged:
+  case hipMemoryTypeUnified:
     hostAllocUsed = true;
     break;
   case hipMemoryTypeDevice:
     deviceAllocUsed = true;
-    break;
-  case hipMemoryTypeManaged:
-  case hipMemoryTypeUnified:
-    sharedAllocUsed = true;
     break;
   default:
     // Handle unexpected memory type
