@@ -70,6 +70,7 @@ set(RUNTIME_TESTS_MANUAL
   TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
+  TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
   TestModuleCacheInvalidation.hip # run several times through a driver script
   TestStreamWaitEventOrdering.cpp # not registered as a test
@@ -323,3 +324,31 @@ if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
       -P ${CMAKE_SOURCE_DIR}/tests/run_device_abort_stderr_test.cmake)
   set_tests_properties(TestDeviceAbortStderr PROPERTIES TIMEOUT 120)
 endif()
+# Reproducer for the unregistered comdat device variables (a function-local
+# static __device__ variable, an inline __device__ variable, a template static
+# data member). The bug needs two device modules carrying the same variables,
+# so the test is linked from two translation units, which
+# add_hip_runtime_test cannot express. Run at warn level so the runtime's
+# device variable diagnostics are visible in the log.
+set_source_files_properties(TestFixFunctionLocalStaticDeviceVar.hip
+  inputs/FunctionLocalStaticDeviceVarTU2.hip PROPERTIES LANGUAGE CXX)
+add_executable(TestFixFunctionLocalStaticDeviceVar
+  TestFixFunctionLocalStaticDeviceVar.hip
+  inputs/FunctionLocalStaticDeviceVarTU2.hip)
+set_target_properties(TestFixFunctionLocalStaticDeviceVar PROPERTIES
+  CXX_STANDARD_REQUIRED ON)
+target_link_libraries(TestFixFunctionLocalStaticDeviceVar CHIP deviceInternal)
+target_include_directories(TestFixFunctionLocalStaticDeviceVar
+  PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+target_compile_definitions(TestFixFunctionLocalStaticDeviceVar
+  PRIVATE CHIP_SKIP_TEST=${CHIP_SKIP_TEST})
+add_test(NAME TestFixFunctionLocalStaticDeviceVar
+  COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS}
+    ${CMAKE_CURRENT_BINARY_DIR}/TestFixFunctionLocalStaticDeviceVar)
+set_tests_properties(TestFixFunctionLocalStaticDeviceVar PROPERTIES
+  ENVIRONMENT "CHIP_LOGLEVEL=warn"
+  PASS_REGULAR_EXPRESSION "PASS"
+  FAIL_REGULAR_EXPRESSION "FAIL"
+  SKIP_RETURN_CODE ${CHIP_SKIP_TEST}
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
+  TIMEOUT 120)
