@@ -123,6 +123,7 @@ add_library(LLVMHipPasses MODULE
     HipLowerRoundIntrinsics.cpp
     HipLowerSubwordAtomics.cpp
     HipLowerSwitch.cpp
+    HipLowerVolatileAccesses.cpp
     HipLowerZeroLengthArrays.cpp
     HipPasses.cpp
     HipPrintf.cpp
