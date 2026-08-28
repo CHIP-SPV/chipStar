@@ -44,6 +44,7 @@
 #include "logging.hh"
 #include "macros.hh"
 #include "CHIPException.hh"
+#include <memory>
 #include <utility>
 
 #include "SPVRegister.hh"
@@ -978,6 +979,12 @@ protected:
   std::mutex Mtx_;
   // Global variables
   std::vector<chipstar::DeviceVar *> ChipVars_;
+  /// Source descriptions of the device variables this module carries but the
+  /// host never registered with __hipRegisterVar, see
+  /// addUnregisteredDeviceVariables(). Owned per module: every module that
+  /// carries such a variable has its own copy of it and needs its own
+  /// storage bound to it.
+  std::vector<std::unique_ptr<SPVVariable>> UnregisteredVars_;
   // Kernels
   std::vector<chipstar::Kernel *> ChipKernels_;
   /// Binary representation extracted from FatBinary.
@@ -1095,6 +1102,11 @@ public:
   }
 
   std::vector<chipstar::DeviceVar *> &getDeviceVariables() { return ChipVars_; }
+
+  /// Record a device variable for every __chip_var_info_<X> shadow kernel of
+  /// this module whose X has no device variable yet. Caller must hold
+  /// DeviceVarMtx.
+  void addUnregisteredDeviceVariables();
 
   hipError_t allocateDeviceVariablesNoLock(chipstar::Device *Device,
                                            chipstar::Queue *Queue);
