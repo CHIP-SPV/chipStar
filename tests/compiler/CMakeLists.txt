@@ -213,3 +213,5 @@ add_subdirectory(subwordAtomics)
 
 # Add the untranslatable math intrinsic (llround / llrint / ldexp) pass tests
 add_subdirectory(mathIntrinsics)
+# Add the volatile global access lowering pass tests
+add_subdirectory(volatileAccesses)
