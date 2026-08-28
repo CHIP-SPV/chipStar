@@ -412,6 +412,14 @@ void CHIPGraphNodeHost::execute(chipstar::Queue *Queue) const {
   Params_.fn(Params_.userData);
 }
 
+void CHIPGraphNodeGraph::execute(chipstar::Queue *Queue) const {
+  // The schedule runs this node after all of its dependencies and before all
+  // of its dependants, so running the child graph to completion here keeps
+  // the ordering the parent graph asked for.
+  CHIPGraphExec SubGraphExec(SubGraph_);
+  SubGraphExec.launch(Queue);
+}
+
 void CHIPGraphNodeEventRecord::execute(chipstar::Queue *Queue) const {
   NULLCHECK(Event_);
   auto Status = hipEventRecordInternal(Event_, Queue);
