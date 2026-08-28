@@ -277,16 +277,20 @@ chipstar::AllocationTracker::getAllocInfoCheckPtrRanges(void *DevPtr) {
   // Note: This function is called from within a locked context
 
   // upper_bound gives the first entry with key > DevPtr; step back one to get
-  // the candidate whose start address is <= DevPtr, then range-check it.
+  // the candidate whose start address is <= DevPtr, then range-check it. The
+  // key is the start of either the host or the device range of the record, so
+  // the range is measured from the key: a hipHostRegister'ed record has a host
+  // range at a different address than its device range, and no device range
+  // at all until hipHostGetDevicePointer creates the backing.
   const auto It = PtrToAllocInfo_.upper_bound(DevPtr);
   if (It == PtrToAllocInfo_.cbegin())
     return nullptr;
 
-  chipstar::AllocationInfo *AllocInfo = std::prev(It)->second;
-  void *End = (char*) AllocInfo->DevPtr + AllocInfo->Size;
+  const auto &Candidate = *std::prev(It);
+  void *End = static_cast<char *>(Candidate.first) + Candidate.second->Size;
 
   if (DevPtr < End)
-    return AllocInfo;
+    return Candidate.second;
 
   return nullptr;
 }
