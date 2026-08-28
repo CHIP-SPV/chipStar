@@ -801,6 +801,16 @@ class CHIPDeviceLevel0 : public chipstar::Device {
   // Filled if ZE_extension_float_atomics extension is supported.
   ze_float_atomic_ext_properties_t FpAtomicProps_;
 
+  // Access capabilities (RW, ATOMIC, CONCURRENT) of each USM kind, from
+  // zeDeviceGetMemoryAccessProperties.
+  ze_device_memory_access_properties_t MemAccessProps_;
+
+  // Whether hipMallocManaged allocations are backed by zeMemAllocShared
+  // rather than zeMemAllocHost. Decided once in
+  // populateDevicePropertiesImpl() from MemAccessProps_ and
+  // CHIP_L0_MANAGED_USM.
+  bool ManagedUsesSharedUsm_ = false;
+
   CHIPDeviceLevel0(ze_device_handle_t ZeDev, CHIPContextLevel0 *ChipCtx,
                    int Idx);
 
@@ -867,6 +877,13 @@ public:
   const ze_float_atomic_ext_properties_t &getFpAtomicProps() const noexcept {
     return FpAtomicProps_;
   }
+
+  const ze_device_memory_access_properties_t &
+  getMemAccessProps() const noexcept {
+    return MemAccessProps_;
+  }
+
+  bool managedUsesSharedUsm() const noexcept { return ManagedUsesSharedUsm_; }
 };
 
 class CHIPBackendLevel0 : public chipstar::Backend {

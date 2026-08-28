@@ -235,6 +235,13 @@ public:
   /// Fail = run, return HIPRTC_ERROR_COMPILATION on mismatch
   enum class HipccVerifyMode { Off, Warn, Fail };
 
+  /// USM kind backing hipMallocManaged on the Level Zero backend.
+  /// Auto   = shared USM only when host USM has no atomic access capability
+  ///          and single-device shared USM has it, host USM otherwise
+  /// Host   = always zeMemAllocHost
+  /// Shared = always zeMemAllocShared (associated with the device)
+  enum class L0ManagedUsm { Auto, Host, Shared };
+
 private:
   int PlatformIdx_ = 0;
   DeviceType Device_{DeviceType::GPU};
@@ -255,6 +262,7 @@ private:
   std::string JitFlagsOverride_ = "";
   unsigned long L0EventTimeout_ = 0;
   int L0CollectEventsTimeout_ = 0;
+  L0ManagedUsm L0ManagedUsm_ = L0ManagedUsm::Auto;
   bool OCLDisableQueueProfiling_ = false;
   std::optional<std::string> OclUseAllocStrategy_;
   std::optional<std::string> ModuleCacheDir_;
@@ -289,6 +297,17 @@ public:
       return UINT64_MAX;
 
     return L0EventTimeout_;
+  }
+  L0ManagedUsm getL0ManagedUsm() const { return L0ManagedUsm_; }
+  const char *getL0ManagedUsmStr() const {
+    switch (L0ManagedUsm_) {
+    case L0ManagedUsm::Host:
+      return "host";
+    case L0ManagedUsm::Shared:
+      return "shared";
+    default:
+      return "auto";
+    }
   }
   bool getOCLDisableQueueProfiling() const { return OCLDisableQueueProfiling_; }
   const std::optional<std::string> &getOclUseAllocStrategy() const noexcept {
@@ -343,6 +362,18 @@ private:
     L0EventTimeout_ = readEnvVar("CHIP_L0_EVENT_TIMEOUT", value)
                           ? parseInt(value)
                           : L0EventTimeout_;
+    if (readEnvVar("CHIP_L0_MANAGED_USM", value)) {
+      if (value == "auto")
+        L0ManagedUsm_ = L0ManagedUsm::Auto;
+      else if (value == "host")
+        L0ManagedUsm_ = L0ManagedUsm::Host;
+      else if (value == "shared")
+        L0ManagedUsm_ = L0ManagedUsm::Shared;
+      else
+        CHIPERR_LOG_AND_THROW("Invalid CHIP_L0_MANAGED_USM value: " + value +
+                                  " (expected auto, host or shared)",
+                              hipErrorInitializationError);
+    }
     OCLDisableQueueProfiling_ =
         readEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING", value)
             ? parseBoolean(value)
@@ -435,6 +466,7 @@ private:
     logInfo("CHIP_JIT_FLAGS_OVERRIDE={}", JitFlagsOverride_);
     logInfo("CHIP_L0_COLLECT_EVENTS_TIMEOUT={}", L0CollectEventsTimeout_);
     logInfo("CHIP_L0_EVENT_TIMEOUT={}", L0EventTimeout_);
+    logInfo("CHIP_L0_MANAGED_USM={}", getL0ManagedUsmStr());
     logInfo("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");
     logInfo("CHIP_LAZY_JIT={}", LazyJit_ ? "on" : "off");
     logInfo("CHIP_OCL_DISABLE_QUEUE_PROFILING={}",
