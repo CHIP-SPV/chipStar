@@ -366,6 +366,14 @@ void CHIPGraphExec::launch(chipstar::Queue *Queue) {
     }
     logDebug("Executing nodes: {}", NodesInThisLevel);
     for (auto Node : Nodes) {
+      // The schedule is built from the original nodes; the per-exec enabled
+      // switch (hipGraphNodeSetEnabled) lives on their compiled copies. A
+      // disabled node behaves like an empty node.
+      auto *ExecNode = CompiledGraph_.nodeLookup(Node);
+      if (ExecNode && !ExecNode->isEnabled()) {
+        logDebug("Skipping disabled {}", Node->Msg);
+        continue;
+      }
       logDebug("Executing {}", Node->Msg);
       Node->execute(Queue);
       Queue->finish();
