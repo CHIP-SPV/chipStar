@@ -2218,13 +2218,18 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
       if (ModInfo.HasNoIGBAs) {
         bool IsKernelArg = false;
         const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
+        void *DevBegin = AllocInfo.DevPtr;
+        void *DevEnd = static_cast<char *>(AllocInfo.DevPtr) + AllocInfo.Size;
         FuncInfo.visitKernelArgs(ExecItem->getArgs(),
                                  [&](const SPVFuncInfo::KernelArg &Arg) {
                                    if (Arg.Kind == SPVTypeKind::Pointer &&
                                        !Arg.isWorkgroupPtr()) {
                                      void *PtrVal = *static_cast<void **>(
                                          const_cast<void *>(Arg.Data));
-                                     if (PtrVal == AllocInfo.DevPtr)
+                                     // The argument may point anywhere inside
+                                     // the allocation, e.g. the device pointer
+                                     // of an interior host pointer.
+                                     if (PtrVal >= DevBegin && PtrVal < DevEnd)
                                        IsKernelArg = true;
                                    }
                                  });
