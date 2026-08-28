@@ -67,6 +67,7 @@ endfunction()
 # here and registered by hand below instead.
 set(RUNTIME_TESTS_MANUAL
   TestBufferDevAddr.hip           # guarded on OpenCL_LIBRARY
+  TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
   TestModuleCacheInvalidation.hip # run several times through a driver script
@@ -237,3 +238,21 @@ add_test(NAME TestModuleCacheInvalidation
     -P ${CMAKE_SOURCE_DIR}/tests/run_module_cache_invalidation_test.cmake)
 set_tests_properties(TestModuleCacheInvalidation PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+# A failed device-side assertion must report its message on stderr, where ROCm
+# writes it and where gtest death tests (Kokkos hip_DeathTest.abort_from_device)
+# look for it; device printf only reaches stdout. The expected outcome is a
+# SIGABRT death plus specific stderr content, which add_hip_runtime_test cannot
+# express, so a driver script owns the verdict.
+set_source_files_properties(TestDeviceAbortStderr.hip PROPERTIES LANGUAGE CXX)
+add_executable(TestDeviceAbortStderr TestDeviceAbortStderr.hip)
+set_target_properties(TestDeviceAbortStderr PROPERTIES CXX_STANDARD_REQUIRED ON)
+target_link_libraries(TestDeviceAbortStderr CHIP deviceInternal)
+target_include_directories(TestDeviceAbortStderr
+  PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+add_test(NAME TestDeviceAbortStderr
+  COMMAND ${CMAKE_COMMAND}
+    -DTEST_EXECUTABLE=$<TARGET_FILE:TestDeviceAbortStderr>
+    -DTEST_TIMEOUT=60
+    -P ${CMAKE_SOURCE_DIR}/tests/run_device_abort_stderr_test.cmake)
+set_tests_properties(TestDeviceAbortStderr PROPERTIES TIMEOUT 120)
