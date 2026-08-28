@@ -179,6 +179,12 @@ add_shell_test(TestFix1592ExtractorExitStatus.bash)
 # Catch2 case name containing a space was being re-split by the shell.
 add_shell_test(TestFix1600ExtractorArgvBoundaries.bash)
 
+# Volatile 32 and 64 bit global accesses must reach the SPIR-V producer as
+# relaxed device-scope atomics (Kokkos::volatile_load on PVC reads stale L1
+# data otherwise). Inspects the lowered device bitcode of
+# TestFixVolatileLoadLowering.hip, and the SPIR-V module when spirv-dis exists.
+add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
+
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES
   TIMEOUT 60)
