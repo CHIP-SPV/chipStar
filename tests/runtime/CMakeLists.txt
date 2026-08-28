@@ -163,6 +163,14 @@ set_tests_properties(TestEventResetWarnFlood PROPERTIES
 # __clz(0)-poison miscompile only manifests at -O1 and above.
 target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
 
+# Reproducer for the unresolved C99 <cmath> float libcalls (tgammaf and co).
+# Run at warn level so the runtime's "Missing definition for 'tgammaf'" report
+# is visible, and fail on it: on Level Zero the unresolved import surfaces only
+# later, as ZE_RESULT_ERROR_INVALID_MODULE_UNLINKED after the relink fallback.
+set_tests_properties(TestFixStdCmathFloatLibcalls PROPERTIES
+  ENVIRONMENT "CHIP_LOGLEVEL=warn"
+  FAIL_REGULAR_EXPRESSION "FAIL;Missing definition for")
+
 ######################################
 # Extra ctest invocations of already-registered executables.
 ######################################
