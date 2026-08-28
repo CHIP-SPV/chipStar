@@ -4415,6 +4415,19 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
                           "registered with hipHostRegister!",
                           hipErrorInvalidValue);
 
+  // HostPtr may point anywhere inside the allocation and the device pointer
+  // must carry the same offset from the device base. The offset is measured
+  // from whichever range of the record contains HostPtr: the host range when
+  // there is one (mapped host USM and unified allocations record
+  // HostPtr = DevPtr), else the device range.
+  auto InRange = [&](void *Start) {
+    return Start && HostPtr >= Start &&
+           HostPtr < static_cast<char *>(Start) + AllocInfo->Size;
+  };
+  char *Base = static_cast<char *>(
+      InRange(AllocInfo->HostPtr) ? AllocInfo->HostPtr : AllocInfo->DevPtr);
+  size_t Offset = static_cast<char *>(HostPtr) - Base;
+
   if (AllocInfo->DevPtr == nullptr) {
     // First call: erase the deferred placeholder and allocate backing device
     // memory now.
@@ -4427,11 +4440,13 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
       RETURN(hipErrorInvalidValue);
     CHIP_CATCH_RETURN_CODE(hipErrorInvalidValue)
 
-    Device->AllocTracker->registerHostPointer(HostPtr, DevPtr_internal);
-    *DevPtr = DevPtr_internal;
+    // Register the base of the host range, not the queried pointer, so that
+    // later queries at any offset resolve to this record.
+    Device->AllocTracker->registerHostPointer(Base, DevPtr_internal);
+    *DevPtr = static_cast<char *>(DevPtr_internal) + Offset;
   }
   else {
-    *DevPtr = AllocInfo->DevPtr;
+    *DevPtr = static_cast<char *>(AllocInfo->DevPtr) + Offset;
   }
   RETURN(hipSuccess);
   CHIP_CATCH
