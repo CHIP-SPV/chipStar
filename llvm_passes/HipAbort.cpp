@@ -323,19 +323,32 @@ void HipAbortPass::processFunctions(Module &M) {
   }
 }
 
-/// Erase a variable used for signaling abort event. Return true if it was found
-/// and removed.
+/// Erase the variable holding the message of a failed device-side assertion.
+/// Return true if it was found and removed.
+static bool eraseAbortMsg(Module &M) {
+  GlobalVariable *AbortMsg = M.getGlobalVariable(ChipDeviceAbortMsgName);
+  if (AbortMsg == nullptr)
+    return false;
+  AbortMsg->replaceAllUsesWith(Constant::getNullValue(AbortMsg->getType()));
+  AbortMsg->eraseFromParent();
+  return true;
+}
+
+/// Erase a variable used for signaling abort event, and the assertion message
+/// variable which is only read when the abort flag is set. Return true if
+/// either was found and removed.
 static bool eraseAbortFlag(Module &M) {
   // Mark modules that do not call abort by just the global flag variable.
   // Ugly, but should allow avoiding the kernel call to check the global
   // variable.
+  bool Erased = eraseAbortMsg(M);
   GlobalVariable *AbortFlag = M.getGlobalVariable(ChipDeviceAbortFlagName);
   if (AbortFlag != nullptr) {
     AbortFlag->replaceAllUsesWith(Constant::getNullValue(AbortFlag->getType()));
     AbortFlag->eraseFromParent();
     return true;
   }
-  return false;
+  return Erased;
 }
 
 PreservedAnalyses HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
@@ -349,12 +362,19 @@ PreservedAnalyses HipAbortPass::run(Module &Mod, ModuleAnalysisManager &AM) {
   if (AssertFailF && AssertFailF->hasNUses(0))
     AssertFailF->eraseFromParent();
 
+  // __assert_fail (__assert_rtn on macOS) is the only writer of the assertion
+  // message variable. Without a writer the variable would only add a
+  // program-scope global to the module, so drop it.
+  bool ErasedAbortMsg = false;
+  if (!Mod.getFunction("__assert_fail") && !Mod.getFunction("__assert_rtn"))
+    ErasedAbortMsg = eraseAbortMsg(Mod);
+
   // The abort calls are made to undefined abort decl thus should not get
   // inlined.
   auto *AbortF = Mod.getFunction("__chipspv_abort");
   if (!AbortF) {
-    return eraseAbortFlag(Mod) ? PreservedAnalyses::none()
-                               : PreservedAnalyses::all();
+    return (eraseAbortFlag(Mod) || ErasedAbortMsg) ? PreservedAnalyses::none()
+                                                   : PreservedAnalyses::all();
   }
   if (AbortF->hasNUses(0)) {
     AbortF->eraseFromParent();
