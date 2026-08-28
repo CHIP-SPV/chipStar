@@ -972,6 +972,14 @@ hipError_t hipLaunchHostFunc(hipStream_t stream, hipHostFn_t fn,
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(stream));
 
+  // On a capturing stream the call is recorded as a host node, which runs
+  // the function in dependency order when the graph is launched.
+  hipHostNodeParams Params = {};
+  Params.fn = fn;
+  Params.userData = userData;
+  if (ChipQueue->captureIntoGraph<CHIPGraphNodeHost>(&Params))
+    RETURN(hipSuccess);
+
   ChipQueue->launchHostFunc(fn, userData);
   RETURN(hipSuccess);
   CHIP_CATCH
