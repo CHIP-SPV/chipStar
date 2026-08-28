@@ -197,3 +197,6 @@ add_subdirectory(promoteInt)
 
 # Add the IR verification tests
 add_subdirectory(irVerification)
+
+# Add the 8 and 16 bit atomic lowering pass tests
+add_subdirectory(subwordAtomics)
