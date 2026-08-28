@@ -50,6 +50,9 @@ class CHIPGraph;
 class CHIPGraphNode : public hipGraphNode {
 protected:
   hipGraphNodeType Type_;
+  /// hipGraphNodeSetEnabled switch. It is consulted on the nodes of a
+  /// CHIPGraphExec's compiled graph: a disabled node is a no-op at launch.
+  bool Enabled_ = true;
   // nodes which depend on this node
   std::vector<CHIPGraphNode *> Dependendants_;
   // nodes on which this node depends
@@ -68,10 +71,13 @@ protected:
 public:
   std::string Msg; // TODO Graphs cleanup
   CHIPGraphNode(const CHIPGraphNode &Other)
-      : Type_(Other.Type_), Dependendants_(Other.Dependendants_),
+      : Type_(Other.Type_), Enabled_(Other.Enabled_),
+        Dependendants_(Other.Dependendants_),
         Dependencies_(Other.Dependencies_), Msg(Other.Msg) {}
 
   hipGraphNodeType getType() { return Type_; }
+  bool isEnabled() const { return Enabled_; }
+  void setEnabled(bool Enabled) { Enabled_ = Enabled; }
   virtual CHIPGraphNode *clone() const = 0;
 
   /**
@@ -713,6 +719,18 @@ public:
   void launch(chipstar::Queue *Queue);
 
   CHIPGraph *getOriginalGraphPtr() const { return OriginalGraph_; }
+
+  /**
+   * @brief Look up the executable copy of a node of the original graph.
+   *
+   * @param OriginalNode handle of a node in the graph this executable graph
+   * was instantiated from
+   * @return CHIPGraphNode* the corresponding node in the compiled graph, or
+   * nullptr if the node was not part of the graph at instantiation
+   */
+  CHIPGraphNode *getExecNode(CHIPGraphNode *OriginalNode) {
+    return CompiledGraph_.nodeLookup(OriginalNode);
+  }
 
   /**
    * @brief Optimize and generate ExecQueues_

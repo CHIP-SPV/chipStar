@@ -284,13 +284,46 @@ hipError_t hipGraphMemFreeNodeGetParams(hipGraphNode_t node, void *dptr) {
   CHIP_CATCH
 }
 
+/// Resolve hNode to its copy in hGraphExec for hipGraphNodeGetEnabled and
+/// hipGraphNodeSetEnabled. The enabled switch is defined for kernel, memcpy
+/// and memset nodes only; any other type, and a node that was not part of the
+/// graph when hGraphExec was instantiated, is hipErrorInvalidValue.
+static CHIPGraphNode *findEnableableExecNode(hipGraphExec_t hGraphExec,
+                                             hipGraphNode_t hNode) {
+  if (!hGraphExec || !hNode)
+    CHIPERR_LOG_AND_THROW("Null hipGraphExec_t or hipGraphNode_t",
+                          hipErrorInvalidValue);
+
+  auto *ExecNode = EXEC(hGraphExec)->getExecNode(NODE(hNode));
+  if (!ExecNode)
+    CHIPERR_LOG_AND_THROW("Node is not part of the instantiated graph",
+                          hipErrorInvalidValue);
+
+  switch (ExecNode->getType()) {
+  case hipGraphNodeTypeKernel:
+  case hipGraphNodeTypeMemcpy:
+  case hipGraphNodeTypeMemset:
+    break;
+  default:
+    CHIPERR_LOG_AND_THROW(
+        "Only kernel, memcpy and memset nodes can be enabled or disabled",
+        hipErrorInvalidValue);
+  }
+  return ExecNode;
+}
+
 hipError_t hipGraphNodeGetEnabled(hipGraphExec_t hGraphExec,
                                   hipGraphNode_t hNode,
                                   unsigned int *isEnabled) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+  if (!isEnabled)
+    RETURN(hipErrorInvalidValue);
+
+  *isEnabled = findEnableableExecNode(hGraphExec, hNode)->isEnabled() ? 1 : 0;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -300,7 +333,9 @@ hipError_t hipGraphNodeSetEnabled(hipGraphExec_t hGraphExec,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+
+  findEnableableExecNode(hGraphExec, hNode)->setEnabled(isEnabled != 0);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
