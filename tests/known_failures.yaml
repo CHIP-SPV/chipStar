@@ -244,8 +244,6 @@ ANY:
     Unit_hipStreamBeginCapture_captureEmptyStreams: ''
     Unit_hipStreamBeginCapture_hipStreamPerThread: ''
     Unit_hipStreamBeginCapture_multiplestrms: ''
-    Unit_hipStreamBeginCapture_nestedStreamCapture: ''
-    Unit_hipStreamBeginCapture_streamReuse: ''
     Unit_hipStreamEndCapture_Negative: ''
     Unit_hipStreamEndCapture_Thread_Negative: ''
     Unit_hipStreamGetCaptureInfo_ArgValidation: ''
