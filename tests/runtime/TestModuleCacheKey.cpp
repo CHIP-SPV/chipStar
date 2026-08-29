@@ -29,6 +29,7 @@ struct KeyInputs {
   std::string BuildOptions = "-cl-kernel-arg-info -cl-std=CL3.0";
   std::string LinkFlags = "-cl-fast-relaxed-math";
   bool NeedsRtDevLib = true;
+  std::string RtDevLibOptions = "-cl-kernel-arg-info -cl-std=CL3.0 ";
   std::vector<std::pair<std::string, std::string>> RtDevLib = {
       {"atomicAddFloat_native", "BC00"},
       {"ballot_native", "BC11"},
@@ -46,6 +47,8 @@ std::string buildKey(const KeyInputs &In) {
       .add(KeyField::BuildOptions, In.BuildOptions)
       .add(KeyField::LinkFlags, In.LinkFlags)
       .add(KeyField::BranchFlag, In.NeedsRtDevLib);
+  if (In.NeedsRtDevLib)
+    KB.add(KeyField::RtDevLibOptions, In.RtDevLibOptions);
   for (const auto &[Name, Bytes] : In.RtDevLib)
     KB.add(KeyField::RtDevLibName, Name).add(KeyField::RtDevLibBytes, Bytes);
   KB.add(KeyField::DeviceName, In.DeviceName)
@@ -89,6 +92,8 @@ int main() {
   { auto M = Base; M.BuildOptions = "-cl-std=CL2.0";Keys["build-options"] = buildKey(M); }
   { auto M = Base; M.LinkFlags += " -cl-opt-disable"; Keys["link-flags"] = buildKey(M); }
   { auto M = Base; M.NeedsRtDevLib = false;         Keys["branch-flag"] = buildKey(M); }
+  { auto M = Base; M.RtDevLibOptions += "-cl-opt-disable";
+                                                    Keys["rtdevlib-options"] = buildKey(M); }
   { auto M = Base; M.RtDevLib[1].second[3] ^= 1;    Keys["rtdevlib-byte"] = buildKey(M); }
   { auto M = Base; M.RtDevLib[0].first = "atomicAddFloat_emulation";
                                                     Keys["rtdevlib-name"] = buildKey(M); }

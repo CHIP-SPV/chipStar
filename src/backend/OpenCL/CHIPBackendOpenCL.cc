@@ -904,9 +904,15 @@ static void dumpProgramLog(CHIPDeviceOpenCL &ChipDev, cl::Program Prog) {
             ChipDev.getName(), Log);
 }
 
+/// Create a program from IL and compile it with exactly the given options.
+///
+/// The caller decides the options: the user's program and the rtdevlib
+/// modules are compiled with different strings (see computeBuildOptions and
+/// computeRtDevLibOptions), and both are hashed into the cache key, so this
+/// must not add or recompute anything.
 static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
                              const void *IL, size_t Length,
-                             const std::string &Options = "") {
+                             const std::string &Options) {
   cl_int Err;
   auto start = std::chrono::high_resolution_clock::now();
   cl::Program Prog(clCreateProgramWithIL(Ctx.get(), IL, Length, &Err));
@@ -918,11 +924,8 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 
   cl_device_id DevId = ChipDev.get()->get();
   auto Start = std::chrono::high_resolution_clock::now();
-  auto Flags = ChipEnvVars.hasJitOverride() ? ChipEnvVars.getJitFlagsOverride()
-                                            : ChipEnvVars.getJitFlags() + " " +
-                                                  Backend->getDefaultJitFlags();
-  logInfo("JIT flags: {}", Flags);
-  Err = clCompileProgram(Prog.get(), 1, &DevId, Flags.c_str(), 0, nullptr,
+  logInfo("JIT flags: {}", Options);
+  Err = clCompileProgram(Prog.get(), 1, &DevId, Options.c_str(), 0, nullptr,
                          nullptr, nullptr, nullptr);
   auto End = std::chrono::high_resolution_clock::now();
   auto Duration =
@@ -932,13 +935,6 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCompileProgram);
 
   return Prog;
-}
-
-template <size_t N>
-static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
-                             std::array<unsigned char, N> IL,
-                             const std::string &Options = "") {
-  return compileIL(Ctx, ChipDev, IL.data(), IL.size());
 }
 
 /// One rtdevlib module selected for linking into a device program.
@@ -986,6 +982,7 @@ selectRuntimeObjects(CHIPDeviceOpenCL &ChipDev) {
 }
 
 static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
+                                 const std::string &Options,
                                  std::vector<cl::Program> &Objects) {
 
   // TODO: Minor optimization opportunity. Link modules based on
@@ -1001,7 +998,8 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
         logDebug("Dumped runtime object '{}' SPIR-V binary to '{}'",
                  Module.Name, fs::absolute(*DumpPath).c_str());
     }
-    Objects.push_back(compileIL(Ctx, ChipDev, Module.Data, Module.Size));
+    Objects.push_back(
+        compileIL(Ctx, ChipDev, Module.Data, Module.Size, Options));
   }
 }
 
@@ -1033,6 +1031,26 @@ static std::string computeBuildOptions() {
              : Backend->getDefaultJitFlags() + " " + ChipEnvVars.getJitFlags();
 }
 
+/// The options string handed to clCompileProgram for each rtdevlib module.
+///
+/// The rtdevlib is chipStar's own library, built from OpenCL C 2.0 sources
+/// (generic address space, fp atomics), so it needs a -cl-std of CL2.0 or
+/// newer: the Intel CPU runtime resolves the builtins of an IL program
+/// according to -cl-std and cannot link the library's generic-pointer float
+/// atomic in a CL1.x environment. CHIP_JIT_FLAGS_OVERRIDE replaces the
+/// backend defaults (-cl-std=CL3.0 among them) for the user's program; a
+/// user's option string that sets no -cl-std at all gets the defaults put
+/// back in front of it for the library, so that the user's flags still reach
+/// the library (-cl-opt-disable when debugging, fast-math) without stripping
+/// its language level. A user's explicit -cl-std is respected as is. Hashed
+/// into the cache key separately from BuildOptions, since the two strings
+/// differ under such an override.
+static std::string computeRtDevLibOptions(const std::string &BuildOptions) {
+  if (BuildOptions.find("-cl-std=") != std::string::npos)
+    return BuildOptions;
+  return Backend->getDefaultJitFlags() + " " + BuildOptions;
+}
+
 /// Compute the module cache key.
 ///
 /// The cached artifact is the device binary the driver produces, which is a
@@ -1051,6 +1069,7 @@ static std::string computeBuildOptions() {
 static std::string
 computeCacheKey(std::string_view Il, const std::string &BuildOptions,
                 const std::string &LinkFlags, bool NeedsRtDevLib,
+                const std::string &RtDevLibOptions,
                 const std::vector<RtDevLibModule> &RtDevLibModules,
                 CHIPDeviceOpenCL &ChipDev) {
   namespace cache = chipstar::cache;
@@ -1062,6 +1081,8 @@ computeCacheKey(std::string_view Il, const std::string &BuildOptions,
       // compile+link and a direct clCreateProgramWithIL+clBuildProgram do
       // not produce the same binary, so which path ran is part of the key.
       .add(cache::KeyField::BranchFlag, NeedsRtDevLib);
+  if (NeedsRtDevLib)
+    KB.add(cache::KeyField::RtDevLibOptions, RtDevLibOptions);
   for (const auto &Module : RtDevLibModules) {
     KB.add(cache::KeyField::RtDevLibName, Module.Name);
     KB.add(cache::KeyField::RtDevLibBytes, Module.Data, Module.Size);
@@ -1175,14 +1196,17 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   // that the key covers it.
   std::string buildOptions = computeBuildOptions();
   bool NeedsRtDevLib = spirvNeedsRtdevlib(SrcBin);
+  std::string RtDevLibOptions;
   std::vector<RtDevLibModule> RtDevLibModules;
-  if (NeedsRtDevLib)
+  if (NeedsRtDevLib) {
+    RtDevLibOptions = computeRtDevLibOptions(buildOptions);
     RtDevLibModules = selectRuntimeObjects(*ChipDevOcl);
+  }
   std::string Flags = computeLinkFlags(*ChipDevOcl);
 
-  std::string CacheKey = computeCacheKey(SrcBin, buildOptions, Flags,
-                                         NeedsRtDevLib, RtDevLibModules,
-                                         *ChipDevOcl);
+  std::string CacheKey =
+      computeCacheKey(SrcBin, buildOptions, Flags, NeedsRtDevLib,
+                      RtDevLibOptions, RtDevLibModules, *ChipDevOcl);
 
   bool cached =
       loadCachedProgram(*ChipCtxOcl->get(), *ChipDevOcl, CacheKey, Program_);
@@ -1192,10 +1216,11 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       // Compile + link: compile main module, append rtdevlib, link together.
       cl::Program ClMainObj =
           compileIL(*ChipCtxOcl->get(), *ChipDevOcl, SrcBin.data(),
-                    SrcBin.size(), buildOptions.c_str());
+                    SrcBin.size(), buildOptions);
       std::vector<cl::Program> ClObjects;
       ClObjects.push_back(ClMainObj);
-      appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, ClObjects);
+      appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, RtDevLibOptions,
+                           ClObjects);
 
       logInfo("Linking {} program objects", ClObjects.size());
       Program_ =
