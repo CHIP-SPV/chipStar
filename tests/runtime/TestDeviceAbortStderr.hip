@@ -18,7 +18,13 @@
 #include <cstdlib>
 
 __global__ void assertOnDevice() {
+#if defined(__APPLE__)
+  // macOS assert() expands to __assert_rtn(function, file, line, assertion);
+  // spirv_hip.hh defines that instead of __assert_fail there.
+  __assert_rtn("", "", 0, "Meurs, pourriture communiste !");
+#else
   __assert_fail("Meurs, pourriture communiste !", "", 0, "");
+#endif
 }
 
 int main() {
