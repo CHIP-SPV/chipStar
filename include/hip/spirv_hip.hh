@@ -259,6 +259,22 @@ __assert_fail(const char *assertion, const char *file, unsigned int line,
   abort();
 }
 #endif // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
+
+// Clang materialises a reference to __cxa_pure_virtual in the vtable of every
+// class that still has an unoverridden pure virtual member. The symbol has to
+// resolve on the device even when the slot can never be reached, otherwise the
+// SPIR-V consumer rejects the whole module with
+//   unresolved external symbol #__cxa_pure_virtual in data segment
+// and every kernel in the program fails to build. ROCm supplies it from its
+// device libs; on the SPIR-V platform there is no equivalent, so define it here
+// with the same semantics: calling a pure virtual function is a hard error.
+// No printf here on purpose: it would put a device printf into every
+// translation unit, and each one costs HipVerify's pre-lowering checkpoints a
+// crashing llvm-spirv run in debug builds (about 13 s per TU).
+__device__ __attribute__((noinline)) __attribute__((weak)) void
+__cxa_pure_virtual() {
+  abort();
+}
 } // extern "C"
 #endif // defined(__clang__) && defined(__HIP__)
 
