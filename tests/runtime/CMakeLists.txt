@@ -330,6 +330,15 @@ endif()
 # so the test is linked from two translation units, which
 # add_hip_runtime_test cannot express. Run at warn level so the runtime's
 # device variable diagnostics are visible in the log.
+#
+# The function-local static and the inline variable are not lowered by
+# HipGlobalVariables (not externally_initialized, local_unnamed_addr) and stay
+# initialized program-scope globals in the device module. That is what
+# CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF is built for avoiding: its
+# target drivers (rusticl/radeonsi) reject the module outright ("Initializer
+# for CrossWorkgroup variable not yet supported in Mesa", #1279), so the test
+# is only registered when the option is ON.
+if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
 set_source_files_properties(TestFixFunctionLocalStaticDeviceVar.hip
   inputs/FunctionLocalStaticDeviceVarTU2.hip PROPERTIES LANGUAGE CXX)
 add_executable(TestFixFunctionLocalStaticDeviceVar
@@ -352,3 +361,4 @@ set_tests_properties(TestFixFunctionLocalStaticDeviceVar PROPERTIES
   SKIP_RETURN_CODE ${CHIP_SKIP_TEST}
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
   TIMEOUT 120)
+endif()
