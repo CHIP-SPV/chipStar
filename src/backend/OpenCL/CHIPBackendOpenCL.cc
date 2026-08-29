@@ -802,6 +802,8 @@ bool CHIPEventOpenCL::wait() {
   clStatus = clWaitForEvents(1, &ClEvent);
 
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clWaitForEvents);
+  // Control returns to the host, which may now dereference managed memory.
+  static_cast<CHIPContextOpenCL *>(getContext())->mapManagedForHost();
   return true;
 }
 
@@ -1375,13 +1377,15 @@ bool CHIPContextOpenCL::allDevicesSupportFineGrainSVMorUSM() {
 
 void CHIPContextOpenCL::freeImpl(void *Ptr) {
   LOCK(ContextMtx); // CHIPContextOpenCL::MemManager_
+  if (keepsManagedMapped())
+    untrackManagedAllocation(Ptr);
   MemManager_.free(Ptr);
 }
 
 cl::Context *CHIPContextOpenCL::get() { return &ClContext; }
 CHIPContextOpenCL::CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev,
                                      cl::Platform Plat)
-    : Platform_(Plat), ClContext(CtxIn) {
+    : Platform_(Plat), ClContext(CtxIn), ClDevice_(Dev) {
   logTrace("CHIPContextOpenCL Initialized via OpenCL Context pointer.");
 }
 
@@ -1392,7 +1396,122 @@ void *CHIPContextOpenCL::allocateImpl(size_t Size, size_t Alignment,
   LOCK(ContextMtx); // CHIPContextOpenCL::MemManager_
 
   Retval = MemManager_.allocate(Size, Alignment, MemType);
+  // hipMallocManaged allocates hipMemoryTypeUnified; hipMemoryTypeManaged is
+  // the hipHostRegister backing store, which the host never dereferences.
+  if (Retval && MemType == hipMemoryTypeUnified && keepsManagedMapped())
+    trackManagedAllocation(Retval, Size);
   return Retval;
+}
+
+cl::CommandQueue &CHIPContextOpenCL::getManagedMapQueue() {
+  if (!ManagedMapQueue_()) {
+    cl_int Err = CL_SUCCESS;
+    ManagedMapQueue_ = cl::CommandQueue(ClContext, ClDevice_, 0, &Err);
+    if (Err != CL_SUCCESS)
+      CHIPERR_LOG_AND_THROW("Failed to create the managed memory map queue: " +
+                                std::to_string(Err),
+                            hipErrorRuntimeMemory);
+  }
+  return ManagedMapQueue_;
+}
+
+void CHIPContextOpenCL::trackManagedAllocation(void *Ptr, size_t Size) {
+  std::lock_guard<std::mutex> Lock(ManagedMapMtx_);
+  // Nothing on the device can reference a brand new allocation, so the map
+  // needs no wait list.
+  cl_int Err = clEnqueueSVMMap(getManagedMapQueue()(), CL_TRUE,
+                               CL_MAP_READ | CL_MAP_WRITE, Ptr, Size, 0,
+                               nullptr, nullptr);
+  if (Err != CL_SUCCESS)
+    CHIPERR_LOG_AND_THROW("clEnqueueSVMMap failed for a managed allocation: " +
+                              std::to_string(Err),
+                          hipErrorRuntimeMemory);
+  ManagedMaps_[Ptr] = ManagedMapEntry{Size, true};
+}
+
+void CHIPContextOpenCL::untrackManagedAllocation(void *Ptr) {
+  std::lock_guard<std::mutex> Lock(ManagedMapMtx_);
+  auto It = ManagedMaps_.find(Ptr);
+  if (It == ManagedMaps_.end())
+    return;
+  if (It->second.Mapped) {
+    // clSVMFree does not wait for enqueued commands, so the unmap has to be
+    // complete before the memory goes back to the allocator.
+    cl_command_queue Queue = getManagedMapQueue()();
+    cl_int Err = clEnqueueSVMUnmap(Queue, Ptr, 0, nullptr, nullptr);
+    if (Err == CL_SUCCESS)
+      Err = clFinish(Queue);
+    if (Err != CL_SUCCESS)
+      logWarn("clEnqueueSVMUnmap failed for managed allocation {}: {}", Ptr,
+              Err);
+  }
+  ManagedMaps_.erase(It);
+}
+
+void CHIPContextOpenCL::unmapManagedForDevice(cl_command_queue Queue) {
+  if (!keepsManagedMapped())
+    return;
+  std::lock_guard<std::mutex> Lock(ManagedMapMtx_);
+  for (auto &[Ptr, Entry] : ManagedMaps_) {
+    if (!Entry.Mapped)
+      continue;
+    // Queue is in-order, so the unmap completes before the command the
+    // caller enqueues next; the map it undoes was blocking and is done.
+    cl_int Err = clEnqueueSVMUnmap(Queue, Ptr, 0, nullptr, nullptr);
+    if (Err != CL_SUCCESS)
+      CHIPERR_LOG_AND_THROW(
+          "clEnqueueSVMUnmap failed for a managed allocation: " +
+              std::to_string(Err),
+          hipErrorRuntimeMemory);
+    Entry.Mapped = false;
+    logTrace("Unmapped managed allocation {} for the device", Ptr);
+  }
+}
+
+void CHIPContextOpenCL::mapManagedForHost() {
+  if (!keepsManagedMapped())
+    return;
+  std::lock_guard<std::mutex> Lock(ManagedMapMtx_);
+  bool AnyUnmapped = false;
+  for (const auto &[Ptr, Entry] : ManagedMaps_)
+    AnyUnmapped |= !Entry.Mapped;
+  if (!AnyUnmapped)
+    return;
+
+  // A coarse grained SVM buffer must not be mapped while a kernel that uses
+  // it executes, and a kernel on another stream may still be running, so the
+  // map waits for the work in flight on every queue of the device. Queues
+  // that have had nothing submitted since their last finish() are skipped.
+  std::vector<cl_event> Markers;
+  auto AddMarkers = [&](chipstar::Queue *Q) {
+    if (Q && !Q->isEmptyQueue())
+      static_cast<CHIPQueueOpenCL *>(Q)->enqueueIdleMarkers(Markers);
+  };
+  for (auto *Q : ChipDevice_->getQueuesNoLock())
+    AddMarkers(Q);
+  AddMarkers(ChipDevice_->getLegacyDefaultQueue());
+  if (ChipDevice_->isPerThreadStreamUsedNoLock())
+    AddMarkers(ChipDevice_->getPerThreadDefaultQueueNoLock());
+
+  cl_command_queue MapQueue = getManagedMapQueue()();
+  cl_int Err = CL_SUCCESS;
+  for (auto &[Ptr, Entry] : ManagedMaps_) {
+    if (Entry.Mapped)
+      continue;
+    Err = clEnqueueSVMMap(MapQueue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, Ptr,
+                          Entry.Size, Markers.size(),
+                          Markers.empty() ? nullptr : Markers.data(), nullptr);
+    if (Err != CL_SUCCESS)
+      break;
+    Entry.Mapped = true;
+    logTrace("Mapped managed allocation {} for the host", Ptr);
+  }
+  for (cl_event Marker : Markers)
+    clReleaseEvent(Marker);
+  if (Err != CL_SUCCESS)
+    CHIPERR_LOG_AND_THROW("clEnqueueSVMMap failed for a managed allocation: " +
+                              std::to_string(Err),
+                          hipErrorRuntimeMemory);
 }
 
 // CHIPQueueOpenCL
@@ -1641,6 +1760,8 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   auto AllocationsToKeepAlive = annotateIndirectPointers(
       *OclContext, Kernel->getModule()->getInfo(), KernelHandle);
 
+  OclContext->unmapManagedForDevice(get()->get());
+
   auto [SyncQueuesEventHandles, EventLocks] =
       addDependenciesQueueSync(LaunchEvent);
 
@@ -1855,6 +1976,7 @@ CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   } else {
     auto [SyncQueuesEventHandles, EventLocks] = addDependenciesQueueSync(Event);
     auto *Ctx = getContext();
+    Ctx->unmapManagedForDevice(get()->get());
 
     switch (Ctx->getAllocStrategy()) {
     default:
@@ -2001,6 +2123,23 @@ void CHIPQueueOpenCL::finish() {
   
   // After finish() completes, queue is empty again
   IsEmptyQueue_.store(true);
+
+  // Control returns to the host, which may now dereference managed memory.
+  static_cast<CHIPContextOpenCL *>(ChipContext_)->mapManagedForHost();
+}
+
+void CHIPQueueOpenCL::enqueueIdleMarkers(std::vector<cl_event> &Markers) {
+  for (cl::CommandQueue *Q : {&ClRegularQueue_, &ClProfilingQueue_}) {
+    if (!Q->get())
+      continue;
+    cl_event Marker = nullptr;
+    clStatus = clEnqueueMarkerWithWaitList(Q->get(), 0, nullptr, &Marker);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
+    Markers.push_back(Marker);
+    // Mali deadlocks when a wait targets an unflushed queue.
+    clStatus = clFlush(Q->get());
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+  }
 }
 
 std::shared_ptr<chipstar::Event>
@@ -2039,6 +2178,7 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
     }
   } else {
     logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
+    Ctx->unmapManagedForDevice(get()->get());
     int Retval = ::clEnqueueSVMMemFill(
         get()->get(), Dst, Pattern, PatternSize, Size,
         SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
@@ -2212,6 +2352,7 @@ CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   case AllocationStrategy::CoarseGrainSVM:
   case AllocationStrategy::FineGrainSVM: {
     logTrace("clEnqueueSVMMigrateMem {} / {} B, flags: {}\n", Ptr, Count, MigrationFlags);
+    Ctx->unmapManagedForDevice(get()->get());
     const void *SvmPtrs[] = {Ptr};
     const size_t Sizes[] = {Count};
     {
