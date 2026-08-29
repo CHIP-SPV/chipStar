@@ -207,7 +207,14 @@ public:
   void updateDependencies(std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap) {
     std::vector<CHIPGraphNode *> NewDeps;
     for (auto Dep : Dependencies_) {
-      auto ClonedDep = CloneMap[Dep];
+      auto Found = CloneMap.find(Dep);
+      // A dependency on a node of another graph has no clone here, and a
+      // graph with such a node can never be scheduled.
+      if (Found == CloneMap.end())
+        CHIPERR_LOG_AND_THROW("Graph node " + Msg +
+                                  " depends on a node outside its graph",
+                              hipErrorInvalidValue);
+      auto ClonedDep = Found->second;
       logDebug("{} {} Replacing dependency {} with {}", (void *)this, this->Msg,
                (void *)Dep, (void *)ClonedDep);
       NewDeps.push_back(ClonedDep);
@@ -232,7 +239,12 @@ public:
   void updateDependants(std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap) {
     std::vector<CHIPGraphNode *> NewDeps;
     for (auto Dep : Dependendants_) {
-      auto ClonedDep = CloneMap[Dep];
+      auto Found = CloneMap.find(Dep);
+      // A dependant in another graph is not part of this graph; the clone
+      // keeps only the edges inside it.
+      if (Found == CloneMap.end())
+        continue;
+      auto ClonedDep = Found->second;
       logDebug("{} {} Replacing dependant {} with {}", (void *)this, this->Msg,
                (void *)Dep, (void *)ClonedDep);
       NewDeps.push_back(ClonedDep);

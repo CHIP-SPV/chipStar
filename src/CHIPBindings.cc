@@ -1394,6 +1394,14 @@ hipError_t hipGraphInstantiate(hipGraphExec_t *pGraphExec, hipGraph_t graph,
     RETURN(hipErrorInvalidValue);
 
   CHIPGraphExec *GraphExec = new CHIPGraphExec(GRAPH(graph));
+  // Build the schedule now so that a graph no launch could ever schedule is
+  // rejected here instead of at hipGraphLaunch.
+  try {
+    GraphExec->compile();
+  } catch (...) {
+    delete GraphExec;
+    throw;
+  }
   *pGraphExec = GraphExec;
 
   RETURN(hipSuccess);

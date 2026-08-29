@@ -36,6 +36,12 @@
 //*************************************************************************************
 void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,
                         std::vector<std::vector<CHIPGraphNode *>> &Paths) {
+  // A node that is already on the path depends on itself through a cycle;
+  // the walk would never reach a root.
+  if (std::find(CurrPath.begin(), CurrPath.end(), this) != CurrPath.end())
+    CHIPERR_LOG_AND_THROW("Graph node " + Msg +
+                              " depends on itself through a cycle",
+                          hipErrorInvalidValue);
   CurrPath.push_back(this);
   for (auto &Dep : Dependencies_) {
     Dep->DFS(CurrPath, Paths);
@@ -328,6 +334,9 @@ std::vector<CHIPGraphNode *> CHIPGraph::getRootNodes() {
 }
 
 void CHIPGraphExec::compile() {
+  // Every launch rebuilds the schedule from scratch; the levels queued by the
+  // previous launch would otherwise run again in front of the new ones.
+  ExecQueues_ = {};
   pruneGraph_();
   logDebug("{} CHIPGraphExec::compile()", (void *)this);
   std::vector<CHIPGraphNode *> Nodes = OriginalGraph_->getNodes();
@@ -375,6 +384,13 @@ void CHIPGraphExec::compile() {
     }
 
     if (NodeIter == Nodes.end()) {
+      // A pass that places no node would repeat forever: every remaining node
+      // waits on a node outside this graph or on a node that is itself still
+      // waiting (a cycle, or a graph without a root).
+      if (NextSet.empty())
+        CHIPERR_LOG_AND_THROW("Graph node " + Nodes.front()->Msg +
+                                  " depends on a node that can never run",
+                              hipErrorInvalidValue);
       PrevLevelNodes.insert(NextSet.begin(), NextSet.end());
       ExecQueues_.push(NextSet);
       NextSet.clear();
