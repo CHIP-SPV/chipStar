@@ -85,6 +85,11 @@ foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
   add_hip_runtime_test(${RUNTIME_TEST_SOURCE})
 endforeach()
 
+# hipGraphGetEdges overflowing the caller's arrays must abort at the free
+# instead of depending on the heap layout to surface it.
+set_tests_properties(TestFix1524GetEdgesCapacity PROPERTIES
+  ENVIRONMENT "MALLOC_CHECK_=3")
+
 # Names that the Test* glob does not match.
 add_hip_runtime_test(RegressionTest302.hip)
 add_hip_runtime_test(host-math-funcs.hip)
