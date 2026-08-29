@@ -112,6 +112,7 @@ add_library(LLVMHipPasses MODULE
     HipDefrost.cpp
     HipDynMem.cpp
     HipEmitLoweredNames.cpp
+    HipFunctionPointerAS.cpp
     HipGlobalVariables.cpp
     HipIGBADetector.cpp
     HipKernelArgSpiller.cpp
