@@ -439,16 +439,17 @@ public:
 
 class CHIPGraphNodeGraph : public CHIPGraphNode {
 private:
+  /// The node's own copy of the child graph, cloned at construction and by
+  /// setGraph(), so the graph the caller passed in can be edited, destroyed
+  /// or even be the parent graph itself without affecting this node.
   CHIPGraph *SubGraph_;
 
 public:
-  CHIPGraphNodeGraph(CHIPGraph *Graph)
-      : CHIPGraphNode(hipGraphNodeTypeGraph), SubGraph_(Graph) {}
+  CHIPGraphNodeGraph(const CHIPGraph *Graph);
 
-  CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other)
-      : CHIPGraphNode(Other), SubGraph_(Other.SubGraph_) {}
+  CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other);
 
-  virtual ~CHIPGraphNodeGraph() override {}
+  virtual ~CHIPGraphNodeGraph() override;
 
   virtual void execute(chipstar::Queue *Queue) const override;
 
@@ -457,7 +458,8 @@ public:
     return NewNode;
   }
 
-  void setGraph(CHIPGraph *Graph) { SubGraph_ = Graph; }
+  /// Replace the embedded graph with a clone of Graph.
+  void setGraph(const CHIPGraph *Graph);
 
   CHIPGraph *getGraph() { return SubGraph_; }
 };

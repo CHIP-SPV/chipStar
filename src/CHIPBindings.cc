@@ -2302,8 +2302,10 @@ hipError_t hipGraphExecChildGraphNodeSetParams(hipGraphExec_t hGraphExec,
 
   auto CastNode = static_cast<CHIPGraphNodeGraph *>(node);
 
-  // Check if childGraph is not parent graph
-  if (CastNode->getGraph() != childGraph)
+  // The node holds its own clone, so compare topology rather than identity:
+  // the replacement must have the same number of nodes as the embedded graph.
+  if (CastNode->getGraph()->getNodes().size() !=
+      GRAPH(childGraph)->getNodes().size())
     RETURN(hipErrorInvalidValue);
 
   CastNode->setGraph(GRAPH(childGraph));
