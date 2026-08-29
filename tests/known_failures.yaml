@@ -116,8 +116,6 @@ ANY:
     Unit_hipGraphExecUpdate_Functional: ''
     Unit_hipGraphExecUpdate_Negative_Basic: ''
     Unit_hipGraphExecUpdate_Negative_TypeChange: ''
-    Unit_hipGraphGetEdges_Functionality: ''
-    Unit_hipGraphGetEdges_Negative: ''
     Unit_hipGraphGetNodes_CapturedStream: ''
     Unit_hipGraphGetNodes_Functional: ''
     Unit_hipGraphGetNodes_ParamValidation: ''
