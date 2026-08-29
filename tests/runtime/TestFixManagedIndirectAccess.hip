@@ -22,16 +22,26 @@
 // exercised the indirect access path.
 //
 // Every path is checked through a hipMemcpy readback, which the issue shows
-// stale as well. A control launch with the managed pointer as a direct kernel
-// argument decides whether host reads of managed memory are coherent after
-// hipDeviceSynchronize on this device; they are not on coarse-grained SVM
-// (rusticl), where managed memory is only reachable through copies, so the
-// host read checks apply only where the control shows them meaningful.
+// stale as well. The host touches managed memory directly (the Kokkos
+// pattern: a host write before the launch, a host read after the sync) only
+// where the device reports directManagedMemAccessFromHost or
+// concurrentManagedAccess. On coarse-grained SVM (Mali, rusticl) host access
+// outside clEnqueueSVMMap/Unmap is undefined: an unmapped host write is not
+// seen by the next kernel and an unmapped host read returns whatever the CPU
+// cache holds. Probing that empirically (a host read after a control launch)
+// is not a decision, it is a coin toss: on Mali-G52 the probe read 1, the
+// struct and table increments were then applied to a stale value and both
+// the host read and the hipMemcpy readback showed 0, in one CI lane and not
+// the other. A pure OpenCL run of the same sequence loses the write on every
+// repetition with an unmapped host write and keeps it on every repetition
+// with a clEnqueueSVMMemcpy reset. Where host access is not reported, the
+// counter is reset and read only through hipMemcpy.
 
 #include <hip/hip_runtime.h>
 #include "CHIPBackend.hh"
 
 #include <cstdio>
+#include <string>
 
 #define CHECK(Expr)                                                            \
   do {                                                                         \
@@ -89,39 +99,50 @@ int main() {
     return 1;
   }
 
+  // Whether the host may touch managed memory directly between launches.
+  // Where neither attribute is set (coarse-grained SVM under OpenCL) the
+  // counter is reset and read through hipMemcpy only.
+  const bool HostAccess =
+      Props.directManagedMemAccessFromHost || Props.concurrentManagedAccess;
+  printf("directManagedMemAccessFromHost=%d concurrentManagedAccess=%d: host "
+         "%s\n",
+         Props.directManagedMemAccessFromHost, Props.concurrentManagedAccess,
+         HostAccess ? "writes and reads managed memory directly"
+                    : "reaches managed memory through hipMemcpy only");
+
   unsigned *Counter = nullptr;
   CHECK(hipMallocManaged(&Counter, sizeof(unsigned)));
   unsigned Copy = 0;
   const unsigned Zero = 0;
 
-  // Control launch: the readback must be 1 on any device that reports
-  // managed memory. The host read tells whether managed memory is host
-  // coherent after synchronization here; the host read checks below are
-  // applied only when it is.
-  CHECK(hipMemcpy(Counter, &Zero, sizeof(unsigned), hipMemcpyHostToDevice));
-  incrementDirect<<<1, 1>>>(Counter);
-  CHECK(hipGetLastError());
-  CHECK(hipDeviceSynchronize());
-  CHECK(hipMemcpy(&Copy, Counter, sizeof(unsigned), hipMemcpyDeviceToHost));
-  const bool HostCoherent = *Counter == 1;
-  printf("direct: host read %u, hipMemcpy readback %u, expected 1\n", *Counter,
-         Copy);
-  printf("managed memory host reads after sync: %s\n",
-         HostCoherent ? "coherent, host reads checked"
-                      : "NOT coherent on this device (coarse-grained SVM), "
-                        "host reads not checked");
-  fflush(stdout);
-  expectU("direct: hipMemcpy readback", Copy, 1);
-
-  // A host write is the Kokkos pattern and is kept where the host is
-  // coherent; elsewhere only a copy reaches the device.
+  // A host write is the Kokkos pattern and is kept where the device reports
+  // host access; elsewhere only a copy reaches the device.
   auto resetCounter = [&]() -> hipError_t {
-    if (HostCoherent) {
+    if (HostAccess) {
       *Counter = 0;
       return hipSuccess;
     }
     return hipMemcpy(Counter, &Zero, sizeof(unsigned), hipMemcpyHostToDevice);
   };
+  // The host read for the log; "skipped" where the host does not access
+  // managed memory directly.
+  auto hostRead = [&]() -> std::string {
+    return HostAccess ? std::to_string(*Counter) : std::string("skipped");
+  };
+
+  // Control launch: the managed pointer is a direct kernel argument, so this
+  // must give 1 on any device that reports managed memory.
+  CHECK(resetCounter());
+  incrementDirect<<<1, 1>>>(Counter);
+  CHECK(hipGetLastError());
+  CHECK(hipDeviceSynchronize());
+  CHECK(hipMemcpy(&Copy, Counter, sizeof(unsigned), hipMemcpyDeviceToHost));
+  printf("direct: host read %s, hipMemcpy readback %u, expected 1\n",
+         hostRead().c_str(), Copy);
+  fflush(stdout);
+  if (HostAccess)
+    expectU("direct: host read", *Counter, 1);
+  expectU("direct: hipMemcpy readback", Copy, 1);
 
   // Pointer inside a by-value struct argument (a Kokkos View in a functor).
   CHECK(resetCounter());
@@ -130,10 +151,10 @@ int main() {
   CHECK(hipGetLastError());
   CHECK(hipDeviceSynchronize());
   CHECK(hipMemcpy(&Copy, Counter, sizeof(unsigned), hipMemcpyDeviceToHost));
-  printf("struct: host read %u, hipMemcpy readback %u, expected 1\n", *Counter,
-         Copy);
+  printf("struct: host read %s, hipMemcpy readback %u, expected 1\n",
+         hostRead().c_str(), Copy);
   fflush(stdout);
-  if (HostCoherent)
+  if (HostAccess)
     expectU("struct: host read", *Counter, 1);
   expectU("struct: hipMemcpy readback", Copy, 1);
 
@@ -146,10 +167,10 @@ int main() {
   CHECK(hipGetLastError());
   CHECK(hipDeviceSynchronize());
   CHECK(hipMemcpy(&Copy, Counter, sizeof(unsigned), hipMemcpyDeviceToHost));
-  printf("table: host read %u, hipMemcpy readback %u, expected 1\n", *Counter,
-         Copy);
+  printf("table: host read %s, hipMemcpy readback %u, expected 1\n",
+         hostRead().c_str(), Copy);
   fflush(stdout);
-  if (HostCoherent)
+  if (HostAccess)
     expectU("table: host read", *Counter, 1);
   expectU("table: hipMemcpy readback", Copy, 1);
 
