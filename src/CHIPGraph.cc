@@ -108,6 +108,11 @@ std::string CHIPGraphNodeKernel::getKernelName() const {
   return ExecItem_->getKernel()->getName();
 }
 
+// Defined here rather than in the header: CHIPBackend.hh includes CHIPGraph.hh
+// before chipstar::ExecItem is complete, and deleting through an incomplete
+// type would skip ExecItem's virtual destructor.
+CHIPGraphNodeKernel::~CHIPGraphNodeKernel() { delete ExecItem_; }
+
 void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);

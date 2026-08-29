@@ -296,7 +296,7 @@ public:
   CHIPGraphNodeKernel(const void *HostFunction, dim3 GridDim, dim3 BlockDim,
                       void **Args, size_t SharedMem);
 
-  virtual ~CHIPGraphNodeKernel() override { delete ExecItem_; }
+  virtual ~CHIPGraphNodeKernel() override;
 
   virtual void execute(chipstar::Queue *Queue) const override;
 
