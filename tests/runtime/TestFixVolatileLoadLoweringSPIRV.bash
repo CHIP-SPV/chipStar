@@ -98,9 +98,17 @@ SPV=$(ls "${OUT}"/*.out 2>/dev/null | head -1)
 if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
   "${SPIRV_DIS}" "${SPV}" > module.spvasm
   if grep -q "Generator: Khronos LLVM/SPIR-V Translator" module.spvasm; then
-    KID=$(grep -E 'OpEntryPoint Kernel %[0-9]+ "_Z[0-9]+volatileAccess' module.spvasm |
-          sed -E 's/.*Kernel (%[0-9]+) .*/\1/')
+    # The entry point id is a number or, when the translator kept an OpName,
+    # the mangled name. Translators from LLVM 21 on emit the entry point as
+    # a wrapper whose only instruction is an OpFunctionCall to the kernel
+    # body, so a wrapper is followed to its callee before inspecting the body.
+    KID=$(grep -E 'OpEntryPoint Kernel %[^ ]+ "_Z[0-9]+volatileAccess' module.spvasm |
+          sed -E 's/.*Kernel (%[^ ]+) .*/\1/')
     FUNC=$(sed -n "/^ *${KID} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
+    CALLEE=$(echo "${FUNC}" | grep -oE 'OpFunctionCall %[^ ]+ %[^ ]+' | awk '{print $3}' | head -1)
+    if [ -n "${CALLEE}" ]; then
+      FUNC=$(sed -n "/^ *${CALLEE} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
+    fi
     LOADS=$(echo "${FUNC}" | grep -c 'OpAtomicLoad' || true)
     STORES=$(echo "${FUNC}" | grep -c 'OpAtomicStore' || true)
     if [ "${LOADS}" -lt 2 ] || [ "${STORES}" -lt 2 ]; then
