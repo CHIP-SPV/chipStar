@@ -182,6 +182,9 @@ add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
 # unfixed compiler failed. The dispatch is executed by
 # tests/runtime/TestDeviceVirtualDispatch.hip on devices that can run it.
 add_hipcc_test(TestDeviceVirtualFunctions.hip HIPCC_OPTIONS -c)
+# Dead vtables of an explicit instantiation must not survive into the device
+# module (#1382). Inspects the lowered device bitcode.
+add_shell_test(TestDeadVTableVirtualBase.bash)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # Check CHIP_FAST_MATH is set for -ffast-math and preprocessor guards
