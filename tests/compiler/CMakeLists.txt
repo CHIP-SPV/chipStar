@@ -177,6 +177,11 @@ add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
+# Device side C++ virtual dispatch (CHIP-SPV/chipStar#1373). Compile only: -c
+# already runs the device link that translates to SPIR-V, which is where the
+# unfixed compiler failed. The dispatch is executed by
+# tests/runtime/TestDeviceVirtualDispatch.hip on devices that can run it.
+add_hipcc_test(TestDeviceVirtualFunctions.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # Check CHIP_FAST_MATH is set for -ffast-math and preprocessor guards
