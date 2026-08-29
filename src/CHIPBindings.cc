@@ -604,6 +604,32 @@ hipError_t hipDrvPointerGetAttributes(unsigned int numAttributes,
   CHIP_CATCH
 }
 
+/// Coherency mode of an allocation, following the ROCm answer for the same
+/// allocation kinds: device memory is coarse grained, host memory is fine
+/// grained unless allocated with hipHostMallocNonCoherent, managed memory
+/// (hipMallocManaged, hipHostRegister) is fine grained unless
+/// hipMemAdviseSetCoarseGrain is in effect.
+static hipMemRangeCoherencyMode
+getCoherencyMode(const chipstar::AllocationInfo &AllocInfo) {
+  switch (AllocInfo.MemoryType) {
+  case hipMemoryTypeHost:
+    return AllocInfo.Flags.isNonCoherent() ? hipMemRangeCoherencyModeCoarseGrain
+                                           : hipMemRangeCoherencyModeFineGrain;
+  case hipMemoryTypeManaged:
+  case hipMemoryTypeUnified:
+    return AllocInfo.CoarseGrain ? hipMemRangeCoherencyModeCoarseGrain
+                                 : hipMemRangeCoherencyModeFineGrain;
+  default:
+    return hipMemRangeCoherencyModeCoarseGrain;
+  }
+}
+
+/// True for the attributes that only managed or unified allocations carry.
+/// hipMemRangeAttributeCoherencyMode is answered for every tracked allocation.
+static bool isManagedOnlyMemRangeAttribute(hipMemRangeAttribute Attribute) {
+  return Attribute != hipMemRangeAttributeCoherencyMode;
+}
+
 hipError_t hipMemRangeGetAttributes(void **data, size_t *data_sizes,
                                     hipMemRangeAttribute *attributes,
                                     size_t num_attributes, const void *dev_ptr,
@@ -635,11 +661,8 @@ hipError_t hipMemRangeGetAttributes(void **data, size_t *data_sizes,
     RETURN(hipErrorInvalidValue);
   }
 
-  // Only managed/unified memory supports these attributes
-  if (AllocInfo->MemoryType != hipMemoryTypeManaged &&
-      AllocInfo->MemoryType != hipMemoryTypeUnified) {
-    RETURN(hipErrorInvalidValue);
-  }
+  bool IsManaged = AllocInfo->MemoryType == hipMemoryTypeManaged ||
+                   AllocInfo->MemoryType == hipMemoryTypeUnified;
 
   // Process each attribute
   for (size_t i = 0; i < num_attributes; ++i) {
@@ -649,6 +672,10 @@ hipError_t hipMemRangeGetAttributes(void **data, size_t *data_sizes,
 
     // Validate data size for each attribute
     if (AttrDataSize == 0) {
+      RETURN(hipErrorInvalidValue);
+    }
+
+    if (!IsManaged && isManagedOnlyMemRangeAttribute(Attr)) {
       RETURN(hipErrorInvalidValue);
     }
 
@@ -699,7 +726,7 @@ hipError_t hipMemRangeGetAttributes(void **data, size_t *data_sizes,
       }
       hipMemRangeCoherencyMode *Mode =
           static_cast<hipMemRangeCoherencyMode *>(AttrData);
-      *Mode = hipMemRangeCoherencyModeFineGrain;
+      *Mode = getCoherencyMode(*AllocInfo);
       break;
     }
     default:
@@ -2689,9 +2716,9 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
     RETURN(hipErrorInvalidValue);
   }
 
-  // Only managed/unified memory supports these attributes
-  if (AllocInfo->MemoryType != hipMemoryTypeManaged &&
-      AllocInfo->MemoryType != hipMemoryTypeUnified) {
+  bool IsManaged = AllocInfo->MemoryType == hipMemoryTypeManaged ||
+                   AllocInfo->MemoryType == hipMemoryTypeUnified;
+  if (!IsManaged && isManagedOnlyMemRangeAttribute(Attribute)) {
     RETURN(hipErrorInvalidValue);
   }
 
@@ -2745,7 +2772,7 @@ hipError_t hipMemRangeGetAttribute(void *Data, size_t DataSize,
       RETURN(hipErrorInvalidValue);
     }
     hipMemRangeCoherencyMode *Mode = static_cast<hipMemRangeCoherencyMode *>(Data);
-    *Mode = hipMemRangeCoherencyModeFineGrain;
+    *Mode = getCoherencyMode(*AllocInfo);
     break;
   }
   default:
@@ -4385,8 +4412,12 @@ hipError_t hipMemAdvise(const void *Ptr, size_t Count, hipMemoryAdvise Advice,
         AllocInfo->AccessedBy.end());
     break;
   case hipMemAdviseSetCoarseGrain:
+    // Recorded for hipMemRangeAttributeCoherencyMode only; the backends keep
+    // the range coherent either way.
+    AllocInfo->CoarseGrain = true;
+    break;
   case hipMemAdviseUnsetCoarseGrain:
-    // Coarse grain hints are accepted but not acted upon
+    AllocInfo->CoarseGrain = false;
     break;
   default:
     RETURN(hipErrorInvalidValue);
