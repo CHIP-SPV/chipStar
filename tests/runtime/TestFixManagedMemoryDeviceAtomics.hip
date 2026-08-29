@@ -16,7 +16,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 
 #define CHECK(Expr)                                                            \
   do {                                                                         \
@@ -98,10 +97,15 @@ int main() {
   CHECK(hipMemAdvise(C32, sizeof(Counters32), hipMemAdviseSetCoarseGrain, 0));
   CHECK(hipMemAdvise(C64, sizeof(Counters64), hipMemAdviseSetCoarseGrain, 0));
 
-  // Host-side initialization through the managed pointer.
-  std::memset(C32, 0, sizeof(Counters32));
-  std::memset(C64, 0, sizeof(Counters64));
-  C64->Min = ~0ull;
+  // Initialize through the runtime rather than with plain host stores: on a
+  // coarse-grain SVM device (rusticl/radeonsi) a host store to managed memory
+  // is invisible to the device unless it goes through the runtime's map and
+  // unmap, and that gap is separate from the atomics this test is about.
+  Counters32 Init32 = {};
+  Counters64 Init64 = {};
+  Init64.Min = ~0ull;
+  CHECK(hipMemcpy(C32, &Init32, sizeof(Counters32), hipMemcpyHostToDevice));
+  CHECK(hipMemcpy(C64, &Init64, sizeof(Counters64), hipMemcpyHostToDevice));
 
   // 32-bit atomics.
   CHECK(hipMemPrefetchAsync(C32, sizeof(Counters32), 0, 0));
