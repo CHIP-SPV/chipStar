@@ -114,6 +114,13 @@ if(SPIRV_DIS AND (NOT USE_NEW_OFFLOAD_DRIVER OR CLANG_OFFLOAD_BUNDLER))
   add_shell_test(TestBoolKernelParamSPIRV.bash)
 endif()
 
+# The runtime's stderr must stay NUL-free at CHIP_LOGLEVEL=info (the Level
+# Zero build log dump wrote the driver's terminating NUL and printed the
+# "ZE Build Log:" line for empty logs; gtest death tests read captured stderr
+# as a C string). Runs TestKernelArgs and inspects its stderr; only meaningful
+# for the build log path on the Level Zero backend.
+add_shell_test(TestFixZeBuildLogNul.bash)
+
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES
   TIMEOUT 60)
