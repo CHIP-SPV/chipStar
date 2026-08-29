@@ -732,6 +732,13 @@ protected:
    */
   chipstar::Context *ChipContext_;
 
+  /// The capturing stream this event was last recorded on, while that
+  /// capture is active; null when the event is not part of a capture.
+  Queue *CaptureQueue_ = nullptr;
+  /// The capture dependencies of CaptureQueue_ at the time of the record.
+  /// A stream that waits on this event continues from these nodes.
+  std::vector<CHIPGraphNode *> CaptureNodes_;
+
   /**
    * @brief hidden default constructor for Event. Only derived class
    * constructor should be called.
@@ -745,6 +752,22 @@ public:
   virtual ~Event() { logTrace("~Event() {}", (void *)this); };
 
   std::vector<std::shared_ptr<chipstar::Event>> DependsOnList;
+
+  /// Mark this event as recorded on capturing stream Queue at the point where
+  /// the capture's next node would depend on Nodes.
+  void setCapture(Queue *Q, const std::vector<CHIPGraphNode *> &Nodes) {
+    CaptureQueue_ = Q;
+    CaptureNodes_ = Nodes;
+  }
+  void clearCapture() {
+    CaptureQueue_ = nullptr;
+    CaptureNodes_.clear();
+  }
+  /// The capturing stream that recorded this event, or null.
+  Queue *getCaptureQueue() const { return CaptureQueue_; }
+  const std::vector<CHIPGraphNode *> &getCaptureNodes() const {
+    return CaptureNodes_;
+  }
   void setRecording() {
     isDeletedSanityCheck();
     EventStatus_ = EVENT_STATUS_RECORDING;
@@ -2176,10 +2199,22 @@ class Queue : public ihipStream_t {
 protected:
   hipStreamCaptureStatus CaptureStatus_ = hipStreamCaptureStatusNone;
   hipStreamCaptureMode CaptureMode_ = hipStreamCaptureModeGlobal;
-  hipGraph_t CaptureGraph_;
-  /// @brief  node for creating a dependency chain between subsequent record
-  /// events when in graph capture mode
-  CHIPGraphNode *LastNode_ = nullptr;
+  hipGraph_t CaptureGraph_ = nullptr;
+  /// The nodes the next node recorded on this stream depends on: the node
+  /// recorded last on this stream plus the nodes joined in by waiting on
+  /// events recorded by other streams of the same capture.
+  std::vector<CHIPGraphNode *> CaptureDeps_;
+  /// True for the stream hipStreamBeginCapture was called on; only that
+  /// stream may end the capture.
+  bool CaptureOrigin_ = false;
+  /// The capturing stream whose event this stream waited on to enter the
+  /// capture; null for the origin stream.
+  Queue *CaptureParent_ = nullptr;
+  /// Streams that entered this stream's capture by waiting on its events.
+  std::set<Queue *> CaptureForks_;
+  /// Events recorded on this stream during the capture. Waiting on one of
+  /// them from another stream joins that stream into the capture.
+  std::set<chipstar::Event *> CaptureEvents_;
   int Priority_;
   /**
    * @brief Maximum priority that can be had by a queue is 0; Priority range is
@@ -2321,22 +2356,48 @@ public:
     if (getCaptureStatus() == hipStreamCaptureStatusActive) {
       auto Graph = getCaptureGraph();
       auto Node = new GraphNodeType(ArgsPack...);
-      updateLastNode(Node);
+      chainCaptureNode(Node);
       Graph->addNode(Node);
       return true;
     }
     return false;
   }
 
-  void updateLastNode(CHIPGraphNode *NewNode);
-  void initCaptureGraph();
+  /// Make NewNode depend on the current capture dependencies and become the
+  /// sole dependency of whatever is recorded on this stream next.
+  void chainCaptureNode(CHIPGraphNode *NewNode);
+  /// Add Nodes to the current capture dependencies (a join from an event
+  /// recorded by another stream of the capture).
+  void addCaptureDependencies(const std::vector<CHIPGraphNode *> &Nodes);
+  const std::vector<CHIPGraphNode *> &getCaptureDependencies() const {
+    return CaptureDeps_;
+  }
+  /// Start a capture into a fresh graph with this stream as its origin.
+  void beginCapture(hipStreamCaptureMode Mode);
+  /// Enter the capture Parent is part of: record into the same graph,
+  /// starting with no dependencies (the caller adds the event's nodes).
+  void joinCapture(Queue *Parent);
+  /// Record Event as captured on this stream at the current dependencies.
+  void captureEvent(chipstar::Event *Event);
+  /// Forget Event (it was recorded outside the capture or destroyed).
+  void releaseCaptureEvent(chipstar::Event *Event);
+  /// Leave the capture: reset this stream's capture state, the state of every
+  /// stream forked from it, and the events recorded on them. Does not touch
+  /// the graph.
+  void endCapture();
+  bool isCaptureOrigin() const { return CaptureOrigin_; }
+  Queue *getCaptureParent() const { return CaptureParent_; }
 
   hipStreamCaptureStatus getCaptureStatus() const {
     return CaptureStatus_;
   }
 
+  /// An invalidated fork invalidates the whole capture, so the status is
+  /// propagated up to the origin stream.
   void setCaptureStatus(hipStreamCaptureStatus CaptureMode) {
     CaptureStatus_ = CaptureMode;
+    if (CaptureMode == hipStreamCaptureStatusInvalidated && CaptureParent_)
+      CaptureParent_->setCaptureStatus(CaptureMode);
   }
   hipStreamCaptureMode getCaptureMode() const { return CaptureMode_; }
   void setCaptureMode(hipStreamCaptureMode CaptureMode) {

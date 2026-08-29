@@ -2208,18 +2208,75 @@ void chipstar::Queue::memCopy3DAsync(void *Dst, size_t DPitch, size_t DSPitch,
   ChipEvent->Msg = "memCopy3DAsync";
 }
 
-void chipstar::Queue::updateLastNode(CHIPGraphNode *NewNode) {
-  if (LastNode_ != nullptr) {
-    NewNode->addDependency(LastNode_);
-  }
-  LastNode_ = NewNode;
+void chipstar::Queue::chainCaptureNode(CHIPGraphNode *NewNode) {
+  NewNode->addDependencies(CaptureDeps_);
+  CaptureDeps_ = {NewNode};
 }
 
-void chipstar::Queue::initCaptureGraph() {
+void chipstar::Queue::addCaptureDependencies(
+    const std::vector<CHIPGraphNode *> &Nodes) {
+  for (auto *Node : Nodes)
+    if (std::find(CaptureDeps_.begin(), CaptureDeps_.end(), Node) ==
+        CaptureDeps_.end())
+      CaptureDeps_.push_back(Node);
+}
+
+void chipstar::Queue::beginCapture(hipStreamCaptureMode Mode) {
   CaptureGraph_ = new CHIPGraph();
+  CaptureMode_ = Mode;
+  CaptureStatus_ = hipStreamCaptureStatusActive;
+  CaptureOrigin_ = true;
+  CaptureParent_ = nullptr;
   // The first node recorded into the new graph is a root; a node left over
   // from an earlier capture on this stream belongs to another graph.
-  LastNode_ = nullptr;
+  CaptureDeps_.clear();
+  CaptureForks_.clear();
+  CaptureEvents_.clear();
+}
+
+void chipstar::Queue::joinCapture(Queue *Parent) {
+  CaptureGraph_ = Parent->CaptureGraph_;
+  CaptureMode_ = Parent->CaptureMode_;
+  CaptureStatus_ = hipStreamCaptureStatusActive;
+  CaptureOrigin_ = false;
+  CaptureParent_ = Parent;
+  CaptureDeps_.clear();
+  CaptureForks_.clear();
+  CaptureEvents_.clear();
+  Parent->CaptureForks_.insert(this);
+}
+
+void chipstar::Queue::captureEvent(chipstar::Event *Event) {
+  if (auto *Previous = Event->getCaptureQueue())
+    Previous->releaseCaptureEvent(Event);
+  Event->setCapture(this, CaptureDeps_);
+  CaptureEvents_.insert(Event);
+}
+
+void chipstar::Queue::releaseCaptureEvent(chipstar::Event *Event) {
+  CaptureEvents_.erase(Event);
+  Event->clearCapture();
+}
+
+void chipstar::Queue::endCapture() {
+  for (auto *Event : CaptureEvents_)
+    Event->clearCapture();
+  CaptureEvents_.clear();
+  // Detach from the parent first so that a fork ending its capture does not
+  // erase itself from the set being iterated here.
+  if (CaptureParent_)
+    CaptureParent_->CaptureForks_.erase(this);
+  CaptureParent_ = nullptr;
+  auto Forks = std::move(CaptureForks_);
+  CaptureForks_.clear();
+  for (auto *Fork : Forks) {
+    Fork->CaptureParent_ = nullptr;
+    Fork->endCapture();
+  }
+  CaptureOrigin_ = false;
+  CaptureDeps_.clear();
+  CaptureGraph_ = nullptr;
+  CaptureStatus_ = hipStreamCaptureStatusNone;
 }
 
 std::shared_ptr<chipstar::Event>
