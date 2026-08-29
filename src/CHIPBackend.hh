@@ -488,6 +488,10 @@ struct AllocationInfo {
   bool ReadMostly = false; ///< Whether memory range is marked as read-mostly
   int PreferredLocation = -2; ///< Preferred device location, -2 (hipInvalidDeviceId) if not set
   std::vector<int> AccessedBy; ///< List of device IDs that access this memory
+  /// hipMemAdviseSetCoarseGrain is in effect on a managed allocation. Only
+  /// hipMemRangeAttributeCoherencyMode reads it; the backends keep the range
+  /// coherent regardless.
+  bool CoarseGrain = false;
 
   /// True if the allocation is accessible from device.
   bool isDeviceAccessible() const {
