@@ -271,7 +271,10 @@ std::vector<CHIPGraphNode *> CHIPGraph::getLeafNodes() {
 }
 
 void CHIPGraphExec::pruneGraph_() {
-  std::vector<CHIPGraphNode *> LeafNodes_ = OriginalGraph_->getLeafNodes();
+  // Prune the executable's own copy of the graph. The caller keeps using the
+  // original hipGraph_t, and hipGraphGetEdges on it has to keep reporting the
+  // edges the caller added.
+  std::vector<CHIPGraphNode *> LeafNodes_ = CompiledGraph_.getLeafNodes();
 
   for (auto LeafNode : LeafNodes_) {
     // Generate all paths from leaf to root
