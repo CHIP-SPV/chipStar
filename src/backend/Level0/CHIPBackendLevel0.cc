@@ -26,6 +26,7 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <fstream>
 
@@ -3153,9 +3154,15 @@ std::string resultToString(ze_result_t zeStatus) {
 // CHIPModuleLevel0
 // ***********************************************************************
 
-/// Dumps build/link log into the error log stream and returns its contents.
-/// The 'Log' value must be a valid handle. This function will destroy the log
-/// handle.
+/// Dumps a non-empty build/link log into the info log stream and returns its
+/// contents. The 'Log' value must be a valid handle. This function will
+/// destroy the log handle.
+///
+/// The size zeModuleBuildLogGetString reports counts the terminating NUL
+/// (the spec calls pBuildLog a null-terminated string; the Compute Runtime
+/// returns buildLog.size() + 1), so the string is cut at the first NUL: a NUL
+/// on stderr truncates it for any parent that reads the stream back as a C
+/// string, which is how gtest death tests match the child's abort message.
 static std::string dumpBuildLog(ze_module_build_log_handle_t &&Log) {
   std::string LogStr;
   size_t LogSize;
@@ -3164,8 +3171,9 @@ static std::string dumpBuildLog(ze_module_build_log_handle_t &&Log) {
     std::vector<char> LogVec(LogSize);
     zeStatus = zeModuleBuildLogGetString(Log, &LogSize, LogVec.data());
     if (zeStatus == ZE_RESULT_SUCCESS) {
-      LogStr.assign(LogVec.data(), LogSize);
-      logInfo("ZE Build Log:\n{}", LogStr);
+      LogStr.assign(LogVec.data(), strnlen(LogVec.data(), LogSize));
+      if (!LogStr.empty())
+        logInfo("ZE Build Log:\n{}", LogStr);
     }
   }
 
