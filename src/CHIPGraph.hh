@@ -533,7 +533,7 @@ public:
     Symbol_ = const_cast<void *>(Symbol);
     SizeBytes_ = SizeBytes;
     Offset_ = Offset;
-    Kind = Kind_;
+    Kind_ = Kind;
   }
 
   virtual CHIPGraphNode *clone() const override {
@@ -577,7 +577,7 @@ public:
     Symbol_ = const_cast<void *>(Symbol);
     SizeBytes_ = SizeBytes;
     Offset_ = Offset;
-    Kind = Kind_;
+    Kind_ = Kind;
   }
 };
 
