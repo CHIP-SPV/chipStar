@@ -324,14 +324,22 @@ int runOne(const char *Label, double Tol) {
   return 0;
 }
 
+// The tolerances only have to tell the right OpenCL builtin from the wrong
+// one (tan for tanh, swapped arguments, ...); ULP accuracy is the math
+// suites' business. The double bound admits rusticl/radeonsi, whose fp64 is
+// off by default as non-conformant (RUSTICL_FEATURES=fp64 in Mesa's
+// docs/envvars.rst) and whose sqrt, rsqrt and division are accurate to about
+// 2^-27: its OpenCL sqrt(0.75) is 0.866025410592556 against the correctly
+// rounded 0.8660254037844386, a relative error of 7.9e-9 that hypot and tan
+// inherit. 1e-9 tripped on exactly those three.
 int main() {
   int Failures = 0;
   Failures += runOne<float, float, false>("float via std::", 1e-4);
   Failures += runOne<float, float, true>("float via __builtin_*f", 1e-4);
-  Failures += runOne<double, double, false>("double via std::", 1e-9);
-  Failures += runOne<double, double, true>("double via __builtin_*", 1e-9);
+  Failures += runOne<double, double, false>("double via std::", 1e-6);
+  Failures += runOne<double, double, true>("double via __builtin_*", 1e-6);
 #if STD_ROUTE_TO_LIBCALLS
-  Failures += runOne<long double, double, false>("long double via std::", 1e-9);
+  Failures += runOne<long double, double, false>("long double via std::", 1e-6);
 #endif
   if (Failures) {
     printf("FAIL\n");
