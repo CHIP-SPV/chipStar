@@ -63,8 +63,17 @@ if(NOT RC EQUAL 0)
 endif()
 
 # The step cmake generated for the external's configure: the exact command
-# `ninja` runs, including the CMAKE_ARGS as they were spelled.
+# `ninja` runs, including the CMAKE_ARGS as they were spelled. The install
+# prefix that command asks for is what the external's cache must still hold
+# afterwards; it is taken from the generated command rather than recomputed
+# here so the comparison is exact (TMPDIR on macOS ends in a slash, which
+# cmake collapses in CMAKE_BINARY_DIR and a string-prefix check would not).
 set(EXT_PREFIX "${CONSUMER_BUILD}/SPIRV-Tools-External-prefix")
+file(READ "${EXT_PREFIX}/tmp/SPIRV-Tools-External-cfgcmd.txt" CFGCMD)
+if(NOT CFGCMD MATCHES "-DCMAKE_INSTALL_PREFIX=([^;']+)")
+  message(FATAL_ERROR "no -DCMAKE_INSTALL_PREFIX in the generated configure command:\n${CFGCMD}")
+endif()
+set(EXPECTED_PREFIX "${CMAKE_MATCH_1}")
 file(GLOB CONFIGURE_SCRIPT
   "${EXT_PREFIX}/src/SPIRV-Tools-External-stamp/SPIRV-Tools-External-configure-*.cmake")
 list(LENGTH CONFIGURE_SCRIPT N_SCRIPTS)
@@ -111,9 +120,8 @@ message(STATUS "external CMAKE_INSTALL_PREFIX: ${INSTALL_PREFIX}")
 message(STATUS "external CMAKE_INSTALL_LIBDIR: ${INSTALL_LIBDIR}")
 
 set(FAILURES "")
-string(FIND "${INSTALL_PREFIX}" "${CONSUMER_BUILD}/" AT)
-if(NOT AT EQUAL 0)
-  set(FAILURES "${FAILURES}  CMAKE_INSTALL_PREFIX is '${INSTALL_PREFIX}', not under ${CONSUMER_BUILD}\n")
+if(NOT INSTALL_PREFIX STREQUAL EXPECTED_PREFIX)
+  set(FAILURES "${FAILURES}  CMAKE_INSTALL_PREFIX is '${INSTALL_PREFIX}', the configure step asked for '${EXPECTED_PREFIX}'\n")
 endif()
 if(NOT INSTALL_LIBDIR STREQUAL "lib")
   set(FAILURES "${FAILURES}  CMAKE_INSTALL_LIBDIR is '${INSTALL_LIBDIR}', not lib\n")
