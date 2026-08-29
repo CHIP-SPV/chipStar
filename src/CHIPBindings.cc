@@ -2241,6 +2241,13 @@ hipError_t hipGraphExecHostNodeSetParams(hipGraphExec_t hGraphExec,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+
+  if (!pNodeParams)
+    RETURN(hipErrorInvalidValue);
+
+  if (!pNodeParams->fn)
+    RETURN(hipErrorInvalidValue);
+
   static_cast<CHIPGraphNodeHost *>(
       findExecNode(hGraphExec, node, hipGraphNodeTypeHost))
       ->setParams(pNodeParams);
