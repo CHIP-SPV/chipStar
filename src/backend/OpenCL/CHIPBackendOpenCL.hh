@@ -55,6 +55,7 @@
 #pragma GCC diagnostic pop
 
 #include <atomic>
+#include <unordered_map>
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
 #include "spirv.hh"
@@ -251,8 +252,30 @@ class CHIPContextOpenCL : public chipstar::Context {
 private:
   cl::Platform Platform_;
   cl::Context ClContext;
+  cl::Device ClDevice_;
   mutable clSetKernelArgDevicePointerEXT_fn clSetKernelArgDevicePointerEXT_ =
       nullptr;
+
+  /// Coarse grained SVM only: HIP lets the host dereference hipMallocManaged
+  /// memory whenever the device is idle, but the OpenCL spec only defines host
+  /// access to a coarse grained SVM buffer between clEnqueueSVMMap and
+  /// clEnqueueSVMUnmap. The runtime therefore keeps every managed allocation
+  /// mapped for the host while no work is in flight: unmapped on the queue
+  /// before a device side command, mapped again (blocking) when a stream, the
+  /// device or an event synchronises with the host.
+  struct ManagedMapEntry {
+    size_t Size;
+    bool Mapped;
+  };
+  /// Managed allocations by base pointer and their current map state.
+  /// Guarded by ManagedMapMtx_.
+  std::unordered_map<void *, ManagedMapEntry> ManagedMaps_;
+  std::mutex ManagedMapMtx_;
+  /// In-order queue that carries the host side map commands so that a new
+  /// allocation or a synchronising stream never waits behind unrelated work
+  /// on a user stream. Created on first use, guarded by ManagedMapMtx_.
+  cl::CommandQueue ManagedMapQueue_;
+  cl::CommandQueue &getManagedMapQueue();
 
 public:
   MemoryManager MemManager_;
@@ -312,6 +335,23 @@ public:
   }
 
   const cl::Platform &getPlatform() const { return Platform_; }
+
+  /// True when managed allocations need explicit SVM map/unmap for host
+  /// access (AllocationStrategy::CoarseGrainSVM).
+  bool keepsManagedMapped() const noexcept {
+    return getAllocStrategy() == AllocationStrategy::CoarseGrainSVM;
+  }
+  /// Record a new managed allocation and map it for the host so the
+  /// application can initialise it right after hipMallocManaged.
+  void trackManagedAllocation(void *Ptr, size_t Size);
+  /// Unmap (if mapped) and forget a managed allocation before it is freed.
+  void untrackManagedAllocation(void *Ptr);
+  /// Enqueue an unmap on Queue for every managed allocation that is mapped;
+  /// call before any command on Queue that may touch managed memory.
+  void unmapManagedForDevice(cl_command_queue Queue);
+  /// Map every unmapped managed allocation for the host (blocking), after
+  /// waiting for the work in flight on all of the device's queues.
+  void mapManagedForHost();
 };
 
 class CHIPDeviceOpenCL : public chipstar::Device {
@@ -450,6 +490,9 @@ public:
   virtual ~CHIPQueueOpenCL() override;
   virtual void recordEvent(chipstar::Event *ChipEvent) override;
   bool isEmptyQueue() override { return IsEmptyQueue_.load(); }
+  /// Enqueue and flush a marker on each of this stream's OpenCL queues and
+  /// append the marker events to Markers; the caller releases them.
+  void enqueueIdleMarkers(std::vector<cl_event> &Markers);
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void addCallback(hipStreamCallback_t Callback,
