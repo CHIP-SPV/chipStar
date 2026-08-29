@@ -20,6 +20,13 @@
 // path on every launch. The test prints that marking, and fails if the
 // detector did not flag the module, so a passing run is known to have
 // exercised the indirect access path.
+//
+// Every path is checked through a hipMemcpy readback, which the issue shows
+// stale as well. A control launch with the managed pointer as a direct kernel
+// argument decides whether host reads of managed memory are coherent after
+// hipDeviceSynchronize on this device; they are not on coarse-grained SVM
+// (rusticl), where managed memory is only reachable through copies, so the
+// host read checks apply only where the control shows them meaningful.
 
 #include <hip/hip_runtime.h>
 #include "CHIPBackend.hh"
@@ -35,6 +42,11 @@
       return 1;                                                                \
     }                                                                          \
   } while (0)
+
+// Control: the managed pointer is a direct kernel argument, so the runtime
+// hands it to the driver explicitly and no indirect access declaration is
+// involved.
+__global__ void incrementDirect(unsigned *P) { ++*P; }
 
 // The managed pointer is only reachable through the struct.
 struct Holder {
@@ -80,9 +92,39 @@ int main() {
   unsigned *Counter = nullptr;
   CHECK(hipMallocManaged(&Counter, sizeof(unsigned)));
   unsigned Copy = 0;
+  const unsigned Zero = 0;
+
+  // Control launch: the readback must be 1 on any device that reports
+  // managed memory. The host read tells whether managed memory is host
+  // coherent after synchronization here; the host read checks below are
+  // applied only when it is.
+  CHECK(hipMemcpy(Counter, &Zero, sizeof(unsigned), hipMemcpyHostToDevice));
+  incrementDirect<<<1, 1>>>(Counter);
+  CHECK(hipGetLastError());
+  CHECK(hipDeviceSynchronize());
+  CHECK(hipMemcpy(&Copy, Counter, sizeof(unsigned), hipMemcpyDeviceToHost));
+  const bool HostCoherent = *Counter == 1;
+  printf("direct: host read %u, hipMemcpy readback %u, expected 1\n", *Counter,
+         Copy);
+  printf("managed memory host reads after sync: %s\n",
+         HostCoherent ? "coherent, host reads checked"
+                      : "NOT coherent on this device (coarse-grained SVM), "
+                        "host reads not checked");
+  fflush(stdout);
+  expectU("direct: hipMemcpy readback", Copy, 1);
+
+  // A host write is the Kokkos pattern and is kept where the host is
+  // coherent; elsewhere only a copy reaches the device.
+  auto resetCounter = [&]() -> hipError_t {
+    if (HostCoherent) {
+      *Counter = 0;
+      return hipSuccess;
+    }
+    return hipMemcpy(Counter, &Zero, sizeof(unsigned), hipMemcpyHostToDevice);
+  };
 
   // Pointer inside a by-value struct argument (a Kokkos View in a functor).
-  *Counter = 0;
+  CHECK(resetCounter());
   Holder H{Counter};
   incrementViaStruct<<<1, 1>>>(H);
   CHECK(hipGetLastError());
@@ -91,14 +133,15 @@ int main() {
   printf("struct: host read %u, hipMemcpy readback %u, expected 1\n", *Counter,
          Copy);
   fflush(stdout);
-  expectU("struct: host read", *Counter, 1);
+  if (HostCoherent)
+    expectU("struct: host read", *Counter, 1);
   expectU("struct: hipMemcpy readback", Copy, 1);
 
   // Pointer stored in a hipMalloc'd device array of pointers.
   unsigned **Table = nullptr;
   CHECK(hipMalloc(&Table, sizeof(unsigned *)));
   CHECK(hipMemcpy(Table, &Counter, sizeof(unsigned *), hipMemcpyHostToDevice));
-  *Counter = 0;
+  CHECK(resetCounter());
   incrementViaTable<<<1, 1>>>(Table);
   CHECK(hipGetLastError());
   CHECK(hipDeviceSynchronize());
@@ -106,7 +149,8 @@ int main() {
   printf("table: host read %u, hipMemcpy readback %u, expected 1\n", *Counter,
          Copy);
   fflush(stdout);
-  expectU("table: host read", *Counter, 1);
+  if (HostCoherent)
+    expectU("table: host read", *Counter, 1);
   expectU("table: hipMemcpy readback", Copy, 1);
 
   CHECK(hipFree(Table));
