@@ -24,6 +24,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <unistd.h>
@@ -94,7 +95,10 @@ int main(int argc, char **argv) {
   double SecondMs = std::chrono::duration<double, std::milli>(T2 - T1).count();
   int Attempts = countLines(LogPath, "module-cache: MISS");
   unlink(LogPath);
-  rmdir(getenv("CHIP_MODULE_CACHE_DIR"));
+  // A device compiler that accepts the module stores a binary in the private
+  // cache directory, so it is not necessarily empty.
+  std::error_code EC;
+  std::filesystem::remove_all(getenv("CHIP_MODULE_CACHE_DIR"), EC);
 
   printf("first call: %s in %.1f ms\n", hipGetErrorName(Err1), FirstMs);
   printf("second call: %s in %.1f ms\n", hipGetErrorName(Err2), SecondMs);
