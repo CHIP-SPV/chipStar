@@ -558,6 +558,24 @@ void CHIPGraphNodeHost::execute(chipstar::Queue *Queue) const {
   Params_.fn(Params_.userData);
 }
 
+// Defined out of line because CHIPGraph is only declared after this node
+// class in the header. hipGraphAddChildGraphNode documents childGraph as the
+// "Graph to clone into this node", so the node owns a clone rather than
+// aliasing the caller's graph.
+CHIPGraphNodeGraph::CHIPGraphNodeGraph(const CHIPGraph *Graph)
+    : CHIPGraphNode(hipGraphNodeTypeGraph), SubGraph_(new CHIPGraph(*Graph)) {}
+
+CHIPGraphNodeGraph::CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other)
+    : CHIPGraphNode(Other), SubGraph_(new CHIPGraph(*Other.SubGraph_)) {}
+
+CHIPGraphNodeGraph::~CHIPGraphNodeGraph() { delete SubGraph_; }
+
+void CHIPGraphNodeGraph::setGraph(const CHIPGraph *Graph) {
+  auto *Clone = new CHIPGraph(*Graph);
+  delete SubGraph_;
+  SubGraph_ = Clone;
+}
+
 void CHIPGraphNodeGraph::execute(chipstar::Queue *Queue) const {
   // The schedule runs this node after all of its dependencies and before all
   // of its dependants, so running the child graph to completion here keeps
