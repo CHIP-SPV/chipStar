@@ -59,6 +59,9 @@ enum class KeyField : uint8_t {
   VendorId = 11,
   LoaderDelta = 12, ///< digest of libraries the runtime loaded at init
   Environment = 13, ///< collectCompilerEnvironmentVariables() result
+  RtDevLibOptions = 14, ///< the string given to clCompileProgram for the
+                        ///< rtdevlib modules; differs from BuildOptions
+                        ///< under CHIP_JIT_FLAGS_OVERRIDE
 };
 
 /// Builds a cache key from length-prefixed tagged fields.
