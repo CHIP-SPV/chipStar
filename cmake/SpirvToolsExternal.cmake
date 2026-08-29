@@ -12,8 +12,14 @@ set(SPIRV_TOOLS_INSTALL_DIR "${CMAKE_BINARY_DIR}/external/spirv-tools")
 file(MAKE_DIRECTORY "${SPIRV_TOOLS_INSTALL_DIR}/include")
 file(MAKE_DIRECTORY "${SPIRV_TOOLS_INSTALL_DIR}/lib")
 
-set(CHIPSTAR_C_COMPILER gcc)
-set(CHIPSTAR_CXX_COMPILER g++)
+# Full paths, not bare names: the external's configure step re-runs on every
+# build (UPDATE_COMMAND is never up to date) and passes these again each time.
+# A bare name is resolved through PATH at every run, and a PATH that resolves
+# it differently between two runs makes cmake treat the compiler as changed,
+# delete the external's cache and reconfigure with only the compiler entries,
+# which sends the install to /usr/local (#1486).
+find_program(CHIPSTAR_C_COMPILER gcc REQUIRED)
+find_program(CHIPSTAR_CXX_COMPILER g++ REQUIRED)
 message(STATUS "CHIPSTAR_C_COMPILER: ${CHIPSTAR_C_COMPILER}")
 message(STATUS "CHIPSTAR_CXX_COMPILER: ${CHIPSTAR_CXX_COMPILER}")
 ExternalProject_Add(SPIRV-Tools-External
