@@ -25,3 +25,26 @@ add_subdirectory(libraries)
 add_subdirectory(benchmarks)
 add_subdirectory(regression)
 add_subdirectory(hipcc-verify)
+
+# Reproducer for CHIP-SPV/chipStar#1488. clang loads lib/libLLVMHipSpvPasses.so
+# as a pass plugin (through --hip-path) while compiling HIP device code, so
+# every object compiled from a HIP source has to be ordered after that link.
+# The walk follows order-only inputs, which is where the Ninja generator puts
+# target-level dependencies. One probe per registration path: the Test* glob
+# in runtime/, add_hip_test(), and the catch suite, whose own CMake tree
+# compiles with hipcc.bin and never links CHIP.
+if(CMAKE_GENERATOR MATCHES "Ninja")
+  find_package(Python3 COMPONENTS Interpreter)
+endif()
+if(CMAKE_GENERATOR MATCHES "Ninja" AND Python3_Interpreter_FOUND)
+  set(BUILD_ORDER_PROBES
+    $<TARGET_OBJECTS:TestKernelArgs>
+    $<TARGET_OBJECTS:TestFixUmul64hi>)
+  if(TARGET ErrorHandlingTest)
+    list(APPEND BUILD_ORDER_PROBES $<TARGET_OBJECTS:ErrorHandlingTest>)
+  endif()
+  add_test(NAME TestFix1488PassPluginBuildOrder
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_build_order.py
+      --ninja ${CMAKE_MAKE_PROGRAM} --build-dir ${CMAKE_BINARY_DIR}
+      --required $<TARGET_FILE:LLVMHipPasses> ${BUILD_ORDER_PROBES})
+endif()
