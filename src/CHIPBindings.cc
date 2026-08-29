@@ -1200,14 +1200,22 @@ hipError_t hipGraphGetEdges(hipGraph_t graph, hipGraphNode_t *from,
     *numEdges = Edges.size();
     RETURN(hipSuccess);
   }
+  if (!to || !from)
+    RETURN(hipErrorInvalidValue);
 
-  for (int i = 0; i < Edges.size(); i++) {
-    auto Edge = Edges[i];
-    auto FromNode = Edge.first;
-    auto ToNode = Edge.second;
-    from[i] = FromNode;
-    to[i] = ToNode;
+  // On entry *numEdges is the capacity of from/to. Fill at most that many
+  // entries, null the surplus ones and report how many were written.
+  size_t Capacity = *numEdges;
+  size_t NumWritten = std::min(Capacity, Edges.size());
+  for (size_t i = 0; i < NumWritten; i++) {
+    from[i] = Edges[i].first;
+    to[i] = Edges[i].second;
   }
+  for (size_t i = NumWritten; i < Capacity; i++) {
+    from[i] = nullptr;
+    to[i] = nullptr;
+  }
+  *numEdges = NumWritten;
   RETURN(hipSuccess);
   CHIP_CATCH
 }

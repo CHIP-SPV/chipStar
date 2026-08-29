@@ -619,12 +619,17 @@ public:
 
   std::vector<CHIPGraphNode *> &getNodes() { return Nodes_; }
 
+  /**
+   * @brief Collect the graph's edges as (from, to) pairs.
+   * A node's dependencies are the nodes it runs after, so each dependency
+   * is the from end of an edge that ends at the node.
+   */
   std::vector<std::pair<CHIPGraphNode *, CHIPGraphNode *>> getEdges() {
     std::set<std::pair<CHIPGraphNode *, CHIPGraphNode *>> Edges;
     for (auto Node : Nodes_) {
       for (auto Dep : Node->getDependencies()) {
         auto FromToPair =
-            std::pair<CHIPGraphNode *, CHIPGraphNode *>(Node, Dep);
+            std::pair<CHIPGraphNode *, CHIPGraphNode *>(Dep, Node);
         Edges.insert(FromToPair);
       }
     }
