@@ -41,11 +41,15 @@ Kernels are compiled twice, and the two stages are controlled independently:
 
    - `CHIP_JIT_FLAGS` **appends** to chipStar's backend defaults. Use this
      for adding flags such as `-cl-opt-disable`.
-   - `CHIP_JIT_FLAGS_OVERRIDE` **replaces** the defaults entirely. On the
-     OpenCL backend the defaults (`-cl-kernel-arg-info -cl-std=CL3.0`) are
-     required for kernel argument handling, so overriding there will break
-     things unless you re-include them. On Level Zero the defaults are
-     currently empty, making append and override equivalent.
+   - `CHIP_JIT_FLAGS_OVERRIDE` **replaces** the defaults entirely for your
+     program. On the OpenCL backend the defaults are
+     `-cl-kernel-arg-info -cl-std=CL3.0`; the Intel CPU runtime applies
+     `-cl-std` to SPIR-V programs too and cannot resolve atomics on generic
+     pointers below CL2.0, so an override without a `-cl-std` breaks any
+     kernel using atomics there unless you re-include it. chipStar's own
+     runtime device library always keeps a `-cl-std` (the backend default
+     when your override sets none). On Level Zero the defaults are currently
+     empty, making append and override equivalent.
 
    So: append (`CHIP_JIT_FLAGS`) unless you deliberately need to discard the
    defaults.
