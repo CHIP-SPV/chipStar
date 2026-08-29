@@ -56,13 +56,23 @@
 
 using namespace llvm;
 
-// A predicate for internalize pass
+// A predicate for internalize pass. Returning true means preserve GV.
 //
-// This internalizes all non-kernel functions so unused ones get removed by DCE
-// pass.
-static bool internalizeSPIRVFunctions(const GlobalValue &GV) {
+// Internalizes all non-kernel functions so unused ones get removed by DCE
+// pass, and the Itanium vtable family (_ZTV vtable, _ZTT VTT, _ZTC construction
+// vtable). Clang emits those for every polymorphic class that appears in device
+// code, and an explicit instantiation gives them weak_odr linkage, which
+// GlobalDCE alone must keep. A device module is self-contained, so nothing can
+// link against them and the unreferenced ones can go; left in, a dead table
+// whose virtual base offsets are inttoptr constants aborts llvm-spirv
+// (CHIP-SPV/chipStar#1382).
+static bool preserveDuringInternalize(const GlobalValue &GV) {
+  if (isa<GlobalVariable>(GV)) {
+    StringRef Name = GV.getName();
+    return !(Name.starts_with("_ZTV") || Name.starts_with("_ZTT") ||
+             Name.starts_with("_ZTC"));
+  }
   const auto *F = dyn_cast<Function>(&GV);
-  // Returning true means preserve GV.
   return !(F && F->getCallingConv() == CallingConv::SPIR_FUNC);
 }
 
@@ -210,7 +220,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // Internalize all __device__ functions (spir_kernels) so the follow-up DCE
   // passes cleans-ups the unused ones.
-  addPassWithVerification(MPM, InternalizePass(internalizeSPIRVFunctions), "InternalizePass");
+  addPassWithVerification(MPM, InternalizePass(preserveDuringInternalize), "InternalizePass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(DCEPass()), "DCEPass");
   addPassWithVerification(MPM, GlobalDCEPass(), "GlobalDCEPass");
 
