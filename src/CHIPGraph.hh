@@ -664,13 +664,6 @@ protected:
   std::queue<std::set<CHIPGraphNode *>> ExecQueues_;
 
   /**
-   * @brief For every CHIPGraphNodeGraph in CompiledGraph_, replace this node
-   * with its contents.
-   *
-   */
-  void ExtractSubGraphs_();
-
-  /**
    * @brief remove unnecessary dependencies
    * for leaf node in graph:
    *   for each dependency in node:
