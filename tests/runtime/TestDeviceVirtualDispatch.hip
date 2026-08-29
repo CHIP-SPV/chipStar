@@ -95,6 +95,39 @@ __global__ void indirectDispatchKernel(const int *Sel, float *Area) {
   Area[threadIdx.x] = areaOf(Table[Sel[threadIdx.x] & 1]);
 }
 
+// Dispatch through an abstract base. Clang keeps a __cxa_pure_virtual slot in
+// the vtable of any class with an unoverridden pure virtual member, and the
+// device side has to define that symbol (CHIP-SPV/chipStar#1381). Without it
+// the consumer rejects the module and every kernel in the program fails to
+// build.
+struct Abstract {
+  // noinline keeps the store of Abstract's own vptr, and with it the reference
+  // to __cxa_pure_virtual, in the module at every optimisation level. Inlined
+  // into a derived constructor that store is dead and the vtable is dropped.
+  __device__ __attribute__((noinline)) Abstract() {}
+  __device__ virtual ~Abstract() {}
+  __device__ virtual float area() const = 0;
+};
+
+struct Rect final : Abstract {
+  float W, H;
+  __device__ Rect(float W_, float H_) : W(W_), H(H_) {}
+  __device__ float area() const final { return W * H; }
+};
+
+struct AbstractSquare final : Abstract {
+  float S;
+  __device__ explicit AbstractSquare(float S_) : S(S_) {}
+  __device__ float area() const final { return S * S; }
+};
+
+__global__ void pureVirtualKernel(const int *Sel, float *Area) {
+  Rect R(3.0f, 4.0f);
+  AbstractSquare Sq(5.0f);
+  const Abstract *Table[2] = {&R, &Sq};
+  Area[threadIdx.x] = Table[Sel[threadIdx.x] & 1]->area();
+}
+
 static constexpr int N = 4;
 
 template <typename KernelT>
@@ -135,6 +168,7 @@ int main() {
   const int HSel[N] = {0, 1, 1, 0};
   const float WantArea[N] = {4.0f, 12.0f, 12.0f, 4.0f};
   const float WantIndirectArea[N] = {9.0f, 27.0f, 27.0f, 9.0f};
+  const float WantPureVirtualArea[N] = {12.0f, 25.0f, 25.0f, 12.0f};
 
   int *DSel = nullptr;
   float *DArea = nullptr;
@@ -145,6 +179,8 @@ int main() {
   bool Ok = runAndCheck("dispatch", dispatchKernel, DSel, DArea, WantArea);
   Ok &= runAndCheck("indirectDispatch", indirectDispatchKernel, DSel, DArea,
                     WantIndirectArea);
+  Ok &= runAndCheck("pureVirtual", pureVirtualKernel, DSel, DArea,
+                    WantPureVirtualArea);
 
   (void)hipFree(DSel);
   (void)hipFree(DArea);
