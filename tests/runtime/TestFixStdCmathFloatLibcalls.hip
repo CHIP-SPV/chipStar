@@ -46,6 +46,26 @@
 #include <cstdio>
 #include <type_traits>
 
+// The std:: route to the C names is a libstdc++ property: its float and long
+// double overloads are constexpr wrappers, so HIP treats them as __host__
+// __device__ and they reach __builtin_*f / __builtin_*l. libc++ (macOS)
+// implements them as plain host inlines. There, std::acosh(float) still works
+// because libc++ pulls the C names into std with using-declarations, which
+// picks up chipStar's __device__ float overloads and, since a same-side
+// candidate exists, drops the host one. Two calls have no such fallback and
+// do not compile in device code on libc++:
+//
+//   - every long double call: chipStar has no long double overloads, so the
+//     float and double ones tie ("call to 'acosh' is ambiguous");
+//   - std::nexttoward(float, long double): chipStar has no nexttoward at all.
+//
+// Those slots are exercised through std:: only where the route exists.
+#if defined(__GLIBCXX__)
+#define STD_ROUTE_TO_LIBCALLS 1
+#else
+#define STD_ROUTE_TO_LIBCALLS 0
+#endif
+
 // (name, argument): every unary <cmath> function libstdc++ implements for
 // float through __builtin_*f (GCC 13 <cmath>), plus the classic ones.
 #define UNARY_LIST(X)                                                          \
@@ -200,10 +220,11 @@ __host__ __device__ void evalAll(T x, T y, int n, long ln, OutT *Out,
   Out[i++] = (OutT)std::remquo(y, x, &q);
   IOut[j++] = q;
   // std::nexttoward(double, long double) is ambiguous in device code (the
-  // exact match is libstdc++'s host-only one), so that slot is a placeholder.
+  // exact match is libstdc++'s host-only one), so that slot is a placeholder,
+  // as it is for every type on libc++.
   if constexpr (UseBuiltin)
     Out[i++] = (OutT)bi_nexttoward(x, (long double)y);
-  else if constexpr (IsDouble)
+  else if constexpr (IsDouble || !STD_ROUTE_TO_LIBCALLS)
     Out[i++] = (OutT)x;
   else
     Out[i++] = (OutT)std::nexttoward(x, (long double)y);
@@ -309,7 +330,9 @@ int main() {
   Failures += runOne<float, float, true>("float via __builtin_*f", 1e-4);
   Failures += runOne<double, double, false>("double via std::", 1e-9);
   Failures += runOne<double, double, true>("double via __builtin_*", 1e-9);
+#if STD_ROUTE_TO_LIBCALLS
   Failures += runOne<long double, double, false>("long double via std::", 1e-9);
+#endif
   if (Failures) {
     printf("FAIL\n");
     return 1;
