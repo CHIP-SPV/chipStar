@@ -670,6 +670,7 @@ chipstar::Device::~Device() {
     for (auto &Kv : SrcModToCompiledMod_)
       delete Kv.second;
     SrcModToCompiledMod_.clear();
+    FailedSrcMods_.clear();
   }
 }
 
@@ -1462,12 +1463,24 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
   return Mod;
 }
 
-/// Get compiled module for the source module 'SrcMod'.
+/// Get compiled module for the source module 'SrcMod'. A source whose
+/// compilation failed is not compiled again: the error of the first attempt
+/// is thrown on every later request.
 chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
-  { // Check if we have already created the module for the source.
+  { // Check if we have already created, or already failed to create, the
+    // module for the source.
     LOCK(DeviceVarMtx); // chipstar::Device::SrcModToCompiledMod_
+                        // chipstar::Device::FailedSrcMods_
     if (SrcModToCompiledMod_.count(&SrcMod))
       return SrcModToCompiledMod_[&SrcMod];
+
+    auto Failed = FailedSrcMods_.find(&SrcMod);
+    if (Failed != FailedSrcMods_.end()) {
+      CHIPError Err = Failed->second;
+      CHIPERR_LOG_AND_THROW("Module failed to compile earlier: " +
+                                Err.getMsgStr(),
+                            Err.toHIPError());
+    }
   }
 
   logDebug("Compile module {}", static_cast<const void *>(&SrcMod));
@@ -1478,7 +1491,14 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
   // it rejects, and the atexit path that runs then takes DeviceVarMtx again in
   // deallocateDeviceVariables() on this same thread.
   auto start = std::chrono::high_resolution_clock::now();
-  auto *Module = compile(SrcMod);
+  chipstar::Module *Module = nullptr;
+  try {
+    Module = compile(SrcMod);
+  } catch (const CHIPError &Err) {
+    LOCK(DeviceVarMtx); // chipstar::Device::FailedSrcMods_
+    FailedSrcMods_.emplace(&SrcMod, Err);
+    throw;
+  }
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(end - start);
