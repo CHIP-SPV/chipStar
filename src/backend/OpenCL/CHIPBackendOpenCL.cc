@@ -1229,7 +1229,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
         logError("clLinkProgram failed: {} (0x{:x})", Err, (unsigned)Err);
         dumpProgramLog(*ChipDevOcl, Program_);
         CHIPERR_LOG_AND_THROW("Device library link step failed.",
-                              hipErrorInitializationError);
+                              hipErrorSharedObjectInitFailed);
       }
     } else {
       // No rtdevlib needed. Build directly with clBuildProgram, bypassing
@@ -1249,7 +1249,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
       dumpProgramLog(*ChipDevOcl, Program_);
       if (Err != CL_SUCCESS)
         CHIPERR_LOG_AND_THROW("Program build failed.",
-                              hipErrorInitializationError);
+                              hipErrorSharedObjectInitFailed);
     }
 
     storeProgram(Program_, *ChipDevOcl, CacheKey);

@@ -1357,6 +1357,11 @@ class Device {
   /// Modules compiled so far.
   std::unordered_map<const SPVModule *, chipstar::Module *>
       SrcModToCompiledMod_;
+  /// Source modules whose compilation failed, with the error the attempt
+  /// threw. A later request for such a module gets the same error back
+  /// without another compile attempt, which on a large module can take
+  /// minutes per API call.
+  std::unordered_map<const SPVModule *, CHIPError> FailedSrcMods_;
   /// Host pointer mapping to modules.
   std::unordered_map<const void *, chipstar::Module *> HostPtrToCompiledMod_;
 

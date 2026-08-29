@@ -3472,7 +3472,7 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
         compileIL(ChipCtxLz->get(), LzDev->get(), MainModuleDesc, LzDev);
     if (!MainModule) {
       CHIPERR_LOG_AND_THROW("Failed to create main module in fallback",
-                            hipErrorTbd);
+                            hipErrorSharedObjectInitFailed);
     }
 
     // Create device library modules (remaining inputs)
@@ -3489,8 +3489,9 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
         for (auto LibMod : DeviceLibModules) {
           zeModuleDestroy(LibMod);
         }
-        CHIPERR_LOG_AND_THROW("Failed to create device library module in fallback",
-                              hipErrorTbd);
+        CHIPERR_LOG_AND_THROW(
+            "Failed to create device library module in fallback",
+            hipErrorSharedObjectInitFailed);
       }
       DeviceLibModules.push_back(LibModule);
     }
@@ -3512,20 +3513,24 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
       LinkedDeviceLibModules_ = std::move(DeviceLibModules);
     } else {
       logWarn("Fallback module linking failed: {}", resultToString(zeStatus));
+      std::string LinkLogText;
       if (LinkLog) {
-        dumpBuildLog(std::move(LinkLog));
+        LinkLogText = dumpBuildLog(std::move(LinkLog));
       }
       // Clean up
       zeModuleDestroy(MainModule);
       for (auto LibModule : DeviceLibModules) {
         zeModuleDestroy(LibModule);
       }
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeModuleDynamicLink);
+      CHIPERR_LOG_AND_THROW("Fallback module linking failed: " +
+                                resultToString(zeStatus) + "\n" + LinkLogText,
+                            hipErrorSharedObjectInitFailed);
     }
   }
 
   if (!ZeModule_) {
-    CHIPERR_LOG_AND_THROW("Module is null after compilation", hipErrorTbd);
+    CHIPERR_LOG_AND_THROW("Module is null after compilation",
+                          hipErrorSharedObjectInitFailed);
   }
 
   // Persist only a module that is known good: the unlinked-module probe has
