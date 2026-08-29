@@ -153,7 +153,12 @@ set(N ${LAST_MISSES})
 run_and_expect("repeat run (expect hit)" ${N} 0)
 
 # 3. CHIP_JIT_FLAGS_OVERRIDE changes the options string handed to the driver,
-#    which the key hashes verbatim, so it must miss.
+#    which the key hashes verbatim, so it must miss. A bare -cl-opt-disable is
+#    deliberate: the override replaces the OpenCL backend's defaults
+#    (-cl-std=CL3.0 among them) for the user's program, and the rtdevlib link
+#    must survive that (issue #1532: the Intel CPU runtime resolves the
+#    library's generic-pointer float atomic only under CL2.0 or newer), so
+#    this step also checks that the library keeps its own options.
 run_and_expect("with CHIP_JIT_FLAGS_OVERRIDE (expect miss)" 0 ${N}
   "CHIP_JIT_FLAGS_OVERRIDE=-cl-opt-disable")
 
