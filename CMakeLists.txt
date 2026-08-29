@@ -544,11 +544,25 @@ unset(_hip_ver_major)
 unset(_hip_ver_minor)
 unset(_hip_ver_patch)
 
-# Make CHIP depend on devicelib_bc and LLVMHipPasses for
-# convenience. The CHIP module itself does not depend on these but
-# HIP program compilation does.
-add_dependencies(CHIP devicelib_bc LLVMHipPasses)
-add_dependencies(CHIP hipcc.bin hipconfig.bin)
+# Everything a HIP compile against the build tree needs from the in-tree
+# toolchain: hipcc, the device bitcode library, and the pass plugin that
+# clang loads from <hip-path>/lib while emitting device code.
+#
+# This is a utility target rather than a plain add_dependencies() on
+# LLVMHipPasses because of how the Ninja generator orders object compiles.
+# A dependency on a library target only orders a consumer's objects after
+# that library's own objects, not after its link, so a test TU could be
+# compiled, and its device link could dlopen lib/libLLVMHipSpvPasses.so,
+# while the plugin was still being relinked (CHIP-SPV/chipStar#1488). A
+# utility target is waited on completely, and so is every target it
+# depends on.
+add_custom_target(hip_device_toolchain)
+add_dependencies(hip_device_toolchain LLVMHipPasses devicelib_bc hipcc.bin)
+
+# The CHIP module itself needs none of this, but HIP program compilation
+# does, and everything that compiles HIP code against the build tree
+# links CHIP: the ordering reaches their object compiles through CHIP.
+add_dependencies(CHIP hip_device_toolchain hipconfig.bin)
 
 file(MAKE_DIRECTORY ${HIPCC_BUILD_PATH})
 if(NOT EXISTS "${HIPCC_BUILD_PATH}/hipcc")
@@ -1137,6 +1151,16 @@ if(CHIP_BUILD_TESTS)
   else()
     add_subdirectory(HIP/tests/catch catch)
   endif()
+  # The catch tree sets hipcc.bin as its compiler and never links CHIP, so
+  # it inherits none of the ordering that CHIP carries. Every catch
+  # executable is built on these object libraries, and the Ninja generator
+  # orders an executable's objects after those of the object libraries it
+  # consumes, so this reaches all of them.
+  foreach(CATCH_OBJECT_LIB KERNELS Main_Object Main_Object_Standalone)
+    if(TARGET ${CATCH_OBJECT_LIB})
+      add_dependencies(${CATCH_OBJECT_LIB} hip_device_toolchain)
+    endif()
+  endforeach()
   add_subdirectory(tests)
 endif()
 
