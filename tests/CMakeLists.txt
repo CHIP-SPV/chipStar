@@ -48,3 +48,14 @@ if(CMAKE_GENERATOR MATCHES "Ninja" AND Python3_Interpreter_FOUND)
       --ninja ${CMAKE_MAKE_PROGRAM} --build-dir ${CMAKE_BINARY_DIR}
       --required $<TARGET_FILE:LLVMHipPasses> ${BUILD_ORDER_PROBES})
 endif()
+
+# Reproduce #1486: the SPIRV-Tools ExternalProject named its compilers by bare
+# name, so a PATH that differs between two builds made cmake wipe the
+# external's cache and `ninja install` wrote to /usr/local. Script test:
+# configures the module on its own and drives the generated configure step.
+add_test(NAME TestFix1486SpirvToolsInstallPrefix
+  COMMAND ${CMAKE_COMMAND}
+    -DCHIPSTAR_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -DGENERATOR=${CMAKE_GENERATOR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1486SpirvToolsInstallPrefix.cmake)
+set_tests_properties(TestFix1486SpirvToolsInstallPrefix PROPERTIES TIMEOUT 300)
