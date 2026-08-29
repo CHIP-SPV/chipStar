@@ -2605,10 +2605,7 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
       hipStreamCaptureStatus::hipStreamCaptureStatusActive)
     RETURN(hipErrorIllegalState);
 
-  ChipQueue->initCaptureGraph();
-  ChipQueue->setCaptureMode(mode);
-  ChipQueue->setCaptureStatus(
-      hipStreamCaptureStatus::hipStreamCaptureStatusActive);
+  ChipQueue->beginCapture(mode);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -2640,14 +2637,30 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
       hipStreamCaptureStatus::hipStreamCaptureStatusActive)
     RETURN(hipErrorInvalidValue);
 
-  ChipQueue->setCaptureStatus(
-      hipStreamCaptureStatus::hipStreamCaptureStatusNone);
+  // A stream that entered the capture through hipStreamWaitEvent cannot end
+  // it; only the stream hipStreamBeginCapture was called on can.
+  if (!ChipQueue->isCaptureOrigin())
+    RETURN(hipErrorStreamCaptureUnmatched);
 
-  if (ChipQueue->getCaptureGraph())
-    *pGraph = ChipQueue->getCaptureGraph();
-  else
+  CHIPGraph *Graph = ChipQueue->getCaptureGraph();
+  if (!Graph)
     RETURN(hipErrorContextIsDestroyed);
 
+  // Every leaf of the graph must be something the origin stream waits for:
+  // a leaf outside the origin's dependency set is work on a forked stream
+  // that was never joined back.
+  const auto &Deps = ChipQueue->getCaptureDependencies();
+  for (auto *Leaf : Graph->getLeafNodes()) {
+    if (std::find(Deps.begin(), Deps.end(), Leaf) == Deps.end()) {
+      ChipQueue->endCapture();
+      delete Graph;
+      *pGraph = nullptr;
+      RETURN(hipErrorStreamCaptureUnjoined);
+    }
+  }
+
+  ChipQueue->endCapture();
+  *pGraph = Graph;
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -3763,11 +3776,10 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
   if (!ChipQueue->getContext())
     RETURN(hipErrorContextIsDestroyed);
 
+  // Leave any capture so that neither the capture's origin stream nor the
+  // events recorded here keep a pointer to the destroyed queue.
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone)
-    ChipQueue->setCaptureStatus(hipStreamCaptureStatusNone);
-
-  if (ChipQueue->getCaptureStatus() == hipStreamCaptureStatusInvalidated)
-    RETURN(hipErrorStreamCaptureInvalidated);
+    ChipQueue->endCapture();
 
   chipstar::Device *Dev = Backend->getActiveDevice();
 
@@ -3843,12 +3855,31 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   auto ChipEvent = static_cast<chipstar::Event *>(Event);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
+  ERROR_IF((!ChipQueue), hipErrorInvalidResourceHandle);
+  ERROR_IF((!Event), hipErrorInvalidResourceHandle);
+
+  // An event recorded by a stream of an active capture carries the capture's
+  // dependencies at that point. Waiting on it is not a graph node: it joins
+  // this stream into that capture (cross-stream capture) and makes the next
+  // node recorded here depend on those nodes. hipEventWaitExternal keeps the
+  // wait as an event wait node instead.
+  if (Flags != hipEventWaitExternal && ChipEvent->getCaptureQueue()) {
+    auto *EventQueue = ChipEvent->getCaptureQueue();
+    if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusActive) {
+      if (ChipQueue->isDefaultLegacyQueue())
+        return hipErrorStreamCaptureImplicit;
+      ChipQueue->joinCapture(EventQueue);
+    } else if (ChipQueue->getCaptureGraph() != EventQueue->getCaptureGraph()) {
+      ChipQueue->setCaptureStatus(hipStreamCaptureStatusInvalidated);
+      return hipErrorStreamCaptureMerge;
+    }
+    ChipQueue->addCaptureDependencies(ChipEvent->getCaptureNodes());
+    return hipSuccess;
+  }
 
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeWaitEvent>(ChipEvent)) {
     return hipSuccess;
   }
-  ERROR_IF((!ChipQueue), hipErrorInvalidResourceHandle);
-  ERROR_IF((!Event), hipErrorInvalidResourceHandle);
 
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT)
     RETURN(hipSuccess);
@@ -4045,9 +4076,17 @@ hipError_t hipEventRecordInternal(hipEvent_t Event, hipStream_t Stream) {
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
   LOCK(ChipQueue->QueueMtx);
 
-  if (ChipQueue->captureIntoGraph<CHIPGraphNodeEventRecord>(ChipEvent)) {
+  // Recording during capture adds no node: the event stands for the nodes
+  // the stream's next node would depend on, so that another stream waiting
+  // on it can continue from them (see hipStreamWaitEventInternal).
+  if (ChipQueue->getCaptureStatus() == hipStreamCaptureStatusActive) {
+    ChipQueue->captureEvent(ChipEvent);
     return hipSuccess;
   }
+
+  // A record outside a capture ends the event's association with it.
+  if (auto *CaptureQueue = ChipEvent->getCaptureQueue())
+    CaptureQueue->releaseCaptureEvent(ChipEvent);
 
   ChipQueue->recordEvent(ChipEvent);
   return hipSuccess;
@@ -4068,10 +4107,13 @@ hipError_t hipEventDestroy(hipEvent_t Event) {
   LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(Event);
+  auto *ChipEvent = static_cast<chipstar::Event *>(Event);
+  if (auto *CaptureQueue = ChipEvent->getCaptureQueue())
+    CaptureQueue->releaseCaptureEvent(ChipEvent);
   // Delete through chipstar::Event*: hipEvent_t is ihipEvent_t*, a
   // non-polymorphic empty base, so `delete Event` would skip the virtual
   // destructor and leak the backend cl_event/ze_event handle.
-  delete static_cast<chipstar::Event *>(Event);
+  delete ChipEvent;
 
   RETURN(hipSuccess);
 
