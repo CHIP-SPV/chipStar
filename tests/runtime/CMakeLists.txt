@@ -70,6 +70,7 @@ set(RUNTIME_TESTS_MANUAL
   TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
+  TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
   TestModuleCacheInvalidation.hip # run several times through a driver script
@@ -361,4 +362,34 @@ set_tests_properties(TestFixFunctionLocalStaticDeviceVar PROPERTIES
   SKIP_RETURN_CODE ${CHIP_SKIP_TEST}
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
   TIMEOUT 120)
+endif()
+
+# The OpenCL backend's queue mode switch must not leak the barrier event it
+# enqueues (#1543). The leak cannot be seen through the HIP API, so an
+# LD_PRELOAD interposer keeps the reference balance of every barrier event and
+# a driver script turns its report into the verdict.
+if(UNIX AND NOT APPLE)
+  set_source_files_properties(TestFix1543SwitchModeEventLeak.hip
+    PROPERTIES LANGUAGE CXX)
+  add_executable(TestFix1543SwitchModeEventLeak
+    TestFix1543SwitchModeEventLeak.hip)
+  set_target_properties(TestFix1543SwitchModeEventLeak PROPERTIES
+    CXX_STANDARD_REQUIRED ON)
+  target_link_libraries(TestFix1543SwitchModeEventLeak CHIP deviceInternal)
+  target_include_directories(TestFix1543SwitchModeEventLeak
+    PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+  add_library(BarrierEventLeakInterposer MODULE
+    BarrierEventLeakInterposer.cpp)
+  target_link_libraries(BarrierEventLeakInterposer ${CMAKE_DL_LIBS})
+
+  add_test(NAME TestFix1543SwitchModeEventLeak
+    COMMAND ${CMAKE_COMMAND}
+      -DTEST_EXECUTABLE=$<TARGET_FILE:TestFix1543SwitchModeEventLeak>
+      -DINTERPOSER=$<TARGET_FILE:BarrierEventLeakInterposer>
+      -DTEST_TIMEOUT=60
+      -P ${CMAKE_SOURCE_DIR}/tests/run_barrier_event_leak_test.cmake)
+  set_tests_properties(TestFix1543SwitchModeEventLeak PROPERTIES
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
+    TIMEOUT 120)
 endif()
