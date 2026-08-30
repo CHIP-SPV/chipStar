@@ -2314,6 +2314,15 @@ void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
   clStatus = clEnqueueBarrierWithWaitList(ToQ.get(), 1, &SwitchEv, &BarrierEv);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueBarrierWithWaitList);
 
+  // The barrier on ToQ waits on an event of FromQ. OpenCL requires the
+  // application to flush the queue owning an event before a command of
+  // another queue may wait on it. Without this an implementation that
+  // submits lazily (Mali) never issues the marker, and everything behind the
+  // barrier blocks forever, including a clWaitForEvents on an event of ToQ,
+  // which flushes only ToQ.
+  clStatus = clFlush(FromQ.get());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
+
   // Use the barrier event from the TO queue, not the marker from FROM queue
   auto *ChipEv = new CHIPEventOpenCL(
       static_cast<CHIPContextOpenCL *>(ChipContext_), BarrierEv);
