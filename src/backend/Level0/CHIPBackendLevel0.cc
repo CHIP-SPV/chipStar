@@ -2993,18 +2993,20 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
 
   // hipMallocManaged is backed by USM: zeMemAllocHost by default, or
   // zeMemAllocShared where host USM lacks atomics (see allocateImpl() and
-  // ManagedUsesSharedUsm_). Report the access capabilities the driver
-  // advertises for those kinds.
+  // ManagedUsesSharedUsm_). concurrentManagedAccess describes the USM kind
+  // that actually backs managed memory; hostNativeAtomicSupported is about
+  // host memory regardless of that choice.
   HipDeviceProps_.managedMemory = 1;
   HipDeviceProps_.hostNativeAtomicSupported =
       (MemAccessProps_.hostAllocCapabilities & ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC)
           ? 1
           : 0;
+  const ze_memory_access_cap_flags_t ManagedCaps =
+      ManagedUsesSharedUsm_
+          ? MemAccessProps_.sharedSingleDeviceAllocCapabilities
+          : MemAccessProps_.hostAllocCapabilities;
   HipDeviceProps_.concurrentManagedAccess =
-      (MemAccessProps_.sharedSingleDeviceAllocCapabilities &
-       ZE_MEMORY_ACCESS_CAP_FLAG_CONCURRENT)
-          ? 1
-          : 0;
+      (ManagedCaps & ZE_MEMORY_ACCESS_CAP_FLAG_CONCURRENT) ? 1 : 0;
   // Conservative defaults for the remaining USM related properties.
   HipDeviceProps_.directManagedMemAccessFromHost = 0;
   HipDeviceProps_.pageableMemoryAccess = 0;
