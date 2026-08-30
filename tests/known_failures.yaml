@@ -674,7 +674,6 @@ ANY:
     Unit_hipStreamAddCallback_ParamTst_Positive: 'Timeout'
     Unit_hipStreamAddCallback_WithDefaultStream: 'Timeout'
     Unit_hipStreamAddCallback_WithCreatedStream: 'Timeout'
-    Unit_hipEventRecord: 'Timeout'
     Unit_hipMultiThreadStreams1_AsyncSame: 'Timeout'
     hipTestDeviceSymbol: 'Timeout'
     Unit_hipGraphAddEventRecordNode_Functional_Simple: ''
