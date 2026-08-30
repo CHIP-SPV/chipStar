@@ -159,6 +159,13 @@ set_tests_properties(TestEventResetWarnFlood PROPERTIES
   ENVIRONMENT "CHIP_LOGLEVEL=warn"
   FAIL_REGULAR_EXPRESSION "FAIL;reset\\(\\) called while event is recording")
 
+# Reproducer for #1489: device atomics on hipMallocManaged memory. Exercise
+# the Level Zero shared USM path explicitly; the runtime's auto choice is
+# shared USM only on drivers reporting concurrent access for it, and on PVC
+# the auto choice (host USM) has no device atomics at all.
+set_tests_properties(TestFixManagedMemoryDeviceAtomics PROPERTIES
+  ENVIRONMENT "CHIP_L0_MANAGED_USM=shared")
+
 # Reproducer for #1360 (sneaky_snake miscompile). Force -O2: the
 # __clz(0)-poison miscompile only manifests at -O1 and above.
 target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
