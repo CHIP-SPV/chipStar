@@ -1498,6 +1498,7 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
       SyncQueuesEventHandles.data(),
       std::static_pointer_cast<CHIPEventOpenCL>(MemMapEvent)->getNativePtr());
   assert(clStatus == CL_SUCCESS);
+  dropQueryMarker();
 }
 
 cl::CommandQueue *CHIPQueueOpenCL::get() {
@@ -1589,8 +1590,7 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
-  // Mark queue as having work submitted
-  IsEmptyQueue_.store(false);
+  noteWorkEnqueued();
   
   std::shared_ptr<chipstar::Event> MarkerEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
@@ -1612,8 +1612,7 @@ std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   logTrace("CHIPQueueOpenCL->launch()");
   
-  // Mark queue as having work submitted
-  IsEmptyQueue_.store(false);
+  noteWorkEnqueued();
   
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
   std::shared_ptr<chipstar::Event>(LaunchEvent) =
@@ -1753,6 +1752,20 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
 
 CHIPQueueOpenCL::~CHIPQueueOpenCL() {
   logTrace("~CHIPQueueOpenCL() {}", (void *)this);
+  dropQueryMarker();
+}
+
+void CHIPQueueOpenCL::noteWorkEnqueued() {
+  IsEmptyQueue_.store(false);
+  dropQueryMarker();
+}
+
+void CHIPQueueOpenCL::dropQueryMarker() {
+  std::lock_guard<std::mutex> Lock(QueryMarkerMtx_);
+  if (QueryMarker_) {
+    clReleaseEvent(QueryMarker_);
+    QueryMarker_ = nullptr;
+  }
 }
 
 bool CHIPQueueOpenCL::query() {
@@ -1762,18 +1775,46 @@ bool CHIPQueueOpenCL::query() {
     return true;
   }
 
-  cl_event MarkerEvent;
-  clStatus =
-      clEnqueueMarkerWithWaitList(get()->get(), 0, nullptr, &MarkerEvent);
-  if (clStatus != CL_SUCCESS)
-    return false;
+  std::lock_guard<std::mutex> Lock(QueryMarkerMtx_);
+
+  // The marker is kept across calls: it completes once everything enqueued
+  // before it has, and every enqueue path drops it, so its completion means
+  // the queue is drained. Reading a marker in the same call that enqueued it
+  // only works on implementations that complete an idle queue's marker at
+  // enqueue time (Intel, pocl); one that processes commands asynchronously
+  // (Mali) reports it CL_QUEUED and would do so on every poll.
+  if (!QueryMarker_) {
+    cl_event MarkerEvent;
+    clStatus =
+        clEnqueueMarkerWithWaitList(get()->get(), 0, nullptr, &MarkerEvent);
+    if (clStatus != CL_SUCCESS)
+      return false;
+
+    // clGetEventInfo does not flush, so submit the marker and the work
+    // ahead of it. Both queues: after a mode switch the active queue holds
+    // a barrier that waits on a marker of the other queue.
+    for (cl::CommandQueue *Q : {&ClRegularQueue_, &ClProfilingQueue_}) {
+      if (!Q->get())
+        continue;
+      clStatus = clFlush(Q->get());
+      if (clStatus != CL_SUCCESS) {
+        clReleaseEvent(MarkerEvent);
+        return false;
+      }
+    }
+    QueryMarker_ = MarkerEvent;
+  }
 
   cl_int EventStatus;
-  clStatus = clGetEventInfo(MarkerEvent, CL_EVENT_COMMAND_EXECUTION_STATUS,
+  clStatus = clGetEventInfo(QueryMarker_, CL_EVENT_COMMAND_EXECUTION_STATUS,
                             sizeof(cl_int), &EventStatus, nullptr);
-  clReleaseEvent(MarkerEvent);
+  if (clStatus == CL_SUCCESS && EventStatus > CL_COMPLETE)
+    return false; // Still queued, submitted or running.
 
-  return (clStatus == CL_SUCCESS && EventStatus == CL_COMPLETE);
+  // Complete, or failed (negative status): either way this marker is spent.
+  clReleaseEvent(QueryMarker_);
+  QueryMarker_ = nullptr;
+  return clStatus == CL_SUCCESS && EventStatus == CL_COMPLETE;
 }
 
 std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
@@ -1794,6 +1835,7 @@ CHIPQueueOpenCL::addDependenciesQueueSync(
     clStatus = clEnqueueMarkerWithWaitList(OtherQueue->get()->get(), 0, nullptr,
                                            &MarkerEvent);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarkerWithWaitList);
+    OtherQueue->dropQueryMarker();
 
     // Flush both queues: CHIPQueueOpenCL has ClRegularQueue_ and ClProfilingQueue_.
     // get() returns only the active one; Mali needs both flushed for cross-queue
@@ -1831,8 +1873,7 @@ CHIPQueueOpenCL::addDependenciesQueueSync(
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                                   hipMemcpyKind Kind) {
-  // Mark queue as having work submitted
-  IsEmptyQueue_.store(false);
+  noteWorkEnqueued();
   
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
@@ -2001,13 +2042,13 @@ void CHIPQueueOpenCL::finish() {
   
   // After finish() completes, queue is empty again
   IsEmptyQueue_.store(true);
+  dropQueryMarker();
 }
 
 std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
                                   size_t PatternSize) {
-  // Mark queue as having work submitted
-  IsEmptyQueue_.store(false);
+  noteWorkEnqueued();
   
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
@@ -2116,10 +2157,9 @@ std::shared_ptr<chipstar::Event>
 CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   logTrace("CHIPQueueOpenCL::memPrefetchImpl");
 
-  // Mark queue as having work submitted so isEmptyQueue() stays accurate:
-  // the migrate paths below enqueue real commands that later default-stream
-  // launches must synchronize against.
-  IsEmptyQueue_.store(false);
+  // The migrate paths below enqueue real commands that later default-stream
+  // launches must synchronize against, so isEmptyQueue() must see them.
+  noteWorkEnqueued();
 
   std::shared_ptr<chipstar::Event> PrefetchEvent =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
@@ -2232,8 +2272,7 @@ CHIPQueueOpenCL::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueBarrierImpl(
     const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor) {
-  // Mark queue as having work submitted
-  IsEmptyQueue_.store(false);
+  noteWorkEnqueued();
   
   std::shared_ptr<chipstar::Event> Event =
       static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
@@ -2320,8 +2359,9 @@ void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
   
   // Release the marker event since we're tracking the barrier instead
   clReleaseEvent(SwitchEv);
-  
- QueueMode_ = ToMode;
+
+  QueueMode_ = ToMode;
+  dropQueryMarker();
 }
 
 // CHIPExecItemOpenCL
