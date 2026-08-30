@@ -2519,11 +2519,10 @@ void CHIPQueueOpenCL::switchModeTo(QueueMode ToMode) {
   clStatus = clFlush(FromQ.get());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
 
-  // Use the barrier event from the TO queue, not the marker from FROM queue
-  auto *ChipEv = new CHIPEventOpenCL(
-      static_cast<CHIPContextOpenCL *>(ChipContext_), BarrierEv);
-  
-  // Release the marker event since we're tracking the barrier instead
+  // Neither event is waited on later: the barrier keeps the switched-to
+  // queue ordered after the marker on its own, so both references go back
+  // to the runtime here.
+  clReleaseEvent(BarrierEv);
   clReleaseEvent(SwitchEv);
   
  QueueMode_ = ToMode;
