@@ -763,6 +763,12 @@ void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
 
   ChipEventCL->recordEventCopy(enqueueMarker());
   ChipEventCL->setRecording();
+
+  // hipEventQuery polls the marker with clGetEventInfo, which never flushes,
+  // so submit the marker now or an implementation that submits lazily (Mali)
+  // never completes it.
+  clStatus = clFlush(get()->get());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
 }
 
 void CHIPEventOpenCL::recordEventCopy(
