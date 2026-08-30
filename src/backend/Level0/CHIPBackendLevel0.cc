@@ -2690,10 +2690,10 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
       // Single-device shared USM, associated with this device so that the
       // sharedSingleDeviceAllocCapabilities apply. Used where host USM has
       // no ATOMIC access capability (Intel Data Center GPU Max): device
-      // atomics on host USM there silently return 0 or fault. Pages migrate
-      // between host and device on access, so a host touch while a kernel
-      // is running is not coherent unless the device also reports
-      // CONCURRENT for this kind (see concurrentManagedAccess).
+      // atomics on host USM there silently return 0 or fault. Chosen by
+      // the auto gate only when this kind also reports CONCURRENT, i.e. the
+      // host mapping stays valid while the device owns the pages (see
+      // populateDevicePropertiesImpl()).
       zeStatus = zeMemAllocShared(ZeCtx, &DmaDesc, &HmaDesc, Size, Alignment,
                                   ChipDev->get(), &Ptr);
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocShared);
@@ -2828,12 +2828,30 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   // #1110). On devices whose host USM has no ATOMIC capability (Intel Data
   // Center GPU Max reports hostAllocCapabilities = RW) device atomics on it
   // silently produce 0 or fault, so single-device shared USM is used there
-  // when that kind has atomics. CHIP_L0_MANAGED_USM=host|shared forces one.
+  // instead, but only when that kind reports ATOMIC and CONCURRENT.
+  //
+  // CONCURRENT is what makes shared USM safe to hand out as managed memory.
+  // Without it the driver migrates pages between host and device: after a
+  // device access the host mapping is mprotect'ed PROT_NONE and the next
+  // host touch is a real SIGSEGV that the driver's own signal handler
+  // resolves by migrating the page back. Any non-chaining SIGSEGV handler
+  // installed later by the application (Catch2's fatal-condition handler,
+  // for one) steals that signal and the process dies (issue #446). Intel's
+  // driver reports CONCURRENT for this kind only when migration is done by
+  // the kernel driver, in which case the host mapping is never revoked
+  // (NEO: ProductHelperHw::getSingleDeviceSharedMemCapabilities). Both Arc
+  // and Data Center GPU Max report RW|ATOMIC without CONCURRENT by
+  // default, so the auto gate keeps host USM there;
+  // CHIP_L0_MANAGED_USM=shared forces shared USM for applications that do
+  // not install their own SIGSEGV handler and need managed-memory atomics.
   const bool HostUsmHasAtomics =
       MemAccessProps_.hostAllocCapabilities & ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC;
   const bool SharedUsmHasAtomics =
       MemAccessProps_.sharedSingleDeviceAllocCapabilities &
       ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC;
+  const bool SharedUsmIsConcurrent =
+      MemAccessProps_.sharedSingleDeviceAllocCapabilities &
+      ZE_MEMORY_ACCESS_CAP_FLAG_CONCURRENT;
   switch (ChipEnvVars.getL0ManagedUsm()) {
   case EnvVars::L0ManagedUsm::Host:
     ManagedUsesSharedUsm_ = false;
@@ -2842,7 +2860,8 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
     ManagedUsesSharedUsm_ = true;
     break;
   default:
-    ManagedUsesSharedUsm_ = !HostUsmHasAtomics && SharedUsmHasAtomics;
+    ManagedUsesSharedUsm_ =
+        !HostUsmHasAtomics && SharedUsmHasAtomics && SharedUsmIsConcurrent;
     break;
   }
   logInfo("Managed memory (hipMallocManaged) uses {} USM on {} "

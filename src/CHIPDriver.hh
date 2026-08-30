@@ -237,7 +237,8 @@ public:
 
   /// USM kind backing hipMallocManaged on the Level Zero backend.
   /// Auto   = shared USM only when host USM has no atomic access capability
-  ///          and single-device shared USM has it, host USM otherwise
+  ///          and single-device shared USM reports both atomic and
+  ///          concurrent access, host USM otherwise
   /// Host   = always zeMemAllocHost
   /// Shared = always zeMemAllocShared (associated with the device)
   enum class L0ManagedUsm { Auto, Host, Shared };
