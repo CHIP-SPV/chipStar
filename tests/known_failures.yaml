@@ -665,7 +665,6 @@ ANY:
     Unit_hipMemset_Negative_OutOfBoundsSize_MemoryTest1: 'Failed'
     TestStaticLibRDC: 'Compiler without static library support'
     hipDynamicShared: 'flaky'
-    clock: 'timing dependent, flaky'
     hipStreamSemantics: 'TestStreamSemantics_2 (non-blocking stream):  Failed, then timeout'
     Unit_hipGraphAddEventRecordNode_Functional_ElapsedTime: 'Timeout'
     Unit_hipGraphEventRecordNodeSetEvent_SetEventProperty: 'Timeout'
