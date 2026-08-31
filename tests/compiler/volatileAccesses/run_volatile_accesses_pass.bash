@@ -84,7 +84,13 @@ if [ "${KEPT}" -ne "${KEPT_IN}" ]; then
 fi
 
 # The marking is only useful if it reaches SPIR-V as the Nontemporal memory
-# operand of an otherwise unchanged OpLoad / OpStore.
+# operand of an otherwise unchanged OpLoad / OpStore. A build targeting LLVM's
+# integrated SPIR-V backend has no translator to check that with, so report
+# what was verified and stop rather than failing on the missing binary.
+if [ -z "${LLVM_SPIRV}" ] || [ ! -x "${LLVM_SPIRV}" ]; then
+  echo "marked=${MARKED} left alone=${KEPT}, llvm-spirv not available so the SPIR-V side was not checked"
+  exit 0
+fi
 "${LLVM_SPIRV}" "${OUTPUT_BC}" ${SPIRV_OPTS} -o "${OUTPUT_SPV}"
 if [ -n "${SPIRV_VAL}" ] && [ -x "${SPIRV_VAL}" ]; then
   "${SPIRV_VAL}" "${OUTPUT_SPV}"
