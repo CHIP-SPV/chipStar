@@ -25,7 +25,25 @@
 // every other rule: LSCCacheHints::SetupLscCacheCtrl
 // (IGC/Compiler/CISACodeGen/LSCCacheHintsPass.cpp) maps an access carrying
 // !nontemporal to LSC_L1UC_L3UC before it looks at anything else, i.e. the
-// access is served past the core's L1.
+// access is served past the core's L1. Older IGC reaches the same result from
+// the same metadata in EmitVISAPass::translateLSCCacheControlsFromMetadata.
+//
+// Which parts this actually reaches, measured with
+// `IGC_ShaderDumpEnable=1 ocloc compile -file x.spv -spirv_input -device <d>`
+// on the module this pass produces:
+//
+//   -device pvc     marked `load.ugm.d32x1t.a64.uc.uc`, unmarked `load.ugm.d32x1t.a64`
+//   -device dg2     marked `load.ugm.d32x1t.a64.uc.uc`, unmarked `load.ugm.d32x1t.a64.ca.ca`
+//   -device tgllp   `send.dc1` either way, i.e. no difference at all
+//
+// The cache control rides an LSC message, and
+// LSCCacheHints::SetInstructionCacheHint returns false when
+// !platform.LSCEnabled(), so on pre-LSC parts (Gen12LP: TGL, ADL, UHD 730 /
+// 770) the marking is silently dropped and the staleness of issue #1508
+// remains. Those parts are unfixed by this pass, not fixed by it. If an
+// L1-uncached-but-L3-cached access is ever wanted instead of this all-uncached
+// hint, the sanctioned mechanism is SPV_INTEL_cache_controls
+// (CacheControlLoadINTEL / CacheControlStoreINTEL).
 //
 // So every volatile load and store through a global (addrspace 1) or generic
 // (addrspace 4) pointer is marked !nontemporal, which both SPIR-V producers
