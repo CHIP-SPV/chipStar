@@ -1,18 +1,23 @@
-// Reproducer: volatile loads and stores of 32 and 64 bit values in global
-// memory reach the SPIR-V producer as plain `load volatile` / `store volatile`
-// and end up as OpLoad / OpStore with the Volatile memory operand, which IGC
-// treats as ordinary cached accesses. CUDA compiles the same source to
+// Reproducer: volatile loads and stores in global memory reach the SPIR-V
+// producer as plain `load volatile` / `store volatile` and end up as OpLoad /
+// OpStore with the Volatile memory operand, which says nothing about caching,
+// so IGC serves them from the Xe core's L1. CUDA compiles the same source to
 // ld.volatile / st.volatile, which the PTX ISA (8.4.2 "volatile Operation")
 // defines as relaxed memory operations at system scope, and code written
 // against that (Kokkos::volatile_load in the UnorderedMap insert list walk)
-// reads stale L1 data on PVC. chipStar must lower them to relaxed
-// device-scope atomic loads and stores, which the SPIR-V producers emit as
-// OpAtomicLoad / OpAtomicStore.
+// reads stale L1 data on PVC. chipStar marks them !nontemporal, which the
+// SPIR-V producers emit as the Nontemporal memory operand and IGC maps to an
+// L1 uncached access.
 //
-// This executable checks that the accesses still compute the right values.
+// This executable checks that the accesses still compute the right values, and
+// that they work on page-locked host and managed memory: the marking must not
+// turn them into atomics, because a Level Zero device may report an allocation
+// kind without ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC (PVC does, for host
+// allocations) and then faults the GPU on any atomic to it.
+//
 // TestFixVolatileLoadLoweringSPIRV.bash compiles this file with --save-temps and
-// inspects the lowered device bitcode (and the SPIR-V module) for the atomic
-// forms; that is the check that fails without the lowering.
+// inspects the lowered device bitcode (and the SPIR-V module) for the marking;
+// that is the check that fails without it.
 
 #include <hip/hip_runtime.h>
 
@@ -34,36 +39,76 @@ static constexpr int N = NumBlocks * BlockSize;
     }                                                                          \
   } while (0)
 
-// The accesses the lowering must rewrite: 32 and 64 bit volatile loads and
-// stores through global memory pointers.
+// The accesses the marking must reach: volatile loads and stores of every
+// width through global memory pointers.
 __global__ void volatileAccess(const unsigned *In32,
-                               const unsigned long long *In64, unsigned *Out32,
-                               unsigned long long *Out64) {
+                               const unsigned long long *In64,
+                               const unsigned short *In16, unsigned *Out32,
+                               unsigned long long *Out64,
+                               unsigned short *Out16) {
   int Tid = blockIdx.x * blockDim.x + threadIdx.x;
   const volatile unsigned *VIn32 = In32;
   const volatile unsigned long long *VIn64 = In64;
+  const volatile unsigned short *VIn16 = In16;
   volatile unsigned *VOut32 = Out32;
   volatile unsigned long long *VOut64 = Out64;
+  volatile unsigned short *VOut16 = Out16;
   unsigned A = VIn32[Tid];
   unsigned long long B = VIn64[Tid];
   VOut32[Tid] = A + 1u;
   VOut64[Tid] = B + 1ull;
+  if (Tid < BlockSize)
+    VOut16[Tid] = VIn16[Tid] + 1;
 }
 
-// Accesses the lowering must leave as they are: 16 bit values (OpenCL SPIR-V
-// consumers implement 32 and 64 bit atomics only) and work-group local memory
-// (never shared across cores, so no L1 staleness to defeat).
-__global__ void volatileLeftAlone(const unsigned short *In16,
-                                  unsigned short *Out16, unsigned *OutLocal) {
+// Accesses the marking must leave alone: work-group local memory, which never
+// leaves the core, so there is no other core's cache to get past.
+__global__ void volatileLocal(unsigned *OutLocal) {
   __shared__ unsigned Scratch[BlockSize];
   int Tid = threadIdx.x;
-  const volatile unsigned short *VIn16 = In16;
-  volatile unsigned short *VOut16 = Out16;
   volatile unsigned *VScratch = Scratch;
-  VOut16[Tid] = VIn16[Tid] + 1;
   VScratch[Tid] = Tid;
   __syncthreads();
   OutLocal[Tid] = VScratch[(Tid + 1) % BlockSize];
+}
+
+// The regression guard for the marking staying non-atomic: this runs on
+// page-locked host and on managed memory, which a Level Zero device may refuse
+// atomics on.
+__global__ void volatileHostAccess(volatile int *Flag) { *Flag = *Flag + 1; }
+
+static int runOnHostVisibleMemory() {
+  int Errors = 0;
+  int *Pinned = nullptr;
+  CHECK(hipHostMalloc(&Pinned, sizeof(int)));
+  *Pinned = 41;
+  volatileHostAccess<<<1, 1>>>(Pinned);
+  CHECK(hipGetLastError());
+  CHECK(hipDeviceSynchronize());
+  if (*Pinned != 42) {
+    printf("pinned flag = %d, expected 42\n", *Pinned);
+    ++Errors;
+  }
+  CHECK(hipHostFree(Pinned));
+
+  int ManagedSupport = 0;
+  CHECK(hipDeviceGetAttribute(&ManagedSupport, hipDeviceAttributeManagedMemory,
+                              0));
+  if (!ManagedSupport)
+    return Errors;
+
+  int *Managed = nullptr;
+  CHECK(hipMallocManaged(&Managed, sizeof(int)));
+  *Managed = 41;
+  volatileHostAccess<<<1, 1>>>(Managed);
+  CHECK(hipGetLastError());
+  CHECK(hipDeviceSynchronize());
+  if (*Managed != 42) {
+    printf("managed flag = %d, expected 42\n", *Managed);
+    ++Errors;
+  }
+  CHECK(hipFree(Managed));
+  return Errors;
 }
 
 int main() {
@@ -94,9 +139,10 @@ int main() {
   CHECK(hipMemcpy(In16, HIn16.data(), BlockSize * sizeof(unsigned short),
                   hipMemcpyHostToDevice));
 
-  volatileAccess<<<NumBlocks, BlockSize>>>(In32, In64, Out32, Out64);
+  volatileAccess<<<NumBlocks, BlockSize>>>(In32, In64, In16, Out32, Out64,
+                                           Out16);
   CHECK(hipGetLastError());
-  volatileLeftAlone<<<1, BlockSize>>>(In16, Out16, OutLocal);
+  volatileLocal<<<1, BlockSize>>>(OutLocal);
   CHECK(hipGetLastError());
   CHECK(hipDeviceSynchronize());
 
@@ -132,6 +178,8 @@ int main() {
                (I + 1) % BlockSize);
     }
   }
+
+  Errors += runOnHostVisibleMemory();
 
   CHECK(hipFree(In32));
   CHECK(hipFree(Out32));

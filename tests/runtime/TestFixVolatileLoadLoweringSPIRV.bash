@@ -1,22 +1,27 @@
 #!/bin/bash
-# Volatile loads and stores of 32 and 64 bit values in global memory must reach
-# the SPIR-V producer as relaxed atomic accesses, not as plain volatile ones.
+# Volatile loads and stores in global memory must reach the SPIR-V producer
+# marked !nontemporal, not as plain volatile ones.
 #
 # CUDA lowers a volatile global access to ld.volatile / st.volatile, which the
 # PTX ISA (8.4.2 "volatile Operation") defines as a relaxed memory operation at
 # system scope; code written against that (Kokkos::volatile_load in the
 # UnorderedMap insert list walk) relies on the load bypassing a core's L1. In
 # SPIR-V a `load volatile` is an OpLoad with the Volatile memory operand, which
-# IGC serves from L1 like any other load, so on PVC the walk reads stale data.
-# The fix lowers such accesses to `load atomic ... syncscope("device")
-# monotonic`, which the SPIR-V producers emit as OpAtomicLoad with Relaxed
-# semantics at Device scope.
+# says nothing about caching, so IGC serves it from L1 and on PVC the walk reads
+# stale data. The fix marks such accesses !nontemporal, which the SPIR-V
+# producers emit as the Nontemporal memory operand of the same OpLoad / OpStore
+# and IGC maps to an L1 uncached access.
+#
+# The accesses must stay non-atomic: IGC implements OpAtomicLoad as
+# atomic_or(p, 0) and OpAtomicStore as an atomic exchange, and a Level Zero
+# device may report an allocation kind without ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC
+# (PVC does, for host allocations), where a GPU atomic faults the context.
 #
 # Compiles TestFixVolatileLoadLowering.hip with --save-temps and inspects the
-# lowered device bitcode, the SPIR-V producer's input: the 32 and 64 bit global
-# accesses must be atomic, the 16 bit and work-group local ones must not. When
+# lowered device bitcode, the SPIR-V producer's input: the global accesses must
+# be marked and non-atomic, the work-group local ones must not be marked. When
 # the module was produced by the Khronos translator and spirv-dis is available,
-# the SPIR-V module is checked for OpAtomicLoad / OpAtomicStore as well.
+# the SPIR-V module is checked for the Nontemporal memory operand as well.
 set -u
 
 HIPCC="@CMAKE_BINARY_DIR@/bin/hipcc"
@@ -61,39 +66,41 @@ if [ -z "${ACCESS}" ]; then
   echo "FAIL: kernel volatileAccess not found in lowered.ll"
   exit 1
 fi
-for PATTERN in 'load atomic (volatile )?i32,' 'load atomic (volatile )?i64,' \
-               'store atomic (volatile )?i32 ' 'store atomic (volatile )?i64 '; do
+for PATTERN in 'load volatile i32,.*!nontemporal' 'load volatile i64,.*!nontemporal' \
+               'load volatile i16,.*!nontemporal' \
+               'store volatile i32 .*!nontemporal' 'store volatile i64 .*!nontemporal' \
+               'store volatile i16 .*!nontemporal'; do
   if ! echo "${ACCESS}" | grep -qE "${PATTERN}"; then
     fail "volatileAccess has no '${PATTERN}' after the pass pipeline"
   fi
 done
-PLAIN=$(echo "${ACCESS}" | grep -E 'load volatile (i32|i64),|store volatile (i32|i64) ' || true)
+PLAIN=$(echo "${ACCESS}" | grep -E '(load|store) volatile' | grep -v '!nontemporal' || true)
 if [ -n "${PLAIN}" ]; then
-  fail "volatileAccess still has non-atomic volatile global accesses:"
+  fail "volatileAccess still has unmarked volatile global accesses:"
   echo "${PLAIN}"
 fi
+ATOMIC=$(echo "${ACCESS}" | grep -E '(load|store) atomic' || true)
+if [ -n "${ATOMIC}" ]; then
+  fail "volatileAccess gained atomic accesses, which fault on memory a Level Zero device reports without ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC:"
+  echo "${ATOMIC}"
+fi
 
-LEFT=$(kernel_body volatileLeftAlone)
+LEFT=$(kernel_body volatileLocal)
 if [ -z "${LEFT}" ]; then
-  echo "FAIL: kernel volatileLeftAlone not found in lowered.ll"
+  echo "FAIL: kernel volatileLocal not found in lowered.ll"
   exit 1
 fi
-if ! echo "${LEFT}" | grep -qE 'load volatile i16,'; then
-  fail "the 16 bit volatile load in volatileLeftAlone was not left alone"
-fi
 # The __shared__ array is accessed through a generic pointer over an
-# addrspace(3) object; the accesses stay volatile and non-atomic either way.
+# addrspace(3) object; the accesses stay volatile and unmarked.
 if ! echo "${LEFT}" | grep -qE '(load|store) volatile i32'; then
-  fail "the work-group local volatile accesses in volatileLeftAlone were not left alone"
+  fail "the work-group local volatile accesses in volatileLocal were not left alone"
 fi
-if echo "${LEFT}" | grep -qE 'atomic'; then
-  fail "volatileLeftAlone gained atomic accesses:"
-  echo "${LEFT}" | grep -E 'atomic'
+if echo "${LEFT}" | grep -qE '(load|store) volatile.*!nontemporal'; then
+  fail "the work-group local volatile accesses in volatileLocal were marked:"
+  echo "${LEFT}" | grep -E '!nontemporal'
 fi
 
-# SPIR-V level check. The LLVM SPIR-V backend selects every load as OpLoad
-# regardless of its atomic ordering (SPIRVInstructionSelector::selectLoad), so
-# the module check is only meaningful for the Khronos translator.
+# SPIR-V level check.
 SPV=$(ls "${OUT}"/*.out 2>/dev/null | head -1)
 if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
   "${SPIRV_DIS}" "${SPV}" > module.spvasm
@@ -109,14 +116,14 @@ if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
     if [ -n "${CALLEE}" ]; then
       FUNC=$(sed -n "/^ *${CALLEE} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
     fi
-    LOADS=$(echo "${FUNC}" | grep -c 'OpAtomicLoad' || true)
-    STORES=$(echo "${FUNC}" | grep -c 'OpAtomicStore' || true)
+    LOADS=$(echo "${FUNC}" | grep -c -E 'OpLoad .*Nontemporal' || true)
+    STORES=$(echo "${FUNC}" | grep -c -E 'OpStore .*Nontemporal' || true)
     if [ "${LOADS}" -lt 2 ] || [ "${STORES}" -lt 2 ]; then
-      fail "SPIR-V volatileAccess has ${LOADS} OpAtomicLoad and ${STORES} OpAtomicStore, expected at least 2 each"
+      fail "SPIR-V volatileAccess has ${LOADS} Nontemporal OpLoad and ${STORES} Nontemporal OpStore, expected at least 2 each"
     fi
-    if echo "${FUNC}" | grep -qE 'Op(Load|Store) .*Volatile'; then
-      fail "SPIR-V volatileAccess still has Volatile OpLoad / OpStore:"
-      echo "${FUNC}" | grep -E 'Op(Load|Store) .*Volatile'
+    if echo "${FUNC}" | grep -qE 'OpAtomic'; then
+      fail "SPIR-V volatileAccess has atomic accesses:"
+      echo "${FUNC}" | grep -E 'OpAtomic'
     fi
     echo "SPIR-V module checked (Khronos translator)"
   else
