@@ -158,12 +158,19 @@ bool mayBeShared(Value *Ptr) {
 ///
 /// Wider coverage is not free: the Nontemporal operand survives into a
 /// consumer's own back end, and a back end only has to honour it on the shapes
-/// it has a non-temporal instruction for. PoCL's x86 back end aborts with
-/// "Unsupported store size" / "UNREACHABLE executed at
-/// X86ISelDAGToDAG.cpp" when it reaches one it does not, which took down the
-/// PoCL CPU lane when this pass marked 16 bit accesses. Vectors, aggregates,
-/// the narrow widths and under-aligned accesses gain nothing here, so they are
-/// left out rather than handed to a consumer that may not cope.
+/// it has a non-temporal instruction for. Vectors, aggregates, the narrow
+/// widths and under-aligned accesses gain nothing here, so they are left out
+/// rather than handed to a consumer that may not cope.
+///
+/// WORKAROUND(CHIP-SPV/chipStar#1551, llvm/llvm-project#38604): LLVM's x86 back
+/// end does not merely decline a non-temporal load it has no instruction for,
+/// it aborts. X86DAGToDAGISel::useNonTemporalLoad switches on the load's store
+/// size with `default: llvm_unreachable("Unsupported store size")` and no arm
+/// for 1 or 2 bytes, reached from IsProfitableToFold, so a naturally aligned 8
+/// or 16 bit !nontemporal load folded into an arithmetic user kills the
+/// compiler. That took down the PoCL CPU lane. The 32 and 64 bit restriction
+/// keeps this pass inside the `case 4:` and `case 8:` arms. Widening it again
+/// needs that llvm_unreachable to become a `return false` upstream first.
 bool isMarkableType(Type *Ty, Align Alignment, const DataLayout &DL) {
   // Scalars only: this is false for vectors and aggregates.
   if (!Ty->isIntegerTy() && !Ty->isFloatingPointTy() && !Ty->isPointerTy())
