@@ -32,11 +32,12 @@ if(NOT VOLATILE_ACCESSES_LLVM_SPIRV OR VOLATILE_ACCESSES_LLVM_SPIRV STREQUAL "NO
   set(VOLATILE_ACCESSES_LLVM_SPIRV "${LLVM_TOOLS_BINARY_DIR}/llvm-spirv")
 endif()
 find_program(SPIRV_VAL spirv-val)
+find_program(SPIRV_DIS spirv-dis)
 
-# Every volatile access shape the pass has a rule for: 32 and 64 bit integer,
-# float and pointer accesses through global and generic pointers (rewritten)
-# and the 8 / 16 bit, vector, local, private, constant, under-aligned and
-# already atomic ones (left alone).
+# Every volatile access shape the pass has a rule for: the integer, float,
+# pointer and vector accesses of every width through global and generic
+# pointers (marked !nontemporal) and the work-group local, private, constant
+# and already atomic ones (left alone).
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/volatile-accesses.ll)
 
 foreach(IR_FILE ${TEST_IR_FILES})
@@ -51,6 +52,7 @@ foreach(IR_FILE ${TEST_IR_FILES})
       LLVM_DIS=${LLVM_TOOLS_BINARY_DIR}/llvm-dis
       LLVM_SPIRV=${VOLATILE_ACCESSES_LLVM_SPIRV}
       SPIRV_VAL=${SPIRV_VAL}
+      SPIRV_DIS=${SPIRV_DIS}
       HIP_SPV_PASSES_LIB=${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so
       ${CMAKE_CURRENT_BINARY_DIR}/run_volatile_accesses_pass.bash
       ${CMAKE_CURRENT_BINARY_DIR}/${FILENAME}

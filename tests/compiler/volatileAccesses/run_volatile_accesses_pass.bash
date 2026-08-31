@@ -1,17 +1,16 @@
 #!/bin/bash
-# Check that HipLowerVolatileAccessesPass turns the volatile 32 and 64 bit
-# global and generic accesses of a module into relaxed device-scope atomics,
-# leaves every other volatile access as it is, and that the result still
-# translates to valid SPIR-V.
+# Check that HipLowerVolatileAccessesPass marks the volatile global and generic
+# accesses of a module !nontemporal, leaves every other volatile access as it
+# is, and that the result still translates to valid SPIR-V carrying the
+# Nontemporal memory operand.
 #
 # Usage: run_volatile_accesses_pass.bash <input.ll>
 #
-# The input has two kernels: @rewritten holds only accesses the pass must
-# rewrite, @left_alone only accesses it must not touch. Every load and store
-# in @rewritten must come out `atomic volatile ... syncscope("device")
-# monotonic` on i32 or i64 (floats and pointers are laundered through the
-# integer), and @left_alone must contain no `syncscope("device") monotonic`
-# access at all.
+# The input has two kernels: @rewritten holds only accesses the pass must mark,
+# @left_alone only accesses it must not touch. No access changes type, opcode,
+# ordering or volatility: the only difference is the !nontemporal metadata,
+# which the SPIR-V producers turn into the Nontemporal memory operand and IGC
+# into an L1 uncached access.
 
 set -e
 
@@ -26,6 +25,9 @@ OUTPUT_BC="${BASE_NAME}.lowered.bc"
 OUTPUT_LL="${BASE_NAME}.lowered.ll"
 OUTPUT_SPV="${BASE_NAME}.lowered.spv"
 SPIRV_OPTS="--spirv-max-version=1.2 --spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups"
+
+MARKED_IN=20  # volatile accesses in @rewritten
+KEPT_IN=9     # volatile accesses in @left_alone
 
 # CHIP_VERIFY_MODE=off: the in-pass IR->SPIR-V re-verification defaults to on
 # in Debug builds and is redundant here; the translation below is the check.
@@ -45,51 +47,44 @@ if [ -z "${REWRITTEN}" ] || [ -z "${LEFT}" ]; then
   exit 1
 fi
 
-# Volatile accesses in @rewritten that are not device-scope monotonic atomics
-# on i32 / i64: the 12 volatile accesses of the input must all have become
-# `load atomic volatile i32|i64 ... syncscope("device") monotonic` or the
-# store equivalent.
-STALE=$(echo "${REWRITTEN}" | grep -E '(load|store) volatile' || true)
-if [ -n "${STALE}" ]; then
-  echo "ERROR: volatile access(es) in @rewritten survived the pass:"
-  echo "${STALE}"
-  exit 1
-fi
-ATOMIC=$(echo "${REWRITTEN}" | grep -c -E '(load|store) atomic volatile i(32|64)[, ].*syncscope\("device"\) monotonic' || true)
-if [ "${ATOMIC}" -ne 12 ]; then
-  echo "ERROR: expected 12 device-scope monotonic i32 / i64 atomics in @rewritten, found ${ATOMIC}"
+# Every volatile access of @rewritten must carry !nontemporal and nothing else
+# about it may have changed: no atomic form (IGC implements OpAtomicLoad as
+# atomic_or and OpAtomicStore as an atomic exchange, which faults on memory a
+# Level Zero device reports without ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC).
+VOLATILE=$(echo "${REWRITTEN}" | grep -c -E '(load|store) volatile ' || true)
+if [ "${VOLATILE}" -ne "${MARKED_IN}" ]; then
+  echo "ERROR: expected the ${MARKED_IN} volatile accesses of @rewritten to stay plain volatile, found ${VOLATILE}"
   echo "See ${OUTPUT_LL} for details"
   exit 1
 fi
-# Floats and pointers must be laundered through the integer, not loaded as such.
-if echo "${REWRITTEN}" | grep -q -E 'atomic volatile (float|double|ptr)'; then
-  echo "ERROR: float / pointer typed atomic access in @rewritten:"
-  echo "${REWRITTEN}" | grep -E 'atomic volatile (float|double|ptr)'
+MARKED=$(echo "${REWRITTEN}" | grep -c -E '(load|store) volatile .*!nontemporal ' || true)
+if [ "${MARKED}" -ne "${MARKED_IN}" ]; then
+  echo "ERROR: expected ${MARKED_IN} !nontemporal volatile accesses in @rewritten, found ${MARKED}"
+  echo "See ${OUTPUT_LL} for details"
+  exit 1
+fi
+if echo "${REWRITTEN}" | grep -q -E '(load|store) atomic'; then
+  echo "ERROR: the pass turned an access of @rewritten into an atomic:"
+  echo "${REWRITTEN}" | grep -E '(load|store) atomic'
   exit 1
 fi
 
-# Nothing in @left_alone may have been rewritten. Its 15 volatile accesses go
-# in as is (two of them atomic already, with their own scope and ordering).
-if echo "${LEFT}" | grep -q 'syncscope("device") monotonic'; then
-  echo "ERROR: access(es) in @left_alone were rewritten:"
-  echo "${LEFT}" | grep 'syncscope("device") monotonic'
+# Nothing in @left_alone may have been marked. Its volatile accesses go in as
+# is (two of them atomic already, with their own scope and ordering).
+if echo "${LEFT}" | grep -q -E '(load|store) .*!nontemporal '; then
+  echo "ERROR: access(es) in @left_alone were marked:"
+  echo "${LEFT}" | grep -E '!nontemporal '
   exit 1
 fi
 KEPT=$(echo "${LEFT}" | grep -c -E '(load|store) (atomic )?volatile' || true)
-if [ "${KEPT}" -ne 15 ]; then
-  echo "ERROR: expected the 15 volatile accesses of @left_alone to survive, found ${KEPT}"
+if [ "${KEPT}" -ne "${KEPT_IN}" ]; then
+  echo "ERROR: expected the ${KEPT_IN} volatile accesses of @left_alone to survive, found ${KEPT}"
   echo "See ${OUTPUT_LL} for details"
   exit 1
 fi
-# The two under-aligned accesses are reported, not silently skipped.
-WARNED=$(grep -c "leaving under-aligned volatile access alone" "${BASE_NAME}.stderr" || true)
-if [ "${WARNED}" -ne 2 ]; then
-  echo "ERROR: expected 2 under-aligned access warnings, got ${WARNED}:"
-  cat "${BASE_NAME}.stderr"
-  exit 1
-fi
 
-# The rewrite is only useful if the result is valid SPIR-V.
+# The marking is only useful if it reaches SPIR-V as the Nontemporal memory
+# operand of an otherwise unchanged OpLoad / OpStore.
 "${LLVM_SPIRV}" "${OUTPUT_BC}" ${SPIRV_OPTS} -o "${OUTPUT_SPV}"
 if [ -n "${SPIRV_VAL}" ] && [ -x "${SPIRV_VAL}" ]; then
   "${SPIRV_VAL}" "${OUTPUT_SPV}"
@@ -97,6 +92,17 @@ if [ -n "${SPIRV_VAL}" ] && [ -x "${SPIRV_VAL}" ]; then
 else
   VALIDATED="spirv-val not available"
 fi
+if [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
+  "${SPIRV_DIS}" "${OUTPUT_SPV}" > "${BASE_NAME}.spvasm"
+  NT=$(grep -c -E 'Op(Load|Store) .*Nontemporal' "${BASE_NAME}.spvasm" || true)
+  if [ "${NT}" -lt "${MARKED_IN}" ]; then
+    echo "ERROR: expected at least ${MARKED_IN} Nontemporal OpLoad / OpStore in the SPIR-V module, found ${NT}"
+    exit 1
+  fi
+  DISASSEMBLED="${NT} Nontemporal accesses in SPIR-V"
+else
+  DISASSEMBLED="spirv-dis not available"
+fi
 
-echo "rewritten=${ATOMIC} left alone=${KEPT} warnings=${WARNED}, SPIR-V ok, ${VALIDATED}"
+echo "marked=${MARKED} left alone=${KEPT}, SPIR-V ok, ${VALIDATED}, ${DISASSEMBLED}"
 exit 0
