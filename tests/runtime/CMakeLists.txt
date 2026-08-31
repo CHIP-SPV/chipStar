@@ -182,6 +182,10 @@ add_shell_test(TestFix1600ExtractorArgvBoundaries.bash)
 # Volatile 32 and 64 bit global accesses must reach the SPIR-V producer as
 # relaxed device-scope atomics (Kokkos::volatile_load on PVC reads stale L1
 # data otherwise). Inspects the lowered device bitcode of
+
+# Volatile global accesses must reach the SPIR-V producer marked !nontemporal,
+# which becomes the Nontemporal memory operand (Kokkos::volatile_load on PVC
+# reads stale L1 data otherwise). Inspects the lowered device bitcode of
 # TestFixVolatileLoadLowering.hip, and the SPIR-V module when spirv-dis exists.
 add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
 
