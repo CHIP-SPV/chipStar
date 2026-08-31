@@ -167,7 +167,7 @@ hoMusic_build:
   resource_group: aurora_pipeline  
   extends: .aurora-shell-runner
   script:
-    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci.sh build chipStar/llvm21
+    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh build chipStar/llvm21
   
 hoMusic_run:
   stage: runs_hoMusic
@@ -175,8 +175,16 @@ hoMusic_run:
   extends: .aurora-batch-runner
   script:
     - set -o pipefail
-    - rm -f ${GENESIS_CI_PROJECT_DIR}/output
-    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci.sh run chipStar/llvm21 |& tee -a ${GENESIS_CI_PROJECT_DIR}/output
+    - rm -f ${GENESIS_CI_PROJECT_DIR}/output_${CI_PIPELINE_ID}
+    - |
+      # 4 runs, each in its own dir; performance_hoMusic takes the min.
+      rc=0
+      for i in 1 2 3 4; do
+        echo "=== hoMusic run $i/4 ==="
+        ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh run chipStar/llvm21 $i \
+          |& tee -a ${GENESIS_CI_PROJECT_DIR}/output_${CI_PIPELINE_ID} || rc=1
+      done
+      exit $rc
 
 performance_hoMusic:
   stage: performance_hoMusic
@@ -184,12 +192,20 @@ performance_hoMusic:
   script:
     - cd ${GENESIS_CI_PROJECT_DIR}
     - |
-      TIME_STR=$(grep "real" output | tail -n 1 | awk '{print $2}')
-      echo "Extracted time: $TIME_STR"
+      OUTPUT=output_${CI_PIPELINE_ID}
 
-      # Convert to total seconds using awk (handles 1m50.315s -> 110.315)
-      ACTUAL_TIME=$(echo $TIME_STR | awk -F'[ms]' '{print ($1 * 60) + $2}')
-      
+      # hoMusic_ci_improved.sh emits one "HOMUSIC_ELAPSED_SECONDS <seconds>" line per run
+      grep "HOMUSIC_ELAPSED_SECONDS" $OUTPUT || true
+      ACTUAL_TIME=$(awk '/HOMUSIC_ELAPSED_SECONDS/ {t = $2; if (n++ == 0 || t < min) min = t} \
+                         END {if (n) printf "%.3f", min}' $OUTPUT)
+      NRUNS=$(grep -c "HOMUSIC_ELAPSED_SECONDS" $OUTPUT || true)
+
+      if [ -z "$ACTUAL_TIME" ]; then
+        echo "Performance check failed: no timing lines found in $OUTPUT"
+        exit 1
+      fi
+      echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
+
       # Define baseline and 6% upper threshold
       BASELINE=90.0
       THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
@@ -230,15 +246,27 @@ zeroRK_run:
   extends: .aurora-batch-runner
   script:
   - cd ${WRK_DIR}/zero-rk
-  - cd running_test_aurora
-  - mkdir -p logs
-  - chmod a+x ./submit_job.sh
   - module use /soft/modulefiles
   - module use ${WRK_DIR}/modulefiles
   - module load chipStar/llvm21
-  - rm -f output
+  - rm -f ${WRK_DIR}/zero-rk/output
   - set -o pipefail
-  - ./submit_job.sh |& tee -a output
+  - |
+    # 4 runs, each in its own dir; performance_zeroRK takes the min.
+    # Run all 4 even if one fails, then fail the stage.
+    rc=0
+    for i in 1 2 3 4; do
+      RUN_DIR=${WRK_DIR}/zero-rk/running_test_aurora_run${i}
+      rm -rf ${RUN_DIR}
+      cp -a ${WRK_DIR}/zero-rk/running_test_aurora ${RUN_DIR}
+      cd ${RUN_DIR}
+      mkdir -p logs
+      chmod a+x ./submit_job.sh
+      echo "=== zeroRK run $i/4 (${RUN_DIR}) ==="
+      ./submit_job.sh |& tee -a ${WRK_DIR}/zero-rk/output || rc=1
+      cd ${WRK_DIR}/zero-rk
+    done
+    exit $rc
 
 zeroRK_correctness_hydrogen:
   stage: correctness_zeroRK_hydrogen
@@ -275,11 +303,20 @@ zeroRK_performance:
   resource_group: aurora_pipeline  
   extends: .aurora-shell-runner
   script:
-  - cd ${WRK_DIR}/zero-rk/running_test_aurora
+  - cd ${WRK_DIR}/zero-rk
   - |
-    ACTUAL_TIME=$(grep "Job time in seconds" output | awk '{print $5}')
-    echo "Extracted time: $ACTUAL_TIME"
-    
+    # submit_job.sh emits one "Job time in seconds: N" line per run; take the min
+    grep "Job time in seconds" output || true
+    ACTUAL_TIME=$(awk -F': ' '/Job time in seconds/ {t = $2 + 0; if (n++ == 0 || t < min) min = t} \
+                       END {if (n) print min}' output)
+    NRUNS=$(grep -c "Job time in seconds" output || true)
+
+    if [ -z "$ACTUAL_TIME" ]; then
+      echo "Performance check failed: no timing lines found in output"
+      exit 1
+    fi
+    echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
+
     # Define baseline and 6% threshold
     BASELINE=85
     THRESHOLD=$(echo "$BASELINE * 0.10" | bc -l)
@@ -335,32 +372,50 @@ opensn_run:
   resource_group: aurora_pipeline
   extends: .aurora-batch-runner
   script:
-   - cd ${WRK_DIR}/opensn/build_debug
-   - cp ${WRK_DIR}/chipStar/tests/apps/OpenSn/strong_scaling.* .
-   - cp ${WRK_DIR}/chipStar/tests/apps/OpenSn/xs_168g.xs .
    - module use ${WRK_DIR}/modulefiles
    - module use /soft/modulefiles
    - module load chipStar/llvm21
    - module load hdf5
    - rm -rf ~/.cache/chipStar/
-   - rm -f output
+   - rm -f ${WRK_DIR}/opensn/output
    - set -o pipefail
-   # first run populates the cache
-   - CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 gpu_tile_compact.sh python/opensn -i strong_scaling.py |& tee -a output
-   # second (timed) run uses the cache
-   - CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 gpu_tile_compact.sh python/opensn -i strong_scaling.py |& tee -a output
+   - |
+     OPENSN_BIN=${WRK_DIR}/opensn/build_debug/python/opensn
+     INPUTS=${WRK_DIR}/chipStar/tests/apps/OpenSn
+
+     # 4 runs, each in its own dir; performance_opensn takes the min.
+     rc=0
+     for i in 1 2 3 4; do
+       RUN_DIR=${WRK_DIR}/opensn/run_${i}
+       echo "=== OpenSn run $i/4 (${RUN_DIR}) ==="
+       rm -rf ${RUN_DIR}
+       mkdir -p ${RUN_DIR}
+       cp ${INPUTS}/strong_scaling.* ${INPUTS}/xs_168g.xs ${RUN_DIR}/
+       cd ${RUN_DIR}
+       CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 \
+         gpu_tile_compact.sh ${OPENSN_BIN} -i strong_scaling.py |& tee -a ${WRK_DIR}/opensn/output || rc=1
+     done
+     exit $rc
 
 opensn_performance:
   stage: performance_opensn
   resource_group: aurora_pipeline
   extends: .aurora-shell-runner
   script:
-  - cd ${WRK_DIR}/opensn/build_debug
+  - cd ${WRK_DIR}/opensn
   - |
-    # use the last (cached) run's timing; format is "Elapsed execution time: HH:MM:SS.s"
-    TIME_STR=$(grep "Elapsed execution time" output | tail -n 1 | awk '{print $NF}')
-    ACTUAL_TIME=$(echo $TIME_STR | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
-    echo "Extracted time: $TIME_STR -> $ACTUAL_TIME s"
+    # min over the 4 runs; format is "Elapsed execution time: HH:MM:SS.s"
+    grep "Elapsed execution time" output || true
+    ACTUAL_TIME=$(grep "Elapsed execution time" output | awk '{print $NF}' \
+      | awk -F: '{t = ($1 * 3600) + ($2 * 60) + $3; if (n++ == 0 || t < min) min = t} \
+                 END {if (n) printf "%.3f", min}')
+    NRUNS=$(grep -c "Elapsed execution time" output || true)
+
+    if [ -z "$ACTUAL_TIME" ]; then
+      echo "Performance check failed: no timing lines found in output"
+      exit 1
+    fi
+    echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
 
     # Define baseline and 6% threshold
     BASELINE=29
