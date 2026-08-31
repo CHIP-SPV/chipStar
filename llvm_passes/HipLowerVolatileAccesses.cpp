@@ -45,6 +45,17 @@
 // hint, the sanctioned mechanism is SPV_INTEL_cache_controls
 // (CacheControlLoadINTEL / CacheControlStoreINTEL).
 //
+// The operand also survives the translator's reverse direction, so it reaches
+// the CPU backends (PoCL, the Intel CPU OpenCL runtime) as !nontemporal on the
+// consumer's IR, where an x86 target turns `store volatile i32` into `movntil`
+// instead of `movl` (measured with llc -mtriple=x86_64). A CPU device has
+// coherent caches and no L1 to get past, so the marking buys nothing there and
+// costs the stronger ordering of an ordinary store: a non-temporal store on
+// x86 is weakly ordered and needs a fence to be published in program order.
+// Code that publishes a flag with __threadfence() is unaffected, because the
+// fence it lowers to orders non-temporal stores too; code relying on volatile
+// alone for ordering is weaker on those devices than it was.
+//
 // So every volatile load and store through a global (addrspace 1) or generic
 // (addrspace 4) pointer is marked !nontemporal, which both SPIR-V producers
 // emit as the Nontemporal memory operand. The access stays a plain, volatile
