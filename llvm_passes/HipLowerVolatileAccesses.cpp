@@ -89,6 +89,11 @@
 //     and a pointer argument is still marked.
 //   - accesses that are already atomic: those bypass L1 by themselves and carry
 //     an ordering of their own.
+//   - accesses that are not naturally aligned 32 or 64 bit scalars: vectors,
+//     aggregates and the narrow widths gain nothing from the hint, and a
+//     consumer only has to honour Nontemporal on shapes it has a non-temporal
+//     instruction for. PoCL's x86 back end aborts ("Unsupported store size",
+//     UNREACHABLE in X86ISelDAGToDAG.cpp) on ones it does not.
 //
 // (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
@@ -147,7 +152,33 @@ bool mayBeShared(Value *Ptr) {
   });
 }
 
+/// Whether the marking is safe on this access's type. It is restricted to
+/// naturally aligned 32 and 64 bit scalars, which is the flag poll issue #1508
+/// is about.
+///
+/// Wider coverage is not free: the Nontemporal operand survives into a
+/// consumer's own back end, and a back end only has to honour it on the shapes
+/// it has a non-temporal instruction for. PoCL's x86 back end aborts with
+/// "Unsupported store size" / "UNREACHABLE executed at
+/// X86ISelDAGToDAG.cpp" when it reaches one it does not, which took down the
+/// PoCL CPU lane when this pass marked 16 bit accesses. Vectors, aggregates,
+/// the narrow widths and under-aligned accesses gain nothing here, so they are
+/// left out rather than handed to a consumer that may not cope.
+bool isMarkableType(Type *Ty, Align Alignment, const DataLayout &DL) {
+  // Scalars only: this is false for vectors and aggregates.
+  if (!Ty->isIntegerTy() && !Ty->isFloatingPointTy() && !Ty->isPointerTy())
+    return false;
+  TypeSize Size = DL.getTypeStoreSize(Ty);
+  if (Size.isScalable())
+    return false;
+  uint64_t Bytes = Size.getFixedValue();
+  if (Bytes != 4 && Bytes != 8)
+    return false;
+  return Alignment.value() >= Bytes;
+}
+
 bool lowerVolatileAccesses(Function &F) {
+  const DataLayout &DL = F.getParent()->getDataLayout();
   SmallVector<Instruction *, 16> WorkList;
   for (auto &BB : F)
     for (auto &I : BB) {
@@ -155,9 +186,14 @@ bool lowerVolatileAccesses(Function &F) {
       if (auto *LI = dyn_cast<LoadInst>(&I)) {
         if (!LI->isVolatile() || LI->isAtomic())
           continue;
+        if (!isMarkableType(LI->getType(), LI->getAlign(), DL))
+          continue;
         Ptr = LI->getPointerOperand();
       } else if (auto *SI = dyn_cast<StoreInst>(&I)) {
         if (!SI->isVolatile() || SI->isAtomic())
+          continue;
+        if (!isMarkableType(SI->getValueOperand()->getType(), SI->getAlign(),
+                            DL))
           continue;
         Ptr = SI->getPointerOperand();
       } else {
