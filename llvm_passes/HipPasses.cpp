@@ -235,10 +235,9 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, HipIGBADetectorPass(), "HipIGBADetectorPass");
 
   // A volatile global access carries CUDA's ld.volatile / st.volatile meaning
-  // (a relaxed system-scope access that bypasses L1) and SPIR-V's Volatile
-  // memory operand does not, so rewrite them into relaxed device-scope
-  // atomics. Runs after the IGBA detector, which sees pointer-typed volatile
-  // loads as pointer loads before this launders them through an integer.
+  // (an access that bypasses the core's cache) and SPIR-V's Volatile memory
+  // operand does not, so mark them !nontemporal, which the SPIR-V producers
+  // emit as the Nontemporal memory operand.
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerVolatileAccessesPass()), "HipLowerVolatileAccessesPass");
 
   // Fix InvalidBitWidth errors due to non-standard integer types
