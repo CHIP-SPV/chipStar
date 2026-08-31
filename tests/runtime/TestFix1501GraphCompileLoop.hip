@@ -65,7 +65,9 @@ int main() {
   CHECK(hipGraphAddEmptyNode(&C, Graph, DepsC, 2));
 
   hipGraphNode_t Nodes[3];
-  size_t NumNodes = 0, NumEdges = 0;
+  // numNodes is the capacity of Nodes on entry and the number of entries
+  // written on return.
+  size_t NumNodes = 3, NumEdges = 0;
   CHECK(hipGraphGetNodes(Graph, Nodes, &NumNodes));
   CHECK(hipGraphGetEdges(Graph, nullptr, nullptr, &NumEdges));
   if (NumNodes != 3 || NumEdges != 3) {
@@ -81,6 +83,7 @@ int main() {
     CHECK(hipStreamSynchronize(0));
   }
 
+  NumNodes = 3;
   CHECK(hipGraphGetNodes(Graph, Nodes, &NumNodes));
   CHECK(hipGraphGetEdges(Graph, nullptr, nullptr, &NumEdges));
   if (NumNodes != 3 || NumEdges != 3) {
