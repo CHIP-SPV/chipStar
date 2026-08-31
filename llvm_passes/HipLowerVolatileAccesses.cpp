@@ -51,10 +51,13 @@
 // must stay non-atomic.
 //
 // Left alone, and why:
-//   - accesses whose pointer comes from a private (addrspace 0), constant
-//     (addrspace 2) or work-group local (addrspace 3) object: private memory is
-//     never shared, work-group local memory does not leave the core, and
-//     constant memory does not change while a kernel runs.
+//   - accesses every one of whose underlying objects is a private (addrspace
+//     0), constant (addrspace 2) or work-group local (addrspace 3) object:
+//     private memory is never shared, work-group local memory does not leave
+//     the core, and constant memory does not change while a kernel runs. A
+//     pointer a phi or a select joins is left alone only when every branch of
+//     the join is one of those, so a kernel choosing between __shared__ scratch
+//     and a pointer argument is still marked.
 //   - accesses that are already atomic: those bypass L1 by themselves and carry
 //     an ordering of their own.
 //
@@ -91,15 +94,28 @@ constexpr unsigned GenericAS = 4;
 /// Whether the access may reach memory another core can also access. Kernel
 /// argument pointers arrive as generic pointers (clang launders them through
 /// ptrtoint / inttoptr, which InferAddressSpaces does not see through), so a
-/// generic pointer is assumed to be global unless the object it is derived
-/// from says otherwise.
+/// generic pointer is assumed to be global unless every object it can be
+/// derived from says otherwise.
 bool mayBeShared(Value *Ptr) {
   unsigned AS = Ptr->getType()->getPointerAddressSpace();
   if (AS != GlobalAS && AS != GenericAS)
     return false;
-  unsigned ObjAS =
-      getUnderlyingObject(Ptr)->getType()->getPointerAddressSpace();
-  return ObjAS != PrivateAS && ObjAS != ConstantAS && ObjAS != LocalAS;
+  // The plural form is what reaches the objects behind a pointer that a phi or
+  // a select joins: the singular getUnderlyingObject stops at such a join and
+  // hands back the join itself, whose address space is the generic one both
+  // branches were cast to, which would report every branch as shared even when
+  // none of them is. That shape is ordinary HIP: a kernel choosing between
+  // __shared__ scratch and one of its pointer arguments produces it.
+  SmallVector<const Value *, 4> Objects;
+  getUnderlyingObjects(Ptr, Objects);
+  // No object identified: the pointer may be anything, so assume shared.
+  if (Objects.empty())
+    return true;
+  // Shared unless every object the access can reach is core-private.
+  return any_of(Objects, [](const Value *Obj) {
+    unsigned ObjAS = Obj->getType()->getPointerAddressSpace();
+    return ObjAS != PrivateAS && ObjAS != ConstantAS && ObjAS != LocalAS;
+  });
 }
 
 bool lowerVolatileAccesses(Function &F) {
