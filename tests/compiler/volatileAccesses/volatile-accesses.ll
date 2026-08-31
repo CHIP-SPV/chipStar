@@ -1,12 +1,15 @@
 ; Every volatile access shape HipLowerVolatileAccessesPass has a rule for. The
 ; accesses through global and generic pointers must come out marked
 ; !nontemporal; the private, constant, work-group local and already atomic ones
-; must come out exactly as they went in.
+; must come out exactly as they went in. A pointer joined by a phi or a select
+; follows its branches: marked when any branch is shared, left alone when every
+; branch is work-group local.
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-G1"
 target triple = "spirv64"
 
 @lmem = internal addrspace(3) global [64 x i32] undef, align 4
+@lmem2 = internal addrspace(3) global [64 x i32] undef, align 4
 @cmem = internal addrspace(2) constant [4 x i32] zeroinitializer, align 4
 
 define spir_kernel void @rewritten(ptr addrspace(1) %P32, ptr addrspace(1) %P64,
@@ -45,6 +48,12 @@ entry:
   ; under-aligned
   %ldu = load volatile i32, ptr addrspace(1) %P32, align 2
   store volatile i32 %V32, ptr addrspace(1) %P32, align 2
+  ; a select joining work-group local memory with a global pointer argument:
+  ; one branch is shared, so the access must be marked
+  %LMix = addrspacecast ptr addrspace(3) @lmem to ptr addrspace(4)
+  %PMix = select i1 true, ptr addrspace(4) %LMix, ptr addrspace(4) %G32
+  %ldmix = load volatile i32, ptr addrspace(4) %PMix, align 4
+  store volatile i32 %V32, ptr addrspace(4) %PMix, align 4
   ; keep every loaded value alive
   %f2i = bitcast float %ldf to i32
   %d2i = bitcast double %ldd to i64
@@ -57,7 +66,8 @@ entry:
   %s3 = add i32 %s2, %e8
   %s4 = add i32 %s3, %e16
   %s5 = add i32 %s4, %v0
-  %s6 = add i32 %s5, %ldu
+  %s6a = add i32 %s5, %ldu
+  %s6 = add i32 %s6a, %ldmix
   %s7 = add i64 %ld64, %d2i
   %s8 = add i64 %s7, %p2i
   store i32 %s6, ptr addrspace(1) %P32, align 4
@@ -65,7 +75,7 @@ entry:
   ret void
 }
 
-define spir_kernel void @left_alone(ptr addrspace(1) %P32, i32 %V32) {
+define spir_kernel void @left_alone(ptr addrspace(1) %P32, i32 %V32, i1 %Cond) {
 entry:
   ; work-group local memory, directly and through a generic pointer
   %L = getelementptr inbounds [64 x i32], ptr addrspace(3) @lmem, i64 0, i64 5
@@ -85,11 +95,32 @@ entry:
   ; already atomic
   %lda2 = load atomic volatile i32, ptr addrspace(1) %P32 syncscope("workgroup") acquire, align 4
   store atomic volatile i32 %V32, ptr addrspace(1) %P32 seq_cst, align 4
+  ; a select joining two work-group local objects: every branch stays on the
+  ; core, so the join is not shared either
+  %L2 = getelementptr inbounds [64 x i32], ptr addrspace(3) @lmem2, i64 0, i64 3
+  %L2G = addrspacecast ptr addrspace(3) %L2 to ptr addrspace(4)
+  %SelL = select i1 %Cond, ptr addrspace(4) %LG, ptr addrspace(4) %L2G
+  %ldsel = load volatile i32, ptr addrspace(4) %SelL, align 4
+  store volatile i32 %V32, ptr addrspace(4) %SelL, align 4
+  br i1 %Cond, label %ta, label %tb
+ta:
+  br label %tjoin
+tb:
+  br label %tjoin
+tjoin:
+  ; the same join as a phi, which the singular getUnderlyingObject cannot see
+  ; through: it stops at the phi, whose address space is the generic one both
+  ; branches were cast to
+  %PhiL = phi ptr addrspace(4) [ %LG, %ta ], [ %L2G, %tb ]
+  %ldphi = load volatile i32, ptr addrspace(4) %PhiL, align 4
+  store volatile i32 %V32, ptr addrspace(4) %PhiL, align 4
   ; keep every loaded value alive
   %s1 = add i32 %ldl3, %ldl
   %s2 = add i32 %s1, %lda
   %s3 = add i32 %s2, %ldc
   %s4 = add i32 %s3, %lda2
-  store i32 %s4, ptr addrspace(1) %P32, align 4
+  %s5 = add i32 %s4, %ldsel
+  %s6 = add i32 %s5, %ldphi
+  store i32 %s6, ptr addrspace(1) %P32, align 4
   ret void
 }

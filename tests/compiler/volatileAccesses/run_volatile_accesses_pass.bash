@@ -26,8 +26,8 @@ OUTPUT_LL="${BASE_NAME}.lowered.ll"
 OUTPUT_SPV="${BASE_NAME}.lowered.spv"
 SPIRV_OPTS="--spirv-max-version=1.2 --spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups"
 
-MARKED_IN=20  # volatile accesses in @rewritten
-KEPT_IN=9     # volatile accesses in @left_alone
+MARKED_IN=22  # volatile accesses in @rewritten
+KEPT_IN=13    # volatile accesses in @left_alone
 
 # CHIP_VERIFY_MODE=off: the in-pass IR->SPIR-V re-verification defaults to on
 # in Debug builds and is redundant here; the translation below is the check.
