@@ -67,16 +67,22 @@ if [ -z "${ACCESS}" ]; then
   exit 1
 fi
 for PATTERN in 'load volatile i32,.*!nontemporal' 'load volatile i64,.*!nontemporal' \
-               'load volatile i16,.*!nontemporal' \
-               'store volatile i32 .*!nontemporal' 'store volatile i64 .*!nontemporal' \
-               'store volatile i16 .*!nontemporal'; do
+               'store volatile i32 .*!nontemporal' 'store volatile i64 .*!nontemporal'; do
   if ! echo "${ACCESS}" | grep -qE "${PATTERN}"; then
     fail "volatileAccess has no '${PATTERN}' after the pass pipeline"
   fi
 done
-PLAIN=$(echo "${ACCESS}" | grep -E '(load|store) volatile' | grep -v '!nontemporal' || true)
+# The 16 bit accesses of the same kernel must NOT be marked: a consumer only
+# has to honour Nontemporal on shapes it has a non-temporal instruction for,
+# and PoCL's x86 back end aborts with "Unsupported store size" on ones it does
+# not.
+if echo "${ACCESS}" | grep -qE '(load|store) volatile i16.*!nontemporal'; then
+  fail "volatileAccess had its 16 bit accesses marked, which breaks CPU consumers:"
+  echo "${ACCESS}" | grep -E '(load|store) volatile i16'
+fi
+PLAIN=$(echo "${ACCESS}" | grep -E '(load|store) volatile (i32|i64)' | grep -v '!nontemporal' || true)
 if [ -n "${PLAIN}" ]; then
-  fail "volatileAccess still has unmarked volatile global accesses:"
+  fail "volatileAccess still has unmarked 32 or 64 bit volatile global accesses:"
   echo "${PLAIN}"
 fi
 ATOMIC=$(echo "${ACCESS}" | grep -E '(load|store) atomic' || true)
