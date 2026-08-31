@@ -77,36 +77,52 @@ __global__ void volatileLocal(unsigned *OutLocal) {
 // atomics on.
 __global__ void volatileHostAccess(volatile int *Flag) { *Flag = *Flag + 1; }
 
+// Runs the volatile read-modify-write on one host-visible allocation and
+// reports whether the device saw and published the right value.
+//
+// The seed and the readback go through hipMemcpy rather than a plain host store
+// and load on purpose. What this checks is that the *device* access stayed
+// non-atomic, so the allocation kind is the whole point and the host's route to
+// it is incidental. Touching the pointer directly from the host would drag in a
+// second, unrelated promise: on devices whose OpenCL SVM support is coarse
+// grained only (Mali G52, rusticl on the W6400) chipStar's managed allocations
+// are clSVMAlloc buffers whose contents are undefined outside a map / unmap
+// pair, so a direct host store there is silently lost. That is chipStar issue
+// https://github.com/CHIP-SPV/chipStar/issues/1535 and it has nothing to do
+// with this pass. hipMemcpy is defined on every backend and keeps the guard
+// running everywhere instead of skipping on the devices that need it least.
+static int runOneHostVisibleCase(const char *Kind, int *Flag) {
+  int Seed = 41, Got = -1;
+  CHECK(hipMemcpy(Flag, &Seed, sizeof(int), hipMemcpyHostToDevice));
+  volatileHostAccess<<<1, 1>>>(Flag);
+  CHECK(hipGetLastError());
+  CHECK(hipDeviceSynchronize());
+  CHECK(hipMemcpy(&Got, Flag, sizeof(int), hipMemcpyDeviceToHost));
+  if (Got != 42) {
+    printf("%s flag = %d, expected 42\n", Kind, Got);
+    return 1;
+  }
+  return 0;
+}
+
 static int runOnHostVisibleMemory() {
   int Errors = 0;
   int *Pinned = nullptr;
   CHECK(hipHostMalloc(&Pinned, sizeof(int)));
-  *Pinned = 41;
-  volatileHostAccess<<<1, 1>>>(Pinned);
-  CHECK(hipGetLastError());
-  CHECK(hipDeviceSynchronize());
-  if (*Pinned != 42) {
-    printf("pinned flag = %d, expected 42\n", *Pinned);
-    ++Errors;
-  }
+  Errors += runOneHostVisibleCase("pinned", Pinned);
   CHECK(hipHostFree(Pinned));
 
+  int Device = 0;
+  CHECK(hipGetDevice(&Device));
   int ManagedSupport = 0;
   CHECK(hipDeviceGetAttribute(&ManagedSupport, hipDeviceAttributeManagedMemory,
-                              0));
+                              Device));
   if (!ManagedSupport)
     return Errors;
 
   int *Managed = nullptr;
   CHECK(hipMallocManaged(&Managed, sizeof(int)));
-  *Managed = 41;
-  volatileHostAccess<<<1, 1>>>(Managed);
-  CHECK(hipGetLastError());
-  CHECK(hipDeviceSynchronize());
-  if (*Managed != 42) {
-    printf("managed flag = %d, expected 42\n", *Managed);
-    ++Errors;
-  }
+  Errors += runOneHostVisibleCase("managed", Managed);
   CHECK(hipFree(Managed));
   return Errors;
 }
