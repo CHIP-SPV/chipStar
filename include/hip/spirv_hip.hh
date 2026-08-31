@@ -53,6 +53,21 @@ extern "C" {
 // abort request.
 __attribute__((weak)) __device__ int32_t __chipspv_abort_called;
  
+// The message of a failed device-side assertion, in the format
+// _cl_assert_fail_print prints it. Device printf only reaches stdout, so
+// __assert_fail also records the message here for the runtime to copy to the
+// host and write to stderr when it services the abort request
+// (handleAbortRequest); stderr is where ROCm reports it and where gtest death
+// tests look for it. Claimed is taken atomically by the first work-item that
+// records a message so concurrent failures do not interleave in Text. The
+// runtime treats the variable as raw bytes and reads Text at offset
+// sizeof(int) (ChipDeviceAbortMsgTextOffset in src/common.hh).
+struct __chipspv_abort_msg_t {
+  int Claimed;
+  char Text[508];
+};
+__attribute__((weak)) __device__ __chipspv_abort_msg_t __chipspv_abort_msg;
+
 // Global pointer for the device heap for device-side malloc/free.
 // Gated behind CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS: this is a program-scope
 // global which some OpenCL drivers (e.g. rusticl/radeonsi) cannot consume
@@ -160,6 +175,46 @@ extern "C" __device__ int printf(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
 extern "C" __device__ void abort();
 
+static inline __device__ void __chipspv_abort_msg_append(unsigned &Pos,
+                                                         const char *S) {
+  while (*S && Pos < sizeof(__chipspv_abort_msg.Text) - 1)
+    __chipspv_abort_msg.Text[Pos++] = *S++;
+}
+
+// Records a failed assertion in __chipspv_abort_msg for the runtime to report
+// on stderr. Only the first work-item to claim the buffer writes it; the text
+// is bounded by the buffer and NUL-terminated.
+static inline __device__ void
+__chipspv_record_assert_msg(const char *file, unsigned int line,
+                            const char *function, const char *assertion) {
+  if (atomicCAS(&__chipspv_abort_msg.Claimed, 0, 1) != 0)
+    return;
+
+  // Decimal digits of the line number, least significant first.
+  char Digits[10];
+  unsigned NumDigits = 0;
+  do {
+    Digits[NumDigits++] = '0' + line % 10;
+    line /= 10;
+  } while (line);
+  char LineStr[11];
+  unsigned I = 0;
+  while (NumDigits)
+    LineStr[I++] = Digits[--NumDigits];
+  LineStr[I] = 0;
+
+  unsigned Pos = 0;
+  __chipspv_abort_msg_append(Pos, file);
+  __chipspv_abort_msg_append(Pos, ":");
+  __chipspv_abort_msg_append(Pos, LineStr);
+  __chipspv_abort_msg_append(Pos, ": ");
+  __chipspv_abort_msg_append(Pos, function);
+  __chipspv_abort_msg_append(Pos, ": Device-side assertion `");
+  __chipspv_abort_msg_append(Pos, assertion);
+  __chipspv_abort_msg_append(Pos, "' failed.");
+  __chipspv_abort_msg.Text[Pos] = 0;
+}
+
 // The assert part mimiced from amd_device_functions.h of amdhip.  We
 // assume assert.h defines assert such that it calls __assert_fail
 // when it fails. Some users forward declares the __assert_fail, with
@@ -192,6 +247,7 @@ __device__ __attribute__((noinline)) __attribute__((weak)) void
 __assert_rtn(const char *function, const char *file, int line,
              const char *assertion) {
   _cl_assert_fail_print(file, line, function, assertion);
+  __chipspv_record_assert_msg(file, line, function, assertion);
   abort();
 }
 #else  // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
@@ -199,6 +255,7 @@ __device__ __attribute__((noinline)) __attribute__((weak)) void
 __assert_fail(const char *assertion, const char *file, unsigned int line,
               const char *function) {
   _cl_assert_fail_print(file, line, function, assertion);
+  __chipspv_record_assert_msg(file, line, function, assertion);
   abort();
 }
 #endif // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)

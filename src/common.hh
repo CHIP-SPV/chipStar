@@ -103,6 +103,13 @@ constexpr char ChipGVarArgPrefix[] = "__chip_gvararg_";
 /// the abort() function was called by a kernel.
 constexpr char ChipDeviceAbortFlagName[] = "__chipspv_abort_called";
 
+/// The name of a global variable which holds the message of a failed
+/// device-side assertion (__chipspv_abort_msg in include/hip/spirv_hip.hh),
+/// and the byte offset of its NUL-terminated text: the bytes before the text
+/// hold the claim word with which the device picks a single writer.
+constexpr char ChipDeviceAbortMsgName[] = "__chipspv_abort_msg";
+constexpr size_t ChipDeviceAbortMsgTextOffset = sizeof(int);
+
 /// The name of a global variable which is the device heap.
 constexpr char ChipDeviceHeapName[] = "__chipspv_device_heap";
 

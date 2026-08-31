@@ -1093,6 +1093,25 @@ static void handleAbortRequest(chipstar::Queue &Q, chipstar::Module &M) {
   if (!AbortFlag)
     return; // Abort was not called.
 
+  // A failed device-side assertion records its message in a device variable
+  // (device printf only reaches stdout). Report it on stderr, where ROCm
+  // reports it and where gtest death tests look for it. The variable is absent
+  // when HipAbort pass found no assertion in the module.
+  chipstar::DeviceVar *MsgVar = M.getGlobalVar(ChipDeviceAbortMsgName);
+  std::vector<char> Msg;
+  if (MsgVar) {
+    Msg.resize(MsgVar->getSize() + 1, 0); // +1: always NUL-terminated.
+    Err = Q.memCopy(Msg.data(), MsgVar->getDevAddr(), MsgVar->getSize(),
+                    hipMemcpyDeviceToHost);
+    if (Err != hipSuccess)
+      CHIPERR_LOG_AND_THROW("Unexpected mem copy failure.", hipErrorTbd);
+    const char *Text = Msg.data() + ChipDeviceAbortMsgTextOffset;
+    if (*Text) {
+      fprintf(stderr, "%s\n", Text);
+      fflush(stderr);
+    }
+  }
+
   // Disable host-side abort behavior for making the unit testing of abort
   // cases easier.
   if (!getenv("CHIP_HOST_IGNORES_DEVICE_ABORT")) {
@@ -1101,14 +1120,21 @@ static void handleAbortRequest(chipstar::Queue &Q, chipstar::Module &M) {
     abort();
   }
 
-  // Just act like nothing happened. Reset the flag so we let there be more
-  // aborts.
+  // Just act like nothing happened. Reset the flag and the message so we let
+  // there be more aborts.
   AbortFlag = 0;
   Err = Q.memCopy(Var->getDevAddr(), &AbortFlag, sizeof(int32_t),
                   hipMemcpyHostToDevice);
   if (Err != hipSuccess)
     // Device->host copy succeeded. What went wrong with host->device copy?
     CHIPERR_LOG_AND_THROW("Unexpected mem copy failure.", hipErrorTbd);
+  if (MsgVar) {
+    std::fill(Msg.begin(), Msg.end(), 0);
+    Err = Q.memCopy(MsgVar->getDevAddr(), Msg.data(), MsgVar->getSize(),
+                    hipMemcpyHostToDevice);
+    if (Err != hipSuccess)
+      CHIPERR_LOG_AND_THROW("Unexpected mem copy failure.", hipErrorTbd);
+  }
 
   printf("[ABORT IGNORED]\n");
 }
