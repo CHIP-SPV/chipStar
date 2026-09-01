@@ -360,7 +360,6 @@ CHIP_DUMP_PROCESSED_SPIRV=/path/to/dir          # Dumps processed SPIR-V binarie
 CHIP_JIT_FLAGS=<flags>                          # Additional JIT flags
 CHIP_L0_COLLECT_EVENTS_TIMEOUT=<N(30s default)> # Timeout in seconds for collecting Level Zero events
 CHIP_L0_EVENT_TIMEOUT=<N(0 default)             # Timeout in seconds for how long Level Zero should wait on an event before timing out
-CHIP_L0_MANAGED_USM=<auto(default)/host/shared> # USM kind backing hipMallocManaged on Level Zero. auto picks shared USM only when host USM has no atomic access capability and single-device shared USM reports atomic and concurrent access (Intel GPUs report concurrent access only with kernel-driver page migration, e.g. NEOReadDebugKeys=1 UseKmdMigration=1 on Data Center GPU Max), host USM otherwise. shared makes device atomics on managed memory work on Data Center GPU Max but is unsafe in processes that install their own SIGSEGV handler
 CHIP_SKIP_UNINIT=<ON/OFF(default)>              # If enabled, skips the uninitialization of chipStar's backend objects at program termination
 CHIP_MODULE_CACHE_DIR=/path/to/desired/dir      # Module/Program cache dir. Defaults to $HOME/.cache/chipStar, if caching is undesired, set to empty string i.e. export CHIP_MODULE_CACHE_DIR=
 CHIP_VERIFY_MODE=<off/failures/all>             # Controls LLVM IR and SPIR-V verification output during compilation. 'off' disables verification, 'failures' (default) shows table only when SPIR-V validation fails, 'all' always shows the verification table

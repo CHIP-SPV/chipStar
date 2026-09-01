@@ -97,7 +97,6 @@ void testDeviceTypeFilteringWithOpenCL() {
         setEnvVar("CHIP_L0_EVENT_TIMEOUT", "2000");
         setEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING", "1");
         setEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY", "custom_strategy");
-        setEnvVar("CHIP_L0_MANAGED_USM", "shared");
 
         // Create an EnvVars instance to parse the environment variables
         EnvVars envVars;
@@ -118,7 +117,6 @@ void testDeviceTypeFilteringWithOpenCL() {
         assertEqual(static_cast<unsigned long>(2000), envVars.getL0EventTimeout(), "CHIP_L0_EVENT_TIMEOUT");
         assertEqual(true, envVars.getOCLDisableQueueProfiling(), "CHIP_OCL_DISABLE_QUEUE_PROFILING");
         assertEqual(std::string("custom_strategy"), envVars.getOclUseAllocStrategy().value_or(""), "CHIP_OCL_USE_ALLOC_STRATEGY");
-        assertEqual(std::string("shared"), std::string(envVars.getL0ManagedUsmStr()), "CHIP_L0_MANAGED_USM");
 
         // Unset environment variables
         unsetEnvVar("CHIP_DEVICE_TYPE");
@@ -132,7 +130,6 @@ void testDeviceTypeFilteringWithOpenCL() {
         unsetEnvVar("CHIP_L0_EVENT_TIMEOUT");
         unsetEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING");
         unsetEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY");
-        unsetEnvVar("CHIP_L0_MANAGED_USM");
     }
 }
 
@@ -152,7 +149,6 @@ void testManualDeviceSelection() {
         setEnvVar("CHIP_L0_EVENT_TIMEOUT", "2000");
         setEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING", "1");
         setEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY", "custom_strategy");
-        setEnvVar("CHIP_L0_MANAGED_USM", "shared");
 
         // Create an EnvVars instance to parse the environment variables
         EnvVars envVars;
@@ -170,7 +166,6 @@ void testManualDeviceSelection() {
         assertEqual(static_cast<unsigned long>(2000), envVars.getL0EventTimeout(), "CHIP_L0_EVENT_TIMEOUT");
         assertEqual(true, envVars.getOCLDisableQueueProfiling(), "CHIP_OCL_DISABLE_QUEUE_PROFILING");
         assertEqual(std::string("custom_strategy"), envVars.getOclUseAllocStrategy().value_or(""), "CHIP_OCL_USE_ALLOC_STRATEGY");
-        assertEqual(std::string("shared"), std::string(envVars.getL0ManagedUsmStr()), "CHIP_L0_MANAGED_USM");
 
         // Unset environment variables
         unsetEnvVar("CHIP_PLATFORM");
@@ -185,7 +180,6 @@ void testManualDeviceSelection() {
         unsetEnvVar("CHIP_L0_EVENT_TIMEOUT");
         unsetEnvVar("CHIP_OCL_DISABLE_QUEUE_PROFILING");
         unsetEnvVar("CHIP_OCL_USE_ALLOC_STRATEGY");
-        unsetEnvVar("CHIP_L0_MANAGED_USM");
     }
 }
 

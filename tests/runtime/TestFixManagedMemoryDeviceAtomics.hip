@@ -12,10 +12,9 @@
 // the process. Run with CHIP_LOGLEVEL=info to see which USM kind the runtime
 // picked for managed memory.
 //
-// CTest runs this test with CHIP_L0_MANAGED_USM=shared (see CMakeLists.txt):
-// on Level Zero the runtime picks shared USM by itself only on drivers that
-// report concurrent access for single-device shared USM, and with the
-// default host USM the atomics below fault on PVC. This process installs no
+// hipMallocManaged is backed by single-device shared USM on Level Zero, which
+// is the kind that supports device atomics; with the host USM that used to
+// back it the atomics below fault on PVC. This process installs no
 // SIGSEGV handler, so the driver's page migration on shared USM works here.
 
 #include <hip/hip_runtime.h>

@@ -2685,29 +2685,19 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
       /* HmaDesc.flags = */ HostFlags,
   };
   if (MemTy == hipMemoryType::hipMemoryTypeUnified) {
+    // Single-device shared USM, associated with this device so that the
+    // sharedSingleDeviceAllocCapabilities apply. Shared USM is what
+    // hipMallocManaged means: one pointer valid on host and device, with the
+    // driver migrating pages. Host USM (zeMemAllocHost) is the backing for
+    // hipHostMalloc, where the pages stay pinned in host memory and the
+    // device reaches them over the link; using it for managed memory left
+    // device atomics unsupported wherever host USM reports no ATOMIC access
+    // capability (Intel Data Center GPU Max), and made hipMemPrefetchAsync
+    // meaningless.
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
-    if (ChipDev->managedUsesSharedUsm()) {
-      // Single-device shared USM, associated with this device so that the
-      // sharedSingleDeviceAllocCapabilities apply. Used where host USM has
-      // no ATOMIC access capability (Intel Data Center GPU Max): device
-      // atomics on host USM there silently return 0 or fault. Chosen by
-      // the auto gate only when this kind also reports CONCURRENT, i.e. the
-      // host mapping stays valid while the device owns the pages (see
-      // populateDevicePropertiesImpl()).
-      zeStatus = zeMemAllocShared(ZeCtx, &DmaDesc, &HmaDesc, Size, Alignment,
-                                  ChipDev->get(), &Ptr);
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocShared);
-    } else {
-      // Use zeMemAllocHost for managed memory to ensure host accessibility
-      // is maintained even when the GPU accesses the memory. Intel's Level
-      // Zero driver on discrete GPUs uses page migration with
-      // zeMemAllocShared that removes host mappings when pages are accessed
-      // by the device, causing segfaults on subsequent host access. Host
-      // memory remains accessible from both host and device, providing
-      // correct HIP/CUDA semantics.
-      zeStatus = zeMemAllocHost(ZeCtx, &HmaDesc, Size, Alignment, &Ptr);
-      CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocHost);
-    }
+    zeStatus = zeMemAllocShared(ZeCtx, &DmaDesc, &HmaDesc, Size, Alignment,
+                                ChipDev->get(), &Ptr);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocShared);
   } else if (MemTy == hipMemoryType::hipMemoryTypeDevice) {
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
     ze_device_handle_t ZeDev = ChipDev->get();
@@ -2823,52 +2813,10 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   zeStatus = zeDeviceGetMemoryAccessProperties(ZeDev_, &MemAccessProps_);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetMemoryAccessProperties);
 
-  // Pick the USM kind that backs hipMallocManaged. Host USM is the default:
-  // it stays mapped on the host while the device uses it (issues #131 and
-  // #1110). On devices whose host USM has no ATOMIC capability (Intel Data
-  // Center GPU Max reports hostAllocCapabilities = RW) device atomics on it
-  // silently produce 0 or fault, so single-device shared USM is used there
-  // instead, but only when that kind reports ATOMIC and CONCURRENT.
-  //
-  // CONCURRENT is what makes shared USM safe to hand out as managed memory.
-  // Without it the driver migrates pages between host and device: after a
-  // device access the host mapping is mprotect'ed PROT_NONE and the next
-  // host touch is a real SIGSEGV that the driver's own signal handler
-  // resolves by migrating the page back. Any non-chaining SIGSEGV handler
-  // installed later by the application (Catch2's fatal-condition handler,
-  // for one) steals that signal and the process dies (issue #446). Intel's
-  // driver reports CONCURRENT for this kind only when migration is done by
-  // the kernel driver, in which case the host mapping is never revoked
-  // (NEO: ProductHelperHw::getSingleDeviceSharedMemCapabilities). Both Arc
-  // and Data Center GPU Max report RW|ATOMIC without CONCURRENT by
-  // default, so the auto gate keeps host USM there;
-  // CHIP_L0_MANAGED_USM=shared forces shared USM for applications that do
-  // not install their own SIGSEGV handler and need managed-memory atomics.
-  const bool HostUsmHasAtomics =
-      MemAccessProps_.hostAllocCapabilities & ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC;
-  const bool SharedUsmHasAtomics =
-      MemAccessProps_.sharedSingleDeviceAllocCapabilities &
-      ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC;
-  const bool SharedUsmIsConcurrent =
-      MemAccessProps_.sharedSingleDeviceAllocCapabilities &
-      ZE_MEMORY_ACCESS_CAP_FLAG_CONCURRENT;
-  switch (ChipEnvVars.getL0ManagedUsm()) {
-  case EnvVars::L0ManagedUsm::Host:
-    ManagedUsesSharedUsm_ = false;
-    break;
-  case EnvVars::L0ManagedUsm::Shared:
-    ManagedUsesSharedUsm_ = true;
-    break;
-  default:
-    ManagedUsesSharedUsm_ =
-        !HostUsmHasAtomics && SharedUsmHasAtomics && SharedUsmIsConcurrent;
-    break;
-  }
-  logInfo("Managed memory (hipMallocManaged) uses {} USM on {} "
-          "(CHIP_L0_MANAGED_USM={}, hostAllocCapabilities=0x{:x}, "
+  logInfo("Managed memory (hipMallocManaged) uses shared USM on {} "
+          "(hostAllocCapabilities=0x{:x}, "
           "sharedSingleDeviceAllocCapabilities=0x{:x})",
-          ManagedUsesSharedUsm_ ? "shared" : "host", ZeDeviceProps_.name,
-          ChipEnvVars.getL0ManagedUsmStr(),
+          ZeDeviceProps_.name,
           (unsigned)MemAccessProps_.hostAllocCapabilities,
           (unsigned)MemAccessProps_.sharedSingleDeviceAllocCapabilities);
 
@@ -2991,20 +2939,16 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.textureAlignment = 1;
   HipDeviceProps_.texturePitchAlignment = 1;
 
-  // hipMallocManaged is backed by USM: zeMemAllocHost by default, or
-  // zeMemAllocShared where host USM lacks atomics (see allocateImpl() and
-  // ManagedUsesSharedUsm_). concurrentManagedAccess describes the USM kind
-  // that actually backs managed memory; hostNativeAtomicSupported is about
-  // host memory regardless of that choice.
+  // hipMallocManaged is backed by single-device shared USM (allocateImpl()).
+  // concurrentManagedAccess describes that kind; hostNativeAtomicSupported is
+  // about host memory, which backs hipHostMalloc.
   HipDeviceProps_.managedMemory = 1;
   HipDeviceProps_.hostNativeAtomicSupported =
       (MemAccessProps_.hostAllocCapabilities & ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC)
           ? 1
           : 0;
   const ze_memory_access_cap_flags_t ManagedCaps =
-      ManagedUsesSharedUsm_
-          ? MemAccessProps_.sharedSingleDeviceAllocCapabilities
-          : MemAccessProps_.hostAllocCapabilities;
+      MemAccessProps_.sharedSingleDeviceAllocCapabilities;
   HipDeviceProps_.concurrentManagedAccess =
       (ManagedCaps & ZE_MEMORY_ACCESS_CAP_FLAG_CONCURRENT) ? 1 : 0;
   // Conservative defaults for the remaining USM related properties.
