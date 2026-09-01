@@ -55,6 +55,7 @@
 #pragma GCC diagnostic pop
 
 #include <atomic>
+#include <mutex>
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
 #include "spirv.hh"
@@ -417,6 +418,18 @@ class CHIPQueueOpenCL : public chipstar::Queue {
   /// True upon creation and after finish() completes
   /// False when any work is enqueued
   std::atomic<bool> IsEmptyQueue_{true};
+
+  /// Marker query() polls until it completes. Kept across calls because an
+  /// implementation that processes commands asynchronously (Mali) never
+  /// reports a marker complete in the call that enqueued it. Null when no
+  /// poll is in flight; dropped by every path that enqueues behind it.
+  cl_event QueryMarker_ = nullptr;
+  std::mutex QueryMarkerMtx_;
+
+  /// Record that a command was enqueued: the queue is no longer empty and
+  /// the marker query() was polling no longer covers all of its work.
+  void noteWorkEnqueued();
+  void dropQueryMarker();
 
 protected:
   /**
