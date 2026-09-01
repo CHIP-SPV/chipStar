@@ -1146,11 +1146,26 @@ SET(HIP_PATH ${CMAKE_BINARY_DIR}) # pick up build sources, not install sources
 set(SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
 set(CMAKE_WARN_DEPRECATED OFF)
 if(CHIP_BUILD_TESTS)
+  # Catch2 installs its own SIGSEGV/SIGABRT handler to name the running test
+  # before re-raising. On Level Zero, managed memory is shared USM and the
+  # driver resolves page migration through its own SIGSEGV handler; Catch2's
+  # handler does not chain, so it would turn a migration fault into a fatal
+  # test failure. ctest already reports which test died, because
+  # catch_discover_tests registers one process per TEST_CASE, so the only
+  # thing given up is the SECTION context inside a crashing test.
+  #
+  # A subdirectory inherits a copy of this directory's COMPILE_DEFINITIONS when
+  # it is added, so set the definition, add the catch tree, then restore. Left
+  # set, it would land on every target in this directory, libCHIP included.
+  get_directory_property(CHIP_SAVED_COMPILE_DEFS COMPILE_DEFINITIONS)
+  add_compile_definitions(CATCH_CONFIG_NO_POSIX_SIGNALS)
   if(CHIP_USE_EXTERNAL_HIP_TESTS)
     add_subdirectory(hip-tests/catch catch)
   else()
     add_subdirectory(HIP/tests/catch catch)
   endif()
+  set_directory_properties(PROPERTIES
+    COMPILE_DEFINITIONS "${CHIP_SAVED_COMPILE_DEFS}")
   # The catch tree sets hipcc.bin as its compiler and never links CHIP, so
   # it inherits none of the ordering that CHIP carries. Every catch
   # executable is built on these object libraries, and the Ninja generator
