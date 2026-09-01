@@ -128,7 +128,7 @@ chipStar_aurora_script_test_llvm22:
 
 chipStar_script_test_llvm22:
   stage: test
-  resource_group: aurora_batch
+  resource_group: aurora_pipeline
   extends: .aurora-batch-runner
   needs: [chipStar_script_install_llvm22]
   script:
@@ -140,7 +140,7 @@ chipStar_script_test_llvm22:
 
 chipStar_aurora_script_test_run:
   stage: test
-  resource_group: aurora_batch
+  resource_group: aurora_pipeline
   extends: .aurora-batch-runner
   needs: [chipStar_aurora_script_test]
   script:
@@ -153,7 +153,7 @@ chipStar_aurora_script_test_run:
 
 chipStar_aurora_script_test_llvm22_run:
   stage: test
-  resource_group: aurora_batch
+  resource_group: aurora_pipeline
   extends: .aurora-batch-runner
   needs: [chipStar_aurora_script_test_llvm22]
   script:
@@ -224,7 +224,7 @@ opensn_build:
 
 hoMusic:
   stage: app_run
-  resource_group: aurora_batch
+  resource_group: aurora_pipeline
   extends: .aurora-batch-runner
   needs: [chipStar_aurora_script_test, chipStar_aurora_script_test_run]
   variables:
@@ -245,7 +245,7 @@ hoMusic:
 
 zeroRK_run:
   stage: app_run
-  resource_group: aurora_batch
+  resource_group: aurora_pipeline
   extends: .aurora-batch-runner
   needs: [zeroRK_build, chipStar_aurora_script_test_run]
   script:
@@ -299,7 +299,7 @@ zeroRK_run:
 
 opensn_run:
   stage: app_run
-  resource_group: aurora_batch
+  resource_group: aurora_pipeline
   extends: .aurora-batch-runner
   needs: [opensn_build, chipStar_aurora_script_test_run]
   variables:
