@@ -17,33 +17,21 @@ variables:
   WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/pipeline_${CI_PIPELINE_ID}"
   ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=${TIME},filesystems=home -A ${PROJ}"
   GENESIS_CI_PROJECT_DIR: "/home/bertoni/projects/p01.chipStar/GENESIS-Share-CI/"
+  CHIP_MODULE_CACHE_DIR: ""
+  BUILD_JOBS: "20"
 
 stages:
     - .pre
-    - build_chipstar
-    - builds_chipstar_install_script_llvm22
-    - runs_tests_chipstar_install_script_llvm22
-    - builds_chipstar_aurora_script_llvm21
-    - runs_chipstar_aurora_script_llvm21
-    - builds_chipstar_aurora_script_llvm22
-    - runs_chipstar_aurora_script_llvm22
-    - builds_hoMusic
-    - runs_hoMusic
-    - performance_hoMusic
-    - builds_zeroRK
-    - runs_zeroRK
-    - correctness_zeroRK_hydrogen
-    - correctness_zeroRK_box_reactor
-    - performance_zeroRK
-    - builds_opensn
-    - runs_opensn
-    - performance_opensn
+    - build
+    - test
+    - app_build
+    - app_run
+    - app_report
     - cleanup
 
 setup:
   stage: .pre
   extends: .aurora-shell-runner
-  resource_group: aurora_pipeline  
   script:
     # Remove pipeline directories older than 7 days
     - find /lus/flare/projects/${PROJ}/chipStar -maxdepth 1 -name "pipeline_*" -mtime +7 -exec rm -rf {} \;
@@ -62,16 +50,20 @@ setup:
     - git submodule update --init --recursive
     - module list
 
+#
+# Toolchain builds
+#
+
 # testing with hand script
 aurora_build_test:
-  stage: build_chipstar
-  resource_group: aurora_pipeline  
+  stage: build
   extends: .aurora-shell-runner
+  # wave 1
+  needs: [setup]
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
     - cd ${WRK_DIR}/chipStar
-    # first test with already installed clang. will update to patch and build
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm21/20260808-21/release
     - rm -rf build
@@ -79,15 +71,16 @@ aurora_build_test:
     - cd build
     - cmake -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora ..
     - gitcommit=$(git rev-parse HEAD)
-    - make -j48
+    - make -j${BUILD_JOBS}
     - make install
     - cd ..
     - rm -rf build
 
 chipStar_script_install_llvm22:
-  stage: builds_chipstar_install_script_llvm22
-  resource_group: aurora_pipeline  
+  stage: build
   extends: .aurora-shell-runner
+  # wave 2
+  needs: [aurora_build_test]
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
@@ -96,25 +89,16 @@ chipStar_script_install_llvm22:
     - module use /soft/modulefiles
     - module load cmake chipStar/.llvm22/20260311-22/release
     - sed -i '/name="chipstar",/a\        cmake_flags=["-DCHIP_LZ_API_QUERY_QUEUE_EMPTY=ON","-DHIPCC_VERIFY_DEVICES=pvc"],' ./install_chipstar.py
-    - ./install_chipstar.py --all --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
+    - ./install_chipstar.py --all --jobs ${BUILD_JOBS} --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
 
-chipStar_script_test_llvm22:
-  stage: runs_tests_chipstar_install_script_llvm22
-  resource_group: aurora_pipeline  
-  extends: .aurora-batch-runner
-  script:
-    - cd ${WRK_DIR}/chipStar_llvm22/build
-    - module use /soft/modulefiles
-    - module load cmake chipStar/.llvm22/20260311-22/release
-    - rm -rf $HOME/.cache/chipStar
-    - CHIP_BE=level0 make build_tests -j
-    - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-
-# testing with install script
+# testing with install script.
 chipStar_aurora_script_test:
-  stage: builds_chipstar_aurora_script_llvm21
-  resource_group: aurora_pipeline  
+  stage: build
   extends: .aurora-shell-runner
+  # wave 2
+  needs: [aurora_build_test]
+  variables:
+    MAKEFLAGS: "-j${BUILD_JOBS}"
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
@@ -123,58 +107,131 @@ chipStar_aurora_script_test:
     - NO_FRESH_CHIPSTAR_PULL=true temp=${WRK_DIR}/script_llvm21 MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm21/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release chipStar/.llvm21/20260808-21/release
     - cd ${WRK_DIR}/modulefiles/chipStar
     - echo 'module_version("llvm21", "default")' > .modulerc.lua
-  
-chipStar_aurora_script_test_run:
-  stage: runs_chipstar_aurora_script_llvm21
-  resource_group: aurora_pipeline  
-  extends: .aurora-batch-runner
-  script:
-    - hostname
-    - echo "Running on $(hostname) with setuid shell runner"
-    - cd ${WRK_DIR}/script_llvm21/chipStar/build
-    - rm -rf $HOME/.cache/chipStar
-    - CHIP_BE=level0 make build_tests -j
-    - module load cmake
-    - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-  
+
 chipStar_aurora_script_test_llvm22:
-  stage: builds_chipstar_aurora_script_llvm22
-  resource_group: aurora_pipeline  
+  stage: build
   extends: .aurora-shell-runner
+  # wave 3
+  needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
+  variables:
+    MAKEFLAGS: "-j${BUILD_JOBS}"
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
     - mkdir ${WRK_DIR}/script_llvm_22
     - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm_22
     - NO_FRESH_CHIPSTAR_PULL=true llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
-  
-chipStar_aurora_script_test_llvm22_run:
-  stage: runs_chipstar_aurora_script_llvm22
-  resource_group: aurora_pipeline  
+
+#
+# Unit tests
+#
+
+chipStar_script_test_llvm22:
+  stage: test
+  resource_group: aurora_pipeline
   extends: .aurora-batch-runner
+  needs: [chipStar_script_install_llvm22]
+  script:
+    - cd ${WRK_DIR}/chipStar_llvm22/build
+    - module use /soft/modulefiles
+    - module load cmake chipStar/.llvm22/20260311-22/release
+    - CHIP_BE=level0 make build_tests -j
+    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+
+chipStar_aurora_script_test_run:
+  stage: test
+  resource_group: aurora_pipeline
+  extends: .aurora-batch-runner
+  needs: [chipStar_aurora_script_test]
+  script:
+    - hostname
+    - echo "Running on $(hostname) with setuid shell runner"
+    - cd ${WRK_DIR}/script_llvm21/chipStar/build
+    - module load cmake
+    - CHIP_BE=level0 make build_tests -j
+    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+
+chipStar_aurora_script_test_llvm22_run:
+  stage: test
+  resource_group: aurora_pipeline
+  extends: .aurora-batch-runner
+  needs: [chipStar_aurora_script_test_llvm22]
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
     - cd ${WRK_DIR}/script_llvm_22/chipStar/build
     - module load cmake
-    - rm -rf $HOME/.cache/chipStar
     - CHIP_BE=level0 make build_tests -j
-    - CHIP_MODULE_CACHE_DIR="" ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
 
-# hoMusic application build and run
-hoMusic_build:
-  stage: builds_hoMusic
-  resource_group: aurora_pipeline  
+#
+# Application builds
+#
+
+zeroRK_build:
+  stage: app_build
   extends: .aurora-shell-runner
+  # wave 3
+  needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
+  variables:
+    MAKEFLAGS: "-j${BUILD_JOBS}"
   script:
-    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh build chipStar/llvm21
-  
-hoMusic_run:
-  stage: runs_hoMusic
-  resource_group: aurora_pipeline  
+   - cd ${WRK_DIR}
+   - git clone git@github.com:CHIP-SPV/zero-rk.git -b hip-chipStar
+   - cd zero-rk
+   - module use /soft/modulefiles
+   - module use ${WRK_DIR}/modulefiles
+   - module load chipStar/llvm21 cmake
+   - mkdir -p build_aurora
+   - cd build_aurora
+   - sh ../scripts/build_aurora.sh  --no-module-loads
+
+opensn_build:
+  stage: app_build
+  extends: .aurora-shell-runner
+  # wave 3
+  needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
+  script:
+   - cd ${WRK_DIR}
+   - module load frameworks/2025.3.1
+   - export ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
+   - export ONEAPI_DEVICE_SELECTOR=level_zero:gpu
+   - module use /soft/modulefiles
+   - module use ${WRK_DIR}/modulefiles
+   - module load chipStar/llvm21 cmake
+   - export BASE=$PWD
+   - git clone git@github.com:Open-Sn/opensn.git
+   - cd opensn
+   - git checkout d0644cd9c633c6ae5e7110d3f8721641e5ef2982
+   - grep -q -- '--download-f2cblaslapack=yes' tools/dependencies/CMakeLists.txt
+   - sed -i 's|--download-f2cblaslapack=yes|--download-f2cblaslapack=/lus/flare/projects/chipStar_test/chipStar/dependencies/f2cblaslapack-3.8.0.q2.tar.gz|' tools/dependencies/CMakeLists.txt
+   - mkdir -p build_deps
+   - cd build_deps
+   - cmake -DCMAKE_INSTALL_PREFIX=$BASE/dependencies ../tools/dependencies
+   - make -j${BUILD_JOBS}
+   - cd ..
+   - module use /home/pvelesko/modulefiles
+   - module load cmake/4.3.2.lua
+   - source $BASE/dependencies/bin/set_opensn_env.sh
+   - mkdir build_debug
+   - cd build_debug
+   - CC=hipcc CXX=hipcc cmake -DOPENSN_WITH_HIP=ON -DCMAKE_HIP_ARCHITECTURES=spirv -DCMAKE_HIP_PLATFORM=spirv -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+   - make -j${BUILD_JOBS}
+
+#
+# Application runs
+#
+
+hoMusic:
+  stage: app_run
+  resource_group: aurora_pipeline
   extends: .aurora-batch-runner
+  needs: [chipStar_aurora_script_test, chipStar_aurora_script_test_run]
+  variables:
+    MAKEFLAGS: "-j${BUILD_JOBS}"
   script:
     - set -o pipefail
+    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh build chipStar/llvm21
     - rm -f ${GENESIS_CI_PROJECT_DIR}/output_${CI_PIPELINE_ID}
     - |
       # 4 runs, each in its own dir; performance_hoMusic takes the min.
@@ -186,9 +243,100 @@ hoMusic_run:
       done
       exit $rc
 
+zeroRK_run:
+  stage: app_run
+  resource_group: aurora_pipeline
+  extends: .aurora-batch-runner
+  needs: [zeroRK_build, chipStar_aurora_script_test_run]
+  script:
+  - cd ${WRK_DIR}/zero-rk
+  - module use /soft/modulefiles
+  - module use ${WRK_DIR}/modulefiles
+  - module load chipStar/llvm21
+  - rm -f ${WRK_DIR}/zero-rk/output
+  - set -o pipefail
+  - |
+    # every section runs even if an earlier one fails; the job names what broke
+    # and fails at the end
+    failed=""
+
+    # 4 runs, each in its own dir; performance_zeroRK takes the min.
+    for i in 1 2 3 4; do
+      RUN_DIR=${WRK_DIR}/zero-rk/running_test_aurora_run${i}
+      rm -rf ${RUN_DIR}
+      cp -a ${WRK_DIR}/zero-rk/running_test_aurora ${RUN_DIR}
+      cd ${RUN_DIR}
+      mkdir -p logs
+      chmod a+x ./submit_job.sh
+      echo "=== zeroRK run $i/4 (${RUN_DIR}) ==="
+      ./submit_job.sh |& tee -a ${WRK_DIR}/zero-rk/output || failed="${failed} timing-run-${i}"
+      cd ${WRK_DIR}/zero-rk
+    done
+
+    # CPU-vs-GPU comparison in both LU modes; the scripts cd relative to here
+    for lu in 1 0; do
+      echo "=== zeroRK correctness: hydrogen, ZERORK_REACTOR_USE_LU=$lu ==="
+      cd ${WRK_DIR}/zero-rk
+      bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh $lu \
+        || failed="${failed} hydrogen-lu${lu}"
+    done
+
+    # temperature-trend check in both LU modes
+    for lu in 1 0; do
+      echo "=== zeroRK correctness: box reactor, ZERORK_REACTOR_USE_LU=$lu ==="
+      cd ${WRK_DIR}/zero-rk
+      bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_box_reactor.sh $lu \
+        || failed="${failed} box-reactor-lu${lu}"
+    done
+
+    echo
+    echo "================ zeroRK summary ================"
+    if [ -n "${failed}" ]; then
+      echo "FAILED:${failed}"
+      exit 1
+    fi
+    echo "all 8 checks passed (4 timing runs, hydrogen lu1/lu0, box reactor lu1/lu0)"
+
+opensn_run:
+  stage: app_run
+  resource_group: aurora_pipeline
+  extends: .aurora-batch-runner
+  needs: [opensn_build, chipStar_aurora_script_test_run]
+  variables:
+    CHIP_MODULE_CACHE_DIR: "${WRK_DIR}/module_cache"
+  script:
+   - module use ${WRK_DIR}/modulefiles
+   - module use /soft/modulefiles
+   - module load chipStar/llvm21
+   - module load hdf5
+   - rm -f ${WRK_DIR}/opensn/output
+   - set -o pipefail
+   - |
+     OPENSN_BIN=${WRK_DIR}/opensn/build_debug/python/opensn
+     INPUTS=${WRK_DIR}/chipStar/tests/apps/OpenSn
+
+     # 4 runs, each in its own dir; performance_opensn takes the min.
+     rc=0
+     for i in 1 2 3 4; do
+       RUN_DIR=${WRK_DIR}/opensn/run_${i}
+       echo "=== OpenSn run $i/4 (${RUN_DIR}) ==="
+       rm -rf ${RUN_DIR}
+       mkdir -p ${RUN_DIR}
+       cp ${INPUTS}/strong_scaling.* ${INPUTS}/xs_168g.xs ${RUN_DIR}/
+       cd ${RUN_DIR}
+       CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 \
+         gpu_tile_compact.sh ${OPENSN_BIN} -i strong_scaling.py |& tee -a ${WRK_DIR}/opensn/output || rc=1
+     done
+     exit $rc
+
+#
+# Performance analysis
+#
+
 performance_hoMusic:
-  stage: performance_hoMusic
+  stage: app_report
   extends: .aurora-shell-runner
+  needs: [hoMusic]
   script:
     - cd ${GENESIS_CI_PROJECT_DIR}
     - |
@@ -223,85 +371,11 @@ performance_hoMusic:
         echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
         exit 1
       fi
-  
-# ZeroRK application build and run
-zeroRK_build:
-  stage: builds_zeroRK
-  resource_group: aurora_pipeline  
-  extends: .aurora-shell-runner
-  script:
-   - cd ${WRK_DIR}
-   - git clone git@github.com:CHIP-SPV/zero-rk.git -b hip-chipStar
-   - cd zero-rk
-   - module use /soft/modulefiles
-   - module use ${WRK_DIR}/modulefiles
-   - module load chipStar/llvm21 cmake
-   - mkdir -p build_aurora
-   - cd build_aurora
-   - sh ../scripts/build_aurora.sh  --no-module-loads
-  
-zeroRK_run:
-  stage: runs_zeroRK
-  resource_group: aurora_pipeline  
-  extends: .aurora-batch-runner
-  script:
-  - cd ${WRK_DIR}/zero-rk
-  - module use /soft/modulefiles
-  - module use ${WRK_DIR}/modulefiles
-  - module load chipStar/llvm21
-  - rm -f ${WRK_DIR}/zero-rk/output
-  - set -o pipefail
-  - |
-    # 4 runs, each in its own dir; performance_zeroRK takes the min.
-    # Run all 4 even if one fails, then fail the stage.
-    rc=0
-    for i in 1 2 3 4; do
-      RUN_DIR=${WRK_DIR}/zero-rk/running_test_aurora_run${i}
-      rm -rf ${RUN_DIR}
-      cp -a ${WRK_DIR}/zero-rk/running_test_aurora ${RUN_DIR}
-      cd ${RUN_DIR}
-      mkdir -p logs
-      chmod a+x ./submit_job.sh
-      echo "=== zeroRK run $i/4 (${RUN_DIR}) ==="
-      ./submit_job.sh |& tee -a ${WRK_DIR}/zero-rk/output || rc=1
-      cd ${WRK_DIR}/zero-rk
-    done
-    exit $rc
-
-zeroRK_correctness_hydrogen:
-  stage: correctness_zeroRK_hydrogen
-  resource_group: aurora_pipeline
-  extends: .aurora-batch-runner
-  script:
-  - cd ${WRK_DIR}/zero-rk
-  - module use /soft/modulefiles
-  - module use ${WRK_DIR}/modulefiles
-  - module load chipStar/llvm21
-  # run the CPU-vs-GPU comparison in both LU modes; report both before failing
-  - rc=0
-  - bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh 1 || rc=1
-  - bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh 0 || rc=1
-  - exit $rc
-
-zeroRK_correctness_box_reactor:
-  stage: correctness_zeroRK_box_reactor
-  resource_group: aurora_pipeline
-  extends: .aurora-batch-runner
-  script:
-  - cd ${WRK_DIR}/zero-rk
-  - module use /soft/modulefiles
-  - module use ${WRK_DIR}/modulefiles
-  - module load chipStar/llvm21
-  # run the temperature-trend check in both LU modes; report both before failing
-  - rc=0
-  - bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_box_reactor.sh 1 || rc=1
-  - bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_box_reactor.sh 0 || rc=1
-  - exit $rc
 
 zeroRK_performance:
-  stage: performance_zeroRK
-  resource_group: aurora_pipeline  
+  stage: app_report
   extends: .aurora-shell-runner
+  needs: [zeroRK_run]
   script:
   - cd ${WRK_DIR}/zero-rk
   - |
@@ -335,72 +409,10 @@ zeroRK_performance:
       exit 1
     fi
 
-# OpenSn application build and run
-opensn_build:
-  stage: builds_opensn
-  resource_group: aurora_pipeline
-  extends: .aurora-shell-runner
-  script:
-   - cd ${WRK_DIR}
-   - module load frameworks/2025.3.1
-   - export ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
-   - export ONEAPI_DEVICE_SELECTOR=level_zero:gpu
-   - module use /soft/modulefiles
-   - module use ${WRK_DIR}/modulefiles
-   - module load chipStar/llvm21 cmake
-   - export BASE=$PWD
-   - git clone git@github.com:Open-Sn/opensn.git
-   - cd opensn
-   - git checkout d0644cd9c633c6ae5e7110d3f8721641e5ef2982                                          
-   - grep -q -- '--download-f2cblaslapack=yes' tools/dependencies/CMakeLists.txt                                                                                                                                                            
-   - sed -i 's|--download-f2cblaslapack=yes|--download-f2cblaslapack=/lus/flare/projects/chipStar_test/chipStar/dependencies/f2cblaslapack-3.8.0.q2.tar.gz|' tools/dependencies/CMakeLists.txt 
-   - mkdir -p build_deps
-   - cd build_deps
-   - cmake -DCMAKE_INSTALL_PREFIX=$BASE/dependencies ../tools/dependencies
-   - make -j
-   - cd ..
-   - module use /home/pvelesko/modulefiles
-   - module load cmake/4.3.2.lua
-   - source $BASE/dependencies/bin/set_opensn_env.sh
-   - mkdir build_debug
-   - cd build_debug
-   - CC=hipcc CXX=hipcc cmake -DOPENSN_WITH_HIP=ON -DCMAKE_HIP_ARCHITECTURES=spirv -DCMAKE_HIP_PLATFORM=spirv -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-   - make -j
-
-opensn_run:
-  stage: runs_opensn
-  resource_group: aurora_pipeline
-  extends: .aurora-batch-runner
-  script:
-   - module use ${WRK_DIR}/modulefiles
-   - module use /soft/modulefiles
-   - module load chipStar/llvm21
-   - module load hdf5
-   - rm -rf ~/.cache/chipStar/
-   - rm -f ${WRK_DIR}/opensn/output
-   - set -o pipefail
-   - |
-     OPENSN_BIN=${WRK_DIR}/opensn/build_debug/python/opensn
-     INPUTS=${WRK_DIR}/chipStar/tests/apps/OpenSn
-
-     # 4 runs, each in its own dir; performance_opensn takes the min.
-     rc=0
-     for i in 1 2 3 4; do
-       RUN_DIR=${WRK_DIR}/opensn/run_${i}
-       echo "=== OpenSn run $i/4 (${RUN_DIR}) ==="
-       rm -rf ${RUN_DIR}
-       mkdir -p ${RUN_DIR}
-       cp ${INPUTS}/strong_scaling.* ${INPUTS}/xs_168g.xs ${RUN_DIR}/
-       cd ${RUN_DIR}
-       CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 \
-         gpu_tile_compact.sh ${OPENSN_BIN} -i strong_scaling.py |& tee -a ${WRK_DIR}/opensn/output || rc=1
-     done
-     exit $rc
-
 opensn_performance:
-  stage: performance_opensn
-  resource_group: aurora_pipeline
+  stage: app_report
   extends: .aurora-shell-runner
+  needs: [opensn_run]
   script:
   - cd ${WRK_DIR}/opensn
   - |
@@ -437,8 +449,14 @@ opensn_performance:
 cleanup:
   stage: cleanup
   extends: .aurora-shell-runner
-  resource_group: aurora_pipeline
   when: on_success
+  needs:
+    - aurora_build_test
+    - chipStar_script_test_llvm22
+    - chipStar_aurora_script_test_llvm22_run
+    - performance_hoMusic
+    - zeroRK_performance
+    - opensn_performance
   script:
     - rm -rf ${WRK_DIR}
 
