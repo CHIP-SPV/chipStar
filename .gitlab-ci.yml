@@ -241,6 +241,7 @@ hoMusic:
         ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh run chipStar/llvm21 $i \
           |& tee -a ${GENESIS_CI_PROJECT_DIR}/output_${CI_PIPELINE_ID} || rc=1
       done
+      ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh clean chipStar/llvm21
       exit $rc
 
 zeroRK_run:
