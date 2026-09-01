@@ -27,6 +27,7 @@ stages:
     - app_build
     - app_run
     - app_report
+    - report
     - cleanup
 
 default:
@@ -257,7 +258,7 @@ hoMusic:
     - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh build chipStar/llvm21
     - rm -f ${GENESIS_CI_PROJECT_DIR}/output_${CI_PIPELINE_ID}
     - |
-      # 4 runs, each in its own dir; performance_hoMusic takes the min.
+      # 4 runs, each in its own dir; hoMusic_performance takes the min.
       rc=0
       for i in 1 2 3 4; do
         echo "=== hoMusic run $i/4 ==="
@@ -357,7 +358,7 @@ opensn_run:
 # Performance analysis
 #
 
-performance_hoMusic:
+hoMusic_performance:
   stage: app_report
   extends: .aurora-shell-runner
   needs: [hoMusic]
@@ -496,18 +497,11 @@ cleanup:
   stage: cleanup
   extends: .aurora-shell-runner
   when: on_success
-  needs:
-    - aurora_build_test
-    - chipStar_script_test_llvm22
-    - chipStar_aurora_script_test_llvm22_run
-    - performance_hoMusic
-    - zeroRK_performance
-    - opensn_performance
   script:
     - rm -rf ${WRK_DIR}
 
 .report_github_status:
-  stage: cleanup
+  stage: report
   extends: .aurora-shell-runner
   script:
     - |
