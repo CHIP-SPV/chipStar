@@ -29,6 +29,12 @@ stages:
     - app_report
     - cleanup
 
+default:
+  after_script:
+    # a job may explain itself by writing reason_<job name>
+    - test "${CI_JOB_STATUS}" = success
+      || echo "${CI_JOB_NAME}$(cat ${WRK_DIR}/reason_${CI_JOB_NAME} 2>/dev/null)" >> ${WRK_DIR}/failed_jobs
+
 setup:
   stage: .pre
   extends: .aurora-shell-runner
@@ -49,6 +55,23 @@ setup:
       fi
     - git submodule update --init --recursive
     - module list
+    - |
+      cat > ${WRK_DIR}/timing_stats.awk <<'EOF'
+      {t[n++] = $1 + 0}
+      END {
+        if (!n) exit
+        min = max = t[0]
+        for (i = 1; i < n; i++) {
+          if (t[i] < min) min = t[i]
+          if (t[i] > max) max = t[i]
+        }
+        printf "runs=%d  min=%.3f  max=%.3f  spread=%.3f (%.1f%%)\n", \
+          n, min, max, max - min, (min ? 100 * (max - min) / min : 0)
+        printf "values:"
+        for (i = 0; i < n; i++) printf " %.3f", t[i]
+        print ""
+      }
+      EOF
 
 #
 # Toolchain builds
@@ -365,13 +388,20 @@ performance_hoMusic:
       # Compare using bc (returns 1 for true, 0 for false)
       IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
+      rc=0
       if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
-        echo "Performance check passed: $ACTUAL_TIME is within 5% of $BASELINE"
-        exit 0
+        echo "Performance check passed: $ACTUAL_TIME is at or below $UPPER_BOUND"
       else
         echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
-        exit 1
+        echo ": ${ACTUAL_TIME}s > ${UPPER_BOUND}s" > ${WRK_DIR}/reason_${CI_JOB_NAME}
+        rc=1
       fi
+
+      echo
+      echo "=== hoMusic timing spread ==="
+      awk '/HOMUSIC_ELAPSED_SECONDS/ {print $2}' $OUTPUT \
+        | awk -f ${WRK_DIR}/timing_stats.awk
+      exit $rc
 
 zeroRK_performance:
   stage: app_report
@@ -402,13 +432,20 @@ zeroRK_performance:
     # Compare using bc (returns 1 for true, 0 for false)
     IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
+    rc=0
     if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
-      echo "Performance check passed: $ACTUAL_TIME is within 5% of $BASELINE"
-      exit 0
+      echo "Performance check passed: $ACTUAL_TIME is at or below $UPPER_BOUND"
     else
       echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
-      exit 1
+      echo ": ${ACTUAL_TIME}s > ${UPPER_BOUND}s" > ${WRK_DIR}/reason_${CI_JOB_NAME}
+      rc=1
     fi
+
+    echo
+    echo "=== zeroRK timing spread ==="
+    awk -F': ' '/Job time in seconds/ {print $2 + 0}' output \
+      | awk -f ${WRK_DIR}/timing_stats.awk
+    exit $rc
 
 opensn_performance:
   stage: app_report
@@ -439,13 +476,21 @@ opensn_performance:
 
     IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
 
+    rc=0
     if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
-      echo "Performance check passed: $ACTUAL_TIME is within 6% of $BASELINE"
-      exit 0
+      echo "Performance check passed: $ACTUAL_TIME is at or below $UPPER_BOUND"
     else
       echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
-      exit 1
+      echo ": ${ACTUAL_TIME}s > ${UPPER_BOUND}s" > ${WRK_DIR}/reason_${CI_JOB_NAME}
+      rc=1
     fi
+
+    echo
+    echo "=== opensn timing spread ==="
+    grep "Elapsed execution time" output | awk '{print $NF}' \
+      | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}' \
+      | awk -f ${WRK_DIR}/timing_stats.awk
+    exit $rc
 
 cleanup:
   stage: cleanup
@@ -470,12 +515,19 @@ cleanup:
         echo "No GITHUB_SHA set, skipping GitHub status report"
         exit 0
       fi
+      DESC="all jobs passed"
+      if [ -s ${WRK_DIR}/failed_jobs ]; then
+        DESC="failed: $(sort -u ${WRK_DIR}/failed_jobs | sed ':a;N;$!ba;s/\n/; /g')"
+      fi
+      DESC=$(echo "${DESC}" | cut -c1-140)
+      echo "status=${GITHUB_STATUS} description=${DESC}"
+
       curl -X POST \
         --fail \
         -H "Authorization: token ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
         https://api.github.com/repos/CHIP-SPV/chipStar/statuses/${GITHUB_SHA} \
-        -d "{\"state\":\"${GITHUB_STATUS}\",\"context\":\"aurora-ci\",\"target_url\":\"${CI_PIPELINE_URL}\"}"
+        -d "{\"state\":\"${GITHUB_STATUS}\",\"context\":\"aurora-ci\",\"description\":\"${DESC}\",\"target_url\":\"${CI_PIPELINE_URL}\"}"
 
 report_success:
   extends: .report_github_status
