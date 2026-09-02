@@ -6,13 +6,12 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Marks volatile loads and stores through global and generic pointers
-// !nontemporal, which the SPIR-V producers emit as the Nontemporal memory
-// operand and IGC turns into an L1 uncached access. SPIR-V's Volatile memory
-// operand says nothing about caching, so without this a volatile global access
-// is served from a core's L1 and loses the meaning CUDA gives it (PTX
-// ld.volatile / st.volatile). The accesses stay non-atomic: see the comment in
-// HipLowerVolatileAccesses.cpp for why an atomic form is not an option.
+// Rewrites volatile loads and stores through global and generic pointers into
+// relaxed device-scope atomics, which the SPIR-V producers emit as OpAtomicLoad
+// / OpAtomicStore. SPIR-V's Volatile memory operand says nothing about caching,
+// so without this a volatile global access is served from a core's L1 and loses
+// the meaning CUDA gives it (PTX ld.volatile / st.volatile). See the comment in
+// HipLowerVolatileAccesses.cpp for why an atomic and not the Nontemporal hint.
 //
 // (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//

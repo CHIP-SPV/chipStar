@@ -17,97 +17,55 @@
 // SPIR-V's Volatile memory operand carries none of that. It only says the
 // access "cannot be eliminated, duplicated, or combined with other accesses",
 // so IGC serves it from the Xe core's L1 like any other load and the poll reads
-// stale data (chipStar issue #1508).
-//
-// The operand that does say something about caching is Nontemporal, on the very
-// same OpLoad / OpStore. It is a hint, so a consumer that ignores it is exactly
-// as correct as it is today, and on IGC it is the one cache control that beats
-// every other rule: LSCCacheHints::SetupLscCacheCtrl
-// (IGC/Compiler/CISACodeGen/LSCCacheHintsPass.cpp) maps an access carrying
-// !nontemporal to LSC_L1UC_L3UC before it looks at anything else, i.e. the
-// access is served past the core's L1. Older IGC reaches the same result from
-// the same metadata in EmitVISAPass::translateLSCCacheControlsFromMetadata.
-//
-// Which parts this actually reaches, measured with
-// `IGC_ShaderDumpEnable=1 ocloc compile -file x.spv -spirv_input -device <d>`
-// on the module this pass produces:
-//
-//   -device pvc     marked `load.ugm.d32x1t.a64.uc.uc`, unmarked `load.ugm.d32x1t.a64`
-//   -device dg2     marked `load.ugm.d32x1t.a64.uc.uc`, unmarked `load.ugm.d32x1t.a64.ca.ca`
-//   -device tgllp   `send.dc1` either way, i.e. no difference at all
-//
-// The cache control rides an LSC message, and
-// LSCCacheHints::SetInstructionCacheHint returns false when
-// !platform.LSCEnabled(), so on pre-LSC parts (Gen12LP: TGL, ADL, UHD 730 /
-// 770) the marking is silently dropped. That is harmless rather than a gap:
-// those parts have no per-core private cache in the global load path, so a
-// plain volatile load is already coherent across work-groups there and there
-// is nothing for the hint to fix. Measured on a UHD 770, a writer work-group's
-// store was observed by 3174400 of 3174400 unmarked volatile reader loads
-// across the OpenCL and Level Zero backends, in the same geometry where a B570
-// misses it 35840 times out of 35840. IGC has no cache-control field to drop
-// it into either: for -device tgllp a plain load, a volatile load and a marked
-// volatile load all compile to the identical `send.dc1 ... 0x041401FF`.
-//
-// If an L1-uncached-but-L3-cached access is ever wanted instead of this
-// all-uncached hint, the sanctioned mechanism is SPV_INTEL_cache_controls
-// (CacheControlLoadINTEL / CacheControlStoreINTEL); see
-// CHIP-SPV/chipStar#1562. Note its UncachedINTEL is also specified as a hint,
-// so that buys precision rather than a guarantee.
-//
-// The operand also survives the translator's reverse direction, so it reaches
-// the CPU backends (PoCL, the Intel CPU OpenCL runtime) as !nontemporal on the
-// consumer's IR, where an x86 target turns `store volatile i32` into `movntil`
-// instead of `movl` (measured with llc -mtriple=x86_64). A CPU device has
-// coherent caches and no L1 to get past, so the marking buys nothing there and
-// costs the stronger ordering of an ordinary store: a non-temporal store on
-// x86 is weakly ordered and needs a fence to be published in program order.
-// Code that publishes a flag with __threadfence() is unaffected, because the
-// fence it lowers to orders non-temporal stores too; code relying on volatile
-// alone for ordering is weaker on those devices than it was.
+// stale data (chipStar issue #1508). Measured on a PVC and a B570, an unmarked
+// volatile reader misses a writer work-group's store 35840 times out of 35840.
 //
 // So every volatile load and store through a global (addrspace 1) or generic
-// (addrspace 4) pointer is marked !nontemporal, which both SPIR-V producers
-// emit as the Nontemporal memory operand. The access stays a plain, volatile
-// load or store of its original type.
+// (addrspace 4) pointer becomes a relaxed device-scope atomic, which both
+// SPIR-V producers emit as OpAtomicLoad / OpAtomicStore with Relaxed semantics
+// at Device scope. The access keeps its type and its volatility; only the
+// ordering and syncscope are added. The explicit "device" syncscope matters:
+// the translator at LLVM 17 hardcodes Device for atomic loads, while newer ones
+// map the default scope to CrossDevice.
 //
-// WORKAROUND(CHIP-SPV/chipStar#1563): the marking is a hint standing in for a
-// requirement. The construct that expresses this access correctly is a relaxed
-// device-scope atomic, which every conforming consumer must honour rather than
-// an operand it is free to drop, and which does not claim (as Nontemporal does)
-// that an address a poll loop rereads is unlikely to be accessed again. An
-// earlier version of this pass emitted it (`load atomic ... syncscope("device")
-// monotonic`, as OpAtomicLoad / OpAtomicStore) and had to be reverted.
+// Why an atomic and not the Nontemporal memory operand, which an earlier
+// version of this pass used: Nontemporal is only a hint ("Hints that the
+// accessed address is not likely to be accessed again in the near future"),
+// which is not even true of a poll loop, and IGC maps it to LSC_L1UC_L3UC,
+// uncached at BOTH levels. That combination is actively wrong here. On an Arc
+// A380 the marking made every reader observe the publish flag and then read a
+// stale payload, 35840 out of 35840, deterministically, because the writer's
+// stores are write-back while the reader's marked loads bypass L3 as well as
+// L1. Measured with ocloc on the module this pass produced:
 //
-// What blocks it is the STORE side, not the load. Measured on a PVC on Aurora,
-// which reports hostAllocCapabilities = RW with no ATOMIC and
-// sharedSystemAllocCapabilities = 0x00, one operation per allocation kind per
-// process:
+//   writer:  store.ugm.d32x4t.a64.wb.wb   IGC widened the loop stores and
+//            store.ugm.d32x2t.a64.wb.wb   dropped the cache control entirely
+//   reader:  load.ugm.d32x1t.a64.uc.uc    bypasses L1 AND L3, reads memory
+//
+// So the hint was both too strong (giving up L3) and not durable (silently
+// discarded when IGC merges stores). An atomic is neither: it cannot be widened
+// away and it is a requirement rather than an advisory operand.
+//
+// The cost is that an atomic is only legal where the allocation supports one.
+// Level Zero lets a device report atomics as unsupported per allocation kind
+// (ze_memory_access_cap_flags_t, ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC), and a PVC
+// on Aurora reports hostAllocCapabilities = RW with no ATOMIC. Measured there,
+// one operation per allocation kind per process:
 //
 //   kind      load    store   rmw     plain
 //   device    OK      OK      OK      OK
 //   pinned    OK      BAN     BAN     OK
 //   managed   OK      BAN     BAN     OK
 //
-// where BAN is "AtomicAccessViolation ... banned: 1" and an abort. An atomic
-// load survives on host-visible memory even though IGC compiles it to
-// `lsc_atomic_or`, a read-modify-write (intel/intel-graphics-compiler#439);
-// the atomic store does not. Since this pass marks volatile stores as well as
-// loads, the atomic form kills the process on hipHostMalloc memory. A volatile
-// pointer carries no provenance that tells host memory from device memory, so
-// the lowering cannot pick per access whether an atomic is legal.
+// where BAN is "AtomicAccessViolation ... banned: 1" and an abort. hipMallocManaged
+// was fixed by CHIP-SPV/chipStar#1514, which backs it with single-device shared
+// USM whose sharedSingleDeviceAllocCapabilities do report ATOMIC. hipHostMalloc
+// still uses zeMemAllocHost and therefore still aborts on a volatile STORE on
+// PVC; that is CHIP-SPV/chipStar#1489 and it gates this pass on Aurora.
+// hipHostRegister has no route at all, since PVC reports
+// sharedSystemAllocCapabilities = 0x00.
 //
-// The exit condition is therefore capability-gated allocation, not an IGC fix:
-// atomic stores must be legal on every host-visible allocation
-// (CHIP-SPV/chipStar#1489, extended from hipMallocManaged to hipHostMalloc).
-// hipHostRegister has no route at all, since sharedSystemAllocCapabilities is
-// 0x00 and it fails silently with a wrong value rather than aborting.
-// intel/intel-graphics-compiler#439 is worth fixing for its own sake but does
-// NOT gate this. The workaround is this whole file: with the atomic form
-// available the pass has no reason to exist in chipStar at all and belongs in
-// clang's HIPSPV path, the analogue of what the NVPTX back end does with
-// ld.volatile.
-//
+
 // Left alone, and why:
 //   - accesses every one of whose underlying objects is a private (addrspace
 //     0), constant (addrspace 2) or work-group local (addrspace 3) object:
@@ -120,9 +78,8 @@
 //     an ordering of their own.
 //   - accesses that are not naturally aligned 32 or 64 bit scalars: vectors,
 //     aggregates and the narrow widths gain nothing from the hint, and a
-//     consumer only has to honour Nontemporal on shapes it has a non-temporal
-//     instruction for. PoCL's x86 back end aborts ("Unsupported store size",
-//     UNREACHABLE in X86ISelDAGToDAG.cpp) on ones it does not.
+//     OpenCL SPIR-V allows atomics on 32 bit types only, 64 bit under a
+//     capability, so narrower or wider shapes have no legal atomic form.
 //
 // (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
@@ -133,6 +90,7 @@
 #include <llvm/Analysis/ValueTracking.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Metadata.h>
@@ -181,25 +139,20 @@ bool mayBeShared(Value *Ptr) {
   });
 }
 
-/// Whether the marking is safe on this access's type. It is restricted to
+/// Whether the rewrite is legal on this access's type. It is restricted to
 /// naturally aligned 32 and 64 bit scalars, which is the flag poll issue #1508
-/// is about.
+/// is about, and which is also the only width an atomic may have here: the
+/// OpenCL SPIR-V environment spec allows atomic instructions on 32 bit types
+/// only, with 64 bit under a capability, so an 8 or 16 bit atomic would be
+/// invalid SPIR-V (see CHIP-SPV/chipStar#1497 and #1553).
 ///
-/// Wider coverage is not free: the Nontemporal operand survives into a
-/// consumer's own back end, and a back end only has to honour it on the shapes
-/// it has a non-temporal instruction for. Vectors, aggregates, the narrow
-/// widths and under-aligned accesses gain nothing here, so they are left out
-/// rather than handed to a consumer that may not cope.
-///
-/// WORKAROUND(CHIP-SPV/chipStar#1551, llvm/llvm-project#38604): LLVM's x86 back
-/// end does not merely decline a non-temporal load it has no instruction for,
-/// it aborts. X86DAGToDAGISel::useNonTemporalLoad switches on the load's store
-/// size with `default: llvm_unreachable("Unsupported store size")` and no arm
-/// for 1 or 2 bytes, reached from IsProfitableToFold, so a naturally aligned 8
-/// or 16 bit !nontemporal load folded into an arithmetic user kills the
-/// compiler. That took down the PoCL CPU lane. The 32 and 64 bit restriction
-/// keeps this pass inside the `case 4:` and `case 8:` arms. Widening it again
-/// needs that llvm_unreachable to become a `return false` upstream first.
+/// Wider coverage is not available: the OpenCL SPIR-V environment spec allows
+/// atomic instructions on 32 bit types only, with 64 bit under a capability, so
+/// an 8 or 16 bit atomic would simply be invalid SPIR-V. Vectors and aggregates
+/// have no atomic form at all. Note this restriction is no longer the
+/// CHIP-SPV/chipStar#1551 workaround it was under the !nontemporal marking:
+/// that was about LLVM's x86 back end aborting on a narrow non-temporal load,
+/// which no longer applies now that no metadata is attached.
 bool isMarkableType(Type *Ty, Align Alignment, const DataLayout &DL) {
   // Scalars only: this is false for vectors and aggregates.
   if (!Ty->isIntegerTy() && !Ty->isFloatingPointTy() && !Ty->isPointerTy())
@@ -237,8 +190,7 @@ bool lowerVolatileAccesses(Function &F) {
       }
       if (!mayBeShared(Ptr))
         continue;
-      if (I.getMetadata(LLVMContext::MD_nontemporal))
-        continue;
+      // Already atomic accesses are filtered above; nothing else to skip.
       WorkList.push_back(&I);
     }
 
@@ -246,12 +198,48 @@ bool lowerVolatileAccesses(Function &F) {
     return false;
 
   LLVMContext &Ctx = F.getContext();
-  // The node LLVM's LangRef defines for !nontemporal, and the one the SPIR-V
-  // translator reads to set the Nontemporal memory operand: a single i32 1.
-  MDNode *Nontemporal = MDNode::get(
-      Ctx, ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx), 1)));
-  for (Instruction *I : WorkList)
-    I->setMetadata(LLVMContext::MD_nontemporal, Nontemporal);
+  // Relaxed ordering at device scope: the access must observe other agents'
+  // stores, and nothing more is claimed. The explicit "device" syncscope
+  // matters, as the translator at LLVM 17 hardcodes Device for atomic loads
+  // while newer ones map the default scope to CrossDevice.
+  SyncScope::ID DeviceScope = Ctx.getOrInsertSyncScopeID("device");
+  for (Instruction *I : WorkList) {
+    if (auto *LI = dyn_cast<LoadInst>(I)) {
+      Type *Ty = LI->getType();
+      if (!Ty->isPointerTy()) {
+        LI->setAtomic(AtomicOrdering::Monotonic, DeviceScope);
+        continue;
+      }
+      // An atomic may not have a pointer result type: the OpenCL SPIR-V
+      // environment requires OpAtomicLoad's Result Type to be an integer or
+      // float scalar, and spirv-val rejects the pointer form. Load the
+      // same-width integer instead and convert back, which leaves every user
+      // of the original value untouched.
+      IRBuilder<> B(LI);
+      Type *IntTy = B.getIntNTy(DL.getTypeStoreSizeInBits(Ty).getFixedValue());
+      LoadInst *NewLI = B.CreateAlignedLoad(IntTy, LI->getPointerOperand(),
+                                            LI->getAlign(), LI->isVolatile());
+      NewLI->setAtomic(AtomicOrdering::Monotonic, DeviceScope);
+      Value *AsPtr = B.CreateIntToPtr(NewLI, Ty);
+      LI->replaceAllUsesWith(AsPtr);
+      LI->eraseFromParent();
+    } else {
+      auto *SI = cast<StoreInst>(I);
+      Value *V = SI->getValueOperand();
+      if (!V->getType()->isPointerTy()) {
+        SI->setAtomic(AtomicOrdering::Monotonic, DeviceScope);
+        continue;
+      }
+      IRBuilder<> B(SI);
+      Type *IntTy = B.getIntNTy(
+          DL.getTypeStoreSizeInBits(V->getType()).getFixedValue());
+      StoreInst *NewSI = B.CreateAlignedStore(B.CreatePtrToInt(V, IntTy),
+                                              SI->getPointerOperand(),
+                                              SI->getAlign(), SI->isVolatile());
+      NewSI->setAtomic(AtomicOrdering::Monotonic, DeviceScope);
+      SI->eraseFromParent();
+    }
+  }
   return true;
 }
 
