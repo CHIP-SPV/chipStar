@@ -52,6 +52,10 @@
 // Ldexp, so nothing has to be linked in after the fact. HipPrintf.cpp declares
 // the OpenCL printf the same way.
 //
+// The ldexp lowering is a bridge too, on its own upstream schedule rather than
+// the rounding one, and carries its own WORKAROUND marker below. chipStar#1476
+// tracks deleting the pass and holds the removal condition for both halves.
+//
 // (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
 
@@ -125,6 +129,17 @@ static bool lowerRoundIntrinsics(Module &M) {
 
   return !WorkList.empty();
 }
+
+// WORKAROUND(CHIP-SPV/chipStar#1476, llvm/llvm-project#195402,
+// KhronosGroup/SPIRV-LLVM-Translator#3608): neither SPIR-V producer lowers
+// llvm.ldexp. The in tree backend fails to legalize G_FLDEXP and the translator
+// rejects the intrinsic outright, so the calls are rewritten here instead.
+// Both upstream fixes have merged, but neither has reached a version chipStar
+// pins: llvm/llvm-project#195402 landed on main after the llvmorg-23.1.0-rc2
+// tag, and the LLVM 21 lanes will never receive it. Remove this block, from
+// here down to the end of lowerLdexpIntrinsics, once every supported LLVM and
+// translator carries them; CHIP-SPV/chipStar#1476 holds the removal condition
+// for the whole pass.
 
 /// The OpenCL C mangled name of ldexp for the scalar floating point type \p Ty,
 /// or an empty string when OpenCL has no ldexp taking it. OpenCL declares
@@ -246,6 +261,7 @@ static bool lowerLdexpIntrinsics(Module &M) {
 
   return !WorkList.empty();
 }
+// END WORKAROUND(CHIP-SPV/chipStar#1476) for llvm.ldexp.
 
 PreservedAnalyses HipLowerRoundIntrinsicsPass::run(Module &M,
                                                    ModuleAnalysisManager &AM) {
