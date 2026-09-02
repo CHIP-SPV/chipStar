@@ -149,6 +149,12 @@ add_shell_test(TestFixZeBuildLogNul.bash)
 # TestFixVolatileLoadLowering.hip, and the SPIR-V module when spirv-dis exists.
 add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
 
+# The SPIR-V check above proves what chipStar emits; this one proves what the
+# consumer generates from it. IGC discarded the Nontemporal operand when it
+# widened adjacent stores, so an A380 ran unfixed code while every SPIR-V level
+# check passed. Uses ocloc, which is an offline compiler and needs no GPU.
+add_shell_test(TestFixVolatileLoadLoweringISA.bash)
+
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES
   TIMEOUT 60)
