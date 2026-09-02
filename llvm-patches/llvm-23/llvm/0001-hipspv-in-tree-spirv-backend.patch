@@ -84,7 +84,7 @@ index d6900c7..98bec18 100644
  void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
      Compilation &C, const JobAction &JA, const InputInfoList &Inputs,
      const InputInfo &Output, const llvm::opt::ArgList &Args) const {
-@@ -73,44 +102,100 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+@@ -73,44 +102,102 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
    tools::constructLLVMLinkCommand(C, *this, JA, Inputs, LinkArgs, Output, Args,
                                    TempFile);
  
@@ -124,7 +124,8 @@ index d6900c7..98bec18 100644
 +                       ",+SPV_INTEL_function_pointers"
 +                       ",+SPV_INTEL_subgroups"
 +                       ",+SPV_KHR_bit_instructions"
-+                       ",+SPV_EXT_shader_atomic_float_add");
++                       ",+SPV_EXT_shader_atomic_float_add"
++                       ",+SPV_INTEL_cache_controls");
 +
 +      // Preserve debug info in the NonSemantic.Shader.DebugInfo form.
 +      // These flags are passed unconditionally instead of gating on -g: in
@@ -170,7 +171,8 @@ index d6900c7..98bec18 100644
 +                      ",+SPV_KHR_bit_instructions"
 +                      ",+SPV_EXT_shader_atomic_float_add"
 +                      ",+SPV_KHR_non_semantic_info"
-+                      ",+SPV_INTEL_optnone");
++                      ",+SPV_INTEL_optnone"
++                      ",+SPV_INTEL_cache_controls");
 +
 +    Cc1Args.push_back(TempFile);
 +    Cc1Args.push_back("-o");
