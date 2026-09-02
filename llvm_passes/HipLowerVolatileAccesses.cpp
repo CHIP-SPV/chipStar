@@ -39,11 +39,21 @@
 // The cache control rides an LSC message, and
 // LSCCacheHints::SetInstructionCacheHint returns false when
 // !platform.LSCEnabled(), so on pre-LSC parts (Gen12LP: TGL, ADL, UHD 730 /
-// 770) the marking is silently dropped and the staleness of issue #1508
-// remains. Those parts are unfixed by this pass, not fixed by it. If an
-// L1-uncached-but-L3-cached access is ever wanted instead of this all-uncached
-// hint, the sanctioned mechanism is SPV_INTEL_cache_controls
-// (CacheControlLoadINTEL / CacheControlStoreINTEL).
+// 770) the marking is silently dropped. That is harmless rather than a gap:
+// those parts have no per-core private cache in the global load path, so a
+// plain volatile load is already coherent across work-groups there and there
+// is nothing for the hint to fix. Measured on a UHD 770, a writer work-group's
+// store was observed by 3174400 of 3174400 unmarked volatile reader loads
+// across the OpenCL and Level Zero backends, in the same geometry where a B570
+// misses it 35840 times out of 35840. IGC has no cache-control field to drop
+// it into either: for -device tgllp a plain load, a volatile load and a marked
+// volatile load all compile to the identical `send.dc1 ... 0x041401FF`.
+//
+// If an L1-uncached-but-L3-cached access is ever wanted instead of this
+// all-uncached hint, the sanctioned mechanism is SPV_INTEL_cache_controls
+// (CacheControlLoadINTEL / CacheControlStoreINTEL); see
+// CHIP-SPV/chipStar#1562. Note its UncachedINTEL is also specified as a hint,
+// so that buys precision rather than a guarantee.
 //
 // The operand also survives the translator's reverse direction, so it reaches
 // the CPU backends (PoCL, the Intel CPU OpenCL runtime) as !nontemporal on the
