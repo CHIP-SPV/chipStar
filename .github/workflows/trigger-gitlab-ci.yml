@@ -24,6 +24,10 @@ jobs:
         github.event.comment.author_association == 'MEMBER'
       )
     runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      issues: write
+      pull-requests: read
     steps:
       - name: Get PR head SHA and ref
         id: pr-info
@@ -37,6 +41,22 @@ jobs:
             });
             core.setOutput('sha', pr.data.head.sha);
             core.setOutput('ref', pr.data.head.ref);
+
+      # Clears any status left by an earlier run on this SHA, so a rerun does not
+      # show the previous verdict while it is in flight.
+      - name: Mark aurora-ci pending
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: '${{ steps.pr-info.outputs.sha }}',
+              state: 'pending',
+              context: 'aurora-ci',
+              description: 'pipeline queued on Aurora',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
 
       - name: Trigger GitLab pipeline
         env:
