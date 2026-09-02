@@ -124,7 +124,12 @@ index d6900c7..98bec18 100644
 +                       ",+SPV_INTEL_function_pointers"
 +                       ",+SPV_INTEL_subgroups"
 +                       ",+SPV_KHR_bit_instructions"
-+                       ",+SPV_EXT_shader_atomic_float_add");
++                       ",+SPV_EXT_shader_atomic_float_add"
++                       // A vector of pointers (e.g. rocPRIM's
++                       // test_device_reduce_by_key) is untranslatable without
++                       // this: llvm-spirv refuses with RequiresExtension. IGC
++                       // accepts the result (ocloc -device pvc).
++                       ",+SPV_INTEL_masked_gather_scatter");
 +
 +      // Preserve debug info in the NonSemantic.Shader.DebugInfo form.
 +      // These flags are passed unconditionally instead of gating on -g: in
@@ -170,7 +175,8 @@ index d6900c7..98bec18 100644
 +                      ",+SPV_KHR_bit_instructions"
 +                      ",+SPV_EXT_shader_atomic_float_add"
 +                      ",+SPV_KHR_non_semantic_info"
-+                      ",+SPV_INTEL_optnone");
++                      ",+SPV_INTEL_optnone"
++                      ",+SPV_INTEL_masked_gather_scatter");
 +
 +    Cc1Args.push_back(TempFile);
 +    Cc1Args.push_back("-o");
