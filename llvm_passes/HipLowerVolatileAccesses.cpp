@@ -71,23 +71,42 @@
 // emit as the Nontemporal memory operand. The access stays a plain, volatile
 // load or store of its original type.
 //
-// It deliberately does NOT become an atomic, which is what an earlier version
-// of this pass did (`load atomic ... syncscope("device") monotonic`, emitted as
-// OpAtomicLoad / OpAtomicStore). Two facts make that unsound:
+// WORKAROUND(CHIP-SPV/chipStar#1563): the marking is a hint standing in for a
+// requirement. The construct that expresses this access correctly is a relaxed
+// device-scope atomic, which every conforming consumer must honour rather than
+// an operand it is free to drop, and which does not claim (as Nontemporal does)
+// that an address a poll loop rereads is unlikely to be accessed again. An
+// earlier version of this pass emitted it (`load atomic ... syncscope("device")
+// monotonic`, as OpAtomicLoad / OpAtomicStore) and had to be reverted.
 //
-//   - IGC has no atomic load or store message. It implements OpAtomicLoad as
-//     `atomic_or(p, 0)` and OpAtomicStore as an atomic exchange
-//     (IGC/BiFModule/Implementation/atomics.cl), so both are read-modify-write
-//     transactions against the memory.
-//   - Level Zero lets a device report atomics as unsupported per allocation
-//     kind (ze_memory_access_cap_flags_t, ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC).
-//     A PVC on Aurora reports hostAllocCapabilities = RW with no ATOMIC, so a
-//     GPU atomic on hipHostMalloc / hipMallocManaged memory faults with
-//     "AtomicAccessViolation ... banned: 1" and the process aborts.
+// What blocks it is the STORE side, not the load. Measured on a PVC on Aurora,
+// which reports hostAllocCapabilities = RW with no ATOMIC and
+// sharedSystemAllocCapabilities = 0x00, one operation per allocation kind per
+// process:
 //
-// A volatile pointer carries no provenance that tells host memory from device
-// memory, so the lowering cannot pick per access whether an atomic is legal and
-// must stay non-atomic.
+//   kind      load    store   rmw     plain
+//   device    OK      OK      OK      OK
+//   pinned    OK      BAN     BAN     OK
+//   managed   OK      BAN     BAN     OK
+//
+// where BAN is "AtomicAccessViolation ... banned: 1" and an abort. An atomic
+// load survives on host-visible memory even though IGC compiles it to
+// `lsc_atomic_or`, a read-modify-write (intel/intel-graphics-compiler#439);
+// the atomic store does not. Since this pass marks volatile stores as well as
+// loads, the atomic form kills the process on hipHostMalloc memory. A volatile
+// pointer carries no provenance that tells host memory from device memory, so
+// the lowering cannot pick per access whether an atomic is legal.
+//
+// The exit condition is therefore capability-gated allocation, not an IGC fix:
+// atomic stores must be legal on every host-visible allocation
+// (CHIP-SPV/chipStar#1489, extended from hipMallocManaged to hipHostMalloc).
+// hipHostRegister has no route at all, since sharedSystemAllocCapabilities is
+// 0x00 and it fails silently with a wrong value rather than aborting.
+// intel/intel-graphics-compiler#439 is worth fixing for its own sake but does
+// NOT gate this. The workaround is this whole file: with the atomic form
+// available the pass has no reason to exist in chipStar at all and belongs in
+// clang's HIPSPV path, the analogue of what the NVPTX back end does with
+// ld.volatile.
 //
 // Left alone, and why:
 //   - accesses every one of whose underlying objects is a private (addrspace
