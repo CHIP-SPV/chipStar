@@ -202,6 +202,58 @@ bool lowerVolatileAccesses(Function &F) {
   // stores, and nothing more is claimed. The explicit "device" syncscope
   // matters, as the translator at LLVM 17 hardcodes Device for atomic loads
   // while newer ones map the default scope to CrossDevice.
+  // Which lowering is baked in is a build-time decision: the cache-control
+  // decorations make the module declare OpCapability CacheControlsINTEL, and a
+  // consumer that does not support it rejects the whole module rather than
+  // ignoring the capability (rusticl: clBuildProgram -11, "spirv_to_nir
+  // failed"). Since one SPIR-V module has to load on whatever device the
+  // runtime picks, the choice cannot be deferred. Build with
+  // -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON for such targets.
+  //
+  // CHIP_VOLATILE_LOWERING=atomic|cachectl overrides it at compile time, for
+  // A/B testing one build against both lowerings.
+  bool UseAtomics =
+#ifdef CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND
+      true;
+#else
+      false;
+#endif
+  if (const char *Env = getenv("CHIP_VOLATILE_LOWERING"))
+    UseAtomics = StringRef(Env) == "atomic";
+
+  if (!UseAtomics) {
+    // SPV_INTEL_cache_controls: UncachedINTEL at cache level 0, the level
+    // closest to the processing unit. IGC maps it to an L1-uncached but
+    // L3-cached access (.uc.ca on pvc, dg2 and bmg), which is what a volatile
+    // access needs and is what AMD's own volatile lowering does with glc/dlc.
+    Type *I32 = Type::getInt32Ty(Ctx);
+    auto MakeDeco = [&](unsigned DecoId) {
+      Metadata *Ops[] = {ConstantAsMetadata::get(ConstantInt::get(I32, DecoId)),
+                         ConstantAsMetadata::get(ConstantInt::get(I32, 0)),
+                         ConstantAsMetadata::get(ConstantInt::get(I32, 0))};
+      return MDNode::get(Ctx, {MDNode::get(Ctx, Ops)});
+    };
+    for (Instruction *I : WorkList) {
+      bool IsLoad = isa<LoadInst>(I);
+      Value *Ptr = IsLoad ? cast<LoadInst>(I)->getPointerOperand()
+                          : cast<StoreInst>(I)->getPointerOperand();
+      Type *AccTy = IsLoad ? I->getType()
+                           : cast<StoreInst>(I)->getValueOperand()->getType();
+      // The decoration attaches to the pointer instruction, not the access:
+      // the translator asserts if it is put on the load or store itself. The
+      // index must be non-constant-foldable in spirit, but a fresh GEP is kept
+      // by both producers because it carries metadata.
+      auto *G = GetElementPtrInst::CreateInBounds(
+          AccTy, Ptr, {ConstantInt::get(Type::getInt64Ty(Ctx), 0)}, "vptr",
+          I->getIterator());
+      G->setMetadata("spirv.Decorations",
+                     MakeDeco(IsLoad ? 6442 /* CacheControlLoadINTEL */
+                                     : 6443 /* CacheControlStoreINTEL */));
+      I->setOperand(IsLoad ? 0 : 1, G);
+    }
+    return true;
+  }
+
   SyncScope::ID DeviceScope = Ctx.getOrInsertSyncScopeID("device");
   for (Instruction *I : WorkList) {
     if (auto *LI = dyn_cast<LoadInst>(I)) {

@@ -276,6 +276,42 @@ option(CHIP_VERBOSE "Verbose compilation" OFF)
 option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Auto-detected from LLVM targets when LLVM >= 22." OFF)
+option(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "Lower volatile global accesses to relaxed device-scope atomics instead of SPV_INTEL_cache_controls decorations. The decorations are the better lowering (they bypass only the core-private cache and need no atomic capability on the allocation), but a module carrying OpCapability CacheControlsINTEL is rejected by a consumer that does not support it: rusticl fails clBuildProgram with -11 spirv_to_nir failed. Enable this when building for such a target." OFF)
+
+# The cache-control lowering needs SPV_INTEL_cache_controls in the extension
+# allow list that the HIPSPV toolchain passes to the SPIR-V producers. Only the
+# llvm-patches/llvm-23 series carries it, so on any other toolchain emitting the
+# decorations makes every volatile access fail to translate ("RequiresExtension:
+# SPV_INTEL_cache_controls", clang exit 18). Detect that here and fall back to
+# the atomic lowering rather than producing a compiler that cannot build a
+# volatile access. Probing the driver binaries is crude but it is the only place
+# the list exists: it is baked into libclang-cpp at LLVM build time.
+if(NOT CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
+  set(_cc_supported FALSE)
+  file(GLOB _clang_libs "${CLANG_ROOT_PATH}/lib/libclang-cpp.so*"
+                        "${CLANG_ROOT_PATH}/lib/libclang-cpp*.dylib"
+                        "${CLANG_ROOT_PATH}/bin/clang-[0-9]*")
+  foreach(_lib IN LISTS _clang_libs)
+    # Match the LIST form ",+SPV_INTEL_cache_controls". The bare extension name
+    # also appears in the SPIR-V backend's own name table whether or not HIPSPV
+    # allows it, so grepping for that alone is a false positive.
+    execute_process(COMMAND grep -c -a ",+SPV_INTEL_cache_controls" "${_lib}"
+                    OUTPUT_VARIABLE _hits ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(_hits AND _hits GREATER 0)
+      set(_cc_supported TRUE)
+      break()
+    endif()
+  endforeach()
+  if(NOT _cc_supported)
+    message(STATUS "SPV_INTEL_cache_controls is not in this toolchain's HIPSPV "
+                   "extension list; enabling CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "
+                   "so volatile accesses lower to atomics instead")
+    set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND ON CACHE BOOL "" FORCE)
+  else()
+    message(STATUS "SPV_INTEL_cache_controls available: volatile accesses lower "
+                   "to cache-control decorations")
+  endif()
+endif()
 option(CHIP_KEEP_KERNEL_DEBUG_INFO "Keep device debug info in kernels. No SPIR-V producer emits debug info that validates, and only IGC on Intel Data Center GPU Max tolerates it, so this is off by default and should only be enabled for that device." OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
