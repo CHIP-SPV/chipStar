@@ -505,16 +505,17 @@ cleanup:
   extends: .aurora-shell-runner
   script:
     - |
-      if [ -z "${GITHUB_SHA}" ]; then
-        echo "No GITHUB_SHA set, skipping GitHub status report"
-        exit 0
-      fi
       DESC="all jobs passed"
       if [ -s ${WRK_DIR}/failed_jobs ]; then
         DESC="failed: $(sort -u ${WRK_DIR}/failed_jobs | sed ':a;N;$!ba;s/\n/; /g')"
       fi
       DESC=$(echo "${DESC}" | cut -c1-140)
       echo "status=${GITHUB_STATUS} description=${DESC}"
+
+      if [ -z "${GITHUB_SHA}" ]; then
+        echo "No GITHUB_SHA set, skipping GitHub status report"
+        exit 0
+      fi
 
       curl -X POST \
         --fail \
