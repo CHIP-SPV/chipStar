@@ -1,6 +1,6 @@
 ; Every volatile access shape HipLowerVolatileAccessesPass has a rule for. The
 ; accesses through global and generic pointers must come out marked
-; !nontemporal; the private, constant, work-group local and already atomic ones
+; relaxed device-scope atomics; the private, constant, work-group local and already atomic ones
 ; must come out exactly as they went in, and so must the narrow, vector and
 ; under-aligned ones. A pointer joined by a phi or a select follows its
 ; branches: marked when any branch is shared, left alone when every branch is
@@ -79,8 +79,8 @@ entry:
   %C = getelementptr inbounds [4 x i32], ptr addrspace(2) @cmem, i64 0, i64 1
   %ldc = load volatile i32, ptr addrspace(2) %C, align 4
   ; narrow, vector and under-aligned accesses: a consumer only has to honour
-  ; Nontemporal on shapes it has a non-temporal instruction for, and these gain
-  ; nothing from the hint
+  ; atomics on 32 bit types only (64 under a capability), so these shapes have
+  ; no legal atomic form
   %ld8 = load volatile i8, ptr addrspace(1) %P8, align 1
   %ld16 = load volatile i16, ptr addrspace(1) %P16, align 2
   store volatile i8 %V8, ptr addrspace(1) %P8, align 1
