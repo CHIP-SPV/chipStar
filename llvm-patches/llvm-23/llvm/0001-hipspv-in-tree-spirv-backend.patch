@@ -84,7 +84,7 @@ index d6900c7..98bec18 100644
  void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
      Compilation &C, const JobAction &JA, const InputInfoList &Inputs,
      const InputInfo &Output, const llvm::opt::ArgList &Args) const {
-@@ -73,44 +102,100 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
+@@ -73,44 +102,106 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
    tools::constructLLVMLinkCommand(C, *this, JA, Inputs, LinkArgs, Output, Args,
                                    TempFile);
  
@@ -224,7 +224,7 @@ index d6900c7..98bec18 100644
  
    InputInfo TrInput = InputInfo(types::TY_LLVM_BC, TempFile, "");
    SPIRV::constructTranslateCommand(C, *this, JA, Output, TrInput, TrArgs);
-@@ -150,6 +235,11 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
+@@ -150,6 +241,11 @@ HIPSPVToolChain::HIPSPVToolChain(const Driver &D, const llvm::Triple &Triple,
    getProgramPaths().push_back(getDriver().Dir);
  }
  
