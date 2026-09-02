@@ -511,9 +511,14 @@ cleanup:
   extends: .aurora-shell-runner
   script:
     - |
-      DESC="all jobs passed"
+      # failed_jobs can be empty on a red pipeline: a cancelled or killed job never
+      # runs after_script. Deriving the text from GITHUB_STATUS keeps the two agreeing.
       if [ -s ${WRK_DIR}/failed_jobs ]; then
         DESC="failed: $(sort -u ${WRK_DIR}/failed_jobs | sed ':a;N;$!ba;s/\n/; /g')"
+      elif [ "${GITHUB_STATUS}" = success ]; then
+        DESC="all jobs passed"
+      else
+        DESC="pipeline failed; no job recorded a reason"
       fi
       DESC=$(echo "${DESC}" | cut -c1-140)
       echo "status=${GITHUB_STATUS} description=${DESC}"
