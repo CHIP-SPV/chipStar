@@ -12,7 +12,7 @@ workflow:
 
 variables:
   PROJ: "chipStar_test"
-  QUEUE: "debug"
+  QUEUE: "capacity"
   TIME: "0:30:00"
   WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/pipeline_${CI_PIPELINE_ID}"
   ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=${TIME},filesystems=home -A ${PROJ}"
@@ -152,7 +152,7 @@ chipStar_aurora_script_test_llvm22:
 
 chipStar_script_test_llvm22:
   stage: test
-  resource_group: aurora_pipeline
+  resource_group: aurora_slot_1
   extends: .aurora-batch-runner
   needs: [chipStar_script_install_llvm22]
   script:
@@ -164,7 +164,7 @@ chipStar_script_test_llvm22:
 
 chipStar_aurora_script_test_run:
   stage: test
-  resource_group: aurora_pipeline
+  resource_group: aurora_slot_2
   extends: .aurora-batch-runner
   needs: [chipStar_aurora_script_test]
   script:
@@ -177,7 +177,7 @@ chipStar_aurora_script_test_run:
 
 chipStar_aurora_script_test_llvm22_run:
   stage: test
-  resource_group: aurora_pipeline
+  resource_group: aurora_slot_3
   extends: .aurora-batch-runner
   needs: [chipStar_aurora_script_test_llvm22]
   script:
@@ -248,7 +248,7 @@ opensn_build:
 
 hoMusic:
   stage: app_run
-  resource_group: aurora_pipeline
+  resource_group: aurora_slot_1
   extends: .aurora-batch-runner
   needs: [chipStar_aurora_script_test, chipStar_aurora_script_test_run]
   variables:
@@ -270,7 +270,7 @@ hoMusic:
 
 zeroRK_run:
   stage: app_run
-  resource_group: aurora_pipeline
+  resource_group: aurora_slot_2
   extends: .aurora-batch-runner
   needs: [zeroRK_build, chipStar_aurora_script_test_run]
   script:
@@ -324,7 +324,7 @@ zeroRK_run:
 
 opensn_run:
   stage: app_run
-  resource_group: aurora_pipeline
+  resource_group: aurora_slot_3
   extends: .aurora-batch-runner
   needs: [opensn_build, chipStar_aurora_script_test_run]
   variables:
@@ -367,11 +367,13 @@ hoMusic_performance:
     - |
       OUTPUT=output_${CI_PIPELINE_ID}
 
-      # hoMusic_ci_improved.sh emits one "HOMUSIC_ELAPSED_SECONDS <seconds>" line per run
-      grep "HOMUSIC_ELAPSED_SECONDS" $OUTPUT || true
-      ACTUAL_TIME=$(awk '/HOMUSIC_ELAPSED_SECONDS/ {t = $2; if (n++ == 0 || t < min) min = t} \
+      # hoMusic_ci_improved.sh emits one "HOMUSIC_ELAPSED_SECONDS <seconds>" line per run.
+      # Anchored: the script runs under "bash -x", so its trace of the awk command that
+      # prints this line also contains the string, with "awk" where the seconds belong.
+      grep "^HOMUSIC_ELAPSED_SECONDS" $OUTPUT || true
+      ACTUAL_TIME=$(awk '/^HOMUSIC_ELAPSED_SECONDS/ {t = $2 + 0; if (n++ == 0 || t < min) min = t} \
                          END {if (n) printf "%.3f", min}' $OUTPUT)
-      NRUNS=$(grep -c "HOMUSIC_ELAPSED_SECONDS" $OUTPUT || true)
+      NRUNS=$(grep -c "^HOMUSIC_ELAPSED_SECONDS" $OUTPUT || true)
 
       if [ -z "$ACTUAL_TIME" ]; then
         echo "Performance check failed: no timing lines found in $OUTPUT"
@@ -380,7 +382,7 @@ hoMusic_performance:
       echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
 
       # Define baseline and 6% upper threshold
-      BASELINE=90.0
+      BASELINE=85.0
       THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
       UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
@@ -400,7 +402,7 @@ hoMusic_performance:
 
       echo
       echo "=== hoMusic timing spread ==="
-      awk '/HOMUSIC_ELAPSED_SECONDS/ {print $2}' $OUTPUT \
+      awk '/^HOMUSIC_ELAPSED_SECONDS/ {print $2}' $OUTPUT \
         | awk -f ${WRK_DIR}/timing_stats.awk
       exit $rc
 
@@ -424,8 +426,8 @@ zeroRK_performance:
     echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
 
     # Define baseline and 6% threshold
-    BASELINE=85
-    THRESHOLD=$(echo "$BASELINE * 0.10" | bc -l)
+    BASELINE=84
+    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
     echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
@@ -469,8 +471,8 @@ opensn_performance:
     echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
 
     # Define baseline and 6% threshold
-    BASELINE=29
-    THRESHOLD=$(echo "$BASELINE * 0.1" | bc -l)
+    BASELINE=31
+    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
     UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
 
     echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
