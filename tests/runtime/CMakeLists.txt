@@ -80,6 +80,9 @@ set(RUNTIME_TESTS_MANUAL
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
   TestFix1592ExtractorExitStatus.hip # compiled by TestFix1592ExtractorExitStatus.bash, not a test
   TestFix1600ExtractorArgvBoundaries.hip # compiled by TestFix1600ExtractorArgvBoundaries.bash, not a test
+
+  TestFixVolatileLoadLowering.hip # compiled by TestFixVolatileLoadLoweringSPIRV.bash, not a test
+  TestFixKokkosUnorderedMapInsert.hip # reference idiom only, see the comment below
   TestModuleCacheInvalidation.hip # run several times through a driver script
   TestStreamWaitEventOrdering.cpp # not registered as a test
   TestTemplateKernelModules.hip   # multi-TU, linked from hand-built objects
@@ -182,6 +185,18 @@ add_shell_test(TestFix1600ExtractorArgvBoundaries.bash)
 # Volatile 32 and 64 bit global accesses must reach the SPIR-V producer as
 # relaxed device-scope atomics (Kokkos::volatile_load on PVC reads stale L1
 # data otherwise). Inspects the lowered device bitcode of
+
+# The two volatile reproducers above are deliberately not registered as ctests:
+# both PASS on a chipStar built without HipLowerVolatileAccessesPass, so neither
+# can gate a regression. TestFixVolatileLoadLowering only checks that the
+# accesses still compute the right values and is the compile input for the
+# SPIR-V check below. TestFixKokkosUnorderedMapInsert is the real Kokkos insert
+# idiom and is kept for reference, but it is a race: measured pre-fix it failed
+# 1 of 3 runs on PVC and 0 of 3 on a B570 and a UHD 770.
+# TestFix1508VolatileGlobalStaleness replaces them as the gate. It removes the
+# race by priming the reader's cache before the writer runs, and pre-fix it
+# fails 35840 of 35840 readers on both PVC and B570 while passing on parts whose
+# global loads are already coherent. It is picked up by the Test*.hip glob.
 
 # Volatile global accesses must reach the SPIR-V producer marked !nontemporal,
 # which becomes the Nontemporal memory operand (Kokkos::volatile_load on PVC
