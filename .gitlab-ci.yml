@@ -465,9 +465,10 @@ opensn_performance:
   - |
     # min over the 4 runs; format is "Elapsed execution time: HH:MM:SS.s"
     grep "Elapsed execution time" output || true
-    ACTUAL_TIME=$(grep "Elapsed execution time" output | awk '{print $NF}' \
-      | awk -F: '{t = ($1 * 3600) + ($2 * 60) + $3; if (n++ == 0 || t < min) min = t} \
-                 END {if (n) printf "%.3f", min}')
+    ACTUAL_TIME=$(awk '/Elapsed execution time/ {split($NF, f, ":"); \
+                       t = (f[1] * 3600) + (f[2] * 60) + f[3]; \
+                       if (n++ == 0 || t < min) min = t} \
+                       END {if (n) printf "%.3f", min}' output)
     NRUNS=$(grep -c "Elapsed execution time" output || true)
 
     if [ -z "$ACTUAL_TIME" ]; then
@@ -496,8 +497,7 @@ opensn_performance:
 
     echo
     echo "=== opensn timing spread ==="
-    grep "Elapsed execution time" output | awk '{print $NF}' \
-      | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}' \
+    awk '/Elapsed execution time/ {split($NF, f, ":"); print (f[1] * 3600) + (f[2] * 60) + f[3]}' output \
       | awk -f ${WRK_DIR}/timing_stats.awk
     exit $rc
 
@@ -516,7 +516,9 @@ cleanup:
       # No failed_* files on a red pipeline is possible: a cancelled or killed job
       # never runs after_script. Deriving the text from GITHUB_STATUS keeps the two
       # agreeing.
-      FAILED=$(cat ${WRK_DIR}/failed_* 2>/dev/null | sort -u | sed ':a;N;$!ba;s/\n/; /g')
+      # || true: with no failed_* files the glob stays literal and cat exits 1,
+      # which under set -e would kill this job on a fully green pipeline.
+      FAILED=$(cat ${WRK_DIR}/failed_* 2>/dev/null | sort -u | sed ':a;N;$!ba;s/\n/; /g' || true)
       if [ -n "${FAILED}" ]; then
         DESC="failed: ${FAILED}"
       elif [ "${GITHUB_STATUS}" = success ]; then
