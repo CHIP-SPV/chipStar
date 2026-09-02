@@ -32,11 +32,13 @@ stages:
 
 default:
   after_script:
-    # a job may explain itself by writing reason_<job name>.
-    # mkdir: setup can fail before it creates WRK_DIR, and its name must still be recorded.
-    - test "${CI_JOB_STATUS}" = success
-      || { mkdir -p ${WRK_DIR};
-           echo "${CI_JOB_NAME}$(cat ${WRK_DIR}/reason_${CI_JOB_NAME} 2>/dev/null)" >> ${WRK_DIR}/failed_jobs; }
+    # One file per job
+    - if test "${CI_JOB_STATUS}" = success; then
+        rm -f ${WRK_DIR}/failed_${CI_JOB_NAME};
+      else
+        mkdir -p ${WRK_DIR};
+        echo "${CI_JOB_NAME}$(cat ${WRK_DIR}/reason_${CI_JOB_NAME} 2>/dev/null)" > ${WRK_DIR}/failed_${CI_JOB_NAME};
+      fi
 
 setup:
   stage: .pre
@@ -511,10 +513,12 @@ cleanup:
   extends: .aurora-shell-runner
   script:
     - |
-      # failed_jobs can be empty on a red pipeline: a cancelled or killed job never
-      # runs after_script. Deriving the text from GITHUB_STATUS keeps the two agreeing.
-      if [ -s ${WRK_DIR}/failed_jobs ]; then
-        DESC="failed: $(sort -u ${WRK_DIR}/failed_jobs | sed ':a;N;$!ba;s/\n/; /g')"
+      # No failed_* files on a red pipeline is possible: a cancelled or killed job
+      # never runs after_script. Deriving the text from GITHUB_STATUS keeps the two
+      # agreeing.
+      FAILED=$(cat ${WRK_DIR}/failed_* 2>/dev/null | sort -u | sed ':a;N;$!ba;s/\n/; /g')
+      if [ -n "${FAILED}" ]; then
+        DESC="failed: ${FAILED}"
       elif [ "${GITHUB_STATUS}" = success ]; then
         DESC="all jobs passed"
       else
