@@ -13,7 +13,7 @@ workflow:
 variables:
   PROJ: "chipStar_test"
   QUEUE: "debug"
-  TIME: "1:00:00"
+  TIME: "0:30:00"
   WRK_DIR: "/lus/flare/projects/${PROJ}/chipStar/pipeline_${CI_PIPELINE_ID}"
   ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=${TIME},filesystems=home -A ${PROJ}"
   GENESIS_CI_PROJECT_DIR: "/home/bertoni/projects/p01.chipStar/GENESIS-Share-CI/"
