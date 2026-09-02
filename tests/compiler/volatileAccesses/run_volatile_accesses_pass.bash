@@ -1,16 +1,16 @@
 #!/bin/bash
-# Check that HipLowerVolatileAccessesPass marks the volatile global and generic
-# accesses of a module !nontemporal, leaves every other volatile access as it
-# is, and that the result still translates to valid SPIR-V carrying the
-# Nontemporal memory operand.
+# Check that HipLowerVolatileAccessesPass rewrites the volatile global and
+# generic accesses of a module into relaxed device-scope atomics, leaves every
+# other volatile access as it is, and that the result still translates to valid
+# SPIR-V carrying OpAtomicLoad / OpAtomicStore.
 #
 # Usage: run_volatile_accesses_pass.bash <input.ll>
 #
-# The input has two kernels: @rewritten holds only accesses the pass must mark,
-# @left_alone only accesses it must not touch. No access changes type, opcode,
-# ordering or volatility: the only difference is the !nontemporal metadata,
-# which the SPIR-V producers turn into the Nontemporal memory operand and IGC
-# into an L1 uncached access.
+# The input has two kernels: @rewritten holds only accesses the pass must
+# rewrite, @left_alone only accesses it must not touch. No access changes type
+# or volatility: the difference is the atomic ordering and syncscope, which the
+# SPIR-V producers turn into OpAtomicLoad / OpAtomicStore at Device scope with
+# Relaxed semantics, and which IGC serves coherently rather than from L1.
 
 set -e
 
@@ -47,33 +47,36 @@ if [ -z "${REWRITTEN}" ] || [ -z "${LEFT}" ]; then
   exit 1
 fi
 
-# Every volatile access of @rewritten must carry !nontemporal and nothing else
-# about it may have changed: no atomic form (IGC implements OpAtomicLoad as
-# atomic_or and OpAtomicStore as an atomic exchange, which faults on memory a
-# Level Zero device reports without ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC).
-VOLATILE=$(echo "${REWRITTEN}" | grep -c -E '(load|store) volatile ' || true)
-if [ "${VOLATILE}" -ne "${MARKED_IN}" ]; then
-  echo "ERROR: expected the ${MARKED_IN} volatile accesses of @rewritten to stay plain volatile, found ${VOLATILE}"
-  echo "See ${OUTPUT_LL} for details"
-  exit 1
-fi
-MARKED=$(echo "${REWRITTEN}" | grep -c -E '(load|store) volatile .*!nontemporal ' || true)
+# Every volatile access of @rewritten must come out as a relaxed device-scope
+# atomic, and nothing else about it may have changed: same type, same volatility,
+# and no leftover !nontemporal, which the atomics replaced.
+MARKED=$(echo "${REWRITTEN}" | grep -c -E '(load|store) atomic volatile .*syncscope\("device"\) monotonic' || true)
 if [ "${MARKED}" -ne "${MARKED_IN}" ]; then
-  echo "ERROR: expected ${MARKED_IN} !nontemporal volatile accesses in @rewritten, found ${MARKED}"
+  echo "ERROR: expected ${MARKED_IN} relaxed device-scope atomic accesses in @rewritten, found ${MARKED}"
   echo "See ${OUTPUT_LL} for details"
   exit 1
 fi
-if echo "${REWRITTEN}" | grep -q -E '(load|store) atomic'; then
-  echo "ERROR: the pass turned an access of @rewritten into an atomic:"
-  echo "${REWRITTEN}" | grep -E '(load|store) atomic'
+# The accesses stay volatile and keep their original type: only the ordering
+# and syncscope are added.
+STILL_VOLATILE=$(echo "${REWRITTEN}" | grep -c -E '(load|store) atomic volatile ' || true)
+if [ "${STILL_VOLATILE}" -ne "${MARKED_IN}" ]; then
+  echo "ERROR: the pass dropped volatility from ${MARKED_IN} accesses, ${STILL_VOLATILE} remain volatile"
+  exit 1
+fi
+if echo "${REWRITTEN}" | grep -q -E '!nontemporal'; then
+  echo "ERROR: @rewritten still carries the !nontemporal marking, which was replaced by atomics:"
+  echo "${REWRITTEN}" | grep -E '!nontemporal'
   exit 1
 fi
 
-# Nothing in @left_alone may have been marked. Its volatile accesses go in as
-# is (two of them atomic already, with their own scope and ordering).
-if echo "${LEFT}" | grep -q -E '(load|store) .*!nontemporal '; then
-  echo "ERROR: access(es) in @left_alone were marked:"
-  echo "${LEFT}" | grep -E '!nontemporal '
+# Nothing in @left_alone may have been rewritten. Its volatile accesses go in as
+# is, two of them atomic already with their own scope and ordering, and that
+# count must not grow.
+LEFT_ATOMIC_IN=2   # @left_alone goes in with two already-atomic accesses
+LEFT_ATOMIC=$(echo "${LEFT}" | grep -c -E '(load|store) atomic' || true)
+if [ "${LEFT_ATOMIC}" -ne "${LEFT_ATOMIC_IN}" ]; then
+  echo "ERROR: @left_alone should keep exactly its ${LEFT_ATOMIC_IN} pre-existing atomics, found ${LEFT_ATOMIC}:"
+  echo "${LEFT}" | grep -E '(load|store) atomic'
   exit 1
 fi
 KEPT=$(echo "${LEFT}" | grep -c -E '(load|store) (atomic )?volatile' || true)
@@ -83,8 +86,8 @@ if [ "${KEPT}" -ne "${KEPT_IN}" ]; then
   exit 1
 fi
 
-# The marking is only useful if it reaches SPIR-V as the Nontemporal memory
-# operand of an otherwise unchanged OpLoad / OpStore. A build targeting LLVM's
+# The rewrite is only useful if it reaches SPIR-V as OpAtomicLoad / OpAtomicStore
+# at Device scope with Relaxed semantics. A build targeting LLVM's
 # integrated SPIR-V backend has no translator to check that with, so report
 # what was verified and stop rather than failing on the missing binary.
 if [ -z "${LLVM_SPIRV}" ] || [ ! -x "${LLVM_SPIRV}" ]; then
@@ -100,12 +103,12 @@ else
 fi
 if [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
   "${SPIRV_DIS}" "${OUTPUT_SPV}" > "${BASE_NAME}.spvasm"
-  NT=$(grep -c -E 'Op(Load|Store) .*Nontemporal' "${BASE_NAME}.spvasm" || true)
+  NT=$(grep -c -E 'OpAtomic(Load|Store)' "${BASE_NAME}.spvasm" || true)
   if [ "${NT}" -lt "${MARKED_IN}" ]; then
-    echo "ERROR: expected at least ${MARKED_IN} Nontemporal OpLoad / OpStore in the SPIR-V module, found ${NT}"
+    echo "ERROR: expected at least ${MARKED_IN} OpAtomicLoad / OpAtomicStore in the SPIR-V module, found ${NT}"
     exit 1
   fi
-  DISASSEMBLED="${NT} Nontemporal accesses in SPIR-V"
+  DISASSEMBLED="${NT} atomic accesses in SPIR-V"
 else
   DISASSEMBLED="spirv-dis not available"
 fi

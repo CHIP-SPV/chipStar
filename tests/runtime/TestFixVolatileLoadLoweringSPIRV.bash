@@ -66,8 +66,10 @@ if [ -z "${ACCESS}" ]; then
   echo "FAIL: kernel volatileAccess not found in lowered.ll"
   exit 1
 fi
-for PATTERN in 'load volatile i32,.*!nontemporal' 'load volatile i64,.*!nontemporal' \
-               'store volatile i32 .*!nontemporal' 'store volatile i64 .*!nontemporal'; do
+for PATTERN in 'load atomic volatile i32.*syncscope\("device"\) monotonic' \
+               'load atomic volatile i64.*syncscope\("device"\) monotonic' \
+               'store atomic volatile i32 .*syncscope\("device"\) monotonic' \
+               'store atomic volatile i64 .*syncscope\("device"\) monotonic'; do
   if ! echo "${ACCESS}" | grep -qE "${PATTERN}"; then
     fail "volatileAccess has no '${PATTERN}' after the pass pipeline"
   fi
@@ -76,19 +78,18 @@ done
 # has to honour Nontemporal on shapes it has a non-temporal instruction for,
 # and PoCL's x86 back end aborts with "Unsupported store size" on ones it does
 # not.
-if echo "${ACCESS}" | grep -qE '(load|store) volatile i16.*!nontemporal'; then
-  fail "volatileAccess had its 16 bit accesses marked, which breaks CPU consumers:"
+if echo "${ACCESS}" | grep -qE '(load|store) atomic volatile i16'; then
+  fail "volatileAccess had its 16 bit accesses made atomic; the OpenCL SPIR-V environment allows atomics on 32 bit types only:"
   echo "${ACCESS}" | grep -E '(load|store) volatile i16'
 fi
-PLAIN=$(echo "${ACCESS}" | grep -E '(load|store) volatile (i32|i64)' | grep -v '!nontemporal' || true)
+PLAIN=$(echo "${ACCESS}" | grep -E '(load|store) volatile (i32|i64)' | grep -v 'atomic' || true)
 if [ -n "${PLAIN}" ]; then
-  fail "volatileAccess still has unmarked 32 or 64 bit volatile global accesses:"
+  fail "volatileAccess still has non-atomic 32 or 64 bit volatile global accesses:"
   echo "${PLAIN}"
 fi
-ATOMIC=$(echo "${ACCESS}" | grep -E '(load|store) atomic' || true)
-if [ -n "${ATOMIC}" ]; then
-  fail "volatileAccess gained atomic accesses, which fault on memory a Level Zero device reports without ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC:"
-  echo "${ATOMIC}"
+if echo "${ACCESS}" | grep -qE '!nontemporal'; then
+  fail "volatileAccess still carries the !nontemporal marking, which the atomics replaced:"
+  echo "${ACCESS}" | grep -E '!nontemporal'
 fi
 
 LEFT=$(kernel_body volatileLocal)
@@ -101,9 +102,9 @@ fi
 if ! echo "${LEFT}" | grep -qE '(load|store) volatile i32'; then
   fail "the work-group local volatile accesses in volatileLocal were not left alone"
 fi
-if echo "${LEFT}" | grep -qE '(load|store) volatile.*!nontemporal'; then
-  fail "the work-group local volatile accesses in volatileLocal were marked:"
-  echo "${LEFT}" | grep -E '!nontemporal'
+if echo "${LEFT}" | grep -qE '(load|store) atomic'; then
+  fail "the work-group local volatile accesses in volatileLocal were made atomic:"
+  echo "${LEFT}" | grep -E '(load|store) atomic'
 fi
 
 # SPIR-V level check.
@@ -122,14 +123,10 @@ if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
     if [ -n "${CALLEE}" ]; then
       FUNC=$(sed -n "/^ *${CALLEE} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
     fi
-    LOADS=$(echo "${FUNC}" | grep -c -E 'OpLoad .*Nontemporal' || true)
-    STORES=$(echo "${FUNC}" | grep -c -E 'OpStore .*Nontemporal' || true)
+    LOADS=$(echo "${FUNC}" | grep -c -E 'OpAtomicLoad' || true)
+    STORES=$(echo "${FUNC}" | grep -c -E 'OpAtomicStore' || true)
     if [ "${LOADS}" -lt 2 ] || [ "${STORES}" -lt 2 ]; then
-      fail "SPIR-V volatileAccess has ${LOADS} Nontemporal OpLoad and ${STORES} Nontemporal OpStore, expected at least 2 each"
-    fi
-    if echo "${FUNC}" | grep -qE 'OpAtomic'; then
-      fail "SPIR-V volatileAccess has atomic accesses:"
-      echo "${FUNC}" | grep -E 'OpAtomic'
+      fail "SPIR-V volatileAccess has ${LOADS} OpAtomicLoad and ${STORES} OpAtomicStore, expected at least 2 each"
     fi
     echo "SPIR-V module checked (Khronos translator)"
   else
