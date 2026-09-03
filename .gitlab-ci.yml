@@ -113,7 +113,7 @@ chipStar_script_install_llvm22:
   needs: [aurora_build_test]
   script:
     - hostname
-    - echo "Running on $(hostname) with setuid shell runner"
+    - echo "Running on $(hostname) with setuid shell runner "
     - cp -r ${WRK_DIR}/chipStar  ${WRK_DIR}/chipStar_llvm22
     - cd ${WRK_DIR}/chipStar_llvm22
     - module use /soft/modulefiles
