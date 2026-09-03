@@ -83,3 +83,22 @@ set_tests_properties(TestStdLlroundFloat PROPERTIES
 add_hip_test(TestStdLdexp.cpp)
 set_tests_properties(TestStdLdexp PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
+
+# The long double / floating-point abs ambiguity of CHIP-SPV/chipStar#1583 only
+# shows up with a C++ standard library whose host math overloads are not
+# constexpr - libc++, i.e. every macOS build. libstdc++ marks them constexpr,
+# which makes them implicitly __host__ __device__ and hides the gap. Register
+# the compile check only where libc++ is actually usable.
+set(LIBCXX_PROBE_SRC ${CMAKE_CURRENT_BINARY_DIR}/libcxx_probe.cpp)
+file(WRITE ${LIBCXX_PROBE_SRC}
+  "#include <cmath>\nint main() { return static_cast<int>(std::sqrt(4.0)); }\n")
+execute_process(
+  COMMAND ${CLANG_ROOT_PATH_BIN}/clang++ -stdlib=libc++ -fsyntax-only ${LIBCXX_PROBE_SRC}
+  RESULT_VARIABLE LIBCXX_PROBE_RESULT
+  OUTPUT_QUIET ERROR_QUIET)
+if(LIBCXX_PROBE_RESULT EQUAL 0)
+  add_test(NAME "TestFix1583LongDoubleMath"
+    COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -stdlib=libc++ -c
+      -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix1583LongDoubleMath.o
+      ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1583LongDoubleMath.cpp)
+endif()
