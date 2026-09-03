@@ -59,9 +59,9 @@ jobs:
             });
 
       # Every pipeline runs ref=main, so GitLab's own auto-cancel cannot tell two
-      # PRs apart. The trigger below names each pipeline "PR-<number>", which the
-      # listing returns; reading GITHUB_PR_NUMBER instead would need a Maintainer
-      # token, because trigger variables can hold secrets.
+      # PRs apart. workflow:name in .gitlab-ci.yml names each pipeline "PR-<number>",
+      # which the listing returns; reading GITHUB_PR_NUMBER instead would need a
+      # Maintainer token, because trigger variables can hold secrets.
       - name: Cancel this PR's earlier pipelines
         continue-on-error: true
         env:
@@ -95,7 +95,6 @@ jobs:
             "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/trigger/pipeline" \
             -F "token=${GITLAB_TRIGGER_TOKEN}" \
             -F "ref=main" \
-            -F "name=PR-${{ github.event.issue.number }}" \
             -F "variables[TRIGGER_SOURCE]=github_comment" \
             -F "variables[GITHUB_PR_NUMBER]=${{ github.event.issue.number }}" \
             -F "variables[GITHUB_SHA]=${{ steps.pr-info.outputs.sha }}" \
