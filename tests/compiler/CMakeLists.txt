@@ -130,6 +130,8 @@ add_hipcc_test(TestFix1248HalfHostOps.hip HIPCC_OPTIONS -fsyntax-only)
 
 add_hipcc_test(TestHalfDeviceMathFuncs.hip HIPCC_OPTIONS -fsyntax-only)
 
+add_hipcc_test(TestFix1582StdTraitSpecialization.hip HIPCC_OPTIONS -fsyntax-only)
+
 add_hipcc_test(TestRocmVersionHeader.hip HIPCC_OPTIONS -fsyntax-only)
 
 add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O0
