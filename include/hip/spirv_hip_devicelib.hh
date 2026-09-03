@@ -107,6 +107,30 @@ template<typename T> struct __hip_numeric_limits {
   static constexpr bool is_specialized = false;
 };
 
+template<> struct __hip_numeric_limits<bool> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<char> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<signed char> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<unsigned char> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<short> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
+template<> struct __hip_numeric_limits<unsigned short> {
+  static constexpr bool is_integer = true;
+  static constexpr bool is_specialized = true;
+};
 template<> struct __hip_numeric_limits<int> {
   static constexpr bool is_integer = true;
   static constexpr bool is_specialized = true;
@@ -188,18 +212,86 @@ __HIP_OVERLOAD2(double, max)
 __HIP_OVERLOAD2(double, min)
 __HIP_OVERLOAD2(double, pow)
 
+// Integer arguments must behave as if converted to double ([cmath.syn]).
+// devicelib declares float, double and __half flavours of these names, so
+// without an integral overload an integer argument converts equally well to
+// more than one of them and the call is ambiguous. The host standard library
+// supplies these overloads itself, but under libc++ they are not constexpr,
+// so they are host-only and gone from the device pass. See
+// CHIP-SPV/chipStar#1586.
+
+__HIP_OVERLOAD1(double, acosh)
+__HIP_OVERLOAD1(double, asinh)
+__HIP_OVERLOAD1(double, atanh)
+__HIP_OVERLOAD1(double, ceil)
+__HIP_OVERLOAD1(double, cos)
+__HIP_OVERLOAD1(double, erf)
+__HIP_OVERLOAD1(double, exp)
+__HIP_OVERLOAD1(double, exp2)
+__HIP_OVERLOAD1(double, floor)
+__HIP_OVERLOAD1(double, lgamma)
+__HIP_OVERLOAD1(double, log)
+__HIP_OVERLOAD1(double, log10)
+__HIP_OVERLOAD1(double, log1p)
+__HIP_OVERLOAD1(double, log2)
+__HIP_OVERLOAD1(double, logb)
+__HIP_OVERLOAD1(double, nearbyint)
+__HIP_OVERLOAD1(double, rint)
+__HIP_OVERLOAD1(double, sin)
+__HIP_OVERLOAD1(double, sqrt)
+__HIP_OVERLOAD1(double, tan)
+__HIP_OVERLOAD1(double, tgamma)
+__HIP_OVERLOAD1(double, trunc)
+__HIP_OVERLOAD1(double, cospi)
+__HIP_OVERLOAD1(double, exp10)
+__HIP_OVERLOAD1(double, rsqrt)
+__HIP_OVERLOAD1(double, sinpi)
+
+__HIP_OVERLOAD2(double, atan2)
+__HIP_OVERLOAD2(double, copysign)
+__HIP_OVERLOAD2(double, fdim)
+__HIP_OVERLOAD2(double, fmin)
+__HIP_OVERLOAD2(double, nextafter)
+__HIP_OVERLOAD2(double, remainder)
 namespace std {
 __HIP_OVERLOAD1(long, lrint);
-__HIP_OVERLOAD1(double, lgamma);
 __HIP_OVERLOAD1(double, erfc);
-__HIP_OVERLOAD1(double, erf);
 __HIP_OVERLOAD1(double, tanh);
 __HIP_OVERLOAD1(double, cosh);
 __HIP_OVERLOAD1(double, sinh);
 __HIP_OVERLOAD1(double, atan);
 __HIP_OVERLOAD1(double, acos);
 __HIP_OVERLOAD1(double, asin);
-__HIP_OVERLOAD1(double, tan);
+
+// CHIP-SPV/chipStar#1586: re-export the global integral overloads above.
+using ::acosh;
+using ::asinh;
+using ::atanh;
+using ::ceil;
+using ::cos;
+using ::erf;
+using ::exp;
+using ::exp2;
+using ::floor;
+using ::lgamma;
+using ::log;
+using ::log10;
+using ::log1p;
+using ::log2;
+using ::logb;
+using ::nearbyint;
+using ::rint;
+using ::sin;
+using ::sqrt;
+using ::tan;
+using ::tgamma;
+using ::trunc;
+using ::atan2;
+using ::copysign;
+using ::fdim;
+using ::fmin;
+using ::nextafter;
+using ::remainder;
 
 // libstdc++ pulls the C `modf` into std with a using-declaration, which covers
 // the double overload, but its float overload is a host-only inline. The device
