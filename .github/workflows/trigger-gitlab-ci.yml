@@ -76,6 +76,15 @@ jobs:
           api() { curl -sS --fail -H "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" "$@"; }
           base="${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/pipelines"
 
+          # Temporary: the listing 403s from this runner but not from ALCF or a
+          # laptop. --fail hides the response body, and GitLab names the cause there.
+          echo "debug: token length ${#GITLAB_API_TOKEN}, url ${GITLAB_URL}, project ${GITLAB_PROJECT_ID}"
+          code=$(curl -sS -o /tmp/gl_body -w "%{http_code}" \
+                 -H "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" \
+                 "${base}?status=running&per_page=1")
+          echo "debug: http ${code}"
+          head -c 500 /tmp/gl_body; echo
+
           for status in running pending; do
             api "${base}?status=${status}&per_page=100" | jq -r '.[].id'
           done | sort -u | while read -r id; do
