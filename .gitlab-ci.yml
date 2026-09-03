@@ -7,6 +7,10 @@ include:
       - '/runners.yml'
 
 workflow:
+    # The name is how the GitHub Action finds this PR's earlier pipelines to cancel.
+    # It must be set here: the trigger endpoint silently drops a "name" form field,
+    # and reading GITHUB_PR_NUMBER back needs a Maintainer token.
+    name: 'PR-$GITHUB_PR_NUMBER'
     rules:
       - if: $CI_PIPELINE_SOURCE == "trigger"   # triggered from GitHub via /run-aurora-ci
 
