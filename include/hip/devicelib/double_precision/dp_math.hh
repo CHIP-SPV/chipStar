@@ -524,6 +524,76 @@ extern "C++" inline __device__ double yn(int n, double x) {
   return ::__chip_yn_f64(n, x);
 }
 
+// On the device target 'long double' is a 64-bit double (same size, same
+// 53-bit mantissa), and SPIR-V has no wider floating-point type, so device
+// side long double math is exactly double math. Without these overloads a
+// device side call such as sqrt(1.0L) has no exact match - the candidates
+// are the double and __half ones - and is ambiguous. See
+// CHIP-SPV/chipStar#1583.
+//
+// These are templates constrained to an exact 'long double' argument rather
+// than plain overloads on purpose: a plain 'long double' overload would tie
+// with the 'double' one for integer arguments (int -> double and
+// int -> long double are the same conversion rank), making calls such as
+// std::pow(2, 3) ambiguous.
+namespace chipDevicelibImpl {
+template <class T, class U> struct isSameType {
+  static const bool Value = false;
+};
+template <class T> struct isSameType<T, T> { static const bool Value = true; };
+template <bool B, class T> struct enableIfType {};
+template <class T> struct enableIfType<true, T> { typedef T Type; };
+template <class T> struct isLongDouble : isSameType<T, long double> {};
+} // namespace chipDevicelibImpl
+
+#define CHIP_DEF_LONG_DOUBLE_FN1(NAME)                                         \
+  template <class T>                                                           \
+  static inline __device__ typename chipDevicelibImpl::enableIfType<           \
+      chipDevicelibImpl::isLongDouble<T>::Value, long double>::Type            \
+  NAME(T x) {                                                                  \
+    return ::NAME(static_cast<double>(x));                                     \
+  }
+#define CHIP_DEF_LONG_DOUBLE_FN2(NAME)                                         \
+  template <class T, class U>                                                  \
+  static inline __device__ typename chipDevicelibImpl::enableIfType<           \
+      chipDevicelibImpl::isLongDouble<T>::Value &&                             \
+          chipDevicelibImpl::isLongDouble<U>::Value,                           \
+      long double>::Type                                                       \
+  NAME(T x, U y) {                                                             \
+    return ::NAME(static_cast<double>(x), static_cast<double>(y));             \
+  }
+
+CHIP_DEF_LONG_DOUBLE_FN1(acos)
+CHIP_DEF_LONG_DOUBLE_FN1(asin)
+CHIP_DEF_LONG_DOUBLE_FN1(atan)
+CHIP_DEF_LONG_DOUBLE_FN1(ceil)
+CHIP_DEF_LONG_DOUBLE_FN1(cos)
+CHIP_DEF_LONG_DOUBLE_FN1(cosh)
+CHIP_DEF_LONG_DOUBLE_FN1(erf)
+CHIP_DEF_LONG_DOUBLE_FN1(erfc)
+CHIP_DEF_LONG_DOUBLE_FN1(exp)
+CHIP_DEF_LONG_DOUBLE_FN1(expm1)
+CHIP_DEF_LONG_DOUBLE_FN1(fabs)
+CHIP_DEF_LONG_DOUBLE_FN1(floor)
+CHIP_DEF_LONG_DOUBLE_FN1(lgamma)
+CHIP_DEF_LONG_DOUBLE_FN1(log)
+CHIP_DEF_LONG_DOUBLE_FN1(log10)
+CHIP_DEF_LONG_DOUBLE_FN1(log1p)
+CHIP_DEF_LONG_DOUBLE_FN1(log2)
+CHIP_DEF_LONG_DOUBLE_FN1(nearbyint)
+CHIP_DEF_LONG_DOUBLE_FN1(sin)
+CHIP_DEF_LONG_DOUBLE_FN1(sinh)
+CHIP_DEF_LONG_DOUBLE_FN1(sqrt)
+CHIP_DEF_LONG_DOUBLE_FN1(tan)
+CHIP_DEF_LONG_DOUBLE_FN1(tanh)
+CHIP_DEF_LONG_DOUBLE_FN1(trunc)
+CHIP_DEF_LONG_DOUBLE_FN2(copysign)
+CHIP_DEF_LONG_DOUBLE_FN2(nextafter)
+CHIP_DEF_LONG_DOUBLE_FN2(pow)
+
+#undef CHIP_DEF_LONG_DOUBLE_FN1
+#undef CHIP_DEF_LONG_DOUBLE_FN2
+
 namespace std {
 // Clang does provide device side std:: functions via HIP include
 // wrappers but, alas, the wrappers won't compile on chipStar due to

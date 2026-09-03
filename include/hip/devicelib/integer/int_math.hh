@@ -114,6 +114,14 @@ static inline __host__ __device__ long long int llmin(const long long int a, con
   return (a < b) ? a : b;
 }
 
+// Floating-point abs(). Without these the only device side candidates are
+// the integer overloads, so an unqualified abs() on a float, double or long
+// double is ambiguous - which is how boost::math::ccmath::abs<double> fails
+// to compile. See CHIP-SPV/chipStar#1583.
+static inline __device__ float abs(float a) { return ::fabsf(a); }
+static inline __device__ double abs(double a) { return ::fabs(a); }
+static inline __device__ long double abs(long double a) { return ::fabs(a); }
+
 namespace std {
 // Clang does provide device side std::abs via HIP include wrappers
 // but, alas, the wrappers won't compile on chipStar due to AMD
