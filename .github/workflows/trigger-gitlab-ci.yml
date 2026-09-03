@@ -59,8 +59,9 @@ jobs:
             });
 
       # Every pipeline runs ref=main, so GitLab's own auto-cancel cannot tell two
-      # PRs apart. GITHUB_PR_NUMBER is the only thing that identifies the PR, so
-      # match on it here.
+      # PRs apart. The trigger below names each pipeline "PR-<number>", which the
+      # listing returns; reading GITHUB_PR_NUMBER instead would need a Maintainer
+      # token, because trigger variables can hold secrets.
       - name: Cancel this PR's earlier pipelines
         continue-on-error: true
         env:
@@ -76,24 +77,12 @@ jobs:
           api() { curl -sS --fail -H "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" "$@"; }
           base="${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/pipelines"
 
-          # Temporary: the listing 403s from this runner but not from ALCF or a
-          # laptop. --fail hides the response body, and GitLab names the cause there.
-          echo "debug: token length ${#GITLAB_API_TOKEN}, url ${GITLAB_URL}, project ${GITLAB_PROJECT_ID}"
-          code=$(curl -sS -o /tmp/gl_body -w "%{http_code}" \
-                 -H "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" \
-                 "${base}?status=running&per_page=1")
-          echo "debug: http ${code}"
-          head -c 500 /tmp/gl_body; echo
-
-          for status in running pending; do
-            api "${base}?status=${status}&per_page=100" | jq -r '.[].id'
+          for status in created waiting_for_resource preparing pending running; do
+            api "${base}?status=${status}&per_page=100" \
+              | jq -r --arg name "PR-${PR}" '.[] | select(.name == $name) | .id'
           done | sort -u | while read -r id; do
-            pr=$(api "${base}/${id}/variables" \
-                 | jq -r '.[] | select(.key=="GITHUB_PR_NUMBER") | .value')
-            if [ "${pr}" = "${PR}" ]; then
-              echo "cancelling pipeline ${id} (PR ${pr})"
-              api -X POST "${base}/${id}/cancel" > /dev/null
-            fi
+            echo "cancelling pipeline ${id} (PR ${PR})"
+            api -X POST "${base}/${id}/cancel" > /dev/null
           done
 
       - name: Trigger GitLab pipeline
@@ -106,6 +95,7 @@ jobs:
             "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/trigger/pipeline" \
             -F "token=${GITLAB_TRIGGER_TOKEN}" \
             -F "ref=main" \
+            -F "name=PR-${{ github.event.issue.number }}" \
             -F "variables[TRIGGER_SOURCE]=github_comment" \
             -F "variables[GITHUB_PR_NUMBER]=${{ github.event.issue.number }}" \
             -F "variables[GITHUB_SHA]=${{ steps.pr-info.outputs.sha }}" \
