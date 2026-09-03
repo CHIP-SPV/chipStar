@@ -75,8 +75,15 @@ THE SOFTWARE.
         #include "spirv_math_fwd.h"
         #include "spirv_hip_vector_types.h"
       #endif
-        namespace std
+        // std::is_floating_point is not a customization point: [namespace.std]
+        // only allows specializing a standard template for a program-defined
+        // type, and libc++ >= 20 marks the trait
+        // [[clang::no_specializations]], which turns the specialization into a
+        // hard error. Use a chipStar-local trait instead (issue #1582).
+        namespace hip_impl
         {
+            template<typename T>
+            struct is_floating_point : std::is_floating_point<T> {};
             template<> struct is_floating_point<_Float16> : std::true_type {};
         }
 
@@ -103,7 +110,7 @@ THE SOFTWARE.
                 __half(decltype(data) x) : data{x} {}
                 template<
                     typename T,
-                    Enable_if_t<std::is_floating_point<T>{}>* = nullptr>
+                    Enable_if_t<hip_impl::is_floating_point<T>{}>* = nullptr>
                 __HOST_DEVICE__
                 __half(T x) : data{static_cast<_Float16>(x)} {}
             #endif
@@ -162,7 +169,7 @@ THE SOFTWARE.
             #if !defined(__HIP_NO_HALF_CONVERSIONS__)
                 template<
                     typename T,
-                    Enable_if_t<std::is_floating_point<T>{}>* = nullptr>
+                    Enable_if_t<hip_impl::is_floating_point<T>{}>* = nullptr>
                 __HOST_DEVICE__
                 __half& operator=(T x)
                 {
@@ -232,7 +239,7 @@ THE SOFTWARE.
             #if !defined(__HIP_NO_HALF_CONVERSIONS__)
                 template<
                     typename T,
-                    Enable_if_t<std::is_floating_point<T>{}>* = nullptr>
+                    Enable_if_t<hip_impl::is_floating_point<T>{}>* = nullptr>
                 __HOST_DEVICE__
                 operator T() const { return data; }
             #endif
