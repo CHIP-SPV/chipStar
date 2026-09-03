@@ -101,4 +101,9 @@ if(LIBCXX_PROBE_RESULT EQUAL 0)
     COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -stdlib=libc++ -c
       -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix1583LongDoubleMath.o
       ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1583LongDoubleMath.cpp)
+  # CHIP-SPV/chipStar#1586, same libc++-only visibility as the above.
+  add_test(NAME "TestFix1586IntegralArgMath"
+    COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -stdlib=libc++ -c
+      -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix1586IntegralArgMath.o
+      ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1586IntegralArgMath.cpp)
 endif()
