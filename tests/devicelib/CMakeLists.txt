@@ -102,3 +102,11 @@ if(LIBCXX_PROBE_RESULT EQUAL 0)
       -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix1583LongDoubleMath.o
       ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1583LongDoubleMath.cpp)
 endif()
+
+# The integer-argument ambiguity of CHIP-SPV/chipStar#1586 is not libc++
+# specific: an unqualified call is ambiguous with any standard library,
+# because both candidates come from devicelib itself.
+add_test(NAME "TestFix1586IntArgMath"
+  COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -c
+    -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix1586IntArgMath.o
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1586IntArgMath.cpp)
