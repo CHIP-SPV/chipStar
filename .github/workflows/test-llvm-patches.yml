@@ -235,6 +235,7 @@ jobs:
           cd build-llvm${{ matrix.build-id }}
           cmake .. -DLLVM_CONFIG_BIN=${LLVM_BIN}/llvm-config -GNinja \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
             -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON
           ninja all install -j$(nproc)
           ninja build_tests install -j$(nproc)
@@ -589,6 +590,7 @@ jobs:
           cd build-23
           /opt/homebrew/bin/cmake .. \
             -DLLVM_CONFIG_BIN=${LLVM_BIN}/llvm-config \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
             -DOpenCL_LIBRARY=/Users/paulius/install/pocl/lib/libpocl.dylib \
             -GNinja -DCMAKE_BUILD_TYPE=Debug
           ninja CHIP
@@ -867,6 +869,7 @@ jobs:
             -DLLVM_CONFIG_BIN=$HOME/install/llvm/23.0/bin/llvm-config \
             -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
             -DCHIP_MALI_GPU_WORKAROUNDS=ON \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
             -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON \
             -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON
           # -j4, not nproc: salami has 3.6 GB RAM and OOMs at higher
