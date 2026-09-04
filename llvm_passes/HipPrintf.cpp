@@ -334,9 +334,9 @@ Function *HipPrintfToOpenCLPrintfPass::getOrCreatePrintStringF() {
   auto *Int32Ty = IntegerType::get(Ctx, 32);
   auto *VoidTy = Type::getVoidTy(Ctx);
   PointerType *GenericCStrArgT =
-      PointerType::get(Int8Ty, SPIRV_OPENCL_GENERIC_AS);
+      PointerType::get(Int8Ty->getContext(), SPIRV_OPENCL_GENERIC_AS);
   PointerType *ConstStrPtrT =
-      PointerType::get(Int8Ty, SPIRV_OPENCL_CONSTANT_AS);
+      PointerType::get(Int8Ty->getContext(), SPIRV_OPENCL_CONSTANT_AS);
 
   FunctionType *PrintStrFTy =
       FunctionType::get(VoidTy, {GenericCStrArgT}, false);
@@ -452,7 +452,7 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
   auto *Int32Ty = IntegerType::get(Ctx, 32);
 
   PointerType *ConstStrPtrT =
-      PointerType::get(Int8Ty, SPIRV_OPENCL_CONSTANT_AS);
+      PointerType::get(Int8Ty->getContext(), SPIRV_OPENCL_CONSTANT_AS);
 
   PointerType *OCLPrintfFmtArgT = ConstStrPtrT;
 
@@ -508,7 +508,8 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
                      << "  Invalid format string or missing arguments?\n");
           Value *ErrorFmt = getOrCreateStrLiteralArg(
               "Error: Invalid printf format string\n", B);
-          CallInst::Create(OpenCLPrintfF, ArrayRef(ErrorFmt), "", &OrigCall);
+          CallInst::Create(OpenCLPrintfF.getFunctionType(), OpenCLPrintfF.getCallee(),
+                           ArrayRef(ErrorFmt), "", OrigCall.getIterator());
           auto *PoisonInt = PoisonValue::get(Type::getInt32Ty(Ctx));
           OrigCall.replaceAllUsesWith(PoisonInt);
           EraseList.insert(&OrigCall);
@@ -590,7 +591,9 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
             if (!toAdd.empty()) {
               Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
               toAdd.clear();
-              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+              CallInst::Create(OpenCLPrintfF.getFunctionType(),
+                           OpenCLPrintfF.getCallee(), Args, "",
+                           OrigCall.getIterator());
               Args.clear();
             }
 
@@ -600,12 +603,14 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
             // _cl_print_str expects a generic address space pointer
             auto *Int8Ty = IntegerType::get(M_->getContext(), 8);
             PointerType *GenericPtrTy =
-                PointerType::get(Int8Ty, SPIRV_OPENCL_GENERIC_AS);
+                PointerType::get(Int8Ty->getContext(), SPIRV_OPENCL_GENERIC_AS);
             Value *GenericPtr =
                 B.CreateAddrSpaceCast(OrigArg, GenericPtrTy, "str.generic");
 
             Args.push_back(GenericPtr);
-            CallInst::Create(getOrCreatePrintStringF(), Args, "", &OrigCall);
+            Function *PrintStrF = getOrCreatePrintStringF();
+            CallInst::Create(PrintStrF->getFunctionType(), PrintStrF, Args, "",
+                             OrigCall.getIterator());
             Args.clear();
             continue;
           }
@@ -621,7 +626,9 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
         if (!toAdd.empty()) {
           Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
           toAdd.clear();
-          CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+          CallInst::Create(OpenCLPrintfF.getFunctionType(),
+                           OpenCLPrintfF.getCallee(), Args, "",
+                           OrigCall.getIterator());
           Args.clear();
         }
 
