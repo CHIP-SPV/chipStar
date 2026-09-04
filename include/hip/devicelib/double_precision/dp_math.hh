@@ -544,6 +544,9 @@ template <class T> struct isSameType<T, T> { static const bool Value = true; };
 template <bool B, class T> struct enableIfType {};
 template <class T> struct enableIfType<true, T> { typedef T Type; };
 template <class T> struct isLongDouble : isSameType<T, long double> {};
+template <class T> struct isIntegral {
+  static const bool Value = __is_integral(T);
+};
 } // namespace chipDevicelibImpl
 
 #define CHIP_DEF_LONG_DOUBLE_FN1(NAME)                                         \
@@ -593,6 +596,39 @@ CHIP_DEF_LONG_DOUBLE_FN2(pow)
 
 #undef CHIP_DEF_LONG_DOUBLE_FN1
 #undef CHIP_DEF_LONG_DOUBLE_FN2
+
+// devicelib declares both an api_half (_Float16) and a double overload of the
+// functions below at global scope. int -> _Float16 and int -> double are
+// floating-integral conversions of the same rank, so neither candidate is
+// better and a device side call with an integer argument, such as sqrt(1), is
+// ambiguous. [c.math.fpret] requires an integer argument to be treated as
+// double, so give such a call an exact match that forwards to the double
+// overload. See CHIP-SPV/chipStar#1586.
+//
+// Only the names that devicelib declares for both api_half and double need
+// this; every other math function has a single floating-point candidate and
+// already resolves.
+#define CHIP_DEF_INTEGRAL_FN1(NAME)                                            \
+  template <class T>                                                           \
+  static inline __device__ typename chipDevicelibImpl::enableIfType<           \
+      chipDevicelibImpl::isIntegral<T>::Value, double>::Type                   \
+  NAME(T x) {                                                                  \
+    return ::NAME(static_cast<double>(x));                                     \
+  }
+
+CHIP_DEF_INTEGRAL_FN1(ceil)
+CHIP_DEF_INTEGRAL_FN1(cos)
+CHIP_DEF_INTEGRAL_FN1(exp)
+CHIP_DEF_INTEGRAL_FN1(floor)
+CHIP_DEF_INTEGRAL_FN1(log)
+CHIP_DEF_INTEGRAL_FN1(log10)
+CHIP_DEF_INTEGRAL_FN1(log2)
+CHIP_DEF_INTEGRAL_FN1(rint)
+CHIP_DEF_INTEGRAL_FN1(sin)
+CHIP_DEF_INTEGRAL_FN1(sqrt)
+CHIP_DEF_INTEGRAL_FN1(trunc)
+
+#undef CHIP_DEF_INTEGRAL_FN1
 
 namespace std {
 // Clang does provide device side std:: functions via HIP include
