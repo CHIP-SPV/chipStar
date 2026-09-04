@@ -82,13 +82,47 @@ static Instruction *createKernelStub(Module &M, StringRef Name,
     IRBuilder<> B(BB);
     return B.CreateRetVoid();
   }
-  // Reuse existing function: insert before its return instruction.
-  BasicBlock &entry = F->getEntryBlock();
-  if (auto *ret = dyn_cast<ReturnInst>(entry.getTerminator()))
-    return ret;
+  // Reuse existing function: insert before its return instruction. Scan the
+  // whole body rather than just the entry block: init shadow kernel bodies are
+  // no longer straight-line code (the grid-stride init loops split them), so
+  // the return does not necessarily live in the entry block.
+  for (BasicBlock &BB : *F)
+    if (auto *Ret = dyn_cast<ReturnInst>(BB.getTerminator()))
+      return Ret;
   // No return found: append one at end.
-  IRBuilder<> B(&entry);
+  IRBuilder<> B(&F->getEntryBlock());
   return B.CreateRetVoid();
+}
+
+/// How a lowered program-scope variable gets its initial value. Mirrors the
+/// tri-state written into CHIPVarInfo[2] (see src/common.hh).
+enum class InitializerKind {
+  /// No initializer at all: nothing initializes the variable.
+  None = 0,
+  /// The init shadow kernel copies/stores the initial value.
+  Kernel = 1,
+  /// A zero initializer big enough that a host-issued device fill beats
+  /// running the init kernel. The init shadow kernel leaves it alone.
+  HostFill = 2,
+};
+
+/// Classify the initializer of an original (not yet lowered) program-scope
+/// variable. Used both for the info shadow kernel's tri-state and for deciding
+/// whether the variable needs any code in the init shadow kernel at all, so
+/// the two can never disagree.
+static InitializerKind classifyInitializer(const GlobalVariable *GVar,
+                                           const DataLayout &DL) {
+  if (!GVar->hasInitializer())
+    return InitializerKind::None;
+  if (!GVar->getInitializer()->isNullValue())
+    return InitializerKind::Kernel;
+  // A zero initializer never bloats the SPIR-V module (a zeroinitializer of
+  // any size encodes as a single OpConstantNull), so the only cost of leaving
+  // it in the kernel is the store bandwidth. Hand the large ones to the
+  // runtime, which can DMA them.
+  return DL.getTypeStoreSize(GVar->getValueType()) >= ChipVarFillThreshold
+             ? InitializerKind::HostFill
+             : InitializerKind::Kernel;
 }
 
 // Emit a shadow kernel for relaying properties about the original variable.
@@ -104,7 +138,7 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
   //   void <ChipVarInfoPrefix>Foo(int64_t *info) {
   //     info[0] = sizeof(Foo);      // In bytes.
   //     info[1] = alignof(Foo);     // In bytes.
-  //     info[2] = <HasInitializer>; // [0, 1].
+  //     info[2] = <InitializerKind>; // [0, 2], see src/common.hh.
   //   }
   //
   // *1: Emitted by emitIndirectGlobalVariable().
@@ -130,9 +164,11 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
       Builder.CreateConstInBoundsGEP1_64(Builder.getInt64Ty(), InfoArg, 1);
   Builder.CreateStore(Builder.getInt64(Alignment), Ptr);
 
-  // info[2] = <HasInitializer>;
+  // info[2] = <InitializerKind>;
   Ptr = Builder.CreateConstInBoundsGEP1_64(Builder.getInt64Ty(), InfoArg, 2);
-  Builder.CreateStore(Builder.getInt64(GVar->hasInitializer()), Ptr);
+  Builder.CreateStore(
+      Builder.getInt64(static_cast<int64_t>(classifyInitializer(GVar, DL))),
+      Ptr);
 }
 
 // Emit a shadow kernel for setting the transformed global variable to point to
@@ -165,6 +201,189 @@ static void emitGlobalVarBindShadowKernel(Module &M, GlobalVariable *GVar,
   Value *AddrAsInt = Builder.CreatePtrToInt(BindArg,
                                             Type::getInt64Ty(M.getContext()));
   Builder.CreateStore(AddrAsInt, GVar);
+}
+
+// ===========================================================================
+// Parallel (grid-stride) initialization of program-scope variables. See #582.
+//
+// The init shadow kernel bodies used to be a single-work-item llvm.memcpy per
+// variable, which is fine for scalars but catastrophic for arrays: measured on
+// an Intel Arc B570, a 1 MiB variable took 32.8 ms with one work item versus
+// 18 us with a grid-stride loop. The loop below is correct at ANY launch
+// geometry (including the 1x1 default), it just needs work items to go fast.
+// ===========================================================================
+
+/// The work-item ids driving the grid-stride loops of one shadow kernel. The
+/// calls are emitted ONCE, in the kernel's entry block, and reused by every
+/// variable initialized in that kernel: no CSE pass runs after this one, so
+/// per-variable duplicates would survive all the way into the SPIR-V.
+struct WorkItemIds {
+  Value *Gid = nullptr; // get_global_id(0)
+  Value *Gsz = nullptr; // get_global_size(0)
+  /// False when the work-item builtins could not be declared, in which case
+  /// callers must fall back to the old single-work-item lowering.
+  bool isValid() const { return Gid && Gsz; }
+};
+
+/// Declare (or reuse) an OpenCL work-item builtin with the signature
+/// i64(i32). Returns null if the name is already taken by something that is
+/// not a matching function, in which case the caller must not emit calls.
+static Function *getWorkItemBuiltin(Module &M, StringRef MangledName) {
+  LLVMContext &C = M.getContext();
+  auto *FTy = FunctionType::get(Type::getInt64Ty(C), {Type::getInt32Ty(C)},
+                                /*isVarArg=*/false);
+  // Whether *we* are introducing this declaration matters: the module may
+  // already declare the builtin (device library, user code that calls the
+  // OpenCL builtins directly, ...) and adorning a pre-existing declaration
+  // with our attributes would silently change code generation for every
+  // kernel that already calls it.
+  bool IsNew = M.getFunction(MangledName) == nullptr;
+
+  FunctionCallee FC = M.getOrInsertFunction(MangledName, FTy);
+  // getOrInsertFunction hands back a bitcast constant, not a Function, when
+  // the name exists with a different signature. Bail out instead of crashing
+  // the compiler; the caller falls back to the memcpy lowering.
+  auto *F = dyn_cast<Function>(FC.getCallee());
+  if (!F)
+    return nullptr;
+
+  if (IsNew) {
+    F->setCallingConv(CallingConv::SPIR_FUNC);
+    F->addFnAttr(Attribute::Convergent);
+    F->addFnAttr(Attribute::NoUnwind);
+    F->addFnAttr(Attribute::WillReturn);
+    F->setMemoryEffects(MemoryEffects::none());
+  }
+  return F;
+}
+
+static CallInst *emitWorkItemCall(IRBuilder<> &B, Function *F, unsigned Dim,
+                                  const Twine &Name) {
+  CallInst *CI = B.CreateCall(F, {B.getInt32(Dim)}, Name);
+  // Match whatever the callee uses. For a declaration we introduced that is
+  // SPIR_FUNC; for a pre-existing one it is whatever the module already had,
+  // and mismatching the two would be miscompiled.
+  CI->setCallingConv(F->getCallingConv());
+  return CI;
+}
+
+/// Emit get_global_id(0)/get_global_size(0) at Builder's insertion point,
+/// which must be the entry block of a shadow kernel so the values dominate
+/// every grid-stride loop emitted afterwards.
+static WorkItemIds emitWorkItemIds(Module &M, IRBuilder<> &Builder) {
+  WorkItemIds Ids;
+  Function *GidF = getWorkItemBuiltin(M, "_Z13get_global_idj");
+  Function *GszF = getWorkItemBuiltin(M, "_Z15get_global_sizej");
+  if (!GidF || !GszF)
+    return Ids; // Invalid: caller falls back to the memcpy lowering.
+  Ids.Gid = emitWorkItemCall(Builder, GidF, 0, "gvinit.gid");
+  Ids.Gsz = emitWorkItemCall(Builder, GszF, 0, "gvinit.gsz");
+  return Ids;
+}
+
+/// Pick the widest element type that Size and the pointer alignments allow.
+/// Copying byte-wise wastes most of the available bandwidth (measured on a
+/// 4 MiB variable: 49-58 ms byte-wise versus 35-38 ms with i64 elements), and
+/// a byte element type is what we would get for any char-typed initializer.
+static Type *pickInitElementType(LLVMContext &C, uint64_t Size, uint64_t Align,
+                                 uint64_t &ElemSize) {
+  if (Size % 8 == 0 && Align >= 8) {
+    ElemSize = 8;
+    return Type::getInt64Ty(C);
+  }
+  if (Size % 4 == 0 && Align >= 4) {
+    ElemSize = 4;
+    return Type::getInt32Ty(C);
+  }
+  ElemSize = 1;
+  return Type::getInt8Ty(C);
+}
+
+/// Open an `if (get_global_id(0) == 0) { ... }` region at Builder's insertion
+/// point, for initialization code that is NOT a grid-stride loop and therefore
+/// must run exactly once. Without this every work item of the init launch would
+/// execute the same store to the same address: harmless in practice, but a data
+/// race under the SPIR-V memory model, and needlessly redundant work.
+///
+/// Leaves Builder positioned inside the guarded block. The caller must close
+/// the region with endSingleWorkItemGuard() and the returned continuation
+/// block.
+static BasicBlock *beginSingleWorkItemGuard(Module &M, IRBuilder<> &Builder,
+                                            const WorkItemIds &Ids) {
+  assert(Ids.isValid() && "Caller must check for the work-item builtins.");
+  Function *F = Builder.GetInsertBlock()->getParent();
+  BasicBlock *Pre = Builder.GetInsertBlock();
+  Instruction *SplitAt = &*Builder.GetInsertPoint();
+  BasicBlock *Cont = Pre->splitBasicBlock(SplitAt, "gvinit.once.cont");
+  Pre->getTerminator()->eraseFromParent(); // The branch splitBasicBlock added.
+
+  BasicBlock *Once = BasicBlock::Create(M.getContext(), "gvinit.once", F, Cont);
+  IRBuilder<> B(Pre);
+  B.CreateCondBr(B.CreateICmpEQ(Ids.Gid, B.getInt64(0)), Once, Cont);
+
+  Builder.SetInsertPoint(Once);
+  return Cont;
+}
+
+/// Close a region opened by beginSingleWorkItemGuard(), leaving Builder at the
+/// continuation block so further initialization code can be chained after it.
+static void endSingleWorkItemGuard(IRBuilder<> &Builder, BasicBlock *Cont) {
+  Builder.CreateBr(Cont);
+  Builder.SetInsertPoint(Cont, Cont->getFirstInsertionPt());
+}
+
+/// Emit a grid-stride initialization loop at Builder's insertion point:
+///
+///   for (i = get_global_id(0); i < N; i += get_global_size(0))
+///     Dst[i] = Src ? Src[i] : 0;
+///
+/// Src == nullptr requests a zero fill (no initializer blob is read).
+/// SrcAlign is ignored in that case. Builder is left positioned after the
+/// loop so several of these can be chained in one kernel.
+static void emitGridStrideInitLoop(Module &M, IRBuilder<> &Builder,
+                                   const WorkItemIds &Ids, Value *Dst,
+                                   Value *Src, uint64_t Size, uint64_t DstAlign,
+                                   uint64_t SrcAlign) {
+  assert(Ids.isValid() && "Caller must check for the work-item builtins.");
+  LLVMContext &C = M.getContext();
+  Function *F = Builder.GetInsertBlock()->getParent();
+
+  uint64_t ElemSize = 1;
+  Type *ElemTy = pickInitElementType(
+      C, Size, Src ? std::min(DstAlign, SrcAlign) : DstAlign, ElemSize);
+  uint64_t NumElems = Size / ElemSize;
+
+  // Split the current block in two and put the loop in between.
+  BasicBlock *Pre = Builder.GetInsertBlock();
+  Instruction *SplitAt = &*Builder.GetInsertPoint();
+  BasicBlock *Cont = Pre->splitBasicBlock(SplitAt, "gvinit.cont");
+  Pre->getTerminator()->eraseFromParent(); // The branch splitBasicBlock added.
+
+  BasicBlock *Check = BasicBlock::Create(C, "gvinit.check", F, Cont);
+  BasicBlock *Body = BasicBlock::Create(C, "gvinit.body", F, Cont);
+
+  IRBuilder<> B(Pre);
+  B.CreateBr(Check);
+
+  B.SetInsertPoint(Check);
+  PHINode *Idx = B.CreatePHI(B.getInt64Ty(), 2, "gvinit.i");
+  Idx->addIncoming(Ids.Gid, Pre);
+  B.CreateCondBr(B.CreateICmpULT(Idx, B.getInt64(NumElems)), Body, Cont);
+
+  B.SetInsertPoint(Body);
+  Value *StoreVal;
+  if (Src) {
+    Value *SrcPtr = B.CreateGEP(ElemTy, Src, Idx);
+    StoreVal = B.CreateAlignedLoad(ElemTy, SrcPtr, Align(ElemSize));
+  } else {
+    StoreVal = Constant::getNullValue(ElemTy);
+  }
+  Value *DstPtr = B.CreateGEP(ElemTy, Dst, Idx);
+  B.CreateAlignedStore(StoreVal, DstPtr, Align(ElemSize));
+  Idx->addIncoming(B.CreateAdd(Idx, Ids.Gsz, "gvinit.next"), Body);
+  B.CreateBr(Check);
+
+  Builder.SetInsertPoint(Cont, Cont->getFirstInsertionPt());
 }
 
 // Returns a constant expression rewritten as instructions if needed.
@@ -217,8 +436,8 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
 }
 
 /// Create initializer value for emitGlobalVarInitShadowKernel that can be
-/// used as source (a pointer) for memcpy.
-static Value *createCopyableValue(Module &M, Constant *Initializer) {
+/// used as the source (a pointer) of the initializing copy.
+static GlobalVariable *createCopyableValue(Module &M, Constant *Initializer) {
   // Name does not really matter but having <ChipVarPrefix> prefix in it we can
   // distinguish chipStar emitted values from source code originated ones and
   // handle them correctly.
@@ -227,6 +446,15 @@ static Value *createCopyableValue(Module &M, Constant *Initializer) {
       M, Initializer->getType(), /* IsConstant = */ true,
       GlobalValue::PrivateLinkage, Initializer, Name, nullptr,
       GlobalValue::NotThreadLocal, SpirvUniformConstantAS);
+  // Give the blob an explicit alignment. Without one it would inherit the ABI
+  // alignment of its type, which is 1 for anything char-typed, and that would
+  // force the copy loop onto the byte-at-a-time path no matter how big the
+  // variable is. Never over-align past what the size can use.
+  const auto &DL = M.getDataLayout();
+  uint64_t Size = DL.getTypeStoreSize(Initializer->getType());
+  uint64_t Wanted = Size % 8 == 0 ? 8 : (Size % 4 == 0 ? 4 : 1);
+  InitValue->setAlignment(
+      std::max(DL.getABITypeAlign(Initializer->getType()), Align(Wanted)));
   return InitValue;
 }
 
@@ -258,17 +486,21 @@ static bool hasNoRuntimeConstants(Constant *C, const GVarMapT &GVarMap) {
 // Emit the initialization IR for a single global variable at the Builder's
 // current insertion point (inside a shadow kernel body). See #582: this body
 // is shared by the per-variable init shadow kernel and the single combined
-// init kernel.
+// init kernel. `Ids` are the kernel's work-item ids, emitted once by the
+// caller; if they are invalid the old single-work-item lowering is used.
 static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
-                                  GlobalVariable *GVar,
+                                  const WorkItemIds &Ids, GlobalVariable *GVar,
                                   GlobalVariable *OriginalGVar,
                                   GVarMapT &GVarMap) {
   // For original global variable in pseudo code:
   //
   //   SomeType Foo = SomeInit;
   //
-  // A) Emit:
-  //     memcpy(<ChipVarPrefix>Foo, &Foo, sizeof(SomeType));
+  // A) Emit a grid-stride copy from a private constant blob holding SomeInit:
+  //     for (i = gid; i < sizeof(SomeType)/sizeof(elem); i += gsize)
+  //       ((elem *)<ChipVarPrefix>Foo)[i] = ((elem *)&Foo)[i];
+  //    or, when SomeInit is all zeros, the same loop storing zeros and reading
+  //    nothing (no initializer blob is emitted for it).
   //
   // B) Emit (fallback for initializers referencing other lowered variables
   //    whose addresses are resolved at runtime):
@@ -290,11 +522,35 @@ static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
     Value *AddrInt = Builder.CreateLoad(GVar->getValueType(), GVar);
     Value *Ptr = Builder.CreateIntToPtr(AddrInt, PtrAS);
 
-    auto *InitSrc = createCopyableValue(M, OriginalGVar->getInitializer());
     auto Alignment = OriginalGVar->getAlign();
     auto Size =
         M.getDataLayout().getTypeStoreSize(OriginalGVar->getValueType());
-    Builder.CreateMemCpy(Ptr, Alignment, InitSrc, MaybeAlign(1), Size);
+
+    // A zero initializer is stored, not copied: emitting a blob of zeros just
+    // to read it back wastes half the memory traffic. (Large zero-initialized
+    // variables never get here at all - the runtime fills those, see
+    // classifyInitializer().)
+    if (Ids.isValid() && OriginalGVar->getInitializer()->isNullValue()) {
+      emitGridStrideInitLoop(M, Builder, Ids, Ptr, /*Src=*/nullptr, Size,
+                             Alignment.valueOrOne().value(), /*SrcAlign=*/0);
+      return;
+    }
+
+    auto *InitSrc = createCopyableValue(M, OriginalGVar->getInitializer());
+    if (Ids.isValid()) {
+      emitGridStrideInitLoop(M, Builder, Ids, Ptr, InitSrc, Size,
+                             Alignment.valueOrOne().value(),
+                             InitSrc->getAlign().valueOrOne().value());
+      return;
+    }
+    // Fallback for the (unexpected) case where the work-item builtins could
+    // not be declared: the pre-#582 single-work-item copy. This cannot be
+    // wrapped in a single-work-item guard, because the guard needs the very
+    // builtin that is missing. Every work item of the launch therefore repeats
+    // the same copy: correct (identical bytes to the same address), but
+    // redundant. Reaching this requires the module to already declare
+    // _Z13get_global_idj with a conflicting signature.
+    Builder.CreateMemCpy(Ptr, Alignment, InitSrc, InitSrc->getAlign(), Size);
     return;
   }
 
@@ -304,6 +560,13 @@ static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
   // variables we are going to replace with load instructions so we need to
   // rewrite the constant expression as a sequence of instructions.
   LLVM_DEBUG(dbgs() << "May have runtime constants: " << *OriginalGVar << "\n");
+
+  // Unlike A), this is a single scalar store rather than a partitioned loop, so
+  // it must be executed by exactly one work item.
+  BasicBlock *GuardCont = nullptr;
+  if (Ids.isValid())
+    GuardCont = beginSingleWorkItemGuard(M, Builder, Ids);
+
   Const2InstMapT Cache;
   Value *Init =
       expandConstant(OriginalGVar->getInitializer(), GVarMap, Builder, Cache);
@@ -314,6 +577,9 @@ static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
 
   // *<ChipVarPrefix>Foo = SomeInit;
   Builder.CreateStore(Init, Ptr);
+
+  if (GuardCont)
+    endSingleWorkItemGuard(Builder, GuardCont);
 }
 
 // Emit a per-variable shadow kernel for initializing the global variable.
@@ -324,15 +590,22 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
                                           GVarMapT GVarMap) {
   auto Name = std::string(ChipVarInitPrefix) + OriginalGVar->getName().str();
   IRBuilder<> Builder(createKernelStub(M, Name, {}));
-  emitGlobalVarInitBody(M, Builder, GVar, OriginalGVar, GVarMap);
+  // Emit the work-item ids in the entry block, before any loop splits it.
+  WorkItemIds Ids = emitWorkItemIds(M, Builder);
+  emitGlobalVarInitBody(M, Builder, Ids, GVar, OriginalGVar, GVarMap);
 }
 
 // Emit a single combined shadow kernel that initializes ALL host-accessible
 // program-scope variables in one kernel launch. This avoids the O(N) launch
 // overhead of launching one single-work-item init kernel per variable (#582).
 // The InitVars are (lowered-i64-GVar, original-GVar) pairs; the caller has
-// already filtered out variables without initializers and the special
-// device-heap-null case. Returns true if a kernel was emitted.
+// already filtered out variables without initializers, the ones the runtime
+// fills itself and the special device-heap-null case. Returns true if a kernel
+// was emitted.
+//
+// No kernel is emitted when nothing needs kernel initialization: an empty
+// kernel would only cost a pointless launch. The runtime must therefore cope
+// with __chip_var_init_all being absent.
 static bool emitCombinedGlobalVarInitKernel(
     Module &M,
     ArrayRef<std::pair<GlobalVariable *, GlobalVariable *>> InitVars,
@@ -340,8 +613,12 @@ static bool emitCombinedGlobalVarInitKernel(
   if (InitVars.empty())
     return false;
   IRBuilder<> Builder(createKernelStub(M, ChipVarInitAllName, {}));
+  // The work-item ids are emitted ONCE, here in the entry block, and shared by
+  // every variable's loop. Emitting them per variable would leave hundreds of
+  // duplicate calls in the SPIR-V: no CSE pass runs after this one.
+  WorkItemIds Ids = emitWorkItemIds(M, Builder);
   for (auto &Pair : InitVars)
-    emitGlobalVarInitBody(M, Builder, Pair.first, Pair.second, GVarMap);
+    emitGlobalVarInitBody(M, Builder, Ids, Pair.first, Pair.second, GVarMap);
   return true;
 }
 
@@ -767,6 +1044,7 @@ static bool lowerGlobalVariables(Module &M) {
     // Collect (lowered-i64-GVar, original-GVar) pairs that need initialization,
     // in a deterministic order, for the combined init kernel (#582).
     std::vector<std::pair<GlobalVariable *, GlobalVariable *>> InitVars;
+    const auto &DL = M.getDataLayout();
     for (auto Kv : GVarMap) {
       emitGlobalVarInfoShadowKernel(M, Kv.first);
       emitGlobalVarBindShadowKernel(M, Kv.second, Kv.first);
@@ -776,7 +1054,14 @@ static bool lowerGlobalVariables(Module &M) {
         bool IsDeviceHeapNull =
             Kv.first->getName() == ChipDeviceHeapName &&
             Kv.first->getInitializer()->isNullValue();
-        if (!IsDeviceHeapNull)
+        // Large zero-initialized variables get no kernel code at all: the
+        // runtime sees InitializerKind::HostFill in the info kernel's output
+        // and fills them with a device-side memset, which beats storing the
+        // zeros from a kernel. Both decisions come from classifyInitializer()
+        // so they cannot drift apart.
+        bool IsHostFilled = classifyInitializer(Kv.first, DL) ==
+                            InitializerKind::HostFill;
+        if (!IsDeviceHeapNull && !IsHostFilled)
           InitVars.push_back(std::make_pair(Kv.second, Kv.first));
       }
     }
