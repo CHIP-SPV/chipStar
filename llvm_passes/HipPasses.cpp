@@ -29,7 +29,8 @@
 #include "HipLowerZeroLengthArrays.h"
 #include "HipSanityChecks.h"
 #include "HipLowerSwitch.h"
-#include "HipLowerMemset.h"
+#include "HipLowerMemIntrinsics.h"
+#include "HipLowerHintIntrinsics.h"
 #include "HipLowerFPAtomicMinMax.h"
 #include "HipLowerRoundIntrinsics.h"
 #include "HipLowerSubwordAtomics.h"
@@ -196,7 +197,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   //  failed.
   addPassWithVerification(MPM, HipPrintfToOpenCLPrintfPass(), "HipPrintfToOpenCLPrintfPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipDefrostPass()), "HipDefrostPass");
-  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemsetPass()), "HipLowerMemsetPass");
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemIntrinsicsPass()), "HipLowerMemIntrinsicsPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerFPAtomicMinMaxPass()), "HipLowerFPAtomicMinMaxPass");
   // OpenCL SPIR-V consumers implement 32 and 64 bit atomics only; rewrite 8
   // and 16 bit ones onto their containing word. Runs after the fmin / fmax
@@ -205,6 +206,19 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // still narrowed to the global or local address space.
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerSubwordAtomicsPass()), "HipLowerSubwordAtomicsPass");
   addPassWithVerification(MPM, HipLowerRoundIntrinsicsPass(), "HipLowerRoundIntrinsicsPass");
+
+  // Erase or constant fold the intrinsics that clang emits for ordinary
+  // __builtin_* calls and that a SPIR-V device cannot express: llvm.prefetch,
+  // llvm.readcyclecounter, llvm.readsteadycounter, llvm.get.rounding,
+  // llvm.allow.runtime.check, llvm.returnaddress, llvm.frameaddress and
+  // llvm.objectsize. Left in place, they abort the translator lane with
+  // "InvalidFunctionCall: Unexpected llvm intrinsic" and the backend lane with
+  // "unable to legalize instruction", taking down every kernel in the module.
+  // Runs before the DCE below so the address computations that fed an erased
+  // llvm.prefetch go away with it. See HipLowerHintIntrinsics.cpp for the
+  // LangRef text that authorises each rewrite.
+  addPassWithVerification(MPM, HipLowerHintIntrinsicsPass(),
+                          "HipLowerHintIntrinsicsPass");
   addPassWithVerification(MPM, HipAbortPass(), "HipAbortPass");
   // This pass must appear after HipDynMemExternReplaceNewPass.
   addPassWithVerification(MPM, HipGlobalVariablesPass(), "HipGlobalVariablesPass");
@@ -307,6 +321,12 @@ llvmGetPassPluginInfo() {
                   // as standalone, which makes it directly testable with opt.
                   if (Name == "hip-function-pointer-as") {
                     MPM.addPass(HipFunctionPointerASPass());
+                    return true;
+                  }
+                  // Register the hint intrinsic lowering as standalone,
+                  // which makes it directly testable with opt.
+                  if (Name == "hip-lower-hint-intrinsics") {
+                    MPM.addPass(HipLowerHintIntrinsicsPass());
                     return true;
                   }
                   // Register SPIR-V function reorder pass as standalone
