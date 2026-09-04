@@ -174,6 +174,10 @@ add_shell_test(TestPrintfStaticString.bash)
 # fails. This skips when the in-tree SPIR-V backend is used
 # (LLVM_SPIRV=NOT_NEEDED), since the patch targets the external translator.
 add_shell_test(TestSpirvDuplicatePhiHip.bash)
+add_shell_test(TestFix1577PointerVectors.bash)
+# Fails the day upstream stops rejecting <N x ptr>, which is the signal to
+# delete the hip-lower-pointer-vectors pass. Read its header before acting.
+add_shell_test(CanaryPointerVectorsRejected.bash)
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
