@@ -71,7 +71,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           ./install_chipstar.py -c chipstar --with-tests --no-install -j 8 \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON"
+            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON"
 
       - name: Test native, igpu opencl
         shell: bash
@@ -125,7 +125,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           ./install_chipstar.py -c chipstar --with-tests --no-install -j 8 \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF"
+            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON"
 
       - name: Test translator, igpu opencl
         shell: bash

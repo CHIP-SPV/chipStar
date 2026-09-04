@@ -76,6 +76,7 @@ jobs:
           set -e
           ./install_chipstar.py -c chipstar --with-tests -j $(sysctl -n hw.ncpu) \
             --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
+                           -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
                            -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON \
                            -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib \
                            -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/install-native"
@@ -122,6 +123,7 @@ jobs:
           set -e
           ./install_chipstar.py -c chipstar --with-tests --no-install -j $(sysctl -n hw.ncpu) \
             --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
+                           -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
                            -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON \
                            -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib"
 

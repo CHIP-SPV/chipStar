@@ -271,7 +271,7 @@ jobs:
         if: matrix.backend == 'intel'
       - run: mkdir -p build
       - name: CMake
-        run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOME/opt/SPIRV-Tools/v2023.2 -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON
+        run: ${{ env.OPENCL_ENV }} cmake .. -DLLVM_CONFIG_BIN=$HOME/opt/llvm/${{ matrix.llvm-version }}/bin/llvm-config -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOME/opt/SPIRV-Tools/v2023.2 -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON
         working-directory: build
       - name: Build
         run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4
