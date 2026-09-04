@@ -1,4 +1,23 @@
 #include "spirv-extractor.hh"
+#include <sys/wait.h>
+
+// Run the wrapped test and return an exit status ctest can act on.
+// system() returns a wait status; returning it from main() truncates it to
+// the low 8 bits, so a test exiting 1 (status 256) came back as 0 and passed.
+static int runWrapped(const std::string &fatbinaryPath,
+                      const std::vector<std::string> &additionalArgs) {
+  std::string command = fatbinaryPath;
+  for (const auto &arg : additionalArgs)
+    command += " " + arg;
+  int status = system(command.c_str());
+  if (status == -1)
+    return 127;
+  if (WIFEXITED(status))
+    return WEXITSTATUS(status);
+  if (WIFSIGNALED(status))
+    return 128 + WTERMSIG(status);
+  return 1;
+}
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
@@ -97,10 +116,7 @@ int main(int argc, char *argv[]) {
   if (spirvBinary.empty()) {
     if (checkForDoubles) {
       // Can't extract SPIR-V (e.g. hipRTC test) — run the binary anyway.
-      std::string command = fatbinaryPath;
-      for (const auto &arg : additionalArgs)
-        command += " " + arg;
-      return system(command.c_str());
+      return runWrapped(fatbinaryPath, additionalArgs);
     }
     std::cerr << "Failed to extract SPIR-V binary from the fatbinary: "
               << errorMsg << std::endl;
@@ -164,14 +180,8 @@ int main(int argc, char *argv[]) {
   if (checkForDoubles) {
     if (hasDoubles)
       std::cout << "HIP_SKIP_THIS_TEST: Kernel uses doubles" << std::endl;
-    else {
-      // Execute the binary with additional arguments
-      std::string command = fatbinaryPath;
-      for (const auto &arg : additionalArgs) {
-        command += " " + arg;
-      }
-      exitCode = system(command.c_str());
-    }
+    else
+      exitCode = runWrapped(fatbinaryPath, additionalArgs);
     return exitCode;
   }
 

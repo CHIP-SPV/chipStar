@@ -71,6 +71,7 @@ jobs:
             -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++" \
             -DLLVM_CONFIG_BIN="$LLVM_PREFIX/bin/llvm-config" \
             -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
             -DCMAKE_INSTALL_PREFIX=build/install
 
       - name: Build chipStar runtime + hipInfo

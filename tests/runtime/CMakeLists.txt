@@ -73,6 +73,9 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
+  TestFixVolatileLoadLowering.hip # compiled by TestFixVolatileLoadLoweringSPIRV.bash, not a test
+  TestFix1592ExtractorExitStatus.hip # compiled by TestFix1592ExtractorExitStatus.bash, not a test
+  TestFixKokkosUnorderedMapInsert.hip # reference idiom only, see the comment below
   TestModuleCacheInvalidation.hip # run several times through a driver script
   TestStreamWaitEventOrdering.cpp # not registered as a test
   TestTemplateKernelModules.hip   # multi-TU, linked from hand-built objects
@@ -128,6 +131,34 @@ endif()
 # as a C string). Runs TestKernelArgs and inspects its stderr; only meaningful
 # for the build log path on the Level Zero backend.
 add_shell_test(TestFixZeBuildLogNul.bash)
+
+# The two volatile reproducers above are deliberately not registered as ctests:
+# both PASS on a chipStar built without HipLowerVolatileAccessesPass, so neither
+# can gate a regression. TestFixVolatileLoadLowering only checks that the
+# accesses still compute the right values and is the compile input for the
+# SPIR-V check below. TestFixKokkosUnorderedMapInsert is the real Kokkos insert
+# idiom and is kept for reference, but it is a race: measured pre-fix it failed
+# 1 of 3 runs on PVC and 0 of 3 on a B570 and a UHD 770.
+# TestFix1508VolatileGlobalStaleness replaces them as the gate. It removes the
+# race by priming the reader's cache before the writer runs, and pre-fix it
+# fails 35840 of 35840 readers on both PVC and B570 while passing on parts whose
+# global loads are already coherent. It is picked up by the Test*.hip glob.
+
+# Volatile global accesses must reach the SPIR-V producer marked !nontemporal,
+# which becomes the Nontemporal memory operand (Kokkos::volatile_load on PVC
+# reads stale L1 data otherwise). Inspects the lowered device bitcode of
+# TestFixVolatileLoadLowering.hip, and the SPIR-V module when spirv-dis exists.
+add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
+
+# The SPIR-V check above proves what chipStar emits; this one proves what the
+# consumer generates from it. IGC discarded the Nontemporal operand when it
+# widened adjacent stores, so an A380 ran unfixed code while every SPIR-V level
+# check passed. Uses ocloc, which is an offline compiler and needs no GPU.
+add_shell_test(TestFixVolatileLoadLoweringISA.bash)
+
+# spirv-extractor --check-for-doubles wraps every test when
+# CHIP_SKIP_TESTS_WITH_DOUBLES=ON; it must propagate the wrapped exit status.
+add_shell_test(TestFix1592ExtractorExitStatus.bash)
 
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES

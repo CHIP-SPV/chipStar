@@ -122,6 +122,7 @@ add_library(LLVMHipPasses MODULE
     HipLowerRoundIntrinsics.cpp
     HipLowerSubwordAtomics.cpp
     HipLowerSwitch.cpp
+    HipLowerVolatileAccesses.cpp
     HipLowerZeroLengthArrays.cpp
     HipPasses.cpp
     HipPrintf.cpp
@@ -208,3 +209,9 @@ install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics LLVMHipDefrost LLVMHipP
         ARCHIVE DESTINATION lib/llvm
         )
 target_compile_definitions(LLVMHipPasses PRIVATE CHIP_COMBINED_PASS_PLUGIN)
+
+# Selects the volatile access lowering baked into the pass. See the header of
+# HipLowerVolatileAccesses.cpp for why the default is cache controls.
+if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
+  target_compile_definitions(LLVMHipPasses PRIVATE CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
+endif()

@@ -33,6 +33,7 @@
 #include "HipLowerFPAtomicMinMax.h"
 #include "HipLowerRoundIntrinsics.h"
 #include "HipLowerSubwordAtomics.h"
+#include "HipLowerVolatileAccesses.h"
 #include "HipIGBADetector.h"
 #include "HipFunctionPointerAS.h"
 #include "HipPromoteInts.h"
@@ -233,6 +234,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   addPassWithVerification(MPM, HipIGBADetectorPass(), "HipIGBADetectorPass");
 
+  // A volatile global access carries CUDA's ld.volatile / st.volatile meaning
+  // (an access that bypasses the core's cache) and SPIR-V's Volatile memory
+  // operand does not, so rewrite them into relaxed device-scope atomics, which
+  // the SPIR-V producers emit as OpAtomicLoad / OpAtomicStore.
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerVolatileAccessesPass()), "HipLowerVolatileAccessesPass");
+
   // Fix InvalidBitWidth errors due to non-standard integer types
   addPassWithVerification(MPM, HipPromoteIntsPass(), "HipPromoteIntsPass");
 
@@ -301,6 +308,13 @@ llvmGetPassPluginInfo() {
                   if (Name == "hip-lower-subword-atomics") {
                     MPM.addPass(createModuleToFunctionPassAdaptor(
                         HipLowerSubwordAtomicsPass()));
+                    return true;
+                  }
+                  // Register the volatile access lowering as standalone,
+                  // which makes it directly testable with opt.
+                  if (Name == "hip-lower-volatile-accesses") {
+                    MPM.addPass(createModuleToFunctionPassAdaptor(
+                        HipLowerVolatileAccessesPass()));
                     return true;
                   }
                   // Register the vtable function pointer address space pass

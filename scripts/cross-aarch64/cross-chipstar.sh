@@ -66,6 +66,7 @@ cmake -S "$SRC" -B "$NATIVE" -G Ninja \
   -DLLVM_CONFIG_BIN="$X86_LLVM/bin/llvm-config" \
   -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
   -DHIPCC_VERIFY=OFF -DCHIP_BUILD_SAMPLES=OFF -DCHIP_BUILD_TESTS=OFF \
+  -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
   -DOpenCL_LIBRARY="$WORK_DIR/x86-stub/libOpenCL.so" \
   -DOpenCL_INCLUDE_DIR="$SRC/include" \
   -DCMAKE_PREFIX_PATH=/opt/spirv-tools-aarch64
@@ -100,6 +101,7 @@ cmake -S "$SRC" -B "$CROSS" -G Ninja \
   -DLLVM_CONFIG_BIN="$WORK_DIR/x-llvm-config/llvm-config" \
   -DCHIP_LLVM_USE_INTERGRATED_SPIRV="${INTEGRATED_SPIRV:-ON}" \
   -DCHIP_MALI_GPU_WORKAROUNDS=ON \
+  -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
   -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON \
   -DHIPCC_VERIFY=OFF \
   -DOpenCL_LIBRARY="$WORK_DIR/mali-stub/libOpenCL.so" \
@@ -132,6 +134,11 @@ cat > "$CROSS/bin/hipcc" <<WRAP
 exec "$CROSS/bin/hipcc.real" "\$@" $HIPCC_LINK_FLAGS_APPEND
 WRAP
 chmod +x "$CROSS/bin/hipcc"
+# The plugin that compiles every test is this x86 one, so the build-time
+# lowering choice must be made in the NATIVE configure above; the flag on the
+# cross configure only affects the aarch64 plugin that is overwritten here.
+# Getting this wrong shipped SPV_INTEL_cache_controls modules to Mali, which
+# rejects the OpExtension at clCreateProgramWithIL with CL_INVALID_VALUE.
 cp -f "$NATIVE/lib/libLLVMHipSpvPasses.so" "$CROSS/lib/libLLVMHipSpvPasses.so"
 ninja -C "$CROSS" -j"$JOBS" all
 ninja -C "$CROSS" -j"$JOBS" build_tests
