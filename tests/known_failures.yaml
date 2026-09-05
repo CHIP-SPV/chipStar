@@ -931,3 +931,15 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
+pastrami: # macOS on Apple silicon, PoCL 7.2
+  ALL:
+  LEVEL0_GPU:
+  OPENCL_CPU:
+  OPENCL_GPU:
+  OPENCL_POCL:
+    # Both variants segfault inside PoCL's pocl_svm_memcpy_common on a plain
+    # hipMemcpy, roughly one process in sixty, so a full suite run reddens the
+    # lane far more often than that. Tracked as CHIP-SPV/chipStar#1594; delete
+    # these two entries when the PoCL side is fixed.
+    'Unit_Device_Complex_hipCfma_Device_Sanity_Positive - hipFloatComplex_ComplexTest': 'SEGFAULT in PoCL pocl_svm_memcpy_common, null dereference reached from hipMemcpy (#1594)'
+    'Unit_Device_Complex_hipCfma_Device_Sanity_Positive - hipDoubleComplex_ComplexTest': 'SEGFAULT in PoCL pocl_svm_memcpy_common, null dereference reached from hipMemcpy (#1594)'
