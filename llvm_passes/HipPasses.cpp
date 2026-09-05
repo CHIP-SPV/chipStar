@@ -37,6 +37,7 @@
 #include "HipFunctionPointerAS.h"
 #include "HipPromoteInts.h"
 #include "HipLowerOverflowIntrinsics.h"
+#include "HipLowerPointerVectors.h"
 #include "HipSpirvFunctionReorderPass.h"
 #include "HipVerify.h"
 #include "HipCanonicalizeGEP.h"
@@ -245,6 +246,14 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, HipLowerOverflowIntrinsicsPass(),
                           "HipLowerOverflowIntrinsicsPass");
 
+  // WORKAROUND(CHIP-SPV/chipStar#1577): LLVM 23's SROA folds a struct of
+  // pointers into <N x ptr>, which the in-tree backend asserts on and
+  // llvm-spirv will not translate without SPV_INTEL_masked_gather_scatter,
+  // an extension current IGC rejects. Carry such values as integer vectors
+  // instead. Remove once the SPIR-V path handles <N x ptr> itself.
+  addPassWithVerification(MPM, HipLowerPointerVectorsPass(),
+                          "HipLowerPointerVectorsPass");
+
   // Must be last: removes __chip_*/__hip_* globals and stubs their users.
   // Runs after HipIGBADetectorPass which creates __chip_module_has_no_IGBAs.
   addPassWithVerification(MPM, HipCleanupPass(), "HipCleanupPass");
@@ -294,6 +303,12 @@ llvmGetPassPluginInfo() {
                   // which makes it directly testable with opt.
                   if (Name == "hip-lower-overflow-intrinsics") {
                     MPM.addPass(HipLowerOverflowIntrinsicsPass());
+                    return true;
+                  }
+                  // Same for the pointer-vector lowering, so the workaround
+                  // in #1577 can be tested with opt directly.
+                  if (Name == "hip-lower-pointer-vectors") {
+                    MPM.addPass(HipLowerPointerVectorsPass());
                     return true;
                   }
                   // Register the 8 and 16 bit atomic lowering as standalone,
