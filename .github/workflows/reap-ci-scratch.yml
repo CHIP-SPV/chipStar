@@ -1,0 +1,97 @@
+name: Reap CI scratch
+
+# The self-hosted lanes leave one scratch tree per commit behind: salami's
+# ~/ci-stage/<sha>-<variant> (about 1 GB), the cross builder's
+# cross-chipstar-work/{src,native,cross}-<sha>-<variant> (about 2.5 GB per
+# variant), and the library presubmit's /tmp/chipstar-ci-staging-salami/<pr>.
+# A merged pull request will never be tested again, so its trees are dead the
+# moment it lands and this workflow deletes exactly those.
+#
+# It replaces the reap that used to sit at the end of the Mali test job and
+# matched only trees older than a week: those disks fill in days, so nothing
+# was ever old enough to collect and the builder reached 100 percent with
+# 179 GB of trees while salami failed an rsync at 7 MB free (issue #1472).
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  resolve:
+    name: resolve the merged pull request
+    runs-on: ubuntu-latest
+    outputs:
+      shas: ${{ steps.resolve.outputs.shas }}
+      prs: ${{ steps.resolve.outputs.prs }}
+    steps:
+      # The trees are named after the pull request's own commits, not after
+      # what lands on main: a squash or rebase merge rewrites the sha, so the
+      # pushed commit never matches a tree. Walk from the pushed commits back
+      # to the pull request and take every commit it carried.
+      - id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const pushed = new Set((context.payload.commits || []).map(c => c.id));
+            if (context.sha) pushed.add(context.sha);
+            const shas = new Set(), prs = new Set();
+            for (const commit_sha of pushed) {
+              const {data} = await github.rest.repos.listPullRequestsAssociatedWithCommit(
+                {owner, repo, commit_sha});
+              for (const pr of data) {
+                if (!pr.merged_at || prs.has(String(pr.number))) continue;
+                prs.add(String(pr.number));
+                const commits = await github.paginate(github.rest.pulls.listCommits,
+                  {owner, repo, pull_number: pr.number, per_page: 100});
+                for (const c of commits) shas.add(c.sha.substring(0, 12));
+              }
+            }
+            core.info(`merged PRs: ${[...prs].join(' ') || 'none'}`);
+            core.info(`commits: ${[...shas].join(' ') || 'none'}`);
+            core.setOutput('shas', [...shas].join(' '));
+            core.setOutput('prs', [...prs].join(' '));
+
+  cross-builder:
+    name: reap cross build trees
+    needs: resolve
+    if: needs.resolve.outputs.shas != ''
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Reap
+        env:
+          SHAS: ${{ needs.resolve.outputs.shas }}
+        run: |
+          set -euo pipefail
+          W=/space/pvelesko/cross-chipstar-work
+          [ -d /space ] || W=$HOME/cross-chipstar-work
+          scripts/ci/reap-merged-dirs.sh -d "$W" \
+            -p 'src-%s-*' -p 'native-%s-*' -p 'cross-%s-*' $SHAS
+
+  salami:
+    name: reap stage trees
+    needs: resolve
+    if: needs.resolve.outputs.shas != ''
+    runs-on: [self-hosted, Linux, ARM64]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Reap
+        env:
+          SHAS: ${{ needs.resolve.outputs.shas }}
+          PRS: ${{ needs.resolve.outputs.prs }}
+        run: |
+          set -euo pipefail
+          scripts/ci/reap-merged-dirs.sh -d "$HOME/ci-stage" -p '%s-*' $SHAS
+          # The library presubmit stages under the pull request number instead.
+          scripts/ci/reap-merged-dirs.sh -d /tmp/chipstar-ci-staging-salami -p '%s' $PRS
