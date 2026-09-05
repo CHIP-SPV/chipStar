@@ -9,6 +9,8 @@ name: Unit tests (ARM64 Mali)
 # The two jobs share nothing on disk. The handoff is an rsync to
 # salami:~/ci-stage/<sha>/, keyed by commit rather than PR number so two
 # pushes to one PR in quick succession cannot overwrite each other's tree.
+# Those trees, and the builder's, are deleted when the pull request merges,
+# by .github/workflows/reap-ci-scratch.yml.
 # See scripts/cross-aarch64/README.md for how the cross build works and
 # which tests it deliberately leaves to the x86 gate.
 
@@ -127,11 +129,6 @@ jobs:
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
           LD_LIBRARY_PATH=$PWD python3 src/scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
         timeout-minutes: 30
-
-      # Reap stage trees older than a week so salami's disk does not fill.
-      - name: Reap old stage trees
-        if: always()
-        run: find "$HOME/ci-stage" -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         if: failure()
