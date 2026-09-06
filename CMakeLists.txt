@@ -514,7 +514,12 @@ string(REPLACE ";" " " NONRDC_EMITTER_OPTS_STR "${NONRDC_EMITTER_OPTS}")
 #
 # Ask the driver rather than inspecting its binaries: -### prints the very
 # device-compilation command chipStar will run, including the extension list,
-# so this tests the configured toolchain's actual behavior. Re-probed on every
+# so this tests the configured toolchain's actual behavior. Both flags matter:
+# --offload-device-only because LLVM 23's offload driver otherwise defers the
+# SPIR-V step to clang-linker-wrapper and prints no extension list at all, and
+# the versioned OFFLOAD_TRIPLE because the HIPSPV allow list is only selected
+# for it; a plain spirv64 triple takes an upstream path that passes +all and
+# would answer a different question. Re-probed on every
 # configure, so pointing an existing build directory at a different toolchain
 # re-decides instead of keeping the first answer.
 if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND AND NOT CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE)
@@ -526,7 +531,8 @@ else()
   file(WRITE "${_cc_probe_src}" "__attribute__((device)) void chipCacheControlsProbe(void) {}\n")
   execute_process(
     COMMAND ${CLANG_ROOT_PATH_BIN}/clang++ "-###" -x hip -nogpulib -nogpuinc -c
-            --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS} "${_cc_probe_src}"
+            --offload-device-only --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS}
+            "${_cc_probe_src}"
     OUTPUT_VARIABLE _cc_out ERROR_VARIABLE _cc_err RESULT_VARIABLE _cc_rc)
   set(_cc_cmds "${_cc_out}${_cc_err}")
   # Either the extension is listed for the producer, or the list is unrestricted.
