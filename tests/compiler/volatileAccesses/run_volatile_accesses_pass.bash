@@ -1,16 +1,25 @@
 #!/bin/bash
 # Check that HipLowerVolatileAccessesPass rewrites the volatile global and
-# generic accesses of a module into relaxed device-scope atomics, leaves every
-# other volatile access as it is, and that the result still translates to valid
-# SPIR-V carrying OpAtomicLoad / OpAtomicStore.
+# generic accesses of a module, leaves every other volatile access as it is,
+# and that the result still translates to valid SPIR-V.
 #
 # Usage: run_volatile_accesses_pass.bash <input.ll>
 #
+# The pass has two lowerings and the build picks one, so the shape asserted
+# here follows the build rather than being fixed:
+#
+#   cachectl  the default. The access keeps its type and stays a plain volatile
+#             load or store; its pointer becomes a GEP decorated
+#             CacheControlLoadINTEL / CacheControlStoreINTEL level 0
+#             UncachedINTEL, which SPV_INTEL_cache_controls turns into an
+#             L1-uncached access.
+#   atomic    CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON, for consumers that
+#             reject the extension. The access gains device scope and monotonic
+#             ordering and becomes OpAtomicLoad / OpAtomicStore.
+#
 # The input has two kernels: @rewritten holds only accesses the pass must
-# rewrite, @left_alone only accesses it must not touch. No access changes type
-# or volatility: the difference is the atomic ordering and syncscope, which the
-# SPIR-V producers turn into OpAtomicLoad / OpAtomicStore at Device scope with
-# Relaxed semantics, and which IGC serves coherently rather than from L1.
+# rewrite, @left_alone only accesses it must not touch. In neither lowering may
+# an access change type or lose volatility.
 
 set -e
 
@@ -25,6 +34,13 @@ OUTPUT_BC="${BASE_NAME}.lowered.bc"
 OUTPUT_LL="${BASE_NAME}.lowered.ll"
 OUTPUT_SPV="${BASE_NAME}.lowered.spv"
 SPIRV_OPTS="--spirv-max-version=1.2 --spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups"
+
+# Set by cmake from CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND: "atomic" or "cachectl".
+LOWERING="@VOLATILE_LOWERING@"
+if [ "${LOWERING}" = "cachectl" ]; then
+  # The decorations do not translate without the extension that defines them.
+  SPIRV_OPTS="${SPIRV_OPTS},+SPV_INTEL_cache_controls"
+fi
 
 MARKED_IN=14  # volatile accesses in @rewritten
 KEPT_IN=21    # volatile accesses in @left_alone
@@ -47,24 +63,57 @@ if [ -z "${REWRITTEN}" ] || [ -z "${LEFT}" ]; then
   exit 1
 fi
 
-# Every volatile access of @rewritten must come out as a relaxed device-scope
-# atomic, and nothing else about it may have changed: same type, same volatility,
-# and no leftover !nontemporal, which the atomics replaced.
-MARKED=$(echo "${REWRITTEN}" | grep -c -E '(load|store) atomic volatile .*syncscope\("device"\) monotonic' || true)
-if [ "${MARKED}" -ne "${MARKED_IN}" ]; then
-  echo "ERROR: expected ${MARKED_IN} relaxed device-scope atomic accesses in @rewritten, found ${MARKED}"
-  echo "See ${OUTPUT_LL} for details"
-  exit 1
+if [ "${LOWERING}" = "atomic" ]; then
+  # Every volatile access of @rewritten must come out as a relaxed device-scope
+  # atomic, and nothing else about it may have changed: same type, same
+  # volatility.
+  MARKED=$(echo "${REWRITTEN}" | grep -c -E '(load|store) atomic volatile .*syncscope\("device"\) monotonic' || true)
+  if [ "${MARKED}" -ne "${MARKED_IN}" ]; then
+    echo "ERROR: expected ${MARKED_IN} relaxed device-scope atomic accesses in @rewritten, found ${MARKED}"
+    echo "See ${OUTPUT_LL} for details"
+    exit 1
+  fi
+  # The accesses stay volatile and keep their original type: only the ordering
+  # and syncscope are added.
+  STILL_VOLATILE=$(echo "${REWRITTEN}" | grep -c -E '(load|store) atomic volatile ' || true)
+  if [ "${STILL_VOLATILE}" -ne "${MARKED_IN}" ]; then
+    echo "ERROR: the pass dropped volatility from ${MARKED_IN} accesses, ${STILL_VOLATILE} remain volatile"
+    exit 1
+  fi
+else
+  # Every volatile access of @rewritten must reach a pointer carrying the
+  # cache-control decoration, and must itself stay a plain, non-atomic,
+  # volatile access of the same type.
+  MARKED=$(echo "${REWRITTEN}" | grep -c -E 'getelementptr .*!spirv\.Decorations' || true)
+  if [ "${MARKED}" -ne "${MARKED_IN}" ]; then
+    echo "ERROR: expected ${MARKED_IN} decorated pointers in @rewritten, found ${MARKED}"
+    echo "See ${OUTPUT_LL} for details"
+    exit 1
+  fi
+  STILL_VOLATILE=$(echo "${REWRITTEN}" | grep -c -E '(load|store) volatile ' || true)
+  if [ "${STILL_VOLATILE}" -ne "${MARKED_IN}" ]; then
+    echo "ERROR: expected ${MARKED_IN} plain volatile accesses in @rewritten, found ${STILL_VOLATILE}"
+    exit 1
+  fi
+  # The whole point of this lowering is that it does not make the access atomic,
+  # which is illegal on an allocation whose device reports no atomic support.
+  ADDED_ATOMIC=$(echo "${REWRITTEN}" | grep -c -E '(load|store) atomic' || true)
+  if [ "${ADDED_ATOMIC}" -ne 0 ]; then
+    echo "ERROR: the cache-control lowering made ${ADDED_ATOMIC} accesses atomic"
+    exit 1
+  fi
+  # The decoration operands are load/store 6442/6443, cache level 0, UncachedINTEL 0.
+  for OPCODE in 6442 6443; do
+    if ! grep -q -E "^![0-9]+ = !\\{i32 ${OPCODE}, i32 0, i32 0\\}" "${OUTPUT_LL}"; then
+      echo "ERROR: no !{i32 ${OPCODE}, i32 0, i32 0} decoration in ${OUTPUT_LL}"
+      exit 1
+    fi
+  done
 fi
-# The accesses stay volatile and keep their original type: only the ordering
-# and syncscope are added.
-STILL_VOLATILE=$(echo "${REWRITTEN}" | grep -c -E '(load|store) atomic volatile ' || true)
-if [ "${STILL_VOLATILE}" -ne "${MARKED_IN}" ]; then
-  echo "ERROR: the pass dropped volatility from ${MARKED_IN} accesses, ${STILL_VOLATILE} remain volatile"
-  exit 1
-fi
+# Neither lowering emits !nontemporal; an earlier design did and IGC dropped it
+# when it widened adjacent stores.
 if echo "${REWRITTEN}" | grep -q -E '!nontemporal'; then
-  echo "ERROR: @rewritten still carries the !nontemporal marking, which was replaced by atomics:"
+  echo "ERROR: @rewritten carries a !nontemporal marking, which no lowering emits:"
   echo "${REWRITTEN}" | grep -E '!nontemporal'
   exit 1
 fi
@@ -86,10 +135,9 @@ if [ "${KEPT}" -ne "${KEPT_IN}" ]; then
   exit 1
 fi
 
-# The rewrite is only useful if it reaches SPIR-V as OpAtomicLoad / OpAtomicStore
-# at Device scope with Relaxed semantics. A build targeting LLVM's
-# integrated SPIR-V backend has no translator to check that with, so report
-# what was verified and stop rather than failing on the missing binary.
+# The rewrite is only useful if it survives into SPIR-V. A build targeting
+# LLVM's integrated SPIR-V backend has no translator to check that with, so
+# report what was verified and stop rather than failing on the missing binary.
 if [ -z "${LLVM_SPIRV}" ] || [ ! -x "${LLVM_SPIRV}" ]; then
   echo "marked=${MARKED} left alone=${KEPT}, llvm-spirv not available so the SPIR-V side was not checked"
   exit 0
@@ -103,12 +151,19 @@ else
 fi
 if [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
   "${SPIRV_DIS}" "${OUTPUT_SPV}" > "${BASE_NAME}.spvasm"
-  NT=$(grep -c -E 'OpAtomic(Load|Store)' "${BASE_NAME}.spvasm" || true)
+  if [ "${LOWERING}" = "atomic" ]; then
+    WANT='OpAtomic(Load|Store)'
+    WHAT="OpAtomicLoad / OpAtomicStore"
+  else
+    WANT='CacheControl(Load|Store)INTEL 0 UncachedINTEL'
+    WHAT="CacheControlLoadINTEL / CacheControlStoreINTEL"
+  fi
+  NT=$(grep -c -E "${WANT}" "${BASE_NAME}.spvasm" || true)
   if [ "${NT}" -lt "${MARKED_IN}" ]; then
-    echo "ERROR: expected at least ${MARKED_IN} OpAtomicLoad / OpAtomicStore in the SPIR-V module, found ${NT}"
+    echo "ERROR: expected at least ${MARKED_IN} ${WHAT} in the SPIR-V module, found ${NT}"
     exit 1
   fi
-  DISASSEMBLED="${NT} atomic accesses in SPIR-V"
+  DISASSEMBLED="${NT} ${LOWERING} accesses in SPIR-V"
 else
   DISASSEMBLED="spirv-dis not available"
 fi

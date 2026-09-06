@@ -67,6 +67,14 @@ function(add_hip_runtime_test MAIN_SOURCE)
 endfunction()
 
 # add_shell_test(<script-file>)
+# The pass emits one of two shapes and the build picks it, so the shell gates
+# have to assert the one this build produces.
+if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
+  set(VOLATILE_LOWERING "atomic")
+else()
+  set(VOLATILE_LOWERING "cachectl")
+endif()
+
 function(add_shell_test SCRIPT)
   get_filename_component(TEST_NAME ${SCRIPT} NAME_WLE)
   configure_file(${SCRIPT} ${SCRIPT} @ONLY)

@@ -24,6 +24,9 @@
 # the SPIR-V module is checked for the Nontemporal memory operand as well.
 set -u
 
+# Set by cmake from CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND: "atomic" or "cachectl".
+LOWERING="@VOLATILE_LOWERING@"
+
 HIPCC="@CMAKE_BINARY_DIR@/bin/hipcc"
 LLVM_DIS="@CLANG_ROOT_PATH_BIN@/llvm-dis"
 SPIRV_DIS="@SPIRV_DIS@"
@@ -66,6 +69,27 @@ if [ -z "${ACCESS}" ]; then
   echo "FAIL: kernel volatileAccess not found in lowered.ll"
   exit 1
 fi
+if [ "${LOWERING}" = "cachectl" ]; then
+  # The default lowering leaves the access plain and volatile and decorates its
+  # pointer instead, so assert that shape and stop: the atomic patterns below
+  # are the other lowering's.
+  DECORATED=$(echo "${ACCESS}" | grep -cE 'getelementptr .*!spirv\.Decorations' || true)
+  if [ "${DECORATED}" -lt 4 ]; then
+    fail "volatileAccess has ${DECORATED} decorated pointers, expected at least 4 (one per 32/64 bit global access):"
+    echo "${ACCESS}"
+  fi
+  if echo "${ACCESS}" | grep -qE '(load|store) atomic'; then
+    fail "the cache-control lowering made accesses atomic, which faults on an allocation whose device reports no atomic support:"
+    echo "${ACCESS}" | grep -E '(load|store) atomic'
+  fi
+  if echo "${ACCESS}" | grep -qE '!nontemporal'; then
+    fail "volatileAccess carries a !nontemporal marking, which no lowering emits:"
+    echo "${ACCESS}" | grep -E '!nontemporal'
+  fi
+  echo "PASSED"
+  exit 0
+fi
+
 for PATTERN in 'load atomic volatile i32.*syncscope\("device"\) monotonic' \
                'load atomic volatile i64.*syncscope\("device"\) monotonic' \
                'store atomic volatile i32 .*syncscope\("device"\) monotonic' \
