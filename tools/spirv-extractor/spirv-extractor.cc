@@ -1,21 +1,43 @@
 #include "spirv-extractor.hh"
+#include <cerrno>
+#include <spawn.h>
 #include <sys/wait.h>
 
+extern char **environ;
+
 // Run the wrapped test and return an exit status ctest can act on.
-// system() returns a wait status; returning it from main() truncates it to
-// the low 8 bits, so a test exiting 1 (status 256) came back as 0 and passed.
+//
+// The child is spawned from an argv vector rather than a command string, so an
+// argument keeps its exact bytes: Catch2 passes each test case name as one
+// argument and many contain spaces, which a shell would re-split.
+//
+// The wait status is decoded rather than returned: it carries the exit code in
+// its high bits, so returning it from main() truncates a child exit of 1 to 0.
 static int runWrapped(const std::string &fatbinaryPath,
                       const std::vector<std::string> &additionalArgs) {
-  std::string command = fatbinaryPath;
-  for (const auto &arg : additionalArgs)
-    command += " " + arg;
-  int status = system(command.c_str());
-  if (status == -1)
+  std::vector<char *> Argv;
+  Argv.reserve(additionalArgs.size() + 2);
+  Argv.push_back(const_cast<char *>(fatbinaryPath.c_str()));
+  for (const auto &Arg : additionalArgs)
+    Argv.push_back(const_cast<char *>(Arg.c_str()));
+  Argv.push_back(nullptr);
+
+  pid_t Pid;
+  // posix_spawn, not the p variant: fatbinaryPath is the path the extractor
+  // already opened and read, so searching PATH for it could run something else.
+  if (posix_spawn(&Pid, fatbinaryPath.c_str(), nullptr, nullptr, Argv.data(),
+                  environ) != 0)
     return 127;
-  if (WIFEXITED(status))
-    return WEXITSTATUS(status);
-  if (WIFSIGNALED(status))
-    return 128 + WTERMSIG(status);
+
+  int Status;
+  while (waitpid(Pid, &Status, 0) < 0)
+    if (errno != EINTR)
+      return 127;
+
+  if (WIFEXITED(Status))
+    return WEXITSTATUS(Status);
+  if (WIFSIGNALED(Status))
+    return 128 + WTERMSIG(Status);
   return 1;
 }
 
