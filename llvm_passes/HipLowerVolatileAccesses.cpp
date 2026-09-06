@@ -47,20 +47,29 @@
 // only legal where the allocation supports one. Level Zero lets a device report
 // atomics as unsupported per allocation kind (ze_memory_access_cap_flags_t,
 // ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC), and a PVC on Aurora reports
-// hostAllocCapabilities = RW with no ATOMIC. Measured there, one operation per
-// allocation kind per process:
+// hostAllocCapabilities = RW with no ATOMIC. Measured there on 2026-09-06
+// against LLVM 23, one allocation kind and one operation per process so that an
+// abort in one cell cannot hide another:
 //
-//   kind      load    store   rmw     plain
-//   device    OK      OK      OK      OK
-//   pinned    OK      BAN     BAN     OK
-//   managed   OK      BAN     BAN     OK
+//   kind          cache controls          atomics
+//                 load  store  rmw        load   store  rmw
+//   device        OK    OK     OK         OK     OK     OK
+//   managed       OK    OK     OK         OK     OK     OK
+//   pinned        OK    OK     OK         BAN    BAN    BAN
+//   registered    WRONG OK     WRONG      WRONG  OK     WRONG
 //
-// where BAN is "AtomicAccessViolation ... banned: 1" and an abort. hipMallocManaged
-// was fixed by CHIP-SPV/chipStar#1514, which backs it with single-device shared
-// USM whose sharedSingleDeviceAllocCapabilities do report ATOMIC. hipHostMalloc
-// still uses zeMemAllocHost and therefore still aborts on a volatile STORE on
-// PVC under this lowering; that is CHIP-SPV/chipStar#1489. hipHostRegister has
-// no route at all, since PVC reports sharedSystemAllocCapabilities = 0x00.
+// where BAN is "AtomicAccessViolation ... banned: 1" and an abort. So the
+// atomic lowering is not unusable on PVC, it fixes the staleness this pass
+// exists for and covers device and managed memory; it loses only hipHostMalloc,
+// which still uses zeMemAllocHost, and there every access faults because IGC
+// implements even OpAtomicLoad as an atomic_or read-modify-write. That is
+// CHIP-SPV/chipStar#1489. hipMallocManaged used to fault the same way and no
+// longer does, since CHIP-SPV/chipStar#1514 backed it with single-device shared
+// USM whose sharedSingleDeviceAllocCapabilities report ATOMIC.
+//
+// The registered row is not about this pass: hipHostRegister reaches the device
+// through a shadow buffer, so a volatile load reads a value the host never
+// published under either lowering. Both columns are equally wrong there.
 //
 // Neither form is durable against every IGC version: the stateless-to-stateful
 // promotion rewrites a decorated load to ldraw.indexed and drops the cache
