@@ -228,17 +228,12 @@ bool lowerVolatileAccesses(Function &F) {
   // failed"). Since one SPIR-V module has to load on whatever device the
   // runtime picks, the choice cannot be deferred. Build with
   // -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON for such targets.
-  //
-  // CHIP_VOLATILE_LOWERING=atomic|cachectl overrides it at compile time, for
-  // A/B testing one build against both lowerings.
-  bool UseAtomics =
+  const bool UseAtomics =
 #ifdef CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND
       true;
 #else
       false;
 #endif
-  if (const char *Env = getenv("CHIP_VOLATILE_LOWERING"))
-    UseAtomics = StringRef(Env) == "atomic";
 
   if (!UseAtomics) {
     // SPV_INTEL_cache_controls: UncachedINTEL at cache level 0, the level
