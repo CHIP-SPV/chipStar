@@ -23,7 +23,13 @@
 #======================================================================
 set(CHIP_SKIP_TEST 77)
 
+# add_hip_runtime_test(<source> [MODES <mode>...])
+#
+# With MODES, one ctest is registered per mode and the mode is passed as the
+# executable's only argument. Each mode is then its own process with its own
+# result, so a mode that skips or dies cannot take the others down with it.
 function(add_hip_runtime_test MAIN_SOURCE)
+  cmake_parse_arguments(ARG "" "" "MODES" ${ARGN})
   get_filename_component(EXEC_NAME ${MAIN_SOURCE} NAME_WLE)
   set_source_files_properties(${MAIN_SOURCE} PROPERTIES LANGUAGE CXX)
   add_executable("${EXEC_NAME}" ${MAIN_SOURCE})
@@ -38,15 +44,24 @@ function(add_hip_runtime_test MAIN_SOURCE)
   target_compile_definitions("${EXEC_NAME}"
     PRIVATE CHIP_SKIP_TEST=${CHIP_SKIP_TEST})
 
-  add_test(NAME ${EXEC_NAME} COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
+  if(ARG_MODES)
+    set(TEST_NAMES)
+    foreach(MODE IN LISTS ARG_MODES)
+      add_test(NAME ${EXEC_NAME}_${MODE} COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME} ${MODE})
+      list(APPEND TEST_NAMES ${EXEC_NAME}_${MODE})
+    endforeach()
+  else()
+    add_test(NAME ${EXEC_NAME} COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/${EXEC_NAME})
+    set(TEST_NAMES ${EXEC_NAME})
+  endif()
 
-  set_tests_properties("${EXEC_NAME}" PROPERTIES
+  set_tests_properties(${TEST_NAMES} PROPERTIES
     SKIP_RETURN_CODE ${CHIP_SKIP_TEST})
-  set_tests_properties("${EXEC_NAME}" PROPERTIES
+  set_tests_properties(${TEST_NAMES} PROPERTIES
     PASS_REGULAR_EXPRESSION "PASS")
-  set_tests_properties("${EXEC_NAME}" PROPERTIES
+  set_tests_properties(${TEST_NAMES} PROPERTIES
     FAIL_REGULAR_EXPRESSION "FAIL")
-  set_tests_properties("${EXEC_NAME}" PROPERTIES
+  set_tests_properties(${TEST_NAMES} PROPERTIES
     SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 endfunction()
@@ -94,9 +109,20 @@ file(GLOB RUNTIME_TEST_SOURCES CONFIGURE_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/Test*.cpp)
 list(REMOVE_ITEM RUNTIME_TEST_SOURCES ${RUNTIME_TESTS_MANUAL})
 list(SORT RUNTIME_TEST_SOURCES)
+# Registered per mode below, not by the glob.
+list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
+
 foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
   add_hip_runtime_test(${RUNTIME_TEST_SOURCE})
 endforeach()
+
+# The staleness probe needs several work-groups to make progress against each
+# other and skips on a device that cannot run it, for instance where Mesa
+# deletes the spin loop. The host-allocation guard needs one work-item and no
+# inter-work-group visibility, and it is the check that catches an atomic
+# lowering faulting on pinned or managed memory, so it must not be lost with
+# the probe.
+add_hip_runtime_test(TestFix1508VolatileGlobalStaleness.hip MODES staleness guard)
 
 # hipGraphGetEdges overflowing the caller's arrays must abort at the free
 # instead of depending on the heap layout to surface it.
