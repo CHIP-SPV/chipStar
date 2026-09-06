@@ -76,6 +76,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
+  TestFix1601ExtractorMultiTUDoubles.hip # multi-TU, compiled by its .bash, not a test
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
   TestModuleCacheInvalidation.hip # run several times through a driver script
   TestStreamWaitEventOrdering.cpp # not registered as a test
@@ -132,6 +133,41 @@ endif()
 # as a C string). Runs TestKernelArgs and inspects its stderr; only meaningful
 # for the build log path on the Level Zero backend.
 add_shell_test(TestFixZeBuildLogNul.bash)
+
+# spirv-extractor --check-for-doubles must see every device module in a binary,
+# not just the first, or a multi-TU test runs on a device without fp64.
+add_shell_test(TestFix1601ExtractorMultiTUDoubles.bash)
+
+# The same defect, asserted where the wrapper actually runs. The shell test
+# above cannot ship to the cross-staged aarch64 target, which takes no shell
+# tests at all, so build the two translation units into a fixture and register
+# THAT under the doubles wrapper: the fixture exits non-zero if it is ever
+# executed, so ctest goes red exactly when the wrapper fails to look past the
+# first device module, and reports a skip when it does. Only meaningful where
+# the wrapper is in use.
+if(CHIP_SKIP_TESTS_WITH_DOUBLES)
+  set_source_files_properties(
+    TestFix1601ExtractorMultiTUDoubles.hip
+    inputs/ExtractorMultiTUDoublesTU2.hip PROPERTIES LANGUAGE CXX)
+  add_executable(TestFix1601MultiTUDoublesFixture
+    TestFix1601ExtractorMultiTUDoubles.hip
+    inputs/ExtractorMultiTUDoublesTU2.hip)
+  set_target_properties(TestFix1601MultiTUDoublesFixture PROPERTIES
+    CXX_STANDARD_REQUIRED ON)
+  target_link_libraries(TestFix1601MultiTUDoublesFixture CHIP deviceInternal)
+  add_test(NAME TestFix1601MultiTUDoublesSkipped
+    COMMAND ${SKIP_DOUBLE_TESTS}
+            ${CMAKE_CURRENT_BINARY_DIR}/TestFix1601MultiTUDoublesFixture)
+  # Assert the wrapper's OUTPUT, not its exit status. On a tree without the fix
+  # for CHIP-SPV/chipStar#1592 the wrapper returns system()'s raw wait status
+  # from main(), which keeps only the low 8 bits, and every child outcome maps
+  # to 0 there: an exit code E arrives as E<<8, and a signal death arrives as
+  # the shell's own 128+signal, likewise shifted. So an exit-status gate cannot
+  # fail on such a tree, while a missing marker still can.
+  set_tests_properties(TestFix1601MultiTUDoublesSkipped PROPERTIES
+    PASS_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST: Kernel uses doubles"
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST: Kernel uses doubles")
+endif()
 
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES
