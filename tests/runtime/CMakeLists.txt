@@ -79,6 +79,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1601ExtractorMultiTUDoubles.hip # multi-TU, compiled by its .bash, not a test
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
   TestFix1592ExtractorExitStatus.hip # compiled by TestFix1592ExtractorExitStatus.bash, not a test
+  TestFix1600ExtractorArgvBoundaries.hip # compiled by TestFix1600ExtractorArgvBoundaries.bash, not a test
   TestModuleCacheInvalidation.hip # run several times through a driver script
   TestStreamWaitEventOrdering.cpp # not registered as a test
   TestTemplateKernelModules.hip   # multi-TU, linked from hand-built objects
@@ -173,6 +174,10 @@ endif()
 # spirv-extractor --check-for-doubles wraps every test when
 # CHIP_SKIP_TESTS_WITH_DOUBLES=ON; it must propagate the wrapped exit status.
 add_shell_test(TestFix1592ExtractorExitStatus.bash)
+
+# The same wrapper must also hand the test its arguments byte for byte; a
+# Catch2 case name containing a space was being re-split by the shell.
+add_shell_test(TestFix1600ExtractorArgvBoundaries.bash)
 
 add_shell_test(../run_testenvvars.sh)
 set_tests_properties(run_testenvvars PROPERTIES
