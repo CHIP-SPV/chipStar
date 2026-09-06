@@ -248,6 +248,34 @@ jobs:
           ninja all install -j$(nproc)
           ninja build_tests install -j$(nproc)
         timeout-minutes: 60
+      - name: Gate the cache-control volatile lowering (LLVM 23 only)
+        # Every other configure passes -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON,
+        # so the pass's default lowering, SPV_INTEL_cache_controls decorations,
+        # is never exercised. Only the LLVM 23 series carries the patch that
+        # puts the extension in clang's HIPSPV allow list, so only here does the
+        # configure probe leave the workaround off and select that lowering.
+        # The pass plugin is the whole dependency: no runtime, no GPU.
+        if: matrix.llvm-version == 23 && steps.build_chipstar.outcome == 'success'
+        run: |
+          LLVM_PREFIX="$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}"
+          LLVM_BIN="$HOME/llvm-stage/${{ matrix.build-id }}${LLVM_PREFIX}/bin"
+          test -f "${LLVM_BIN}/clang" || { echo "ERROR: no staged clang at ${LLVM_BIN}"; exit 1; }
+          cd ${{ github.workspace }}
+          rm -rf build-cachectl-llvm${{ matrix.build-id }}
+          mkdir -p build-cachectl-llvm${{ matrix.build-id }}
+          cd build-cachectl-llvm${{ matrix.build-id }}
+          cmake .. -DLLVM_CONFIG_BIN=${LLVM_BIN}/llvm-config -GNinja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCHIP_BUILD_SAMPLES=OFF -DCHIP_BUILD_TESTS=ON
+          if grep -q "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND:BOOL=ON" CMakeCache.txt; then
+            echo "ERROR: the configure probe did not find SPV_INTEL_cache_controls in this"
+            echo "       toolchain, so it forced the atomic lowering and the cache-control"
+            echo "       lowering is still ungated. Check llvm-patches/llvm-23."
+            exit 1
+          fi
+          ninja LLVMHipPasses -j$(nproc)
+          ctest -R hipVolatileAccesses --output-on-failure
+        timeout-minutes: 20
       - name: Test chipStar with LLVM ${{ matrix.build-id }} (iGPU OpenCL)
         if: always() && steps.build_chipstar.outcome == 'success'
         continue-on-error: true
