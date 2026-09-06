@@ -232,16 +232,18 @@ add_shell_test(TestFix1600ExtractorArgvBoundaries.bash)
 # fails 35840 of 35840 readers on both PVC and B570 while passing on parts whose
 # global loads are already coherent. It is picked up by the Test*.hip glob.
 
-# Volatile global accesses must reach the SPIR-V producer marked !nontemporal,
-# which becomes the Nontemporal memory operand (Kokkos::volatile_load on PVC
-# reads stale L1 data otherwise). Inspects the lowered device bitcode of
-# TestFixVolatileLoadLowering.hip, and the SPIR-V module when spirv-dis exists.
+# Volatile global accesses must reach the SPIR-V producer rewritten to bypass
+# the core-private cache (Kokkos::volatile_load on PVC reads stale L1 data
+# otherwise), in whichever of the two forms this build selected. Inspects the
+# lowered device bitcode of TestFixVolatileLoadLowering.hip, and the SPIR-V
+# module when spirv-dis exists.
 add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
 
 # The SPIR-V check above proves what chipStar emits; this one proves what the
-# consumer generates from it. IGC discarded the Nontemporal operand when it
-# widened adjacent stores, so an A380 ran unfixed code while every SPIR-V level
-# check passed. Uses ocloc, which is an offline compiler and needs no GPU.
+# consumer generates from it. IGC discards a cache hint when it widens adjacent
+# stores, which let an A380 run unfixed code while every SPIR-V level check
+# passed. Only the atomic lowering can be checked this way, so it skips under
+# the other one. Uses ocloc, which is an offline compiler and needs no GPU.
 add_shell_test(TestFixVolatileLoadLoweringISA.bash)
 
 add_shell_test(../run_testenvvars.sh)

@@ -13,7 +13,7 @@
 // own slot behind it, and the same key ends up twice in one list. Every run
 // walks the lists on the host and fails on a duplicate key, an orphaned slot
 // (bit set, never linked) or a bad count. The volatile loads are what
-// HipLowerVolatileAccessesPass marks !nontemporal, which IGC turns into L1
+// HipLowerVolatileAccessesPass rewrites, which IGC turns into L1
 // uncached loads; on the CPU OpenCL runtime this passes before and after.
 
 #include <hip/hip_runtime.h>

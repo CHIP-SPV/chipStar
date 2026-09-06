@@ -11,7 +11,7 @@
 // / OpAtomicStore. SPIR-V's Volatile memory operand says nothing about caching,
 // so without this a volatile global access is served from a core's L1 and loses
 // the meaning CUDA gives it (PTX ld.volatile / st.volatile). See the comment in
-// HipLowerVolatileAccesses.cpp for why an atomic and not the Nontemporal hint.
+// HipLowerVolatileAccesses.cpp for the two lowerings and how the build picks.
 //
 // (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//

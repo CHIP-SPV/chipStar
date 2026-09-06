@@ -5,8 +5,9 @@
 // ld.volatile / st.volatile, which the PTX ISA (8.4.2 "volatile Operation")
 // defines as relaxed memory operations at system scope, and code written
 // against that (Kokkos::volatile_load in the UnorderedMap insert list walk)
-// reads stale L1 data on PVC. chipStar marks them !nontemporal, which the
-// SPIR-V producers emit as the Nontemporal memory operand and IGC maps to an
+// reads stale L1 data on PVC. chipStar rewrites them to bypass that cache,
+// either with SPV_INTEL_cache_controls decorations or, where a consumer
+// rejects that capability, as relaxed device-scope atomics, which IGC maps to an
 // L1 uncached access.
 //
 // This executable checks that the accesses still compute the right values, and
