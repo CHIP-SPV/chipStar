@@ -57,6 +57,10 @@ function(add_shell_test SCRIPT)
   configure_file(${SCRIPT} ${SCRIPT} @ONLY)
   add_test(NAME ${TEST_NAME}
     COMMAND /bin/bash ${CMAKE_CURRENT_BINARY_DIR}/${SCRIPT})
+  # Without this a script that prints the skip marker is reported as a pass,
+  # so an unsupported configuration is indistinguishable from a tested one.
+  set_tests_properties(${TEST_NAME} PROPERTIES
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 endfunction()
 
 # Tests are registered by globbing Test*.hip and Test*.cpp, so adding one is a
