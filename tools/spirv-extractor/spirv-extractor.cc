@@ -110,6 +110,35 @@ int main(int argc, char *argv[]) {
   auto spirvText = disassembleSPIRV(spirvBinary);
   bool hasDoubles = usesDoubles(spirvText);
 
+  // A linked executable holds one offload bundle per translation unit, and any
+  // one of them can be the one carrying fp64. spirvBinary above is only the
+  // first, which is all the other modes need, so widen the doubles answer to
+  // every module before it decides whether a test can run.
+  if (checkForDoubles && !hasDoubles) {
+    const char *BufEnd = buffer.data() + buffer.size();
+    for (const void *Bundle :
+         collectOffloadBundles(buffer.data(), buffer.size())) {
+      std::string BundleErr;
+      // Bound the descriptor walk by what is left after this bundle starts:
+      // the walk is driven by counts and sizes read out of the buffer, so a
+      // truncated trailing bundle would otherwise run off the end.
+      size_t Remaining = BufEnd - static_cast<const char *>(Bundle);
+      auto Module = extractSPIRVModule(Bundle, BundleErr, Remaining);
+      if (Module.empty()) {
+        // Not "no fp64": the module could not be read. Say so, because the
+        // caller is about to decide whether a test may run.
+        std::cerr << "spirv-extractor: could not read a device module while "
+                     "checking for doubles: "
+                  << BundleErr << std::endl;
+        continue;
+      }
+      if (usesDoubles(disassembleSPIRV(Module))) {
+        hasDoubles = true;
+        break;
+      }
+    }
+  }
+
   int exitCode = 0;
   
   // Perform SPIR-V validation if requested (lighter weight than full verify)
