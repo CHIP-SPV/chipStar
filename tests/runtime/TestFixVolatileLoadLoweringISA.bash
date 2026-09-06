@@ -17,6 +17,18 @@
 # Needs no GPU: ocloc is an offline compiler and -device names a target.
 set -u
 
+# Set by cmake from CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND: "atomic" or "cachectl".
+LOWERING="@VOLATILE_LOWERING@"
+if [ "${LOWERING}" != "atomic" ]; then
+  # This check exists because IGC widened adjacent stores and dropped the
+  # Nontemporal operand of the earlier design. It asserts atomic ugm messages,
+  # which only the atomic lowering produces; the cache-control lowering emits
+  # ordinary messages carrying .uc cache controls and needs its own check
+  # against a decoration-aware IGC.
+  echo "HIP_SKIP_THIS_TEST: build lowers volatile accesses with ${LOWERING}, not atomics"
+  exit 0
+fi
+
 HIPCC="@CMAKE_BINARY_DIR@/bin/hipcc"
 SRC="@CMAKE_CURRENT_SOURCE_DIR@/TestFixVolatileLoadLowering.hip"
 OUT="@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d"

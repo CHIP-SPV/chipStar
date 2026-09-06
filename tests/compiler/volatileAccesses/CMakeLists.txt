@@ -21,6 +21,14 @@
 #
 #=============================================================================
 
+# The pass emits one of two shapes and the build picks it, so the fixture has to
+# assert the one this build produces.
+if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
+  set(VOLATILE_LOWERING "atomic")
+else()
+  set(VOLATILE_LOWERING "cachectl")
+endif()
+
 configure_file(run_volatile_accesses_pass.bash
   ${CMAKE_CURRENT_BINARY_DIR}/run_volatile_accesses_pass.bash @ONLY)
 
@@ -36,8 +44,8 @@ find_program(SPIRV_DIS spirv-dis)
 
 # Every volatile access shape the pass has a rule for: the integer, float,
 # pointer and vector accesses of every width through global and generic
-# pointers (marked !nontemporal) and the work-group local, private, constant
-# and already atomic ones (left alone).
+# pointers (rewritten) and the work-group local, private, constant and already
+# atomic ones (left alone).
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/volatile-accesses.ll)
 
 foreach(IR_FILE ${TEST_IR_FILES})
