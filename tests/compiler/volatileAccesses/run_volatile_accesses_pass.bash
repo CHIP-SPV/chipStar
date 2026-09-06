@@ -110,8 +110,8 @@ else
     fi
   done
 fi
-# Neither lowering emits !nontemporal; an earlier design did and IGC dropped it
-# when it widened adjacent stores.
+# Neither lowering emits !nontemporal: IGC drops it when it widens adjacent
+# stores, so it cannot carry this guarantee.
 if echo "${REWRITTEN}" | grep -q -E '!nontemporal'; then
   echo "ERROR: @rewritten carries a !nontemporal marking, which no lowering emits:"
   echo "${REWRITTEN}" | grep -E '!nontemporal'

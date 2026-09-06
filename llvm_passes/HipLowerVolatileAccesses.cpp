@@ -21,36 +21,34 @@
 // volatile reader misses a writer work-group's store 35840 times out of 35840.
 //
 // So every volatile load and store through a global (addrspace 1) or generic
-// (addrspace 4) pointer becomes a relaxed device-scope atomic, which both
-// SPIR-V producers emit as OpAtomicLoad / OpAtomicStore with Relaxed semantics
-// at Device scope. The access keeps its type and its volatility; only the
-// ordering and syncscope are added. The explicit "device" syncscope matters:
-// the translator at LLVM 17 hardcodes Device for atomic loads, while newer ones
-// map the default scope to CrossDevice.
+// (addrspace 4) pointer is rewritten to bypass that cache. There are two ways
+// to say it and the build picks one, because no single form is accepted
+// everywhere.
 //
-// Why an atomic and not the Nontemporal memory operand, which an earlier
-// version of this pass used: Nontemporal is only a hint ("Hints that the
-// accessed address is not likely to be accessed again in the near future"),
-// which is not even true of a poll loop, and IGC maps it to LSC_L1UC_L3UC,
-// uncached at BOTH levels. That combination is actively wrong here. On an Arc
-// A380 the marking made every reader observe the publish flag and then read a
-// stale payload, 35840 out of 35840, deterministically, because the writer's
-// stores are write-back while the reader's marked loads bypass L3 as well as
-// L1. Measured with ocloc on the module this pass produced:
+// The default, cache controls. The access keeps its type, its volatility and
+// its non-atomic nature; its pointer gains a decorated no-op GEP carrying
+// CacheControlLoadINTEL / CacheControlStoreINTEL, cache level 0, UncachedINTEL.
+// SPV_INTEL_cache_controls defines that as uncached at L1 and cached at L3,
+// which is exactly the CUDA meaning and the same thing AMD spells "glc dlc".
+// This needs the extension in the allow list the HIPSPV driver hands the
+// producer, which only the llvm-patches/llvm-23 series carries, and a consumer
+// that implements the capability.
 //
-//   writer:  store.ugm.d32x4t.a64.wb.wb   IGC widened the loop stores and
-//            store.ugm.d32x2t.a64.wb.wb   dropped the cache control entirely
-//   reader:  load.ugm.d32x1t.a64.uc.uc    bypasses L1 AND L3, reads memory
+// The fallback, CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON: the access becomes a
+// relaxed device-scope atomic, which both producers emit as OpAtomicLoad /
+// OpAtomicStore with Relaxed semantics at Device scope. The explicit "device"
+// syncscope matters: the translator at LLVM 17 hardcodes Device for atomic
+// loads, while newer ones map the default scope to CrossDevice. This is for
+// consumers that reject a module carrying OpCapability CacheControlsINTEL:
+// rusticl fails clBuildProgram with -11 "spirv_to_nir failed" and Mali rejects
+// the OpExtension at clCreateProgramWithIL.
 //
-// So the hint was both too strong (giving up L3) and not durable (silently
-// discarded when IGC merges stores). An atomic is neither: it cannot be widened
-// away and it is a requirement rather than an advisory operand.
-//
-// The cost is that an atomic is only legal where the allocation supports one.
-// Level Zero lets a device report atomics as unsupported per allocation kind
-// (ze_memory_access_cap_flags_t, ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC), and a PVC
-// on Aurora reports hostAllocCapabilities = RW with no ATOMIC. Measured there,
-// one operation per allocation kind per process:
+// The atomic form is the fallback rather than the default because an atomic is
+// only legal where the allocation supports one. Level Zero lets a device report
+// atomics as unsupported per allocation kind (ze_memory_access_cap_flags_t,
+// ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC), and a PVC on Aurora reports
+// hostAllocCapabilities = RW with no ATOMIC. Measured there, one operation per
+// allocation kind per process:
 //
 //   kind      load    store   rmw     plain
 //   device    OK      OK      OK      OK
@@ -61,9 +59,29 @@
 // was fixed by CHIP-SPV/chipStar#1514, which backs it with single-device shared
 // USM whose sharedSingleDeviceAllocCapabilities do report ATOMIC. hipHostMalloc
 // still uses zeMemAllocHost and therefore still aborts on a volatile STORE on
-// PVC; that is CHIP-SPV/chipStar#1489 and it gates this pass on Aurora.
-// hipHostRegister has no route at all, since PVC reports
-// sharedSystemAllocCapabilities = 0x00.
+// PVC under this lowering; that is CHIP-SPV/chipStar#1489. hipHostRegister has
+// no route at all, since PVC reports sharedSystemAllocCapabilities = 0x00.
+//
+// Neither form is durable against every IGC version: the stateless-to-stateful
+// promotion rewrites a decorated load to ldraw.indexed and drops the cache
+// control on DG2 and MTL, which is why those parts are built with the atomic
+// fallback rather than the default.
+//
+// A third form, the Nontemporal memory operand, is deliberately not used. It is
+// only a hint ("Hints that the accessed address is not likely to be accessed
+// again in the near future"), which is not even true of a poll loop, and IGC
+// maps it to LSC_L1UC_L3UC, uncached at BOTH levels. That is actively wrong
+// here. On an Arc A380 it made every reader observe the publish flag and then
+// read a stale payload, 35840 out of 35840, deterministically, because the
+// writer's stores are write-back while the reader's marked loads bypass L3 as
+// well as L1. Measured with ocloc:
+//
+//   writer:  store.ugm.d32x4t.a64.wb.wb   IGC widened the loop stores and
+//            store.ugm.d32x2t.a64.wb.wb   dropped the cache control entirely
+//   reader:  load.ugm.d32x1t.a64.uc.uc    bypasses L1 AND L3, reads memory
+//
+// So the hint is both too strong (giving up L3) and not durable (silently
+// discarded when IGC merges stores).
 //
 
 // Left alone, and why:
@@ -76,10 +94,10 @@
 //     and a pointer argument is still marked.
 //   - accesses that are already atomic: those bypass L1 by themselves and carry
 //     an ordering of their own.
-//   - accesses that are not naturally aligned 32 or 64 bit scalars: vectors,
-//     aggregates and the narrow widths gain nothing from the hint, and a
-//     OpenCL SPIR-V allows atomics on 32 bit types only, 64 bit under a
-//     capability, so narrower or wider shapes have no legal atomic form.
+//   - accesses that are not naturally aligned 32 or 64 bit scalars: OpenCL
+//     SPIR-V allows atomics on 32 bit types only, 64 bit under a capability, so
+//     narrower or wider shapes have no legal atomic form, and both lowerings
+//     share the filter so a source builds the same accesses either way.
 //
 // (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
@@ -146,13 +164,14 @@ bool mayBeShared(Value *Ptr) {
 /// only, with 64 bit under a capability, so an 8 or 16 bit atomic would be
 /// invalid SPIR-V (see CHIP-SPV/chipStar#1497 and #1553).
 ///
-/// Wider coverage is not available: the OpenCL SPIR-V environment spec allows
-/// atomic instructions on 32 bit types only, with 64 bit under a capability, so
-/// an 8 or 16 bit atomic would simply be invalid SPIR-V. Vectors and aggregates
-/// have no atomic form at all. Note this restriction is no longer the
-/// CHIP-SPV/chipStar#1551 workaround it was under the !nontemporal marking:
-/// that was about LLVM's x86 back end aborting on a narrow non-temporal load,
-/// which no longer applies now that no metadata is attached.
+/// The width rule comes from the atomic lowering: the OpenCL SPIR-V environment
+/// spec allows atomic instructions on 32 bit types only, with 64 bit under a
+/// capability, so an 8 or 16 bit atomic would simply be invalid SPIR-V, and
+/// vectors and aggregates have no atomic form at all. The cache-control
+/// lowering decorates a pointer and could in principle cover any width, but it
+/// shares this filter so that a given source builds the same set of accesses
+/// either way and a device that needs the fallback is not silently given less
+/// coverage.
 bool isMarkableType(Type *Ty, Align Alignment, const DataLayout &DL) {
   // Scalars only: this is false for vectors and aggregates.
   if (!Ty->isIntegerTy() && !Ty->isFloatingPointTy() && !Ty->isPointerTy())

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Volatile loads and stores in global memory must reach the SPIR-V producer
-# marked !nontemporal, not as plain volatile ones.
+# rewritten to bypass the core-private cache, not as plain volatile ones.
 #
 # CUDA lowers a volatile global access to ld.volatile / st.volatile, which the
 # PTX ISA (8.4.2 "volatile Operation") defines as a relaxed memory operation at
@@ -8,20 +8,26 @@
 # UnorderedMap insert list walk) relies on the load bypassing a core's L1. In
 # SPIR-V a `load volatile` is an OpLoad with the Volatile memory operand, which
 # says nothing about caching, so IGC serves it from L1 and on PVC the walk reads
-# stale data. The fix marks such accesses !nontemporal, which the SPIR-V
-# producers emit as the Nontemporal memory operand of the same OpLoad / OpStore
-# and IGC maps to an L1 uncached access.
+# stale data. The fix rewrites such accesses in one of two forms, chosen by the
+# build:
 #
-# The accesses must stay non-atomic: IGC implements OpAtomicLoad as
-# atomic_or(p, 0) and OpAtomicStore as an atomic exchange, and a Level Zero
-# device may report an allocation kind without ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC
-# (PVC does, for host allocations), where a GPU atomic faults the context.
+#   cachectl  the default. The access stays a plain volatile one and its pointer
+#             carries CacheControlLoadINTEL / CacheControlStoreINTEL level 0
+#             UncachedINTEL, which IGC maps to an L1 uncached, L3 cached access.
+#             It must NOT become atomic: IGC implements OpAtomicLoad as
+#             atomic_or(p, 0) and OpAtomicStore as an atomic exchange, and a
+#             Level Zero device may report an allocation kind without
+#             ZE_MEMORY_ACCESS_CAP_FLAG_ATOMIC (PVC does, for host
+#             allocations), where a GPU atomic faults the context.
+#   atomic    where a consumer rejects the CacheControlsINTEL capability. The
+#             access becomes a relaxed device-scope atomic, accepting the
+#             allocation-kind cost above.
 #
 # Compiles TestFixVolatileLoadLowering.hip with --save-temps and inspects the
 # lowered device bitcode, the SPIR-V producer's input: the global accesses must
-# be marked and non-atomic, the work-group local ones must not be marked. When
-# the module was produced by the Khronos translator and spirv-dis is available,
-# the SPIR-V module is checked for the Nontemporal memory operand as well.
+# carry the selected form, the work-group local ones must be untouched. When the
+# module was produced by the Khronos translator and spirv-dis is available, the
+# SPIR-V module is checked for the matching operand as well.
 set -u
 
 # Set by cmake from CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND: "atomic" or "cachectl".
@@ -98,10 +104,9 @@ for PATTERN in 'load atomic volatile i32.*syncscope\("device"\) monotonic' \
     fail "volatileAccess has no '${PATTERN}' after the pass pipeline"
   fi
 done
-# The 16 bit accesses of the same kernel must NOT be marked: a consumer only
-# has to honour Nontemporal on shapes it has a non-temporal instruction for,
-# and PoCL's x86 back end aborts with "Unsupported store size" on ones it does
-# not.
+# The 16 bit accesses of the same kernel must NOT be rewritten: OpenCL SPIR-V
+# allows atomics on 32 bit types only, so a 16 bit one would be invalid, and
+# both lowerings share the filter.
 if echo "${ACCESS}" | grep -qE '(load|store) atomic volatile i16'; then
   fail "volatileAccess had its 16 bit accesses made atomic; the OpenCL SPIR-V environment allows atomics on 32 bit types only:"
   echo "${ACCESS}" | grep -E '(load|store) volatile i16'
@@ -112,7 +117,7 @@ if [ -n "${PLAIN}" ]; then
   echo "${PLAIN}"
 fi
 if echo "${ACCESS}" | grep -qE '!nontemporal'; then
-  fail "volatileAccess still carries the !nontemporal marking, which the atomics replaced:"
+  fail "volatileAccess carries a !nontemporal marking, which no lowering emits:"
   echo "${ACCESS}" | grep -E '!nontemporal'
 fi
 

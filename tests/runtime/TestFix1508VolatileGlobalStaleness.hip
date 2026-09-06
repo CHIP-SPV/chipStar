@@ -6,7 +6,7 @@
 //
 // Measured with ocloc on the module chipStar produces, a volatile load and a
 // plain load compile to the SAME message on PVC (`load.ugm.d32x1t.a64`,
-// desc 0x2108580); only the !nontemporal marking this pass adds changes it
+// desc 0x2108580); only the rewrite this pass performs changes it
 // (`.uc.uc`, desc 0x2128580). CUDA compiles the same source to ld.volatile,
 // which the PTX ISA defines as a relaxed system-scope operation, and HIP code
 // written for that (Kokkos::volatile_load in the UnorderedMap insert list walk)

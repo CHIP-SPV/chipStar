@@ -3,16 +3,17 @@
 #
 # TestFixVolatileLoadLoweringSPIRV.bash stops at the SPIR-V module: it proves
 # the volatile accesses left chipStar in the intended form. Nothing downstream
-# of that was ever checked, and that gap is not hypothetical. While this pass
-# still used the Nontemporal memory operand, the operand was present and correct
-# in the SPIR-V and IGC then discarded it when it widened adjacent stores
-# (store.ugm.d32x4t.a64.wb.wb instead of .uc.uc), so the fix silently did
-# nothing on an Arc A380 while every SPIR-V level check passed.
+# of that was ever checked, and that gap is not hypothetical: a cache hint can
+# be present and correct in the SPIR-V and still be discarded by IGC when it
+# widens adjacent stores (store.ugm.d32x4t.a64.wb.wb instead of .uc.uc), which
+# made an Arc A380 run unfixed code while every SPIR-V level check passed.
 #
 # This test closes that gap by compiling the module the way a driver does, with
-# ocloc, and inspecting the generated ISA. The accesses must come out as atomic
-# ugm messages: an atomic is coherent by construction, so it cannot be widened
-# or cached away the way a hint can.
+# ocloc, and inspecting the generated ISA. Under the atomic lowering the
+# accesses must come out as atomic ugm messages: an atomic is coherent by
+# construction, so it cannot be widened or cached away the way a hint can. The
+# cache-control lowering emits ordinary messages carrying .uc controls and needs
+# a decoration-aware IGC to check, so this test skips there.
 #
 # Needs no GPU: ocloc is an offline compiler and -device names a target.
 set -u
@@ -20,8 +21,8 @@ set -u
 # Set by cmake from CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND: "atomic" or "cachectl".
 LOWERING="@VOLATILE_LOWERING@"
 if [ "${LOWERING}" != "atomic" ]; then
-  # This check exists because IGC widened adjacent stores and dropped the
-  # Nontemporal operand of the earlier design. It asserts atomic ugm messages,
+  # This check exists because IGC widens adjacent stores and drops a cache
+  # hint carried on them. It asserts atomic ugm messages,
   # which only the atomic lowering produces; the cache-control lowering emits
   # ordinary messages carrying .uc cache controls and needs its own check
   # against a decoration-aware IGC.
