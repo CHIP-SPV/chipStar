@@ -278,40 +278,6 @@ option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Auto-detected from LLVM targets when LLVM >= 22." OFF)
 option(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "Lower volatile global accesses to relaxed device-scope atomics instead of SPV_INTEL_cache_controls decorations. The decorations are the better lowering (they bypass only the core-private cache and need no atomic capability on the allocation), but a module carrying OpCapability CacheControlsINTEL is rejected by a consumer that does not support it: rusticl fails clBuildProgram with -11 spirv_to_nir failed. Enable this when building for such a target." OFF)
 
-# The cache-control lowering needs SPV_INTEL_cache_controls in the extension
-# allow list that the HIPSPV toolchain passes to the SPIR-V producers. Only the
-# llvm-patches/llvm-23 series carries it, so on any other toolchain emitting the
-# decorations makes every volatile access fail to translate ("RequiresExtension:
-# SPV_INTEL_cache_controls", clang exit 18). Detect that here and fall back to
-# the atomic lowering rather than producing a compiler that cannot build a
-# volatile access. Probing the driver binaries is crude but it is the only place
-# the list exists: it is baked into libclang-cpp at LLVM build time.
-if(NOT CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
-  set(_cc_supported FALSE)
-  file(GLOB _clang_libs "${CLANG_ROOT_PATH}/lib/libclang-cpp.so*"
-                        "${CLANG_ROOT_PATH}/lib/libclang-cpp*.dylib"
-                        "${CLANG_ROOT_PATH}/bin/clang-[0-9]*")
-  foreach(_lib IN LISTS _clang_libs)
-    # Match the LIST form ",+SPV_INTEL_cache_controls". The bare extension name
-    # also appears in the SPIR-V backend's own name table whether or not HIPSPV
-    # allows it, so grepping for that alone is a false positive.
-    execute_process(COMMAND grep -c -a ",+SPV_INTEL_cache_controls" "${_lib}"
-                    OUTPUT_VARIABLE _hits ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(_hits AND _hits GREATER 0)
-      set(_cc_supported TRUE)
-      break()
-    endif()
-  endforeach()
-  if(NOT _cc_supported)
-    message(STATUS "SPV_INTEL_cache_controls is not in this toolchain's HIPSPV "
-                   "extension list; enabling CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "
-                   "so volatile accesses lower to atomics instead")
-    set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND ON CACHE BOOL "" FORCE)
-  else()
-    message(STATUS "SPV_INTEL_cache_controls available: volatile accesses lower "
-                   "to cache-control decorations")
-  endif()
-endif()
 option(CHIP_KEEP_KERNEL_DEBUG_INFO "Keep device debug info in kernels. No SPIR-V producer emits debug info that validates, and only IGC on Intel Data Center GPU Max tolerates it, so this is off by default and should only be enabled for that device." OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
@@ -539,6 +505,58 @@ string(REPLACE ";" " " NONRDC_EMITTER_OPTS_STR "${NONRDC_EMITTER_OPTS}")
 
 # =============================================================================
 # chipStar BINARIES & TESTS
+# The cache-control lowering needs SPV_INTEL_cache_controls in the extension
+# allow list the HIPSPV toolchain hands the SPIR-V producer. Only the
+# llvm-patches/llvm-23 series adds it, and without it every decorated access
+# fails to translate ("RequiresExtension: SPV_INTEL_cache_controls", clang
+# exit 18), so fall back to the atomic lowering rather than produce a compiler
+# that cannot build a volatile access.
+#
+# Ask the driver rather than inspecting its binaries: -### prints the very
+# device-compilation command chipStar will run, including the extension list,
+# so this tests the configured toolchain's actual behavior. Re-probed on every
+# configure, so pointing an existing build directory at a different toolchain
+# re-decides instead of keeping the first answer.
+if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND AND NOT CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE)
+  # Explicitly requested; the target cannot take the decorations at all.
+  message(STATUS "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON was requested: "
+                 "volatile accesses lower to relaxed device-scope atomics")
+else()
+  set(_cc_probe_src "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/chip_cache_controls_probe.hip")
+  file(WRITE "${_cc_probe_src}" "__attribute__((device)) void chipCacheControlsProbe(void) {}\n")
+  execute_process(
+    COMMAND ${CLANG_ROOT_PATH_BIN}/clang++ "-###" -x hip -nogpulib -nogpuinc -c
+            --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS} "${_cc_probe_src}"
+    OUTPUT_VARIABLE _cc_out ERROR_VARIABLE _cc_err RESULT_VARIABLE _cc_rc)
+  set(_cc_cmds "${_cc_out}${_cc_err}")
+  # Either the extension is listed for the producer, or the list is unrestricted.
+  if(_cc_cmds MATCHES "spirv-ext=[^ \"]*(\\+all|\\+SPV_INTEL_cache_controls)")
+    set(_cc_supported TRUE)
+  else()
+    set(_cc_supported FALSE)
+  endif()
+  if(NOT _cc_cmds MATCHES "spirv-ext=")
+    # No extension list at all means the probe did not reach a device
+    # compilation, so its answer says nothing about the toolchain.
+    message(WARNING "Could not read an extension list from ${CLANG_ROOT_PATH_BIN}/clang++ "
+                    "(exit ${_cc_rc}); assuming SPV_INTEL_cache_controls is unavailable")
+    set(_cc_supported FALSE)
+  endif()
+
+  if(_cc_supported)
+    set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND OFF CACHE BOOL "" FORCE)
+    message(STATUS "SPV_INTEL_cache_controls available: volatile accesses lower "
+                   "to cache-control decorations")
+  else()
+    set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND ON CACHE BOOL "" FORCE)
+    message(STATUS "SPV_INTEL_cache_controls is not in this toolchain's HIPSPV "
+                   "extension list; enabling CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "
+                   "so volatile accesses lower to atomics instead")
+  endif()
+  set(CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE TRUE CACHE INTERNAL
+      "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND was set by the configure probe, not by the user")
+endif()
+
 add_subdirectory(llvm_passes)
 add_subdirectory(bitcode)
 
