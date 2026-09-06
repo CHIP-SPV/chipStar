@@ -51,3 +51,8 @@ set_tests_properties(
   hostRegisterOverhead
   hostRegisterMemcpyOverhead
   PROPERTIES RUN_SERIAL ON)
+
+# manyMallocMemcopies opts out where its measurement cannot speak about
+# chipStar; without this the opt-out reads as a silent pass.
+set_tests_properties(manyMallocMemcopies PROPERTIES
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
