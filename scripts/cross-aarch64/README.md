@@ -122,6 +122,19 @@ command shape in `CTestTestfile.cmake`, not by name, so a new test is
 classified by what it does. On the last measurement 164 of 260 tests
 survive the cut and 110 of those run (the rest skip for fp64); all pass.
 
+A test can also reach the compiler without its ctest command showing it, by
+calling hipRTC from inside the process, and those look exactly like a plain
+prebuilt binary. They are classified the same way, by behaviour rather than
+by name: a binary whose dynamic symbols import `hiprtc*` compiles at run
+time, so it is dropped too. What the target loses by that is narrow and
+deliberate, the device execution of a kernel hipRTC produced; the
+compilation itself is host side and is covered on the x86 gate. Before this
+rule the hipRTC tests shipped and failed on salami with `hipcc: not found`,
+which is issue
+[#1602](https://github.com/CHIP-SPV/chipStar/issues/1602): the tree's
+`bin/hipcc` is a wrapper whose exec target is the builder container's path,
+and `bin/hipcc.bin` behind it is x86, so no `PATH` change could have helped.
+
 Two things in chipStar are worked around here rather than fixed, and
 should be fixed there:
 
