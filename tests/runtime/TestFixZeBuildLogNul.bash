@@ -20,7 +20,22 @@
 set -u
 
 BIN="@CMAKE_CURRENT_BINARY_DIR@/TestKernelArgs"
+EXTRACTOR="@CMAKE_BINARY_DIR@/bin/spirv-extractor"
 OUT="@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d"
+
+# BIN is run raw below, outside the ${SKIP_DOUBLE_TESTS} wrapper that every
+# ctest registration of a runtime test goes through, so it has to be one the
+# wrapper never skips: where CHIP_SKIP_TESTS_WITH_DOUBLES is on, ctest skips a
+# test whose device module carries fp64 because the device may have none, and
+# this script would run it regardless. The wrapper decides which binaries those
+# are, so ask it, and read its stdout: its exit status is system()'s raw wait
+# status (CHIP-SPV/chipStar#1592) and says nothing.
+if "${EXTRACTOR}" --check-for-doubles "${BIN}" 2>/dev/null |
+    grep -q "HIP_SKIP_THIS_TEST: Kernel uses doubles"; then
+  echo "FAIL: ${BIN} has an fp64 device module, so ctest skips it wherever"
+  echo "      CHIP_SKIP_TESTS_WITH_DOUBLES is on while this script runs it."
+  exit 1
+fi
 
 rm -rf "${OUT}"
 mkdir -p "${OUT}"
