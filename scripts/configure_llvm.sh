@@ -20,6 +20,35 @@ retry() {
   echo "All $max_attempts attempts failed."
   return 1
 }
+
+# Fetch origin unless the pinned ref is a local tag we choose to trust.
+#
+# This step runs on every CI build, and a GitHub outage or a rate limit turns
+# the fetch into "could not read Username" and kills the job. Skipping it is a
+# policy, not a property of git: a tag CAN be force-moved upstream, and this
+# will not notice, exactly as an ordinary `git fetch origin` would not have
+# updated a diverged local tag either.
+#
+# Everything else still fetches: a branch (which moves by design), a ref that
+# is not local yet, and a name that is BOTH a tag and a branch here, since the
+# checkout that follows would resolve that ambiguously and the safe reading is
+# that a branch was meant.
+#
+# So this does NOT make source preparation offline, and is not meant to. Only
+# llvm-project is pinned to a tag; TRANSLATOR_BRANCH is a branch for every
+# version (llvm_release_230 and release/N.x style), so SPIRV-LLVM-Translator
+# is still fetched on every run. What this removes is the larger and wholly
+# redundant of the two fetches, and what retry adds is a bounded number of
+# second chances for the one that remains.
+fetch_pinned_ref() {
+  local ref="$1"
+  if git rev-parse -q --verify "refs/tags/${ref}" >/dev/null &&
+     ! git rev-parse -q --verify "refs/heads/${ref}" >/dev/null; then
+    echo "  ${ref} is a tag already present locally; skipping fetch"
+    return 0
+  fi
+  retry git fetch origin
+}
 # default values for optional arguments
 LINK_TYPE="dynamic"
 EMIT_ONLY="off"
@@ -197,7 +226,7 @@ if [ "$EMIT_ONLY" != "on" ]; then
     # Warn the user.
     echo "llvm-project directory already exists. Checking out ${LLVM_BRANCH}..."
     cd llvm-project
-    git fetch origin
+    fetch_pinned_ref "${LLVM_BRANCH}"
     git reset --hard
     git clean -fd
     git checkout ${LLVM_BRANCH}
@@ -209,7 +238,7 @@ if [ "$EMIT_ONLY" != "on" ]; then
       cd SPIRV-LLVM-Translator
     else
       cd llvm/projects/SPIRV-LLVM-Translator
-      git fetch origin
+      fetch_pinned_ref "${TRANSLATOR_BRANCH}"
       git reset --hard
       git clean -fd
     fi
