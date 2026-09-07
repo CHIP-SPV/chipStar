@@ -130,8 +130,8 @@ endif()
 # The runtime's stderr must stay NUL-free at CHIP_LOGLEVEL=info (the Level
 # Zero build log dump wrote the driver's terminating NUL and printed the
 # "ZE Build Log:" line for empty logs; gtest death tests read captured stderr
-# as a C string). Runs TestKernelArgs and inspects its stderr; only meaningful
-# for the build log path on the Level Zero backend.
+# as a C string). Runs TestFixByvalStructArgSize and inspects its stderr; only
+# meaningful for the build log path on the Level Zero backend.
 add_shell_test(TestFixZeBuildLogNul.bash)
 
 # spirv-extractor --check-for-doubles must see every device module in a binary,
