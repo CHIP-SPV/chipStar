@@ -11,15 +11,16 @@
 # before the expected abort message and every Kokkos_CoreUnitTest_HIP death
 # test failed with "died but not with expected error".
 #
-# Runs TestKernelArgs (any small test that builds a module will do) at info
-# level, captures stderr and fails if it holds a NUL byte, or if a
-# "ZE Build Log:" line is followed by an empty log. Both checks are backend
-# agnostic. Only the Level Zero backend prints "ZE Build Log:", so on an
-# OpenCL run (the CPU gate) a pass proves only that the OpenCL path is clean;
-# run with CHIP_BE=level0 to exercise the path this guards.
+# Runs TestFixByvalStructArgSize (any small test that builds a module and
+# carries no fp64 will do, see the doubles check below) at info level, captures
+# stderr and fails if it holds a NUL byte, or if a "ZE Build Log:" line is
+# followed by an empty log. Both checks are backend agnostic. Only the Level
+# Zero backend prints "ZE Build Log:", so on an OpenCL run (the CPU gate) a
+# pass proves only that the OpenCL path is clean; run with CHIP_BE=level0 to
+# exercise the path this guards.
 set -u
 
-BIN="@CMAKE_CURRENT_BINARY_DIR@/TestKernelArgs"
+BIN="@CMAKE_CURRENT_BINARY_DIR@/TestFixByvalStructArgSize"
 EXTRACTOR="@CMAKE_BINARY_DIR@/bin/spirv-extractor"
 OUT="@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d"
 
