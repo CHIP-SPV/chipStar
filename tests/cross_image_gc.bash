@@ -32,15 +32,24 @@ if ! grep -q "grep -v" chain.txt; then
   echo "FAIL: could not extract the image GC pipeline from ${WF}"
   exit 1
 fi
+# sed runs to end-of-file when the closing pattern never matches, which would
+# hand the rest of the workflow to the eval below and diagnose the resulting
+# mess as a GC regression. Insist the slice ends on the line it is supposed to.
+if ! tail -1 chain.txt | grep -q "xargs -r -I{} docker rmi"; then
+  echo "FAIL: the GC pipeline slice does not end at the xargs docker rmi line;"
+  echo "      the workflow's formatting changed and this test is reading past it"
+  exit 1
+fi
 # Drop the docker calls at either end; feed the fixture in and read tags out.
 FILTER=$(sed -e '/docker images/d' -e '/xargs/d' chain.txt | tr -d '\n')
 if [ -z "${FILTER}" ]; then echo "FAIL: extracted an empty GC filter"; exit 1; fi
 
-# Two tags older than the one being built, which is what a cache-hit rebuild
-# looks like: same image, so the new tag carries the old creation date.
-# newtag carries an OLD date on purpose: that is what a cache-hit rebuild
-# produces, and it is what sorted the tag into the delete list. Enough other
-# tags to leave something for the GC to trim once newtag and base are excluded.
+# newtag is the tag this run needs, and it carries the OLDEST date on purpose:
+# a cache-hit rebuild produces the image that was already there, so the tag
+# just written inherits that image's creation date. Sorting newest-first there-
+# fore puts it last, which is what sorted it into the delete list. oldtag-a and
+# oldtag-b are newer and must survive as the two the GC keeps; oldtag-c ties
+# newtag's date and is the one that must still be trimmed.
 cat > images.txt <<'IMAGES'
 newtag 2026-08-19 10:30:25 +0300 EEST
 oldtag-a 2026-09-04 12:42:46 +0300 EEST
@@ -66,4 +75,12 @@ if echo "${DOOMED}" | grep -qx "base"; then
   echo "FAIL: the GC must never delete the base image"
   exit 1
 fi
+# Trimming something is not enough: a GC that keeps nothing but the current tag
+# passes every check above while throwing away the cache the next run wants.
+for KEEP in oldtag-a oldtag-b; do
+  if echo "${DOOMED}" | grep -qx "${KEEP}"; then
+    echo "FAIL: the GC deletes ${KEEP}; it must keep the newest images below ${TAG}"
+    exit 1
+  fi
+done
 echo "PASSED"
