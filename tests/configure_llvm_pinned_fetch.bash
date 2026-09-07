@@ -67,26 +67,34 @@ run_case() {
 FAILED=0
 
 # A textual check, and only that: it reads the script rather than running it.
-# It catches the shape of the regression this test exists for, a reuse-path
-# caller fetching directly, and it catches a stray fetch appearing anywhere
-# else in the file. It cannot prove the callers behave correctly, because
-# driving them means running configure_llvm.sh's reuse path, which needs a
-# populated llvm-project and a patch series that applies, and that is out of
-# reach of a test meant to run before every LLVM build. Treat a pass here as
-# "nothing obviously reaches around the helper", not as caller coverage.
-# Each reuse-path `cd` into a repository must be followed by the helper. The
-# clone path also cds into llvm-project and correctly does not fetch, so only
-# lines whose NEXT line touches the network are of interest: the check is that
-# no `cd` into a repo is followed by a bare fetch.
-while IFS= read -r next; do
-  case "${next}" in
-    *"git fetch"*)
-      echo "FAIL: a reuse-path caller fetches directly instead of via fetch_pinned_ref:"
-      echo "      ${next}"
-      FAILED=1 ;;
-  esac
-done < <(grep -A1 -E '^[[:space:]]+cd (llvm-project|llvm/projects/SPIRV-LLVM-Translator)$' "${SCRIPT}" \
-         | grep -vE '^[[:space:]]*cd |^--$')
+# Driving the callers for real means running configure_llvm.sh's reuse path,
+# which needs a populated llvm-project and a patch series that applies, and
+# that is out of reach of a test meant to run before every LLVM build. What is
+# checkable statically is that each reuse-path caller still cds into its
+# repository and reaches the network through the helper, with the ref that
+# belongs to that repository.
+#
+# Anchored on the reuse-path marker, not on every `cd`: the clone path cds into
+# llvm-project too and correctly does not fetch there, so a rule over every cd
+# would fail a clean script.
+REUSE=$(grep -A2 'llvm-project directory already exists' "${SCRIPT}" \
+        | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tail -2 | tr '\n' '|')
+if [ "${REUSE}" != 'cd llvm-project|fetch_pinned_ref "${LLVM_BRANCH}"|' ]; then
+  echo "FAIL: the llvm-project reuse path must cd in and then call"
+  echo "      fetch_pinned_ref \"\${LLVM_BRANCH}\"; found [${REUSE}]"
+  FAILED=1
+fi
+
+# The translator's reuse path is the only place this exact cd appears.
+XLATE=$(grep -A1 -E '^[[:space:]]*cd llvm/projects/SPIRV-LLVM-Translator$' "${SCRIPT}" \
+        | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '\n' '|')
+if [ "${XLATE}" != 'cd llvm/projects/SPIRV-LLVM-Translator|fetch_pinned_ref "${TRANSLATOR_BRANCH}"|' ]; then
+  echo "FAIL: the SPIRV-LLVM-Translator reuse path must cd in and then call"
+  echo "      fetch_pinned_ref \"\${TRANSLATOR_BRANCH}\"; found [${XLATE}]"
+  FAILED=1
+fi
+
+# And nothing anywhere in the file may reach around the helper to fetch.
 # -E with a single alternation group: `\|` is a GNU extension that BSD grep,
 # and so macOS, does not honour, and there it silently matches nothing.
 # Trailing whitespace or a trailing comment must not hide a fetch from this.
