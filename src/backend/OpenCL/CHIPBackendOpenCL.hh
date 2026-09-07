@@ -474,6 +474,19 @@ class CHIPQueueOpenCL : public chipstar::Queue {
   cl_event QueryMarker_ = nullptr;
   std::mutex QueryMarkerMtx_;
 
+  /// Set once the stream's cl_command_queue has been handed to the
+  /// application by getBackendHandles(). Commands the application enqueues on
+  /// it never reach noteWorkEnqueued(), so a marker held across calls could
+  /// report the queue drained with one of them still pending. query() answers
+  /// such a stream from a marker enqueued in the same call instead, which can
+  /// under report completion on an implementation that submits lazily, the
+  /// answer every stream got before the marker was kept, but never over
+  /// reports it.
+  std::atomic<bool> NativeHandleEscaped_{false};
+
+  /// Record that the application has been given, or has supplied, this
+  /// stream's cl_command_queue.
+  void noteNativeHandleEscaped();
   /// Record that work was enqueued: the queue is no longer empty and the
   /// marker query() was polling no longer covers all of its work.
   void noteWorkEnqueued();
@@ -513,7 +526,11 @@ public:
                   cl_command_queue Queue = nullptr);
   virtual ~CHIPQueueOpenCL() override;
   virtual void recordEvent(chipstar::Event *ChipEvent) override;
-  bool isEmptyQueue() override { return IsEmptyQueue_.load(); }
+  /// A stream the application can enqueue on directly is never known to be
+  /// empty: its commands do not go through noteWorkEnqueued().
+  bool isEmptyQueue() override {
+    return !NativeHandleEscaped_.load() && IsEmptyQueue_.load();
+  }
   /// Enqueue and flush a marker on each of this stream's OpenCL queues and
   /// append the marker events to Markers; the caller releases them.
   void enqueueIdleMarkers(std::vector<cl_event> &Markers);

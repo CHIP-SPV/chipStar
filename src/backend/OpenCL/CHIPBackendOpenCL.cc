@@ -1899,6 +1899,7 @@ CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
       QueueMode_ = Regular;
     }
     UsedInInterOp = true;
+    noteNativeHandleEscaped();
   } else {
     cl::Context &ClContext =
         *static_cast<CHIPContextOpenCL *>(ChipContext_)->get();
@@ -1936,6 +1937,15 @@ void CHIPQueueOpenCL::noteWorkEnqueued() {
   dropQueryMarker();
 }
 
+void CHIPQueueOpenCL::noteNativeHandleEscaped() {
+  if (NativeHandleEscaped_.exchange(true))
+    return;
+  logWarn("Stream {} native queue handle handed out: hipStreamQuery now polls "
+          "a marker enqueued in the same call, which an implementation that "
+          "submits lazily can report not ready indefinitely.",
+          (void *)this);
+}
+
 void CHIPQueueOpenCL::dropQueryMarker() {
   std::lock_guard<std::mutex> Lock(QueryMarkerMtx_);
   if (QueryMarker_) {
@@ -1945,13 +1955,22 @@ void CHIPQueueOpenCL::dropQueryMarker() {
 }
 
 bool CHIPQueueOpenCL::query() {
+  // Neither the empty-queue shortcut nor a marker kept across calls can see a
+  // command the application enqueued on an escaped native queue handle.
+  const bool Escaped = NativeHandleEscaped_.load();
+
   // A stream nothing has been submitted to, or one a previous poll or a
   // finish() saw drained, is ready without asking the driver.
-  if (IsEmptyQueue_.load()) {
+  if (!Escaped && IsEmptyQueue_.load()) {
     return true;
   }
 
   std::lock_guard<std::mutex> Lock(QueryMarkerMtx_);
+
+  if (Escaped && QueryMarker_) {
+    clReleaseEvent(QueryMarker_);
+    QueryMarker_ = nullptr;
+  }
 
   // The marker is kept across calls: it completes once everything enqueued
   // before it has, and every path that enqueues work behind it drops it, so
@@ -2012,7 +2031,8 @@ bool CHIPQueueOpenCL::query() {
   // a fresh one and reads it in the same call, which an implementation that
   // submits lazily answers CL_QUEUED. hipStreamQuery would then alternate
   // between reporting a drained stream ready and not ready.
-  IsEmptyQueue_.store(true);
+  if (!Escaped)
+    IsEmptyQueue_.store(true);
   return true;
 }
 
@@ -2353,6 +2373,7 @@ hipError_t CHIPQueueOpenCL::getBackendHandles(uintptr_t *NativeInfo,
   switchModeTo(Profiling);
 
   // Get queue handler
+  noteNativeHandleEscaped();
   NativeInfo[4] = (uintptr_t)get()->get();
 
   // Get context handler
