@@ -54,7 +54,11 @@ git init -q upstream || { echo "FAIL: fixture init"; exit 1; }
   git branch moving-branch
 ) || { echo "FAIL: fixture setup"; exit 1; }
 git clone -q upstream clone 2>/dev/null || { echo "FAIL: fixture clone"; exit 1; }
-git -C clone remote set-url origin https://no-such-host.invalid/nope.git
+# Every case below reads a fetch attempt as "went to the network", which only
+# holds while the remote cannot resolve. An unchecked rewrite here would leave
+# the fixture pointing at the real upstream and quietly weaken all of them.
+git -C clone remote set-url origin https://no-such-host.invalid/nope.git \
+  || { echo "FAIL: fixture remote rewrite"; exit 1; }
 
 # Echoes: <exit status> <number of fetches attempted> <command of the first>
 run_case() {
