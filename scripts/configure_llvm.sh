@@ -32,7 +32,10 @@ retry() {
 # Everything else still fetches: a branch (which moves by design), a ref that
 # is not local yet, and a name that is BOTH a tag and a branch here, since the
 # checkout that follows would resolve that ambiguously and the safe reading is
-# that a branch was meant.
+# that a branch was meant. Fetching a branch updates origin/<branch> and no
+# more: the `git checkout <branch>` below does not fast-forward an existing
+# local branch onto it, so this is preserved behaviour, not a freshness
+# guarantee.
 #
 # So this does NOT make source preparation offline, and is not meant to. Only
 # llvm-project is pinned to a tag; TRANSLATOR_BRANCH is a branch for every
