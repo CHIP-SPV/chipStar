@@ -3,8 +3,12 @@
 # recloning it, but it fetched unconditionally before checking the pinned ref
 # out. For a pinned TAG that is already local that fetch retrieves nothing: it
 # only adds a network round trip, and it fails the whole build when GitHub is
-# unreachable or throttling the runner. For a moving BRANCH the fetch is
-# required, or the build would silently keep compiling stale source.
+# unreachable or throttling the runner. A BRANCH is still fetched, because that
+# is the behaviour every non-pinned ref had before and narrowing it is a
+# separate change. Note what that fetch does and does not buy: it advances the
+# remote-tracking ref origin/<branch>, and the `git checkout <branch>` that
+# follows does NOT fast-forward an existing local branch onto it, so a reused
+# checkout can stay behind origin whether or not this fetch runs.
 #
 # Drives the real fetch_pinned_ref, extracted from configure_llvm.sh itself
 # rather than copied here, against fixture repositories whose remote does not
@@ -133,8 +137,8 @@ if [ "${CALLS}" -ne 1 ]; then
   echo "FAIL: an ambiguous ref must be fetched, not assumed to be the tag"; FAILED=1
 fi
 
-# A fetch that keeps failing must fail the build rather than proceed onto stale
-# source: the script runs under set -e and the caller relies on that.
+# A fetch that keeps failing must fail the build rather than be swallowed: the
+# script runs under set -e and the caller relies on that.
 export RETRY_RC=1
 read -r RC CALLS CMD <<< "$(run_case moving-branch)"
 unset RETRY_RC
