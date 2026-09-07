@@ -12,18 +12,21 @@
 #
 # Needs git and nothing else: no GPU, no toolchain, no network.
 #
-# Usage: configure_llvm_pinned_fetch.bash <configure_llvm.sh> <work-dir>
+# Usage: configure_llvm_pinned_fetch.bash <configure_llvm.sh>
 set -u
 SCRIPT="${1:?path to configure_llvm.sh}"
-OUT="${2:?work directory}"
 
 [ -f "${SCRIPT}" ] || { echo "FAIL: no such script: ${SCRIPT}"; exit 1; }
-mkdir -p "${OUT}" || { echo "FAIL: cannot create ${OUT}"; exit 1; }
 # Absolute before the cd below, or a relative argument would resolve against
 # the work directory instead of the caller's.
 SCRIPT=$(cd "$(dirname "${SCRIPT}")" && pwd)/$(basename "${SCRIPT}")
-OUT=$(cd "${OUT}" && pwd)
-rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
+# The fixture repositories go in a directory this script creates and removes,
+# not one a caller names: a caller-supplied path has to be emptied to make
+# reruns repeatable, and emptying a directory somebody else owns is not this
+# test's to do.
+OUT=$(mktemp -d) || { echo "FAIL: cannot create a work directory"; exit 1; }
+trap 'rm -rf "${OUT}"' EXIT
+cd "${OUT}" || exit 1
 
 # The function's real text. Renaming or removing it fails here rather than
 # leaving this test quietly exercising nothing.

@@ -10,16 +10,18 @@
 # Drives the workflow's own pipeline, extracted from the YAML rather than
 # copied, against a fixture image list. Needs no docker and no network.
 #
-# Usage: cross_image_gc.bash <unit-tests-arm64-mali.yml> <work-dir>
+# Usage: cross_image_gc.bash <unit-tests-arm64-mali.yml>
 set -u
 WF="${1:?path to the Mali workflow}"
-OUT="${2:?work directory}"
 
 [ -f "${WF}" ] || { echo "FAIL: no such workflow: ${WF}"; exit 1; }
-mkdir -p "${OUT}" || { echo "FAIL: cannot create ${OUT}"; exit 1; }
 WF=$(cd "$(dirname "${WF}")" && pwd)/$(basename "${WF}")
-OUT=$(cd "${OUT}" && pwd)
-rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
+# The fixture goes in a directory this script creates and removes, not one a
+# caller names: emptying a directory somebody else owns is not this test's to
+# do, and the fixture has to start empty to be repeatable.
+OUT=$(mktemp -d) || { echo "FAIL: cannot create a work directory"; exit 1; }
+trap 'rm -rf "${OUT}"' EXIT
+cd "${OUT}" || exit 1
 
 # The filter chain between `docker images` and `xargs docker rmi`: everything
 # that decides WHICH tags die. Taken from the workflow so a change there is

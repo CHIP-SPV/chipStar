@@ -132,9 +132,7 @@ jobs:
         # is not offline. Needs only git, so it costs a second and fails before
         # an hour of building rather than after.
         run: |
-          tests/configure_llvm_pinned_fetch.bash \
-            scripts/configure_llvm.sh \
-            "${RUNNER_TEMP:-/tmp}/configure_llvm_pinned_fetch.d"
+          tests/configure_llvm_pinned_fetch.bash scripts/configure_llvm.sh
       - name: Configure LLVM ${{ matrix.build-id }}
         run: |
           rm -rf $HOME/llvm-builds/${{ matrix.build-id }}
@@ -781,9 +779,7 @@ jobs:
         # guard here too, on the host, before an image build and an hour of
         # cross-compiling. Needs only git.
         run: |
-          tests/configure_llvm_pinned_fetch.bash \
-            scripts/configure_llvm.sh \
-            "${RUNNER_TEMP:-/tmp}/configure_llvm_pinned_fetch.d"
+          tests/configure_llvm_pinned_fetch.bash scripts/configure_llvm.sh
       - name: Build the cross-compilation container
         run: |
           docker build -t chipstar-llvm-cross-aarch64 \
