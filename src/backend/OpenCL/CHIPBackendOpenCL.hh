@@ -55,6 +55,7 @@
 #pragma GCC diagnostic pop
 
 #include <atomic>
+#include <mutex>
 #include <unordered_map>
 #include "../../CHIPBackend.hh"
 #include "exceptions.hh"
@@ -457,6 +458,29 @@ class CHIPQueueOpenCL : public chipstar::Queue {
   /// True upon creation and after finish() completes
   /// False when any work is enqueued
   std::atomic<bool> IsEmptyQueue_{true};
+
+  /// Marker query() polls until it completes. Kept across calls because an
+  /// implementation that processes commands asynchronously (Mali) never
+  /// reports a marker complete in the call that enqueued it. Null when no
+  /// poll is in flight; dropped by every path that enqueues work behind it.
+  /// The paths that do not are the ones whose command carries no work of its
+  /// own: the ordering markers of addDependenciesQueueSync and
+  /// enqueueIdleMarkers, the cleanup marker of enqueueDeleteHostArray, and
+  /// MemMap's blocking map, which has completed when it returns. A HIP marker
+  /// or barrier is not among them: enqueueMarkerImpl and enqueueBarrierImpl
+  /// carry cross queue wait lists and do drop it. switchModeTo drops it too,
+  /// not because it adds work but because the marker sits on the command
+  /// queue it is switching away from.
+  cl_event QueryMarker_ = nullptr;
+  std::mutex QueryMarkerMtx_;
+
+  /// Record that work was enqueued: the queue is no longer empty and the
+  /// marker query() was polling no longer covers all of its work.
+  void noteWorkEnqueued();
+  /// Release the marker query() was polling, if any, so the next poll asks a
+  /// new one. Used on its own where the queue's contents change without work
+  /// being added to it, as when the active command queue changes.
+  void dropQueryMarker();
 
 protected:
   /**

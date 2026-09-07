@@ -239,10 +239,11 @@ void CHIPUninitializeCallOnce() {
       // storage.
       //
       // Nothing else syncs it either. ~Queue() is empty, ~CHIPQueueOpenCL()
-      // only logs, and ~CHIPQueueLevel0() skips finish() on purpose because
-      // the Level Zero context may already be gone. So in-flight work on a
-      // per-thread stream is not awaited at exit. Fixing that needs a
-      // non-TLS registry of the per-thread queues; see issue #1439.
+      // only releases its poll marker, and ~CHIPQueueLevel0() skips finish()
+      // on purpose because the Level Zero context may already be gone. So
+      // in-flight work on a per-thread stream is not awaited at exit. Fixing
+      // that needs a non-TLS registry of the per-thread queues; see issue
+      // #1439.
     }
 
     // call deallocateDeviceVariables on all devices.
