@@ -64,8 +64,7 @@ jobs:
           echo "CROSS_WORK=$W" >> "$GITHUB_ENV"
           # The image GC below must not delete the tag this run needs. Cheap
           # text processing, so check it before an image build, not after.
-          tests/cross_image_gc.bash .github/workflows/unit-tests-arm64-mali.yml \
-            "${RUNNER_TEMP:-/tmp}/cross_image_gc.d"
+          tests/cross_image_gc.bash .github/workflows/unit-tests-arm64-mali.yml
           TAG=$(scripts/cross-aarch64/image-tag.sh)
           echo "CROSS_IMAGE=chipstar-cross-aarch64:$TAG" >> "$GITHUB_ENV"
           if docker image inspect "chipstar-cross-aarch64:$TAG" >/dev/null 2>&1; then
