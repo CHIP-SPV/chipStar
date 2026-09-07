@@ -741,8 +741,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-          # No submodules: the cross build only reads scripts/ and
-          # llvm-patches/.
+          # No submodules: this job reads only scripts/, llvm-patches/
+          # and tests/.
       - name: Pick a scratch workspace with room for the build
         run: |
           set -euo pipefail
