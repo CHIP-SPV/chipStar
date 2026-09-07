@@ -14,6 +14,16 @@ function(add_hip_test MAIN_SOURCE)
   add_dependencies(build_tests "${EXEC_NAME}")
 endfunction()
 
+add_test(NAME configure_llvm_pinned_fetch
+  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/configure_llvm_pinned_fetch.bash
+    ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/configure_llvm.sh
+    ${CMAKE_CURRENT_BINARY_DIR}/configure_llvm_pinned_fetch.d)
+set_tests_properties(configure_llvm_pinned_fetch PROPERTIES
+  FAIL_REGULAR_EXPRESSION "FAIL"
+  PASS_REGULAR_EXPRESSION "PASSED")
+
+# The Mali workflow's image GC must not delete the image the run just built.
+# Needs only text processing, no docker.
 add_subdirectory(compiler)
 add_subdirectory(cuda)
 add_subdirectory(devicelib)
