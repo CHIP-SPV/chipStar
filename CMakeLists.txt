@@ -708,7 +708,8 @@ endif()
 
 # For use by hipcc
 execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
-  OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE HOST_ARCH)
+  OUTPUT_VARIABLE HOST_ARCH)
+string(STRIP ${HOST_ARCH} HOST_ARCH)
 set(HOST_ARCH "--target=${HOST_ARCH}")
 
 # On macOS, pass the sysroot only to host compilation (-Xarch_host).
