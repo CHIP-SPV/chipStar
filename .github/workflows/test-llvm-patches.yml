@@ -125,6 +125,16 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
+      - name: Check the pinned-ref fetch guard
+        # configure_llvm.sh runs next and prepares the LLVM source. This asserts
+        # the guard that stops it re-fetching an already-pinned llvm-project
+        # tag; the translator ref is a branch and is still fetched, so the step
+        # is not offline. Needs only git, so it costs a second and fails before
+        # an hour of building rather than after.
+        run: |
+          tests/configure_llvm_pinned_fetch.bash \
+            scripts/configure_llvm.sh \
+            "${RUNNER_TEMP:-/tmp}/configure_llvm_pinned_fetch.d"
       - name: Configure LLVM ${{ matrix.build-id }}
         run: |
           rm -rf $HOME/llvm-builds/${{ matrix.build-id }}
@@ -765,6 +775,15 @@ jobs:
           fi
           echo "Using cross-build workspace: $PICK"
           echo "CROSS_WORK=$PICK" >> "$GITHUB_ENV"
+      - name: Check the pinned-ref fetch guard
+        # The container runs configure_llvm.sh to prepare the LLVM source, and
+        # its fetch is what fails when this runner is throttled. Assert the
+        # guard here too, on the host, before an image build and an hour of
+        # cross-compiling. Needs only git.
+        run: |
+          tests/configure_llvm_pinned_fetch.bash \
+            scripts/configure_llvm.sh \
+            "${RUNNER_TEMP:-/tmp}/configure_llvm_pinned_fetch.d"
       - name: Build the cross-compilation container
         run: |
           docker build -t chipstar-llvm-cross-aarch64 \
