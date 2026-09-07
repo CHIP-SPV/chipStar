@@ -62,6 +62,10 @@ jobs:
           [ -d /space ] || W=$HOME/cross-chipstar-work
           mkdir -p "$W"
           echo "CROSS_WORK=$W" >> "$GITHUB_ENV"
+          # The image GC below must not delete the tag this run needs. Cheap
+          # text processing, so check it before an image build, not after.
+          tests/cross_image_gc.bash .github/workflows/unit-tests-arm64-mali.yml \
+            "${RUNNER_TEMP:-/tmp}/cross_image_gc.d"
           TAG=$(scripts/cross-aarch64/image-tag.sh)
           echo "CROSS_IMAGE=chipstar-cross-aarch64:$TAG" >> "$GITHUB_ENV"
           if docker image inspect "chipstar-cross-aarch64:$TAG" >/dev/null 2>&1; then
@@ -79,9 +83,16 @@ jobs:
           cp -a "$W"/x86-stage/opt/* "$W"/spirv-stage/opt/* "$W/image-ctx/opt/"
           docker build -f scripts/cross-aarch64/Dockerfile.chipstar \
             -t "chipstar-cross-aarch64:$TAG" "$W/image-ctx"
-          # Keep only the two newest cross images; each is ~1.6 GB.
+          # Trim cross images, each ~1.6 GB: keep the two newest plus the one
+          # this run needs, so at most three non-base tags survive. Never the
+          # one this run needs: CreatedAt is the image's own timestamp, and a
+          # rebuild that hits the layer cache produces the SAME image, so the
+          # tag just written inherits a date that can sort it straight into the
+          # delete list. That untags the image between this step and the next,
+          # which then fails with "Unable to find image ... locally".
           docker images chipstar-cross-aarch64 --format '{{.Tag}} {{.CreatedAt}}' \
-            | grep -v '^base ' | sort -k2 -r | tail -n +3 | awk '{print $1}' \
+            | grep -v '^base ' | grep -v "^$TAG " | sort -k2 -r | tail -n +3 \
+            | awk '{print $1}' \
             | xargs -r -I{} docker rmi "chipstar-cross-aarch64:{}" || true
         timeout-minutes: 90
 
