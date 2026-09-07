@@ -14,6 +14,8 @@ function(add_hip_test MAIN_SOURCE)
   add_dependencies(build_tests "${EXEC_NAME}")
 endfunction()
 
+# configure_llvm.sh must not depend on the network to check out a pinned tag it
+# already has. Needs only git, so it runs everywhere.
 add_test(NAME configure_llvm_pinned_fetch
   COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/configure_llvm_pinned_fetch.bash
     ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/configure_llvm.sh
@@ -24,6 +26,14 @@ set_tests_properties(configure_llvm_pinned_fetch PROPERTIES
 
 # The Mali workflow's image GC must not delete the image the run just built.
 # Needs only text processing, no docker.
+add_test(NAME cross_image_gc
+  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/cross_image_gc.bash
+    ${CMAKE_CURRENT_SOURCE_DIR}/../.github/workflows/unit-tests-arm64-mali.yml
+    ${CMAKE_CURRENT_BINARY_DIR}/cross_image_gc.d)
+set_tests_properties(cross_image_gc PROPERTIES
+  FAIL_REGULAR_EXPRESSION "FAIL"
+  PASS_REGULAR_EXPRESSION "PASSED")
+
 add_subdirectory(compiler)
 add_subdirectory(cuda)
 add_subdirectory(devicelib)
