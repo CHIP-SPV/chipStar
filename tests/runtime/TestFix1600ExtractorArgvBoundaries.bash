@@ -17,6 +17,12 @@ if [ ! -x "${EXTRACTOR}" ]; then
   echo "HIP_SKIP_THIS_TEST: spirv-extractor not built"
   exit 0
 fi
+# Never echo a captured log verbatim: it can hold the skip marker, and ctest
+# reads this script's own stdout, so printing it unredacted turns a failure into
+# a Skip (see add_shell_test's SKIP_REGULAR_EXPRESSION). Same reason as
+# TestFix1601ExtractorMultiTUDoubles.bash.
+show() { sed "s/HIP_SKIP_THIS_TEST/<skip-marker>/g" "$1"; }
+
 rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
 "${HIPCC}" -O2 "${SRC}" -o argvcheck > build.log 2>&1 || { echo "FAIL: could not build the reproducer"; tail -5 build.log; exit 1; }
 
@@ -25,7 +31,7 @@ rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
 echo "direct exit=${DIRECT} wrapped exit=${WRAPPED}"
 
 if [ "${DIRECT}" -ne 0 ]; then
-  echo "FAIL: the reproducer does not agree with itself when run directly"; cat direct.log; exit 1
+  echo "FAIL: the reproducer does not agree with itself when run directly"; show direct.log; exit 1
 fi
 # Assert what the CHILD reported, not the wrapper's exit status. The status
 # cannot carry this: on a tree without the fix for chipStar#1592 the wrapper
@@ -34,18 +40,18 @@ fi
 if grep -q "HIP_SKIP_THIS_TEST" wrapped.log; then
   echo "FAIL: the wrapper skipped ./argvcheck instead of running it, so nothing"
   echo "      exercised its argv; this test cannot gate issue #1600 that way"
-  cat wrapped.log
+  show wrapped.log
   exit 1
 fi
 if ! grep -qx "argc=2" wrapped.log ||
    ! grep -qxF "  argv[1]=<${ARG}>" wrapped.log; then
   echo "FAIL: spirv-extractor altered the wrapped test's arguments (issue #1600)"
-  cat wrapped.log
+  show wrapped.log
   exit 1
 fi
 if [ "${WRAPPED}" -ne 0 ]; then
   echo "FAIL: the child agreed on its argv but the wrapper still returned ${WRAPPED}"
-  cat wrapped.log
+  show wrapped.log
   exit 1
 fi
 echo "PASSED"
