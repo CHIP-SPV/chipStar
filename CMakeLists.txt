@@ -770,9 +770,9 @@ set(HOST_ARCH "--target=${HOST_ARCH}")
 # The spirv64 device compilation cannot use the macOS SDK sysroot because
 # TargetConditionals.h uses __is_target_arch which fails for spirv64.
 # Instead, provide just the C++ stdlib headers to the device via -isystem.
-set(HIP_SYSROOT_OPTIONS "")
-set(HIP_SYSROOT_LINK_OPTIONS "")
 if(APPLE)
+  set(HIP_SYSROOT_OPTIONS "")
+  set(HIP_SYSROOT_LINK_OPTIONS "")
   if(NOT CMAKE_OSX_SYSROOT)
     execute_process(COMMAND xcrun --show-sdk-path
       OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE CMAKE_OSX_SYSROOT
@@ -788,6 +788,17 @@ if(APPLE)
       "--sysroot=${CMAKE_OSX_SYSROOT}"
       "-Xarch_device;-I${CMAKE_SOURCE_DIR}/include/hip/devicelib/macOS")
     set(HIP_SYSROOT_LINK_OPTIONS "--sysroot=${CMAKE_OSX_SYSROOT}")
+  endif()
+else()
+  if(HIP_SYSROOT_OPTIONS)
+    set(HIP_SYSROOT_OPTIONS "${HIP_SYSROOT_OPTIONS}")
+    string(STRIP ${HIP_SYSROOT_OPTIONS} HIP_SYSROOT_OPTIONS)
+    string(REPLACE " " ";" HIP_SYSROOT_OPTIONS ${HIP_SYSROOT_OPTIONS})
+  endif()
+  if(HIP_SYSROOT_LINK_OPTIONS)
+    set(HIP_SYSROOT_LINK_OPTIONS "${HIP_SYSROOT_LINK_OPTIONS}")
+    string(STRIP ${HIP_SYSROOT_LINK_OPTIONS} HIP_SYSROOT_LINK_OPTIONS)
+    string(REPLACE " " ";" HIP_SYSROOT_LINK_OPTIONS ${HIP_SYSROOT_LINK_OPTIONS})
   endif()
 endif()
 
