@@ -29,8 +29,7 @@ static int runWrapped(const std::string &fatbinaryPath,
   // already opened and read, so searching PATH for it could run something else.
   if (int Err = posix_spawn(&Pid, fatbinaryPath.c_str(), nullptr, nullptr,
                             Argv.data(), environ)) {
-    // /bin/sh used to publish this; running the child directly makes it ours to
-    // report, and 127 alone is indistinguishable from a child that exits 127.
+    // 127 alone is indistinguishable from a child that exits 127.
     std::cerr << "spirv-extractor: could not run " << fatbinaryPath << ": "
               << std::strerror(Err) << "\n";
     return 127;

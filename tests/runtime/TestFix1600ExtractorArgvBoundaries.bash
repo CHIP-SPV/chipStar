@@ -1,11 +1,7 @@
 #!/bin/bash
-# spirv-extractor --check-for-doubles must hand the wrapped test its arguments
-# byte for byte. It joined them into one string for system(), so the shell
-# re-split any argument containing a space and Catch2 tests whose case name has
-# a space ran with a corrupted argv (chipStar issue #1600).
-#
-# Checking the exit status alone cannot catch this, so the child asserts its own
-# argument count and contents.
+# Gates chipStar issue #1600: the wrapper must hand the child its arguments byte
+# for byte. The child asserts its own argv, because the wrapper's exit status
+# cannot carry that.
 set -u
 HIPCC="@CMAKE_BINARY_DIR@/bin/hipcc"
 EXTRACTOR="@CMAKE_BINARY_DIR@/bin/spirv-extractor"
@@ -17,10 +13,8 @@ if [ ! -x "${EXTRACTOR}" ]; then
   echo "HIP_SKIP_THIS_TEST: spirv-extractor not built"
   exit 0
 fi
-# Never echo a captured log verbatim: it can hold the skip marker, and ctest
-# reads this script's own stdout, so printing it unredacted turns a failure into
-# a Skip (see add_shell_test's SKIP_REGULAR_EXPRESSION). Same reason as
-# TestFix1601ExtractorMultiTUDoubles.bash.
+# Redacted because ctest reads this script's stdout and add_shell_test treats a
+# raw marker as a skip.
 show() { sed "s/HIP_SKIP_THIS_TEST/<skip-marker>/g" "$1"; }
 
 rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
@@ -33,10 +27,6 @@ echo "direct exit=${DIRECT} wrapped exit=${WRAPPED}"
 if [ "${DIRECT}" -ne 0 ]; then
   echo "FAIL: the reproducer does not agree with itself when run directly"; show direct.log; exit 1
 fi
-# Assert what the CHILD reported, not the wrapper's exit status. The status
-# cannot carry this: on a tree without the fix for chipStar#1592 the wrapper
-# returns system()'s raw wait status, which is zero for every child outcome, so
-# a status gate here passes even when the child saw a mangled argv.
 if grep -q "HIP_SKIP_THIS_TEST" wrapped.log; then
   echo "FAIL: the wrapper skipped ./argvcheck instead of running it, so nothing"
   echo "      exercised its argv; this test cannot gate issue #1600 that way"
