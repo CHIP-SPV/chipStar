@@ -64,11 +64,14 @@
 ///
 /// A kernel compiled at runtime through hipRTC is in none of the SPIR-V modules
 /// embedded in the test executable, which is all that
-/// `spirv-extractor --check-for-doubles` (the CHIP_SKIP_TESTS_WITH_DOUBLES
-/// wrapper around every ctest) can inspect. That wrapper therefore cannot skip
-/// a hipRTC test whose kernel uses double, and on a device without fp64 the
-/// program build fails with hipErrorSharedObjectInitFailed. Such a test asks
-/// for the skip itself by calling this before it compiles the kernel.
+/// `spirv-extractor --check-for-doubles` can inspect. That is the wrapper every
+/// add_hip_test registration goes through when CHIP_SKIP_TESTS_WITH_DOUBLES is
+/// on, so it cannot skip a hipRTC test whose kernel uses double, and the device
+/// compiler is left to reject the kernel: the module build fails with
+/// hipErrorSharedObjectInitFailed on OpenCL and hipErrorInvalidImage on Level
+/// Zero, unless IGC is emulating fp64 (IGC_EnableDPEmulation), which
+/// arch.hasDoubles does not report. Such a test asks for the skip itself by
+/// calling this before it compiles the kernel.
 void SkipIfDeviceHasNoDoubles() {
   hipDeviceProp_t Props;
   HIP_CHECK(hipGetDeviceProperties(&Props, 0));

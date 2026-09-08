@@ -204,7 +204,8 @@ static void testProjectionKernel(int dim, int P_1d, int Q_1d) {
 
 int main() {
   // The kernel above is entirely fp64 and reaches the device compiler only at
-  // runtime, so the build-time doubles guard cannot see it (see TestCommon.hh).
+  // runtime, so the doubles wrapper every add_hip_test registration goes
+  // through cannot see it (see TestCommon.hh).
   SkipIfDeviceHasNoDoubles();
 
   // Test the projection basis kernel for each dimension as libCEED t319 does.

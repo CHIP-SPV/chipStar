@@ -20,18 +20,19 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-// The smallest hipRTC kernel that needs fp64, kept as the canary for the gap
-// the build-time doubles guard cannot cover.
+// The smallest hipRTC kernel that needs fp64, kept as the regression guard for
+// the gap the doubles wrapper cannot cover.
 //
-// CHIP_SKIP_TESTS_WITH_DOUBLES wraps every ctest in
-// `spirv-extractor --check-for-doubles`, which reads the SPIR-V embedded in the
-// test executable and skips the test when it finds a double. A kernel handed to
-// hipRTC as a string is compiled after the process starts and lives in no
-// embedded module, so that wrapper structurally cannot see it: on a device
-// without fp64 the program build fails instead
-// (hipErrorSharedObjectInitFailed). Nothing the build system can inspect covers
-// that, so a hipRTC test whose kernel uses double has to ask for the skip
-// itself.
+// When CHIP_SKIP_TESTS_WITH_DOUBLES is on, every add_hip_test registration runs
+// under `spirv-extractor --check-for-doubles`, which reads the SPIR-V embedded
+// in the test executable and skips the test when it finds a double. A kernel
+// handed to hipRTC as a string is compiled after the process starts and lives
+// in no embedded module, so that wrapper structurally cannot see it and the
+// device compiler is left to reject the kernel: the module build fails with
+// hipErrorSharedObjectInitFailed on OpenCL and hipErrorInvalidImage on Level
+// Zero, unless IGC is emulating fp64 (IGC_EnableDPEmulation), which
+// arch.hasDoubles does not report. Nothing the wrapper can inspect covers that,
+// so a hipRTC test whose kernel uses double has to ask for the skip itself.
 
 #include "TestCommon.hh"
 
