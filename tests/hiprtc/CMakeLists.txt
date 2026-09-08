@@ -29,6 +29,21 @@ add_hip_test(TestShellMetacharacters.cc)
 add_hip_test(TestConstantMemory.cc)
 add_hip_test(TestProjectionBasisKernel.cc)
 add_hip_test(TestFixHiprtcFp64Skip.cc)
+
+# The two tests above compile an fp64 kernel through hipRTC and skip themselves
+# when the device reports no doubles. Assert their OUTPUT rather than their exit
+# status, because the status carries no verdict on the devices these gates are
+# for: there the run goes through ${SKIP_DOUBLE_TESTS}, whose main() returns
+# system()'s raw wait status, and ctest keeps only the low 8 bits of it, so a
+# child that exits 1 arrives as 0. A gate on the status therefore cannot go red
+# on an fp64-less device however broken the skip is, while a missing marker
+# still can.
+set_tests_properties(TestFixHiprtcFp64Skip PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED|HIP_SKIP_THIS_TEST")
+set_tests_properties(TestProjectionBasisKernel PROPERTIES
+  PASS_REGULAR_EXPRESSION
+    "All projection basis HIPRTC tests PASSED|HIP_SKIP_THIS_TEST")
+
 add_hip_test(TestHiprtcCacheNameExpressions.cc)
 # This test exercises the HIPRTC SPIR-V cache, so it needs CHIP_MODULE_CACHE_DIR
 # set in the environment at libCHIP static-init time. Use a private directory
