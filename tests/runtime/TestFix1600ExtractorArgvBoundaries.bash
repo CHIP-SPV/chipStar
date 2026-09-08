@@ -27,8 +27,24 @@ echo "direct exit=${DIRECT} wrapped exit=${WRAPPED}"
 if [ "${DIRECT}" -ne 0 ]; then
   echo "FAIL: the reproducer does not agree with itself when run directly"; cat direct.log; exit 1
 fi
-if [ "${WRAPPED}" -ne 0 ]; then
+# Assert what the CHILD reported, not the wrapper's exit status. The status
+# cannot carry this: on a tree without the fix for chipStar#1592 the wrapper
+# returns system()'s raw wait status, which is zero for every child outcome, so
+# a status gate here passes even when the child saw a mangled argv.
+if grep -q "HIP_SKIP_THIS_TEST" wrapped.log; then
+  echo "FAIL: the wrapper skipped ./argvcheck instead of running it, so nothing"
+  echo "      exercised its argv; this test cannot gate issue #1600 that way"
+  cat wrapped.log
+  exit 1
+fi
+if ! grep -qx "argc=2" wrapped.log ||
+   ! grep -qxF "  argv[1]=<${ARG}>" wrapped.log; then
   echo "FAIL: spirv-extractor altered the wrapped test's arguments (issue #1600)"
+  cat wrapped.log
+  exit 1
+fi
+if [ "${WRAPPED}" -ne 0 ]; then
+  echo "FAIL: the child agreed on its argv but the wrapper still returned ${WRAPPED}"
   cat wrapped.log
   exit 1
 fi
