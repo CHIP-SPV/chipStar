@@ -1,6 +1,8 @@
 #include "spirv-extractor.hh"
 #include <cerrno>
 #include <spawn.h>
+#include <cstring>
+#include <iostream>
 #include <sys/wait.h>
 
 extern char **environ;
@@ -25,14 +27,22 @@ static int runWrapped(const std::string &fatbinaryPath,
   pid_t Pid;
   // posix_spawn, not the p variant: fatbinaryPath is the path the extractor
   // already opened and read, so searching PATH for it could run something else.
-  if (posix_spawn(&Pid, fatbinaryPath.c_str(), nullptr, nullptr, Argv.data(),
-                  environ) != 0)
+  if (int Err = posix_spawn(&Pid, fatbinaryPath.c_str(), nullptr, nullptr,
+                            Argv.data(), environ)) {
+    // /bin/sh used to publish this; running the child directly makes it ours to
+    // report, and 127 alone is indistinguishable from a child that exits 127.
+    std::cerr << "spirv-extractor: could not run " << fatbinaryPath << ": "
+              << std::strerror(Err) << "\n";
     return 127;
+  }
 
   int Status;
   while (waitpid(Pid, &Status, 0) < 0)
-    if (errno != EINTR)
+    if (errno != EINTR) {
+      std::cerr << "spirv-extractor: could not wait for " << fatbinaryPath
+                << ": " << std::strerror(errno) << "\n";
       return 127;
+    }
 
   if (WIFEXITED(Status))
     return WEXITSTATUS(Status);
