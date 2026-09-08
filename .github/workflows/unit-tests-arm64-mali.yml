@@ -7,10 +7,9 @@ name: Unit tests (ARM64 Mali)
 # Both SPIR-V producers are covered; each is a separate cross build.
 #
 # The two jobs share nothing on disk. The handoff is an rsync to
-# salami:~/ci-stage/<sha>/, keyed by commit rather than PR number so two
-# pushes to one PR in quick succession cannot overwrite each other's tree.
-# Those trees, and the builder's, are deleted when the pull request merges,
-# by .github/workflows/reap-ci-scratch.yml.
+# salami:~/ci-stage/pr-<N>-<variant>/, one tree per pull request that each push
+# rewrites in place, and .github/workflows/reap-ci-scratch.yml deletes when the
+# pull request closes.
 # See scripts/cross-aarch64/README.md for how the cross build works and
 # which tests it deliberately leaves to the x86 gate.
 
@@ -36,7 +35,7 @@ jobs:
           - variant: translator
             integrated_spirv: "OFF"
     outputs:
-      sha: ${{ steps.sha.outputs.sha }}
+      tree: ${{ steps.tree.outputs.tree }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,8 +43,14 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
 
-      - id: sha
-        run: echo "sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+      # Named after the pull request, which survives a force push; a dispatch
+      # has no pull request and is named after its head instead.
+      - id: tree
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -n "$PR" ]; then TREE="pr-$PR"; else TREE="manual-$(git rev-parse --short=12 HEAD)"; fi
+          echo "tree=$TREE" >> "$GITHUB_OUTPUT"
 
       # The image bakes in an LLVM 23 built from llvm-patches/llvm-23, so a
       # change to any patch changes the compiler that builds the Mali test
@@ -101,19 +106,19 @@ jobs:
           JOBS=$(nproc); JOBS=$(( JOBS > 1 ? JOBS - 1 : 1 ))
           docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work \
             -e INTEGRATED_SPIRV=${{ matrix.integrated_spirv }} \
-            -e STAGE_PREFIX=/home/pvelesko/ci-stage/${{ steps.sha.outputs.sha }}-${{ matrix.variant }} \
+            -e STAGE_PREFIX=/home/pvelesko/ci-stage/${{ steps.tree.outputs.tree }}-${{ matrix.variant }} \
             -v "$PWD":/chipstar:ro -v "$CROSS_WORK":/work \
             "$CROSS_IMAGE" \
             /chipstar/scripts/cross-aarch64/cross-chipstar.sh \
-              ${{ steps.sha.outputs.sha }}-${{ matrix.variant }} "$JOBS"
+              ${{ steps.tree.outputs.tree }}-${{ matrix.variant }} "$JOBS"
         timeout-minutes: 30
 
       - name: Ship to salami
         run: |
           set -euo pipefail
           scripts/cross-aarch64/ship-to-salami.sh \
-            "$CROSS_WORK/cross-${{ steps.sha.outputs.sha }}-${{ matrix.variant }}" \
-            ${{ steps.sha.outputs.sha }}-${{ matrix.variant }}
+            "$CROSS_WORK/cross-${{ steps.tree.outputs.tree }}-${{ matrix.variant }}" \
+            ${{ steps.tree.outputs.tree }}-${{ matrix.variant }}
         timeout-minutes: 15
 
   test-mali:
@@ -132,7 +137,7 @@ jobs:
       - name: Test igpu opencl (${{ matrix.variant }})
         run: |
           set -euo pipefail
-          T=$HOME/ci-stage/${{ needs.cross-compile.outputs.sha }}-${{ matrix.variant }}
+          T=$HOME/ci-stage/${{ needs.cross-compile.outputs.tree }}-${{ matrix.variant }}
           [ -x "$T/hipInfo" ] || { echo "::error::no cross-built tree at $T"; exit 1; }
           cd "$T"
           rm -rf ~/.cache/chipStar
@@ -145,6 +150,6 @@ jobs:
         with:
           name: test-logs-salami-${{ matrix.variant }}
           path: |
-            ~/ci-stage/${{ needs.cross-compile.outputs.sha }}-${{ matrix.variant }}/checkpy_*.txt
-            ~/ci-stage/${{ needs.cross-compile.outputs.sha }}-${{ matrix.variant }}/Testing/**/LastTest.log
+            ~/ci-stage/${{ needs.cross-compile.outputs.tree }}-${{ matrix.variant }}/checkpy_*.txt
+            ~/ci-stage/${{ needs.cross-compile.outputs.tree }}-${{ matrix.variant }}/Testing/**/LastTest.log
           if-no-files-found: ignore

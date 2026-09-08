@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Delete the CI scratch directories that belong to a merged pull request.
+# Delete the CI scratch directories that belong to a closed pull request.
 #
-# Every self-hosted lane names its scratch after the commit it was built from,
-# or after the pull request number: salami's ~/ci-stage/<sha>-<variant>, the
-# cross builder's cross-chipstar-work/{src,native,cross}-<sha>-<variant>, the
-# library presubmit's /tmp/chipstar-ci-staging-salami/<pr>. Once the pull
-# request is merged nothing will ever read those again, so the merge is the
-# moment to delete them.
+# Every self-hosted lane names its scratch after the pull request it belongs
+# to: salami's ~/ci-stage/pr-<N>-<variant>, the cross builder's
+# cross-chipstar-work/{src,native,cross}-pr-<N>-<variant>, the library
+# presubmit's /tmp/chipstar-ci-staging-salami/<pr>. Once the pull request is
+# closed nothing will ever read those again, so that is the moment to delete
+# them.
 #
 # Usage: reap-merged-dirs.sh [-n] -d DIR -p TEMPLATE [-p TEMPLATE ...] TOKEN...
 #   -d DIR       directory holding the scratch trees
@@ -19,9 +19,9 @@
 # workflow variable can never turn a template into a wildcard that matches
 # every tree in DIR. A missing DIR and an empty token list are both no-ops.
 #
-# Example (the cross builder's trees for one merged commit):
+# Example (the cross builder's trees for one closed pull request):
 #   reap-merged-dirs.sh -d /space/pvelesko/cross-chipstar-work \
-#       -p 'src-%s-*' -p 'native-%s-*' -p 'cross-%s-*' 9ad35e7c5b2d
+#       -p 'src-pr-%s-*' -p 'native-pr-%s-*' -p 'cross-pr-%s-*' 1614
 set -eu
 
 DIR=""
