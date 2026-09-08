@@ -40,6 +40,8 @@ extern "C" __global__ void scale(double *Out) { Out[0] = Out[0] * 2.0; }
 )---";
 
 int main() {
+  SkipIfDeviceHasNoDoubles();
+
   double *Out = nullptr;
   HIP_CHECK(hipMalloc(&Out, sizeof(double)));
   double Input = 21.0;
