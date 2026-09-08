@@ -1,9 +1,6 @@
 #!/bin/bash
-# spirv-extractor --check-for-doubles must propagate the wrapped test's exit
-# status. It returned system()'s raw wait status from main(), so a test that
-# exits 1 came back as 256 -> 0 and ctest reported it passed. Every build with
-# CHIP_SKIP_TESTS_WITH_DOUBLES=ON wraps its tests this way, so on those builds
-# any test without a PASS/FAIL regex could fail silently (chipStar issue #1592).
+# Gates chipStar issue #1592: the wrapper must report the child's exit status,
+# its signal death, and its own failure to run it.
 set -u
 HIPCC="@CMAKE_BINARY_DIR@/bin/hipcc"
 EXTRACTOR="@CMAKE_BINARY_DIR@/bin/spirv-extractor"
@@ -14,10 +11,8 @@ if [ ! -x "${EXTRACTOR}" ]; then
   echo "HIP_SKIP_THIS_TEST: spirv-extractor not built"
   exit 0
 fi
-# Never echo a captured log verbatim: it can hold the skip marker, and ctest
-# reads this script's own stdout, so printing it unredacted turns a failure into
-# a Skip (see add_shell_test's SKIP_REGULAR_EXPRESSION). Same reason as
-# TestFix1601ExtractorMultiTUDoubles.bash.
+# Redacted because ctest reads this script's stdout and add_shell_test treats a
+# raw marker as a skip.
 show() { sed "s/HIP_SKIP_THIS_TEST/<skip-marker>/g" "$1"; }
 
 rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
