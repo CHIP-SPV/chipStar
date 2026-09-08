@@ -22,11 +22,40 @@ rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
 echo "direct exit=${DIRECT} wrapped exit=${WRAPPED}"
 
 if [ "${DIRECT}" -ne 1 ]; then
-  echo "FAIL: the reproducer itself should exit 1, got ${DIRECT}"; exit 1
+  echo "FAIL: the reproducer itself should exit 1, got ${DIRECT}"; cat direct.log; exit 1
 fi
 if [ "${WRAPPED}" -ne 1 ]; then
   echo "FAIL: spirv-extractor --check-for-doubles turned exit ${DIRECT} into exit ${WRAPPED}"
   echo "      a failing test wrapped this way is reported as passing (issue #1592)"
+  cat wrapped.log
+  exit 1
+fi
+
+# A signal death must arrive as 128+signal, not as the shell's own status and
+# not as a success. Without this, mapping the signal arm to 0 goes undetected.
+"${EXTRACTOR}" --check-for-doubles ./fails abort > signal.log 2>&1; SIGNALED=$?
+echo "signal death wrapped exit=${SIGNALED}"
+if [ "${SIGNALED}" -ne 134 ]; then
+  echo "FAIL: a wrapped test killed by SIGABRT must be reported as 134 (128+6),"
+  echo "      got ${SIGNALED}"
+  cat signal.log
+  exit 1
+fi
+
+# A test the wrapper cannot execute must not be reported as a pass. Without
+# this, mapping the spawn-failure arm to 0 goes undetected.
+cp ./fails ./noexec && chmod -x ./noexec
+"${EXTRACTOR}" --check-for-doubles ./noexec > noexec.log 2>&1; NOEXEC=$?
+echo "unrunnable wrapped exit=${NOEXEC}"
+if [ "${NOEXEC}" -eq 0 ]; then
+  echo "FAIL: a test the wrapper could not execute was reported as passing"
+  cat noexec.log
+  exit 1
+fi
+# and it must say why, or a CI log shows a bare status with no cause.
+if ! grep -q "spirv-extractor: could not run" noexec.log; then
+  echo "FAIL: the wrapper failed to run ./noexec and printed no diagnostic"
+  cat noexec.log
   exit 1
 fi
 echo "PASSED"
