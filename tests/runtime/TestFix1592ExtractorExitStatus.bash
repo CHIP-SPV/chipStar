@@ -14,6 +14,12 @@ if [ ! -x "${EXTRACTOR}" ]; then
   echo "HIP_SKIP_THIS_TEST: spirv-extractor not built"
   exit 0
 fi
+# Never echo a captured log verbatim: it can hold the skip marker, and ctest
+# reads this script's own stdout, so printing it unredacted turns a failure into
+# a Skip (see add_shell_test's SKIP_REGULAR_EXPRESSION). Same reason as
+# TestFix1601ExtractorMultiTUDoubles.bash.
+show() { sed "s/HIP_SKIP_THIS_TEST/<skip-marker>/g" "$1"; }
+
 rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
 "${HIPCC}" -O2 "${SRC}" -o fails > build.log 2>&1 || { echo "FAIL: could not build the reproducer"; tail -5 build.log; exit 1; }
 
@@ -22,12 +28,12 @@ rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
 echo "direct exit=${DIRECT} wrapped exit=${WRAPPED}"
 
 if [ "${DIRECT}" -ne 1 ]; then
-  echo "FAIL: the reproducer itself should exit 1, got ${DIRECT}"; cat direct.log; exit 1
+  echo "FAIL: the reproducer itself should exit 1, got ${DIRECT}"; show direct.log; exit 1
 fi
 if [ "${WRAPPED}" -ne 1 ]; then
   echo "FAIL: spirv-extractor --check-for-doubles turned exit ${DIRECT} into exit ${WRAPPED}"
   echo "      a failing test wrapped this way is reported as passing (issue #1592)"
-  cat wrapped.log
+  show wrapped.log
   exit 1
 fi
 
@@ -38,7 +44,7 @@ echo "signal death wrapped exit=${SIGNALED}"
 if [ "${SIGNALED}" -ne 134 ]; then
   echo "FAIL: a wrapped test killed by SIGABRT must be reported as 134 (128+6),"
   echo "      got ${SIGNALED}"
-  cat signal.log
+  show signal.log
   exit 1
 fi
 
@@ -49,13 +55,13 @@ cp ./fails ./noexec && chmod -x ./noexec
 echo "unrunnable wrapped exit=${NOEXEC}"
 if [ "${NOEXEC}" -eq 0 ]; then
   echo "FAIL: a test the wrapper could not execute was reported as passing"
-  cat noexec.log
+  show noexec.log
   exit 1
 fi
 # and it must say why, or a CI log shows a bare status with no cause.
 if ! grep -q "spirv-extractor: could not run" noexec.log; then
   echo "FAIL: the wrapper failed to run ./noexec and printed no diagnostic"
-  cat noexec.log
+  show noexec.log
   exit 1
 fi
 echo "PASSED"
