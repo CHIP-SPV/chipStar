@@ -28,6 +28,7 @@ add_hip_test(TestHiprtcOptions.cc)
 add_hip_test(TestShellMetacharacters.cc)
 add_hip_test(TestConstantMemory.cc)
 add_hip_test(TestProjectionBasisKernel.cc)
+add_hip_test(TestFixHiprtcFp64Skip.cc)
 add_hip_test(TestHiprtcCacheNameExpressions.cc)
 # This test exercises the HIPRTC SPIR-V cache, so it needs CHIP_MODULE_CACHE_DIR
 # set in the environment at libCHIP static-init time. Use a private directory
