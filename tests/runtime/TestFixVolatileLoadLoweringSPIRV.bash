@@ -77,8 +77,7 @@ if [ -z "${ACCESS}" ]; then
 fi
 if [ "${LOWERING}" = "cachectl" ]; then
   # The default lowering leaves the access plain and volatile and decorates its
-  # pointer instead, so assert that shape and stop: the atomic patterns below
-  # are the other lowering's.
+  # pointer instead.
   DECORATED=$(echo "${ACCESS}" | grep -cE 'getelementptr .*!spirv\.Decorations' || true)
   if [ "${DECORATED}" -lt 4 ]; then
     fail "volatileAccess has ${DECORATED} decorated pointers, expected at least 4 (one per 32/64 bit global access):"
@@ -88,33 +87,27 @@ if [ "${LOWERING}" = "cachectl" ]; then
     fail "the cache-control lowering made accesses atomic, which faults on an allocation whose device reports no atomic support:"
     echo "${ACCESS}" | grep -E '(load|store) atomic'
   fi
-  if echo "${ACCESS}" | grep -qE '!nontemporal'; then
-    fail "volatileAccess carries a !nontemporal marking, which no lowering emits:"
-    echo "${ACCESS}" | grep -E '!nontemporal'
+else
+  for PATTERN in 'load atomic volatile i32.*syncscope\("device"\) monotonic' \
+                 'load atomic volatile i64.*syncscope\("device"\) monotonic' \
+                 'store atomic volatile i32 .*syncscope\("device"\) monotonic' \
+                 'store atomic volatile i64 .*syncscope\("device"\) monotonic'; do
+    if ! echo "${ACCESS}" | grep -qE "${PATTERN}"; then
+      fail "volatileAccess has no '${PATTERN}' after the pass pipeline"
+    fi
+  done
+  # The 16 bit accesses of the same kernel must NOT be rewritten: OpenCL SPIR-V
+  # allows atomics on 32 bit types only, so a 16 bit one would be invalid, and
+  # both lowerings share the filter.
+  if echo "${ACCESS}" | grep -qE '(load|store) atomic volatile i16'; then
+    fail "volatileAccess had its 16 bit accesses made atomic; the OpenCL SPIR-V environment allows atomics on 32 bit types only:"
+    echo "${ACCESS}" | grep -E '(load|store) volatile i16'
   fi
-  echo "PASSED"
-  exit 0
-fi
-
-for PATTERN in 'load atomic volatile i32.*syncscope\("device"\) monotonic' \
-               'load atomic volatile i64.*syncscope\("device"\) monotonic' \
-               'store atomic volatile i32 .*syncscope\("device"\) monotonic' \
-               'store atomic volatile i64 .*syncscope\("device"\) monotonic'; do
-  if ! echo "${ACCESS}" | grep -qE "${PATTERN}"; then
-    fail "volatileAccess has no '${PATTERN}' after the pass pipeline"
+  PLAIN=$(echo "${ACCESS}" | grep -E '(load|store) volatile (i32|i64)' | grep -v 'atomic' || true)
+  if [ -n "${PLAIN}" ]; then
+    fail "volatileAccess still has non-atomic 32 or 64 bit volatile global accesses:"
+    echo "${PLAIN}"
   fi
-done
-# The 16 bit accesses of the same kernel must NOT be rewritten: OpenCL SPIR-V
-# allows atomics on 32 bit types only, so a 16 bit one would be invalid, and
-# both lowerings share the filter.
-if echo "${ACCESS}" | grep -qE '(load|store) atomic volatile i16'; then
-  fail "volatileAccess had its 16 bit accesses made atomic; the OpenCL SPIR-V environment allows atomics on 32 bit types only:"
-  echo "${ACCESS}" | grep -E '(load|store) volatile i16'
-fi
-PLAIN=$(echo "${ACCESS}" | grep -E '(load|store) volatile (i32|i64)' | grep -v 'atomic' || true)
-if [ -n "${PLAIN}" ]; then
-  fail "volatileAccess still has non-atomic 32 or 64 bit volatile global accesses:"
-  echo "${PLAIN}"
 fi
 if echo "${ACCESS}" | grep -qE '!nontemporal'; then
   fail "volatileAccess carries a !nontemporal marking, which no lowering emits:"
@@ -141,21 +134,31 @@ SPV=$(ls "${OUT}"/*.out 2>/dev/null | head -1)
 if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
   "${SPIRV_DIS}" "${SPV}" > module.spvasm
   if grep -q "Generator: Khronos LLVM/SPIR-V Translator" module.spvasm; then
-    # The entry point id is a number or, when the translator kept an OpName,
-    # the mangled name. Translators from LLVM 21 on emit the entry point as
-    # a wrapper whose only instruction is an OpFunctionCall to the kernel
-    # body, so a wrapper is followed to its callee before inspecting the body.
-    KID=$(grep -E 'OpEntryPoint Kernel %[^ ]+ "_Z[0-9]+volatileAccess' module.spvasm |
-          sed -E 's/.*Kernel (%[^ ]+) .*/\1/')
-    FUNC=$(sed -n "/^ *${KID} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
-    CALLEE=$(echo "${FUNC}" | grep -oE 'OpFunctionCall %[^ ]+ %[^ ]+' | awk '{print $3}' | head -1)
-    if [ -n "${CALLEE}" ]; then
-      FUNC=$(sed -n "/^ *${CALLEE} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
-    fi
-    LOADS=$(echo "${FUNC}" | grep -c -E 'OpAtomicLoad' || true)
-    STORES=$(echo "${FUNC}" | grep -c -E 'OpAtomicStore' || true)
-    if [ "${LOADS}" -lt 2 ] || [ "${STORES}" -lt 2 ]; then
-      fail "SPIR-V volatileAccess has ${LOADS} OpAtomicLoad and ${STORES} OpAtomicStore, expected at least 2 each"
+    if [ "${LOWERING}" = "cachectl" ]; then
+      # The decorations are module scope, so they are counted over the whole
+      # module rather than inside the kernel.
+      DECOS=$(grep -c -E 'OpDecorate .*CacheControl(Load|Store)INTEL' module.spvasm || true)
+      if [ "${DECOS}" -lt 4 ]; then
+        fail "SPIR-V module has ${DECOS} CacheControlLoadINTEL/CacheControlStoreINTEL decorations, expected at least 4"
+        grep -E 'OpDecorate|OpExtension|OpCapability' module.spvasm || true
+      fi
+    else
+      # The entry point id is a number or, when the translator kept an OpName,
+      # the mangled name. Translators from LLVM 21 on emit the entry point as
+      # a wrapper whose only instruction is an OpFunctionCall to the kernel
+      # body, so a wrapper is followed to its callee before inspecting the body.
+      KID=$(grep -E 'OpEntryPoint Kernel %[^ ]+ "_Z[0-9]+volatileAccess' module.spvasm |
+            sed -E 's/.*Kernel (%[^ ]+) .*/\1/')
+      FUNC=$(sed -n "/^ *${KID} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
+      CALLEE=$(echo "${FUNC}" | grep -oE 'OpFunctionCall %[^ ]+ %[^ ]+' | awk '{print $3}' | head -1)
+      if [ -n "${CALLEE}" ]; then
+        FUNC=$(sed -n "/^ *${CALLEE} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
+      fi
+      LOADS=$(echo "${FUNC}" | grep -c -E 'OpAtomicLoad' || true)
+      STORES=$(echo "${FUNC}" | grep -c -E 'OpAtomicStore' || true)
+      if [ "${LOADS}" -lt 2 ] || [ "${STORES}" -lt 2 ]; then
+        fail "SPIR-V volatileAccess has ${LOADS} OpAtomicLoad and ${STORES} OpAtomicStore, expected at least 2 each"
+      fi
     fi
     echo "SPIR-V module checked (Khronos translator)"
   else
