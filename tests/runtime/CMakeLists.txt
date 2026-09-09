@@ -97,6 +97,7 @@ set(RUNTIME_TESTS_MANUAL
   TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
+  TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
   TestFix1601ExtractorMultiTUDoubles.hip # multi-TU, compiled by its .bash, not a test
@@ -413,6 +414,37 @@ if(UNIX AND NOT APPLE)
   set_tests_properties(TestFix1393ExitDuringModuleBuild PROPERTIES
     SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
     TIMEOUT 120)
+endif()
+
+# A clFlush that fails with a status the conversion table does not map aborts
+# the process instead of raising a HIP error (#1604). The failure cannot be
+# provoked from HIP, so an interposer returns CL_OUT_OF_RESOURCES from one
+# clFlush call, and a driver script owns the verdict because it has to sweep
+# the ordinal and because the outcome under test is whether the process
+# survives at all.
+if(UNIX AND NOT APPLE)
+  set_source_files_properties(TestFix1604ClFlushErrorMap.hip
+    PROPERTIES LANGUAGE CXX)
+  add_executable(TestFix1604ClFlushErrorMap TestFix1604ClFlushErrorMap.hip)
+  set_target_properties(TestFix1604ClFlushErrorMap PROPERTIES
+    CXX_STANDARD_REQUIRED ON)
+  target_link_libraries(TestFix1604ClFlushErrorMap CHIP deviceInternal)
+  target_include_directories(TestFix1604ClFlushErrorMap
+    PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+  add_library(ClFlushErrorInterposer MODULE ClFlushErrorInterposer.cpp)
+  target_link_libraries(ClFlushErrorInterposer ${CMAKE_DL_LIBS})
+
+  add_test(NAME TestFix1604ClFlushErrorMap
+    COMMAND ${CMAKE_COMMAND}
+      -DTEST_EXECUTABLE=$<TARGET_FILE:TestFix1604ClFlushErrorMap>
+      -DINTERPOSER=$<TARGET_FILE:ClFlushErrorInterposer>
+      -DTEST_TIMEOUT=60
+      -P ${CMAKE_SOURCE_DIR}/tests/run_clflush_error_map_test.cmake)
+  set_tests_properties(TestFix1604ClFlushErrorMap PROPERTIES
+    PASS_REGULAR_EXPRESSION "PASS"
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
+    TIMEOUT 300)
 endif()
 
 # A failed device-side assertion must report its message on stderr, where ROCm
