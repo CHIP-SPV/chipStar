@@ -71,12 +71,12 @@
 // through a shadow buffer, so a volatile load reads a value the host never
 // published under either lowering. Both columns are equally wrong there.
 //
-// Neither form is durable against every IGC version: on DG2 the
-// stateless-to-stateful promotion rewrites a decorated indexed access to a
-// bindless a32 message and drops the cache control, at both widths and in both
-// directions, so such a target needs an explicit
-// -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON; nothing picks it per device.
-// TestFixVolatileLoadLoweringISA.bash is what makes that drop visible.
+// Neither form is durable against every IGC version: on the Xe-HPG and Xe-LPG
+// parts (dg2, mtl and arl, all measured) the stateless-to-stateful promotion
+// rewrites a decorated indexed access to a bindless a32 message and drops the
+// cache control, at both widths and in both directions, so such a target needs
+// an explicit -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON; nothing picks it per
+// device. TestFixVolatileLoadLoweringISA.bash is what makes that drop visible.
 //
 // A third form, the Nontemporal memory operand, is deliberately not used. It is
 // only a hint ("Hints that the accessed address is not likely to be accessed
@@ -250,8 +250,9 @@ bool lowerVolatileAccesses(Function &F) {
     // SPV_INTEL_cache_controls: UncachedINTEL at cache level 0, the level
     // closest to the processing unit, which is the same thing AMD's volatile
     // lowering spells glc/dlc. IGC maps a load to .uc.ca and a store to
-    // .uc.wb, and drops the control on two shapes: any indexed access on dg2,
-    // and a 64 bit store to a uniform address on pvc, dg2 and bmg. See
+    // .uc.wb, and drops the control on two shapes: any indexed access on the
+    // a32-promoting Xe-HPG and Xe-LPG parts (dg2, mtl, arl), and a 64 bit
+    // store to a uniform address on every part measured. See
     // CHIP-SPV/chipStar#1616.
     Type *I32 = Type::getInt32Ty(Ctx);
     auto MakeDeco = [&](unsigned DecoId) {
