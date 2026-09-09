@@ -130,6 +130,16 @@ for DEV in pvc bmg dg2 mtl arl; do
   done
 done
 
+# Only the parts that keep the control assert that it was ever emitted; on the
+# rest an absent control is the expected answer, which an empty module gives
+# just as well. So a run that reached none of them proved nothing and must say
+# so rather than report the drops it did see as a pass.
+if [ "${LOWERING}" != "atomic" ] && ! echo "${CHECKED}" | grep -qE 'pvc|bmg'; then
+  echo "FAIL: ocloc reached none of the parts that keep the cache control"
+  echo "      (reached:${CHECKED}), so nothing here shows the decorations"
+  echo "      survived at all. Every assertion that ran expects them absent."
+  exit 1
+fi
 if [ -z "${CHECKED}" ]; then
   echo "HIP_SKIP_THIS_TEST: ocloc built for no target, nothing inspected"
   exit 0
