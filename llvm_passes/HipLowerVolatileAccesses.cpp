@@ -246,9 +246,11 @@ bool lowerVolatileAccesses(Function &F) {
 
   if (!UseAtomics) {
     // SPV_INTEL_cache_controls: UncachedINTEL at cache level 0, the level
-    // closest to the processing unit. IGC maps it to an L1-uncached but
-    // L3-cached access (.uc.ca on pvc, dg2 and bmg), which is what a volatile
-    // access needs and is what AMD's own volatile lowering does with glc/dlc.
+    // closest to the processing unit, which is the same thing AMD's volatile
+    // lowering spells glc/dlc. IGC maps a load to .uc.ca and a store to
+    // .uc.wb, and drops the control on two shapes: any indexed access on dg2,
+    // and a 64 bit store to a uniform address on pvc, dg2 and bmg. See
+    // CHIP-SPV/chipStar#1616.
     Type *I32 = Type::getInt32Ty(Ctx);
     auto MakeDeco = [&](unsigned DecoId) {
       Metadata *Ops[] = {ConstantAsMetadata::get(ConstantInt::get(I32, DecoId)),
