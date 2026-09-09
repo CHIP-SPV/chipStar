@@ -28,6 +28,7 @@
 # Enable v3.9+ type annotations in older versions (down to 3.7).
 import argparse
 import os
+import shlex
 import subprocess
 import sys
 from shlex import quote
@@ -201,16 +202,69 @@ def determine_input_languages(arg_list: List[str], xmode: Optional[str] = None) 
 
     return modes
 
+def expand_xcompiler_options(value: str) -> List[str]:
+    """Expand nvcc's -Xcompiler value into individual host options.
+
+    nvcc -Xcompiler behavior:
+      -Xcompiler -Wall                       -> ["-Wall"]
+      -Xcompiler "-Wall","-Werror"           -> ["-Wall", "-Werror"]
+      -Xcompiler \"-Wl,--no-as-needed\"      -> ["-Wl,--no-as-needed"]
+    """
+    try:
+        lexer = shlex.shlex(value, posix=True)
+        lexer.whitespace_split = True # Split on separators only, not wordchars.
+        lexer.whitespace = ","        # The comma is the sole separator.
+        lexer.commenters = ""         # '#' has no special meaning here.
+        opts = [opt.strip() for opt in lexer if opt.strip()]
+    except ValueError as err:
+        # Malformed value (unbalanced quote): pass it through as is.
+        warn(f"could not parse -Xcompiler value '{value}': {err}")
+        opts = [value]
+    return opts
+
+
 def filter_args_for_hipcc(arg_list: List[str]) -> List[str]:
     """Filter out arguments on the way to hipcc.
     """
     filtered = []
-    for arg in arg_list:
+    i = 0
+    while i < len(arg_list):
+        arg = arg_list[i]
+        i += 1
+
+        if arg == "--threads":
+            if i < len(arg_list):
+                i += 1
+                continue
+            # Without a value it is not the --threads we handle; pass it on.
+
+        if arg.startswith("-ftz=") or arg.startswith("--ftz="):
+            continue
+
+        # nvcc uses -ccbin (aliased --compiler-bindir) to select the host
+        # compiler. chipStar compiles host code with clang through hipcc, so
+        # the path is not needed - drop it along with its value.
+        if arg == "-ccbin" or arg == "--compiler-bindir":
+            if i < len(arg_list):
+                i += 1
+            continue
+        if arg.startswith("--compiler-bindir="):
+            continue
+
+        # -Xcompiler takes the next token as its value. That value may be a
+        # single option or a comma-separated list of host options; expand it
+        # into individual flags instead of passing it through verbatim.
         if arg == "-Xcompiler":
+            if i < len(arg_list):
+                filtered.extend(expand_xcompiler_options(arg_list[i]))
+                i += 1
             continue
         if arg.startswith("-Xcompiler="):
-            arg = arg.replace("-Xcompiler=", "", 1)
+            filtered.extend(expand_xcompiler_options(arg[len("-Xcompiler="):]))
+            continue
+
         filtered.append(arg)
+
     return filtered
 
 def main():
