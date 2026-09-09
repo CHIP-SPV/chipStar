@@ -142,32 +142,38 @@ for CAND in "${OUT}"/*.img "${OUT}"/*.out; do
 done
 if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
   "${SPIRV_DIS}" "${SPV}" > module.spvasm
-  if grep -q "Generator: Khronos LLVM/SPIR-V Translator" module.spvasm; then
-    if [ "${LOWERING}" = "cachectl" ]; then
-      # The decorations are module scope, so they are counted over the whole
-      # module rather than inside the kernel.
-      DECOS=$(grep -c -E 'OpDecorate .*CacheControl(Load|Store)INTEL' module.spvasm || true)
-      if [ "${DECOS}" -lt 4 ]; then
-        fail "SPIR-V module has ${DECOS} CacheControlLoadINTEL/CacheControlStoreINTEL decorations, expected at least the 4 of volatileAccess"
-        grep -E 'OpDecorate|OpExtension|OpCapability' module.spvasm || true
-      fi
-    else
-      # The entry point id is a number or, when the translator kept an OpName,
-      # the mangled name. Translators from LLVM 21 on emit the entry point as
-      # a wrapper whose only instruction is an OpFunctionCall to the kernel
-      # body, so a wrapper is followed to its callee before inspecting the body.
-      KID=$(grep -E 'OpEntryPoint Kernel %[^ ]+ "_Z[0-9]+volatileAccess' module.spvasm |
-            sed -E 's/.*Kernel (%[^ ]+) .*/\1/')
-      FUNC=$(sed -n "/^ *${KID} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
-      CALLEE=$(echo "${FUNC}" | grep -oE 'OpFunctionCall %[^ ]+ %[^ ]+' | awk '{print $3}' | head -1)
-      if [ -n "${CALLEE}" ]; then
-        FUNC=$(sed -n "/^ *${CALLEE} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
-      fi
-      LOADS=$(echo "${FUNC}" | grep -c -E 'OpAtomicLoad' || true)
-      STORES=$(echo "${FUNC}" | grep -c -E 'OpAtomicStore' || true)
-      if [ "${LOADS}" -lt 2 ] || [ "${STORES}" -lt 2 ]; then
-        fail "SPIR-V volatileAccess has ${LOADS} OpAtomicLoad and ${STORES} OpAtomicStore, expected at least 2 each"
-      fi
+  if [ "${LOWERING}" = "cachectl" ]; then
+    # Module-scope decorations, so they are counted over the whole module
+    # rather than inside the kernel, and both producers spell them the same:
+    # "OpDecorate %<id> CacheControlLoadINTEL 0 UncachedINTEL" comes out of the
+    # in-tree SPIR-V backend and the Khronos translator alike. Asking which
+    # produced the module would only turn this arm off for one of them.
+    #
+    # This is also what holds the emission to an unoptimized final compile. The
+    # decoration rides a zero-index getelementptr, which an optimizing pipeline
+    # folds away: the same bitcode through llc keeps six at -O0 and none at -O1.
+    DECOS=$(grep -c -E 'OpDecorate .*CacheControl(Load|Store)INTEL' module.spvasm || true)
+    if [ "${DECOS}" -lt 4 ]; then
+      fail "SPIR-V module has ${DECOS} CacheControlLoadINTEL/CacheControlStoreINTEL decorations, expected at least the 4 of volatileAccess"
+      grep -E 'OpDecorate|OpExtension|OpCapability' module.spvasm || true
+    fi
+    echo "SPIR-V module checked (${DECOS} cache-control decorations)"
+  elif grep -q "Generator: Khronos LLVM/SPIR-V Translator" module.spvasm; then
+    # The entry point id is a number or, when the translator kept an OpName,
+    # the mangled name. Translators from LLVM 21 on emit the entry point as
+    # a wrapper whose only instruction is an OpFunctionCall to the kernel
+    # body, so a wrapper is followed to its callee before inspecting the body.
+    KID=$(grep -E 'OpEntryPoint Kernel %[^ ]+ "_Z[0-9]+volatileAccess' module.spvasm |
+          sed -E 's/.*Kernel (%[^ ]+) .*/\1/')
+    FUNC=$(sed -n "/^ *${KID} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
+    CALLEE=$(echo "${FUNC}" | grep -oE 'OpFunctionCall %[^ ]+ %[^ ]+' | awk '{print $3}' | head -1)
+    if [ -n "${CALLEE}" ]; then
+      FUNC=$(sed -n "/^ *${CALLEE} = OpFunction /,/OpFunctionEnd/p" module.spvasm)
+    fi
+    LOADS=$(echo "${FUNC}" | grep -c -E 'OpAtomicLoad' || true)
+    STORES=$(echo "${FUNC}" | grep -c -E 'OpAtomicStore' || true)
+    if [ "${LOADS}" -lt 2 ] || [ "${STORES}" -lt 2 ]; then
+      fail "SPIR-V volatileAccess has ${LOADS} OpAtomicLoad and ${STORES} OpAtomicStore, expected at least 2 each"
     fi
     echo "SPIR-V module checked (Khronos translator)"
   else
