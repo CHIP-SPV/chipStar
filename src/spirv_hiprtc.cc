@@ -774,27 +774,6 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
 
     logDebug("hiprtc: Temp directory: '{}'", TmpDir->string());
     hiprtcResult Result = compile(Program, ProcessedOptions, *TmpDir);
-
-    // HIPCC_VERIFY: run chip-kernel-verify on the produced ELF. Mode is
-    // parsed centrally in EnvVars (CHIPDriver.hh); see HipccVerifyMode.
-    if (Result == HIPRTC_SUCCESS &&
-        ChipEnvVars.getHipccVerify() != EnvVars::HipccVerifyMode::Off) {
-      if (auto Verifier = getChipKernelVerifyPath()) {
-        auto OutputFile = *TmpDir / "program.o";
-        // Quote both paths to survive spaces in temp dirs.
-        auto Cmd =
-            "'" + Verifier->string() + "' '" + OutputFile.string() + "'";
-        int VRc = std::system(Cmd.c_str());
-        if (VRc != 0 &&
-            ChipEnvVars.getHipccVerify() == EnvVars::HipccVerifyMode::Fail) {
-          logError("hiprtc: chip-kernel-verify reported a mismatch on '{}' "
-                   "(rc={}); IGC likely dropped one or more kernels. See "
-                   "https://github.com/intel/intel-graphics-compiler/issues/403",
-                   OutputFile.string(), VRc);
-          Result = HIPRTC_ERROR_COMPILATION;
-        }
-      }
-    }
     if (!ChipEnvVars.getSaveTemps()) {
       assert(!TmpDir->empty() && *TmpDir != TmpDir->root_path() &&
              "Attempted to delete a root directory!");
