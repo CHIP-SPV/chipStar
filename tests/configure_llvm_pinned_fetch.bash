@@ -113,6 +113,27 @@ if [ "${FETCHES}" -ne 1 ]; then
   FAILED=1
 fi
 
+# Every check above is about the path taken when the checkout is still there,
+# so a workflow that deletes it first makes all of them unreachable: the script
+# reclones instead, and the clone is what a throttled runner fails on. The only
+# removal a configure step needs is the copied-in scripts and patches, so any
+# other rm -rf beside a configure_llvm.sh call is that deletion coming back.
+WF_DIR="$(dirname "${SCRIPT}")/../.github/workflows"
+if [ -d "${WF_DIR}" ]; then
+  WIPES=$(awk '
+    /^[[:space:]]*-[[:space:]]*name:/ { step = ""; rms = "" }
+    /rm -rf/ && $0 !~ /rm -rf scripts llvm-patches/ {
+      line = $0; sub(/^[[:space:]]+/, "", line); rms = rms FILENAME ":" FNR ": " line "\n"
+    }
+    /configure_llvm\.sh/ { if (rms != "" && step == "") { printf "%s", rms; step = "seen" } }
+  ' "${WF_DIR}"/*.yml)
+  if [ -n "${WIPES}" ]; then
+    echo "FAIL: a configure step deletes the checkout configure_llvm.sh reuses:"
+    printf '%s\n' "${WIPES}" | sed 's/^/        /'
+    FAILED=1
+  fi
+fi
+
 read -r RC CALLS CMD <<< "$(run_case pinned-tag)"
 echo "pinned tag already local -> rc=${RC} fetches=${CALLS} cmd=[${CMD}]"
 if [ "${RC}" -ne 0 ] || [ "${CALLS}" -ne 0 ]; then
