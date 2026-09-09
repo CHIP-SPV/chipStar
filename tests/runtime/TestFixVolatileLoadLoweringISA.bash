@@ -13,13 +13,19 @@
 # accesses must come out as atomic ugm messages: an atomic is coherent by
 # construction, so it cannot be widened or cached away the way a hint can.
 # Under the cache-control lowering they must come out as ordinary messages that
-# still carry the L1-uncached control, at both widths and in both directions;
-# IGC's stateless-to-stateful promotion rewrites a decorated indexed access to
-# a bindless a32 message and drops the control, which makes the lowering a
-# no-op on the Xe-HPG and Xe-LPG parts (dg2, mtl, arl). Only that indexed shape
-# is gated here; the uniform-address 64 bit store loses the control on every
-# part measured and is described in HipLowerVolatileAccesses.cpp, untested.
-# See CHIP-SPV/chipStar#1616.
+# still carry the L1-uncached control, at both widths and in both directions,
+# on the parts that keep it.
+#
+# Not every part does. IGC's stateless-to-stateful promotion rewrites a
+# decorated indexed access to a bindless a32 message and drops the control, so
+# on dg2, mtl and arl the lowering is a no-op and those parts need the atomic
+# fallback. Each part is asserted against what it actually does, which makes
+# this fail in both directions: a control lost where one is expected, and a
+# control kept on a part that is only on the fallback because it drops one. The
+# second is the canary: it goes red the day IGC stops promoting, and the part
+# comes off the fallback list. Only that indexed shape is gated; the
+# uniform-address 64 bit store is described in HipLowerVolatileAccesses.cpp,
+# untested. See CHIP-SPV/chipStar#1616.
 #
 # Needs no GPU: ocloc is an offline compiler and -device names a target.
 set -u
@@ -60,7 +66,7 @@ fi
 
 STATUS=0
 CHECKED=""
-for DEV in pvc dg2 mtl; do
+for DEV in pvc bmg dg2 mtl arl; do
   DDIR="${OUT}/dump-${DEV}"
   rm -rf "${DDIR}"; mkdir -p "${DDIR}"
   ( cd "${DDIR}" && IGC_ShaderDumpEnable=1 IGC_DumpToCustomDir="${DDIR}" \
@@ -93,6 +99,10 @@ for DEV in pvc dg2 mtl; do
   fi
   echo "-device ${DEV}: memory messages of volatileAccess:"
   grep -ohE '(load|store)[a-z0-9_.]*\.ugm[a-z0-9_.]*' "${ASM}" | sort | uniq -c | sed 's/^/        /'
+  case "${DEV}" in
+    pvc|bmg) KEEPS=1 ;;
+    *)       KEEPS=0 ;;
+  esac
   # A 64 bit access is d64 or, where IGC splits it, d32x2; the trailing t marks
   # a transposed (uniform address) message.
   for DIR in load store; do
@@ -102,7 +112,15 @@ for DEV in pvc dg2 mtl; do
       else
         SHAPE='(d64(x1)?t?|d32x2t?)'
       fi
-      if ! grep -qE "${DIR}\.ugm\.${SHAPE}\.a[0-9]+\.uc" "${ASM}"; then
+      if grep -qE "${DIR}\.ugm\.${SHAPE}\.a[0-9]+\.uc" "${ASM}"; then
+        if [ "${KEEPS}" = "0" ]; then
+          echo "FAIL: -device ${DEV} kept the .uc cache control on the ${WIDTH} bit ${DIR}."
+          echo "      IGC no longer drops it here, so this part does not need"
+          echo "      -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON. Take ${DEV} out of the"
+          echo "      part list in HipLowerVolatileAccesses.cpp and out of the case above."
+          STATUS=1
+        fi
+      elif [ "${KEEPS}" = "1" ]; then
         echo "FAIL: -device ${DEV} generated no ${WIDTH} bit ${DIR} carrying the .uc"
         echo "      cache control, so the decoration was dropped and the volatile"
         echo "      ${DIR} still hits the core-private cache."
@@ -114,12 +132,6 @@ done
 
 if [ -z "${CHECKED}" ]; then
   echo "HIP_SKIP_THIS_TEST: ocloc built for no target, nothing inspected"
-  exit 0
-fi
-# pvc keeps the cache control whether or not the decorations survive, so a run
-# that reached only pvc says nothing about the drop this gate exists for.
-if [ "${LOWERING}" != "atomic" ] && ! echo "${CHECKED}" | grep -qE 'dg2|mtl'; then
-  echo "HIP_SKIP_THIS_TEST: ocloc reached none of the parts that promote to a32 (${CHECKED} )"
   exit 0
 fi
 [ "${STATUS}" -ne 0 ] && { echo "See ${OUT} for the shader dumps"; exit 1; }
