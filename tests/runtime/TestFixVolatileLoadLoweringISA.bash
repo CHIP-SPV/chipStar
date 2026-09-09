@@ -16,7 +16,10 @@
 # still carry the L1-uncached control, at both widths and in both directions;
 # IGC's stateless-to-stateful promotion rewrites a decorated indexed access to
 # a bindless a32 message and drops the control, which makes the lowering a
-# no-op on the affected part (CHIP-SPV/chipStar#1616).
+# no-op on the Xe-HPG and Xe-LPG parts (dg2, mtl, arl). Only that indexed shape
+# is gated here; the uniform-address 64 bit store loses the control on every
+# part measured and is described in HipLowerVolatileAccesses.cpp, untested.
+# See CHIP-SPV/chipStar#1616.
 #
 # Needs no GPU: ocloc is an offline compiler and -device names a target.
 set -u
@@ -36,15 +39,28 @@ fi
 rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
 
 "${HIPCC}" -O2 --save-temps=cwd -c "${SRC}" -o probe.o > hipcc.log 2>&1
-SPV=$(ls "${OUT}"/*.out 2>/dev/null | head -1)
+# --save-temps leaves the SPIR-V module as a *.img under clang's new offload
+# driver, the default from LLVM 23 on, and as a *.out under the old one, and a
+# new-driver *.out is a clang offload binary rather than a module. So the file
+# is chosen by its magic number, and finding none is a failure: it means this
+# gate would otherwise pass without inspecting anything.
+SPV=""
+for CAND in "${OUT}"/*.img "${OUT}"/*.out; do
+  [ -f "${CAND}" ] || continue
+  case "$(od -An -tx1 -N4 "${CAND}" | tr -d ' \n')" in
+    03022307|07230203) SPV="${CAND}"; break ;;
+  esac
+done
 if [ -z "${SPV}" ]; then
-  echo "HIP_SKIP_THIS_TEST: no SPIR-V module produced (integrated backend build keeps no *.out)"
-  exit 0
+  echo "FAIL: hipcc produced no SPIR-V module under ${OUT}, which holds:"
+  ls -1 "${OUT}" | sed 's/^/        /'
+  echo "See ${OUT}/hipcc.log"
+  exit 1
 fi
 
 STATUS=0
-CHECKED=0
-for DEV in pvc dg2; do
+CHECKED=""
+for DEV in pvc dg2 mtl; do
   DDIR="${OUT}/dump-${DEV}"
   rm -rf "${DDIR}"; mkdir -p "${DDIR}"
   ( cd "${DDIR}" && IGC_ShaderDumpEnable=1 IGC_DumpToCustomDir="${DDIR}" \
@@ -53,7 +69,7 @@ for DEV in pvc dg2; do
     echo "NOTE: ocloc could not build for -device ${DEV}, skipping that target"
     continue
   fi
-  CHECKED=$((CHECKED + 1))
+  CHECKED="${CHECKED} ${DEV}"
   if [ "${LOWERING}" = "atomic" ]; then
     # Every volatile global access must reach the hardware as an atomic message.
     N=$(cat "${DDIR}"/*.asm 2>/dev/null | grep -c -oE 'atomic[a-z_.0-9]*\.(ugm|slm)' || true)
@@ -96,8 +112,14 @@ for DEV in pvc dg2; do
   done
 done
 
-if [ "${CHECKED}" -eq 0 ]; then
+if [ -z "${CHECKED}" ]; then
   echo "HIP_SKIP_THIS_TEST: ocloc built for no target, nothing inspected"
+  exit 0
+fi
+# pvc keeps the cache control whether or not the decorations survive, so a run
+# that reached only pvc says nothing about the drop this gate exists for.
+if [ "${LOWERING}" != "atomic" ] && ! echo "${CHECKED}" | grep -qE 'dg2|mtl'; then
+  echo "HIP_SKIP_THIS_TEST: ocloc reached none of the parts that promote to a32 (${CHECKED} )"
   exit 0
 fi
 [ "${STATUS}" -ne 0 ] && { echo "See ${OUT} for the shader dumps"; exit 1; }

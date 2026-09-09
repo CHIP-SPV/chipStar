@@ -129,8 +129,17 @@ if echo "${LEFT}" | grep -qE '(load|store) atomic'; then
   echo "${LEFT}" | grep -E '(load|store) atomic'
 fi
 
-# SPIR-V level check.
-SPV=$(ls "${OUT}"/*.out 2>/dev/null | head -1)
+# SPIR-V level check. --save-temps leaves the module as a *.img under clang's
+# new offload driver, the default from LLVM 23 on, and as a *.out under the old
+# one, and a new-driver *.out is a clang offload binary rather than a module, so
+# the file is chosen by its magic number.
+SPV=""
+for CAND in "${OUT}"/*.img "${OUT}"/*.out; do
+  [ -f "${CAND}" ] || continue
+  case "$(od -An -tx1 -N4 "${CAND}" | tr -d ' \n')" in
+    03022307|07230203) SPV="${CAND}"; break ;;
+  esac
+done
 if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
   "${SPIRV_DIS}" "${SPV}" > module.spvasm
   if grep -q "Generator: Khronos LLVM/SPIR-V Translator" module.spvasm; then
@@ -139,7 +148,7 @@ if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
       # module rather than inside the kernel.
       DECOS=$(grep -c -E 'OpDecorate .*CacheControl(Load|Store)INTEL' module.spvasm || true)
       if [ "${DECOS}" -lt 4 ]; then
-        fail "SPIR-V module has ${DECOS} CacheControlLoadINTEL/CacheControlStoreINTEL decorations, expected at least 4"
+        fail "SPIR-V module has ${DECOS} CacheControlLoadINTEL/CacheControlStoreINTEL decorations, expected at least the 4 of volatileAccess"
         grep -E 'OpDecorate|OpExtension|OpCapability' module.spvasm || true
       fi
     else
