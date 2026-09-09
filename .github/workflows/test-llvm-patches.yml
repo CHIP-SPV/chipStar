@@ -267,10 +267,10 @@ jobs:
           cmake .. -DLLVM_CONFIG_BIN=${LLVM_BIN}/llvm-config -GNinja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCHIP_BUILD_SAMPLES=OFF -DCHIP_BUILD_TESTS=ON
-          if grep -q "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND:BOOL=ON" CMakeCache.txt; then
+          if ! grep -q "CHIP_CACHE_CONTROLS_SUPPORTED:INTERNAL=ON" CMakeCache.txt; then
             echo "ERROR: the configure probe did not find SPV_INTEL_cache_controls in this"
-            echo "       toolchain, so it forced the atomic lowering and the cache-control"
-            echo "       lowering is still ungated. Check llvm-patches/llvm-23."
+            echo "       toolchain, so the build fell back to the atomic lowering and the"
+            echo "       cache-control lowering is still ungated. Check llvm-patches/llvm-23."
             exit 1
           fi
           ninja LLVMHipPasses -j$(nproc)

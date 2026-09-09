@@ -519,70 +519,61 @@ string(REPLACE ";" " " NONRDC_EMITTER_OPTS_STR "${NONRDC_EMITTER_OPTS}")
 # SPIR-V step to clang-linker-wrapper and prints no extension list at all, and
 # the versioned OFFLOAD_TRIPLE because the HIPSPV allow list is only selected
 # for it; a plain spirv64 triple takes an upstream path that passes +all and
-# would answer a different question. Re-probed on every configure unless the
-# option was set explicitly, so pointing an existing build directory at a
-# different toolchain re-decides instead of keeping the first answer.
+# would answer a different question. Re-probed on every configure, so pointing
+# an existing build directory at a different toolchain re-decides instead of
+# keeping the first answer.
 #
-# The probe records the value it chose, not just that it chose one, so an
-# explicit -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON in an already configured
-# build directory reads as a change and wins over the probe's answer.
-set(_cc_requested 0)
-if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
-  set(_cc_requested 1)
-endif()
-set(_cc_verdict 0)
-if(DEFINED CHIP_CACHE_BYPASS_PROBE_VERDICT)
-  set(_cc_verdict "${CHIP_CACHE_BYPASS_PROBE_VERDICT}")
-endif()
-if(_cc_requested AND NOT "${_cc_requested}" EQUAL "${_cc_verdict}")
-  # Explicitly requested; the target cannot take the decorations at all.
-  message(STATUS "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON was requested: "
-                 "volatile accesses lower to relaxed device-scope atomics")
+# The probe writes its own internal variable and never the user's option, so
+# there is no value in the cache that the user did not put there and a later
+# -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON is honoured on the configure that
+# passes it.
+set(_cc_probe_src "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/chip_cache_controls_probe.hip")
+file(WRITE "${_cc_probe_src}" "__attribute__((device)) void chipCacheControlsProbe(void) {}\n")
+execute_process(
+  COMMAND ${CLANG_ROOT_PATH_BIN}/clang++ "-###" -x hip -nogpulib -nogpuinc -c
+          --offload-device-only --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS}
+          "${_cc_probe_src}"
+  OUTPUT_VARIABLE _cc_out ERROR_VARIABLE _cc_err RESULT_VARIABLE _cc_rc)
+set(_cc_cmds "${_cc_out}${_cc_err}")
+# Either the extension is listed for the producer, or the list is unrestricted.
+if(_cc_cmds MATCHES "spirv-ext=[^ \"]*(\\+all|\\+SPV_INTEL_cache_controls)")
+  set(_cc_supported ON)
 else()
-  set(_cc_probe_src "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/chip_cache_controls_probe.hip")
-  file(WRITE "${_cc_probe_src}" "__attribute__((device)) void chipCacheControlsProbe(void) {}\n")
-  execute_process(
-    COMMAND ${CLANG_ROOT_PATH_BIN}/clang++ "-###" -x hip -nogpulib -nogpuinc -c
-            --offload-device-only --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS}
-            "${_cc_probe_src}"
-    OUTPUT_VARIABLE _cc_out ERROR_VARIABLE _cc_err RESULT_VARIABLE _cc_rc)
-  set(_cc_cmds "${_cc_out}${_cc_err}")
-  # Either the extension is listed for the producer, or the list is unrestricted.
-  if(_cc_cmds MATCHES "spirv-ext=[^ \"]*(\\+all|\\+SPV_INTEL_cache_controls)")
-    set(_cc_supported TRUE)
-  else()
-    set(_cc_supported FALSE)
-  endif()
-  if(NOT _cc_cmds MATCHES "spirv-ext=")
-    # No extension list at all means the probe did not reach a device
-    # compilation, so its answer says nothing about the toolchain.
-    message(WARNING "Could not read an extension list from ${CLANG_ROOT_PATH_BIN}/clang++ "
-                    "(exit ${_cc_rc}); assuming SPV_INTEL_cache_controls is unavailable")
-    set(_cc_supported FALSE)
-  endif()
+  set(_cc_supported OFF)
+endif()
+if(NOT _cc_cmds MATCHES "spirv-ext=")
+  # No extension list at all means the probe did not reach a device
+  # compilation, so its answer says nothing about the toolchain.
+  message(WARNING "Could not read an extension list from ${CLANG_ROOT_PATH_BIN}/clang++ "
+                  "(exit ${_cc_rc}); assuming SPV_INTEL_cache_controls is unavailable")
+  set(_cc_supported OFF)
+endif()
+set(CHIP_CACHE_CONTROLS_SUPPORTED ${_cc_supported} CACHE INTERNAL
+    "the configured toolchain's HIPSPV extension list carries SPV_INTEL_cache_controls")
 
-  if(_cc_supported)
-    if(_cc_requested)
-      message(WARNING "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND is ON but this "
-                      "toolchain lists SPV_INTEL_cache_controls, so the probe "
-                      "turns it OFF and volatile accesses lower to cache-control "
-                      "decorations. Re-run cmake with "
-                      "-DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON to keep the "
-                      "atomic lowering.")
-    endif()
-    set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND OFF CACHE BOOL "" FORCE)
-    set(CHIP_CACHE_BYPASS_PROBE_VERDICT 0 CACHE INTERNAL
-        "the value the configure probe last chose for CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND")
-    message(STATUS "SPV_INTEL_cache_controls available: volatile accesses lower "
-                   "to cache-control decorations")
+# An earlier chipStar let the probe overwrite the option, so a build directory
+# configured by one holds a value nobody asked for. Drop it.
+if(DEFINED CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE)
+  get_property(_cc_doc CACHE CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND PROPERTY HELPSTRING)
+  set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND OFF CACHE BOOL "${_cc_doc}" FORCE)
+  unset(CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE CACHE)
+endif()
+
+# The single variable every consumer of the choice reads.
+if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND OR NOT CHIP_CACHE_CONTROLS_SUPPORTED)
+  set(CHIP_VOLATILE_LOWERING_ATOMIC ON)
+  if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
+    message(STATUS "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON was requested: "
+                   "volatile accesses lower to relaxed device-scope atomics")
   else()
-    set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND ON CACHE BOOL "" FORCE)
-    set(CHIP_CACHE_BYPASS_PROBE_VERDICT 1 CACHE INTERNAL
-        "the value the configure probe last chose for CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND")
     message(STATUS "SPV_INTEL_cache_controls is not in this toolchain's HIPSPV "
-                   "extension list; enabling CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "
-                   "so volatile accesses lower to atomics instead")
+                   "extension list: volatile accesses lower to relaxed "
+                   "device-scope atomics instead")
   endif()
+else()
+  set(CHIP_VOLATILE_LOWERING_ATOMIC OFF)
+  message(STATUS "SPV_INTEL_cache_controls available: volatile accesses lower "
+                 "to cache-control decorations")
 endif()
 
 add_subdirectory(llvm_passes)
