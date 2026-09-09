@@ -30,7 +30,7 @@
 # Needs no GPU: ocloc is an offline compiler and -device names a target.
 set -u
 
-# Set by cmake from CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND: "atomic" or "cachectl".
+# Set by cmake from CHIP_VOLATILE_LOWERING_ATOMIC: "atomic" or "cachectl".
 LOWERING="@VOLATILE_LOWERING@"
 
 HIPCC="@CMAKE_BINARY_DIR@/bin/hipcc"
@@ -115,9 +115,11 @@ for DEV in pvc bmg dg2 mtl arl; do
       if grep -qE "${DIR}\.ugm\.${SHAPE}\.a[0-9]+\.uc" "${ASM}"; then
         if [ "${KEEPS}" = "0" ]; then
           echo "FAIL: -device ${DEV} kept the .uc cache control on the ${WIDTH} bit ${DIR}."
-          echo "      IGC no longer drops it here, so this part does not need"
-          echo "      -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON. Take ${DEV} out of the"
-          echo "      part list in HipLowerVolatileAccesses.cpp and out of the case above."
+          echo "      IGC no longer drops it for this access. Check the other three"
+          echo "      before concluding anything about the part: only once all four"
+          echo "      keep the control does ${DEV} stop needing"
+          echo "      -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON, and come out of the"
+          echo "      part list in HipLowerVolatileAccesses.cpp and the case above."
           STATUS=1
         fi
       elif [ "${KEEPS}" = "1" ]; then

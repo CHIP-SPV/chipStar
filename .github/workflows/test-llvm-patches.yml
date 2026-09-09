@@ -284,11 +284,14 @@ jobs:
             echo "       cache-control lowering is still ungated. Check llvm-patches/llvm-23."
             exit 1
           fi
-          command -v ocloc >/dev/null || {
-            echo "ERROR: ocloc is not on PATH. The ISA gate would report itself"
-            echo "       skipped and this lane would go green without inspecting"
-            echo "       a single generated instruction."
-            exit 1; }
+          for T in ocloc spirv-dis; do
+            command -v $T >/dev/null || {
+              echo "ERROR: $T is not on PATH. Without ocloc the ISA gate reports"
+              echo "       itself skipped, and without spirv-dis the decoration"
+              echo "       count never runs, so this lane would go green without"
+              echo "       establishing that any cache control was emitted."
+              exit 1; }
+          done
           ninja LLVMHipPasses hipcc.bin devicelib_bc -j$(nproc)
           ctest -R 'hipVolatileAccesses|TestFixVolatileLoadLowering' --output-on-failure
         timeout-minutes: 20
