@@ -69,7 +69,7 @@ endfunction()
 # add_shell_test(<script-file>)
 # The pass emits one of two shapes and the build picks it, so the shell gates
 # have to assert the one this build produces.
-if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
+if(CHIP_VOLATILE_LOWERING_ATOMIC)
   set(VOLATILE_LOWERING "atomic")
 else()
   set(VOLATILE_LOWERING "cachectl")
