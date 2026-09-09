@@ -4,13 +4,12 @@
 # Dockerfile next to this script.
 #
 # chipStar builds hipcc.bin during its own build and then uses it as the C++
-# compiler for every Catch2 test, and hipcc exec's chip-kernel-verify after
-# each link. In a cross build both would be aarch64 binaries that cannot run
-# on the x86 builder, so:
+# compiler for every Catch2 test. In a cross build that would be an aarch64
+# binary that cannot run on the x86 builder, so:
 #   1. build chipStar natively for x86 first, only to obtain an x86 hipcc.bin
 #      and hipconfig.bin;
-#   2. cross-build chipStar + build_tests for aarch64 with HIPCC_VERIFY=OFF,
-#      then overwrite bin/hipcc.bin in that tree with the x86 one from (1).
+#   2. cross-build chipStar + build_tests for aarch64, then overwrite
+#      bin/hipcc.bin in that tree with the x86 one from (1).
 # hipcc locates everything else via the .hipInfo beside it, which pass 2
 # generated for the aarch64 tree, so it links against the aarch64 libCHIP
 # while itself running on x86. The pass plugin is loaded by opt on the
@@ -65,7 +64,7 @@ cmake -S "$SRC" -B "$NATIVE" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_CONFIG_BIN="$X86_LLVM/bin/llvm-config" \
   -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
-  -DHIPCC_VERIFY=OFF -DCHIP_BUILD_SAMPLES=OFF -DCHIP_BUILD_TESTS=OFF \
+  -DCHIP_BUILD_SAMPLES=OFF -DCHIP_BUILD_TESTS=OFF \
   -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
   -DOpenCL_LIBRARY="$WORK_DIR/x86-stub/libOpenCL.so" \
   -DOpenCL_INCLUDE_DIR="$SRC/include" \
@@ -103,7 +102,6 @@ cmake -S "$SRC" -B "$CROSS" -G Ninja \
   -DCHIP_MALI_GPU_WORKAROUNDS=ON \
   -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
   -DCHIP_SKIP_TESTS_WITH_DOUBLES=ON \
-  -DHIPCC_VERIFY=OFF \
   -DOpenCL_LIBRARY="$WORK_DIR/mali-stub/libOpenCL.so" \
   -DOpenCL_INCLUDE_DIR="$SRC/include" \
   -DPREPARE_BUILTINS="$NATIVE/bitcode/ROCm-Device-Libs/utils/prepare-builtins/prepare-builtins" \
