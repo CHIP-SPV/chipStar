@@ -134,8 +134,13 @@ jobs:
         run: |
           tests/configure_llvm_pinned_fetch.bash scripts/configure_llvm.sh
       - name: Configure LLVM ${{ matrix.build-id }}
+        # The source tree is kept between runs. configure_llvm.sh resets and
+        # cleans an existing checkout before it re-applies the patch series, so
+        # deleting it buys nothing and costs two full clones per run, one of
+        # them llvm-project. It also makes the pinned-ref fetch skip the step
+        # above tests for unreachable, since that path only runs when the
+        # checkout already exists.
         run: |
-          rm -rf $HOME/llvm-builds/${{ matrix.build-id }}
           mkdir -p $HOME/llvm-builds/${{ matrix.build-id }}
           cd $HOME/llvm-builds/${{ matrix.build-id }}
           rm -rf scripts llvm-patches
@@ -536,7 +541,6 @@ jobs:
         run: |
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           BUILD_DIR="$HOME/llvm-builds/23"
-          rm -rf "$BUILD_DIR"
           mkdir -p "$BUILD_DIR"
           cd "$BUILD_DIR"
           rm -rf scripts llvm-patches
