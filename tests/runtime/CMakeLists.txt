@@ -242,8 +242,7 @@ add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
 # The SPIR-V check above proves what chipStar emits; this one proves what the
 # consumer generates from it. IGC discards a cache hint when it widens adjacent
 # stores, which let an A380 run unfixed code while every SPIR-V level check
-# passed. Only the atomic lowering can be checked this way, so it skips under
-# the other one. Uses ocloc, which is an offline compiler and needs no GPU.
+# passed. Uses ocloc, which is an offline compiler and needs no GPU.
 add_shell_test(TestFixVolatileLoadLoweringISA.bash)
 
 add_shell_test(../run_testenvvars.sh)

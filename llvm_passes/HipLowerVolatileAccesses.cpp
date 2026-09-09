@@ -71,10 +71,12 @@
 // through a shadow buffer, so a volatile load reads a value the host never
 // published under either lowering. Both columns are equally wrong there.
 //
-// Neither form is durable against every IGC version: the stateless-to-stateful
-// promotion rewrites a decorated load to ldraw.indexed and drops the cache
-// control on DG2 and MTL, which is why those parts are built with the atomic
-// fallback rather than the default.
+// Neither form is durable against every IGC version: on DG2 the
+// stateless-to-stateful promotion rewrites a decorated indexed access to a
+// bindless a32 message and drops the cache control, at both widths and in both
+// directions, so such a target needs an explicit
+// -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON; nothing picks it per device.
+// TestFixVolatileLoadLoweringISA.bash is what makes that drop visible.
 //
 // A third form, the Nontemporal memory operand, is deliberately not used. It is
 // only a hint ("Hints that the accessed address is not likely to be accessed
