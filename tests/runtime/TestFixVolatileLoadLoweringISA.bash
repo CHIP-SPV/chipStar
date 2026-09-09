@@ -11,24 +11,18 @@
 # This test closes that gap by compiling the module the way a driver does, with
 # ocloc, and inspecting the generated ISA. Under the atomic lowering the
 # accesses must come out as atomic ugm messages: an atomic is coherent by
-# construction, so it cannot be widened or cached away the way a hint can. The
-# cache-control lowering emits ordinary messages carrying .uc controls and needs
-# a decoration-aware IGC to check, so this test skips there.
+# construction, so it cannot be widened or cached away the way a hint can.
+# Under the cache-control lowering they must come out as ordinary messages that
+# still carry the L1-uncached control, at both widths and in both directions;
+# IGC's stateless-to-stateful promotion rewrites a decorated indexed access to
+# a bindless a32 message and drops the control, which makes the lowering a
+# no-op on the affected part (CHIP-SPV/chipStar#1616).
 #
 # Needs no GPU: ocloc is an offline compiler and -device names a target.
 set -u
 
 # Set by cmake from CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND: "atomic" or "cachectl".
 LOWERING="@VOLATILE_LOWERING@"
-if [ "${LOWERING}" != "atomic" ]; then
-  # This check exists because IGC widens adjacent stores and drops a cache
-  # hint carried on them. It asserts atomic ugm messages,
-  # which only the atomic lowering produces; the cache-control lowering emits
-  # ordinary messages carrying .uc cache controls and needs its own check
-  # against a decoration-aware IGC.
-  echo "HIP_SKIP_THIS_TEST: build lowers volatile accesses with ${LOWERING}, not atomics"
-  exit 0
-fi
 
 HIPCC="@CMAKE_BINARY_DIR@/bin/hipcc"
 SRC="@CMAKE_CURRENT_SOURCE_DIR@/TestFixVolatileLoadLowering.hip"
@@ -60,16 +54,46 @@ for DEV in pvc dg2; do
     continue
   fi
   CHECKED=$((CHECKED + 1))
-  # Every volatile global access must reach the hardware as an atomic message.
-  N=$(cat "${DDIR}"/*.asm 2>/dev/null | grep -c -oE 'atomic[a-z_.0-9]*\.(ugm|slm)' || true)
-  echo "-device ${DEV}: ${N} atomic ugm/slm messages in the generated ISA"
-  if [ "${N}" -lt 1 ]; then
-    echo "FAIL: -device ${DEV} generated no atomic messages, so the volatile"
-    echo "      accesses were NOT lowered to atomics by the time IGC saw them."
-    echo "      Generated memory messages were:"
-    cat "${DDIR}"/*.asm 2>/dev/null | grep -ohE '(load|store)\.ugm[a-z0-9._]*' | sort | uniq -c | sed 's/^/        /'
-    STATUS=1
+  if [ "${LOWERING}" = "atomic" ]; then
+    # Every volatile global access must reach the hardware as an atomic message.
+    N=$(cat "${DDIR}"/*.asm 2>/dev/null | grep -c -oE 'atomic[a-z_.0-9]*\.(ugm|slm)' || true)
+    echo "-device ${DEV}: ${N} atomic ugm/slm messages in the generated ISA"
+    if [ "${N}" -lt 1 ]; then
+      echo "FAIL: -device ${DEV} generated no atomic messages, so the volatile"
+      echo "      accesses were NOT lowered to atomics by the time IGC saw them."
+      echo "      Generated memory messages were:"
+      cat "${DDIR}"/*.asm 2>/dev/null | grep -ohE '(load|store)\.ugm[a-z0-9._]*' | sort | uniq -c | sed 's/^/        /'
+      STATUS=1
+    fi
+    continue
   fi
+
+  # IGC dumps one .asm per kernel and names it on the first line.
+  ASM=$(grep -l '^//\.kernel _Z[0-9]*volatileAccess' "${DDIR}"/*.asm 2>/dev/null | head -1)
+  if [ -z "${ASM}" ]; then
+    echo "FAIL: -device ${DEV} produced no ISA dump for the volatileAccess kernel"
+    STATUS=1
+    continue
+  fi
+  echo "-device ${DEV}: memory messages of volatileAccess:"
+  grep -ohE '(load|store)[a-z0-9_.]*\.ugm[a-z0-9_.]*' "${ASM}" | sort | uniq -c | sed 's/^/        /'
+  # A 64 bit access is d64 or, where IGC splits it, d32x2; the trailing t marks
+  # a transposed (uniform address) message.
+  for DIR in load store; do
+    for WIDTH in 32 64; do
+      if [ "${WIDTH}" = "32" ]; then
+        SHAPE='d32(x1)?t?'
+      else
+        SHAPE='(d64(x1)?t?|d32x2t?)'
+      fi
+      if ! grep -qE "${DIR}\.ugm\.${SHAPE}\.a[0-9]+\.uc" "${ASM}"; then
+        echo "FAIL: -device ${DEV} generated no ${WIDTH} bit ${DIR} carrying the .uc"
+        echo "      cache control, so the decoration was dropped and the volatile"
+        echo "      ${DIR} still hits the core-private cache."
+        STATUS=1
+      fi
+    done
+  done
 done
 
 if [ "${CHECKED}" -eq 0 ]; then
