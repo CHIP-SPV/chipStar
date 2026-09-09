@@ -122,7 +122,7 @@ WF_DIR="$(dirname "${SCRIPT}")/../.github/workflows"
 if [ -d "${WF_DIR}" ]; then
   WIPES=$(awk '
     /^[[:space:]]*-[[:space:]]*name:/ { step = ""; rms = "" }
-    /rm -rf/ && $0 !~ /rm -rf scripts llvm-patches/ {
+    /rm -rf/ && $0 !~ /^[[:space:]]*rm -rf scripts llvm-patches[[:space:]]*$/ {
       line = $0; sub(/^[[:space:]]+/, "", line); rms = rms FILENAME ":" FNR ": " line "\n"
     }
     /configure_llvm\.sh/ { if (rms != "" && step == "") { printf "%s", rms; step = "seen" } }

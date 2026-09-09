@@ -25,9 +25,11 @@
 #
 # Compiles TestFixVolatileLoadLowering.hip with --save-temps and inspects the
 # lowered device bitcode, the SPIR-V producer's input: the global accesses must
-# carry the selected form, the work-group local ones must be untouched. When the
-# module was produced by the Khronos translator and spirv-dis is available, the
-# SPIR-V module is checked for the matching operand as well.
+# carry the selected form, the work-group local ones must be untouched. Where
+# spirv-dis is available the SPIR-V module is checked for the matching operand
+# as well: the cache-control decorations whichever producer emitted them, and
+# the atomic operands only from the Khronos translator, whose entry-point shape
+# the walk below depends on.
 set -u
 
 # Set by cmake from CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND: "atomic" or "cachectl".
@@ -152,9 +154,9 @@ if [ -n "${SPV}" ] && [ -n "${SPIRV_DIS}" ] && [ -x "${SPIRV_DIS}" ]; then
     # This is also what holds the emission to an unoptimized final compile. The
     # decoration rides a zero-index getelementptr, which an optimizing pipeline
     # folds away: the same bitcode through llc keeps six at -O0 and none at -O1.
-    DECOS=$(grep -c -E 'OpDecorate .*CacheControl(Load|Store)INTEL' module.spvasm || true)
+    DECOS=$(grep -c -E 'OpDecorate .*CacheControl(Load|Store)INTEL 0 UncachedINTEL' module.spvasm || true)
     if [ "${DECOS}" -lt 4 ]; then
-      fail "SPIR-V module has ${DECOS} CacheControlLoadINTEL/CacheControlStoreINTEL decorations, expected at least the 4 of volatileAccess"
+      fail "SPIR-V module has ${DECOS} UncachedINTEL cache-control decorations at level 0, expected at least the 4 of volatileAccess"
       grep -E 'OpDecorate|OpExtension|OpCapability' module.spvasm || true
     fi
     echo "SPIR-V module checked (${DECOS} cache-control decorations)"
