@@ -551,14 +551,6 @@ endif()
 set(CHIP_CACHE_CONTROLS_SUPPORTED ${_cc_supported} CACHE INTERNAL
     "the configured toolchain's HIPSPV extension list carries SPV_INTEL_cache_controls")
 
-# An earlier chipStar let the probe overwrite the option, so a build directory
-# configured by one holds a value nobody asked for. Drop it.
-if(DEFINED CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE)
-  get_property(_cc_doc CACHE CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND PROPERTY HELPSTRING)
-  set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND OFF CACHE BOOL "${_cc_doc}" FORCE)
-  unset(CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE CACHE)
-endif()
-
 # The single variable every consumer of the choice reads.
 if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND OR NOT CHIP_CACHE_CONTROLS_SUPPORTED)
   set(CHIP_VOLATILE_LOWERING_ATOMIC ON)
