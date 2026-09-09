@@ -519,10 +519,22 @@ string(REPLACE ";" " " NONRDC_EMITTER_OPTS_STR "${NONRDC_EMITTER_OPTS}")
 # SPIR-V step to clang-linker-wrapper and prints no extension list at all, and
 # the versioned OFFLOAD_TRIPLE because the HIPSPV allow list is only selected
 # for it; a plain spirv64 triple takes an upstream path that passes +all and
-# would answer a different question. Re-probed on every
-# configure, so pointing an existing build directory at a different toolchain
-# re-decides instead of keeping the first answer.
-if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND AND NOT CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE)
+# would answer a different question. Re-probed on every configure unless the
+# option was set explicitly, so pointing an existing build directory at a
+# different toolchain re-decides instead of keeping the first answer.
+#
+# The probe records the value it chose, not just that it chose one, so an
+# explicit -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON in an already configured
+# build directory reads as a change and wins over the probe's answer.
+set(_cc_requested 0)
+if(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND)
+  set(_cc_requested 1)
+endif()
+set(_cc_verdict 0)
+if(DEFINED CHIP_CACHE_BYPASS_PROBE_VERDICT)
+  set(_cc_verdict "${CHIP_CACHE_BYPASS_PROBE_VERDICT}")
+endif()
+if(_cc_requested AND NOT "${_cc_requested}" EQUAL "${_cc_verdict}")
   # Explicitly requested; the target cannot take the decorations at all.
   message(STATUS "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON was requested: "
                  "volatile accesses lower to relaxed device-scope atomics")
@@ -550,17 +562,27 @@ else()
   endif()
 
   if(_cc_supported)
+    if(_cc_requested)
+      message(WARNING "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND is ON but this "
+                      "toolchain lists SPV_INTEL_cache_controls, so the probe "
+                      "turns it OFF and volatile accesses lower to cache-control "
+                      "decorations. Re-run cmake with "
+                      "-DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON to keep the "
+                      "atomic lowering.")
+    endif()
     set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND OFF CACHE BOOL "" FORCE)
+    set(CHIP_CACHE_BYPASS_PROBE_VERDICT 0 CACHE INTERNAL
+        "the value the configure probe last chose for CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND")
     message(STATUS "SPV_INTEL_cache_controls available: volatile accesses lower "
                    "to cache-control decorations")
   else()
     set(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND ON CACHE BOOL "" FORCE)
+    set(CHIP_CACHE_BYPASS_PROBE_VERDICT 1 CACHE INTERNAL
+        "the value the configure probe last chose for CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND")
     message(STATUS "SPV_INTEL_cache_controls is not in this toolchain's HIPSPV "
                    "extension list; enabling CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "
                    "so volatile accesses lower to atomics instead")
   endif()
-  set(CHIP_CACHE_BYPASS_CHOSEN_BY_PROBE TRUE CACHE INTERNAL
-      "CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND was set by the configure probe, not by the user")
 endif()
 
 add_subdirectory(llvm_passes)
