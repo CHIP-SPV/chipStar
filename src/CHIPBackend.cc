@@ -55,6 +55,74 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K,
   delete EI;
 }
 
+/// Pick a launch geometry for the device variable *initialization* shadow
+/// kernels (the combined '__chip_var_init_all' as well as the per-variable
+/// '__chip_var_init_<name>' kernels used by the globals-as-kernel-args
+/// lowering).
+///
+/// Those kernel bodies are grid-stride loops (see HipGlobalVariables.cpp), so
+/// they are functionally correct at ANY geometry -- but queueKernel() defaults
+/// to dim3(1)/dim3(1), which funnels the whole initialization through a single
+/// work item. That single-work-item copy is what issue #582 is about: on an
+/// Arc B570 it costs 32.7 ms for a 1 MiB variable versus ~18 us once the copy
+/// is spread over a real grid. Hence a real geometry here.
+///
+/// Sizing rationale:
+///  - Block size: the usual 256, clamped by the device's maximum work-group
+///    size AND by the kernel's own maximum work-group size (queried through
+///    getAttributes(), which is CL_KERNEL_WORK_GROUP_SIZE on OpenCL and the
+///    device limit on Level Zero). Nothing is hardcoded beyond the 256
+///    preference; devices such as Mali report smaller kernel limits and are
+///    clamped down automatically.
+///  - Work items: one per 8 bytes. 8 is the widest element type the lowering
+///    pass copies per loop iteration (i64), so this gives exactly one element
+///    per work item in the best case and ~8 grid-stride iterations per work
+///    item in the worst case (i8 element type). Sizing from bytes rather than
+///    elements keeps the runtime independent of the element type the pass
+///    happened to choose.
+///  - Grid: capped at 1024 blocks. With a 256-work-item block that is 256K
+///    work items, which is more than the resident work-item capacity of any
+///    device chipStar targets; past that point extra blocks only add dispatch
+///    cost while the grid-stride loop absorbs the remaining bytes for free.
+///    Also clamped by the device's maximum grid dimension, and never zero.
+static void getVarInitLaunchGeometry(chipstar::Device *Dev,
+                                     chipstar::Kernel *Kern, size_t TotalBytes,
+                                     dim3 &GridDim, dim3 &BlockDim) {
+  constexpr size_t PreferredBlockSize = 256;
+  constexpr size_t MaxBlocks = 1024;
+  constexpr size_t BytesPerWorkItem = 8;
+
+  size_t BlockSize = PreferredBlockSize;
+  if (Dev) {
+    int DevMaxBlockSize = Dev->getAttr(hipDeviceAttributeMaxThreadsPerBlock);
+    if (DevMaxBlockSize > 0)
+      BlockSize = std::min<size_t>(BlockSize, DevMaxBlockSize);
+  }
+  if (Kern) {
+    hipFuncAttributes Attrs{};
+    if (Kern->getAttributes(&Attrs) == hipSuccess &&
+        Attrs.maxThreadsPerBlock > 0)
+      BlockSize = std::min<size_t>(BlockSize, Attrs.maxThreadsPerBlock);
+  }
+  if (BlockSize < 1)
+    BlockSize = 1;
+
+  size_t WantedWorkItems =
+      (TotalBytes + BytesPerWorkItem - 1) / BytesPerWorkItem;
+  size_t NumBlocks = (WantedWorkItems + BlockSize - 1) / BlockSize;
+  NumBlocks = std::min(std::max<size_t>(NumBlocks, 1), MaxBlocks);
+  if (Dev) {
+    int DevMaxGridX = Dev->getAttr(hipDeviceAttributeMaxGridDimX);
+    if (DevMaxGridX > 0)
+      NumBlocks = std::min<size_t>(NumBlocks, DevMaxGridX);
+  }
+
+  GridDim = dim3(static_cast<uint32_t>(NumBlocks), 1, 1);
+  BlockDim = dim3(static_cast<uint32_t>(BlockSize), 1, 1);
+  logTrace("Device variable init geometry: {} bytes -> grid={} block={}",
+           TotalBytes, GridDim.x, BlockDim.x);
+}
+
 /// Queue a shadow kernel for binding a device variable (a pointer) to
 /// the given allocation.
 static void queueVariableInfoShadowKernel(chipstar::Queue *Q,
@@ -95,17 +163,37 @@ static void queueVariableInitShadowKernel(chipstar::Queue *Q,
                                           chipstar::Module *M,
                                           const chipstar::DeviceVar *Var) {
   assert(M && Var);
-  auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) +
-                               std::string(Var->getName()));
-  assert(K && "chipstar::Module is missing a shadow kernel?");
+  // Use the non-throwing findKernel() and tolerate a missing kernel, for the
+  // same class of reason queueVariableBindShadowKernel does: a variable may
+  // legitimately have an initializer and yet have no init shadow kernel.
+  // The program-scope-globals lowering emits the single combined
+  // '__chip_var_init_all' kernel instead of per-variable ones, and it omits
+  // that combined kernel entirely when no variable needs kernel
+  // initialization (e.g. every initialized variable is a large zero
+  // initializer filled by the host). In that case the caller falls through to
+  // this per-variable path and getKernelByName() would throw
+  // hipErrorLaunchFailure on a module that is in fact perfectly fine.
+  auto *K = M->findKernel(std::string(ChipVarInitPrefix) +
+                          std::string(Var->getName()));
+  if (!K)
+    return;
+
+  // Same geometry treatment as the combined kernel: these bodies are
+  // grid-stride loops too, so leaving them at the dim3(1)/dim3(1) default
+  // would keep the globals-as-kernel-args (rusticl) path on the slow
+  // single-work-item copy.
+  dim3 GridDim, BlockDim;
+  getVarInitLaunchGeometry(Q ? Q->getDevice() : nullptr, K, Var->getSize(),
+                           GridDim, BlockDim);
+
   if (K->getFuncInfo()->getNumKernelArgs() == 1) {
     // Globals-as-kernel-args lowering: the init kernel takes the storage
     // address as its argument instead of reading a program-scope global.
     auto *DevPtr = Var->getDevAddr();
     void *Args[] = {&DevPtr};
-    queueKernel(Q, K, Args);
+    queueKernel(Q, K, Args, GridDim, BlockDim);
   } else
-    queueKernel(Q, K);
+    queueKernel(Q, K, nullptr, GridDim, BlockDim);
 }
 
 void *chipstar::getDeviceGlobalArgAddr(chipstar::Kernel *Kernel,
@@ -476,15 +564,28 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
 
     size_t Size = (*VarInfo.second)[0];
     size_t Alignment = (*VarInfo.second)[1];
-    size_t HasInitializer = (*VarInfo.second)[2];
+    // CHIPVarInfo[2] is a tri-state (see src/common.hh):
+    //   0 = no initializer,
+    //   1 = has an initializer applied by the init shadow kernel,
+    //   2 = zero initializer large enough (>= ChipVarFillThreshold) that the
+    //       shadow kernel skips it and the runtime fills the storage instead.
+    // Any other non-zero value is treated as 1. That matters for forward
+    // compatibility: the HIPRTC on-disk SPIR-V cache is not keyed on the pass
+    // plugin, so a module produced by an older/newer chipStar can be served to
+    // this runtime, and for those "non-zero means it has an initializer" is
+    // the only guaranteed meaning.
+    int64_t InitKind = (*VarInfo.second)[2];
+    bool HasInitializer = InitKind != 0;
+    bool FilledByHost = InitKind == 2;
     assert(Size && "Unexpected zero sized device variable.");
     assert(Alignment && "Unexpected alignment requirement.");
 
-    logTrace("Variable '{}': Size={}, Alignment={}, HasInitializer={}", 
-             Var->getName(), Size, Alignment, HasInitializer);
+    logTrace("Variable '{}': Size={}, Alignment={}, InitKind={}",
+             Var->getName(), Size, Alignment, InitKind);
     Var->setDevAddr(
         Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeDevice));
     Var->markHasInitializer(HasInitializer);
+    Var->markInitializedByHostFill(FilledByHost);
     // Sanity check for object sizes reported by the shadow kernels vs
     // __hipRegisterVar. For device-only variables, we don't have __hipRegisterVar
     // so the size is 0 - update it from the shadow kernel.
@@ -543,7 +644,47 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
 
   logTrace("Initialize device variables in module: {}", (void *)this);
 
-  bool QueuedKernels = false;
+  // NOTE: this tracks *any* work enqueued below, not just kernels. The
+  // Queue->finish() it gates is load-bearing and must not be skipped for a
+  // module whose variables are all initialized by host fills: this runs on
+  // Device::getDefaultQueue() while the user kernel that consumes the
+  // variables may be launched on a completely different stream, so the
+  // in-order property of a single queue does not provide the ordering.
+  bool QueuedWork = false;
+
+  // Zero-initialized variables of at least ChipVarFillThreshold bytes are
+  // *not* initialized by the shadow kernel (the lowering pass leaves them out
+  // and reports CHIPVarInfo[2] == 2); fill them from the host instead. A
+  // device fill beats a kernel store loop for large buffers and it keeps the
+  // (potentially huge) zero blob out of the SPIR-V. Level Zero rejects
+  // non-power-of-2 pattern sizes, hence a 1-byte pattern.
+  // Note that host fills do NOT amortize for small variables -- 256 8-byte
+  // variables cost ~1782 us as individual fills versus ~99 us as one combined
+  // kernel -- which is exactly why the threshold exists and why small zero
+  // initializers stay in the kernel.
+  const char Zero = 0;
+  // Total bytes the combined/per-variable init kernels have to write. Used to
+  // size the launch geometry below.
+  size_t KernelInitBytes = 0;
+  for (auto *Var : ChipVars_) {
+    if (!Var->hasInitializer())
+      continue;
+    if (!Var->isInitializedByHostFill()) {
+      KernelInitBytes += Var->getSize();
+      continue;
+    }
+    if (!Var->getDevAddr()) {
+      logError("Device variable '{}' needs a host fill but has no storage.",
+               Var->getName());
+      continue;
+    }
+    logTrace("Zero-filling device variable '{}' ({} bytes) from the host",
+             Var->getName(), Var->getSize());
+    Queue->memFillAsync(Var->getDevAddr(), Var->getSize(), &Zero,
+                        /* PatternSize = */ 1);
+    QueuedWork = true;
+  }
+
   // Fast path (#582): the program-scope-globals lowering emits a single
   // combined init kernel that initializes ALL variables in one launch, instead
   // of one single-work-item init kernel per variable. Launch it once when
@@ -551,17 +692,23 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   // globals-as-kernel-args/rusticl lowering).
   if (auto *CombinedInitKernel = findKernel(ChipVarInitAllName)) {
     logTrace("Initializing all device variables via combined init kernel");
-    queueKernel(Queue, CombinedInitKernel);
-    QueuedKernels = true;
+    // The combined kernel's copy loops are grid-stride; launching it with
+    // queueKernel()'s dim3(1)/dim3(1) default would make it *slower* than the
+    // single-work-item llvm.memcpy it replaced.
+    dim3 GridDim, BlockDim;
+    getVarInitLaunchGeometry(Queue->getDevice(), CombinedInitKernel,
+                             KernelInitBytes, GridDim, BlockDim);
+    queueKernel(Queue, CombinedInitKernel, nullptr, GridDim, BlockDim);
+    QueuedWork = true;
   } else {
     for (auto *Var : ChipVars_) {
       logTrace("Checking variable '{}' for initialization: hasInitializer={}",
                Var->getName(), Var->hasInitializer());
-      if (!Var->hasInitializer())
+      if (!Var->hasInitializer() || Var->isInitializedByHostFill())
         continue;
       logTrace("Initializing variable '{}'", Var->getName());
       queueVariableInitShadowKernel(Queue, this, Var);
-      QueuedKernels = true;
+      QueuedWork = true;
     }
   }
 
@@ -569,10 +716,10 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   // This also handles static local variables in device functions.
   if (NonSymbolResetKernel) {
     queueKernel(Queue, NonSymbolResetKernel);
-    QueuedKernels = true;
+    QueuedWork = true;
   }
 
-  if (QueuedKernels)
+  if (QueuedWork)
     Queue->finish();
 
   DeviceVariablesInitialized_ = true;
