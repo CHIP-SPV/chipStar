@@ -43,7 +43,7 @@ __device__ double sqrtBool(bool Arg) { return sqrt(Arg); }
 
 // The floating-point overloads must keep working, and an int argument must
 // pick double, not _Float16: sqrt(16) is 4.0 exactly either way, but
-// exp(11) overflows _Float16 (max 65504) and is representable as double.
+// exp(12) overflows _Float16 (max 65504) and is representable as double.
 __device__ double expIntNotHalf(int Arg) { return exp(Arg); }
 __device__ _Float16 sqrtHalf(_Float16 Arg) { return sqrt(Arg); }
 __device__ float sqrtFloat(float Arg) { return sqrt(Arg); }
