@@ -1,17 +1,8 @@
-// Reproduces CHIP-SPV/chipStar#1586: devicelib declares both an api_half
-// (_Float16) and a double overload of these math functions at global scope,
-// and int -> _Float16 and int -> double are floating-integral conversions of
-// the same rank. Neither candidate is better, so a device-side call with an
-// integer argument is ambiguous. [cmath.syn] requires such a call to be
-// treated as double.
-//
-// The unqualified form is ambiguous with any standard library. The std::
-// form is additionally ambiguous under libc++, whose integral <cmath>
-// overloads are not available in the device pass; libstdc++ hides that one
-// because its integral overloads are constexpr, hence implicitly
-// __host__ __device__.
-//
-// Compile-only test: it never has to run, it only has to compile.
+// Reproduces CHIP-SPV/chipStar#1586: an integer argument ties the api_half and
+// double overloads of these device math functions. The unqualified form is
+// ambiguous with any standard library; the std:: form only under libc++, whose
+// integral <cmath> overloads are host-only (libstdc++'s are constexpr, hence
+// implicitly __host__ __device__). Compile-only test.
 #include <hip/hip_runtime.h>
 #include <cmath>
 
@@ -46,9 +37,8 @@ __device__ void otherIntegerTypes(short S, long L, unsigned U, char C, bool B) {
   static_assert(__is_same(decltype(sqrt(B)), double), "");
 }
 
-// The floating-point overloads must keep working, and an int argument must
-// pick double, not _Float16: sqrt(16) is 4.0 exactly either way, but
-// exp(12) overflows _Float16 (max 65504) and is representable as double.
+// An int must pick double, not _Float16 (exp(12) overflows _Float16), and the
+// floating-point overloads must keep working.
 __device__ double expIntNotHalf(int Arg) {
   static_assert(__is_same(decltype(exp(Arg)), double), "");
   return exp(Arg);
