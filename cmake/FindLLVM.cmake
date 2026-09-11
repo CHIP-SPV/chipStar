@@ -57,6 +57,9 @@ set(CLANG_ROOT_PATH_BIN ${CLANG_ROOT_PATH}/bin)
 # Derive LLVM_DIR from llvm-config so downstream (e.g. ROCm prepare-builtins,
 # include(AddLLVM)) uses the correct LLVM and does not pick up a different
 # system install (e.g. /usr/lib/llvm-18).
+if(LLVM_DIR)
+  message(STATUS "Using LLVM_DIR: ${LLVM_DIR}")
+else()
 set(_LLVM_CMAKE_DIR "${CLANG_ROOT_PATH}/${CMAKE_INSTALL_LIBDIR}/cmake/llvm")
 if(NOT EXISTS "${_LLVM_CMAKE_DIR}/LLVMConfig.cmake")
   set(_LLVM_CMAKE_DIR "${CLANG_ROOT_PATH}/lib/cmake/llvm")
@@ -67,6 +70,7 @@ if(EXISTS "${_LLVM_CMAKE_DIR}/LLVMConfig.cmake")
 else()
   message(FATAL_ERROR "LLVMConfig.cmake not found under ${CLANG_ROOT_PATH}. "
     "Expected at ${_LLVM_CMAKE_DIR}/LLVMConfig.cmake")
+endif()
 endif()
 
 execute_process(COMMAND "${LLVM_CONFIG_BIN}" "--version"
