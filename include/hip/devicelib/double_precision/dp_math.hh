@@ -605,9 +605,8 @@ CHIP_DEF_LONG_DOUBLE_FN2(pow)
 // double, so give such a call an exact match that forwards to the double
 // overload. See CHIP-SPV/chipStar#1586.
 //
-// Only the names that devicelib declares for both api_half and double need
-// this; every other math function has a single floating-point candidate and
-// already resolves.
+// Only the names half_math.hh declares for api_half; the float/double ties of
+// the other math names are CHIP-SPV/chipStar#1623.
 #define CHIP_DEF_INTEGRAL_FN1(NAME)                                            \
   template <class T>                                                           \
   static inline __device__ typename chipDevicelibImpl::enableIfType<           \
