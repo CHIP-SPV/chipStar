@@ -16,8 +16,14 @@
 #include <cmath>
 
 #define CHECK_INT_ARG(NAME)                                                    \
-  __device__ double unqualified_##NAME(int Arg) { return NAME(Arg); }          \
-  __device__ double qualified_##NAME(int Arg) { return std::NAME(Arg); }
+  __device__ double unqualified_##NAME(int Arg) {                              \
+    static_assert(__is_same(decltype(NAME(Arg)), double), "");                 \
+    return NAME(Arg);                                                          \
+  }                                                                            \
+  __device__ double qualified_##NAME(int Arg) {                                \
+    static_assert(__is_same(decltype(std::NAME(Arg)), double), "");            \
+    return std::NAME(Arg);                                                     \
+  }
 
 CHECK_INT_ARG(ceil)
 CHECK_INT_ARG(cos)
@@ -35,16 +41,21 @@ CHECK_INT_ARG(trunc)
 __device__ double unqualified_rint(int Arg) { return rint(Arg); }
 
 // Other integer types must resolve the same way.
-__device__ double sqrtShort(short Arg) { return sqrt(Arg); }
-__device__ double sqrtLong(long Arg) { return sqrt(Arg); }
-__device__ double sqrtUnsigned(unsigned Arg) { return sqrt(Arg); }
-__device__ double sqrtChar(char Arg) { return sqrt(Arg); }
-__device__ double sqrtBool(bool Arg) { return sqrt(Arg); }
+__device__ void otherIntegerTypes(short S, long L, unsigned U, char C, bool B) {
+  static_assert(__is_same(decltype(sqrt(S)), double), "");
+  static_assert(__is_same(decltype(sqrt(L)), double), "");
+  static_assert(__is_same(decltype(sqrt(U)), double), "");
+  static_assert(__is_same(decltype(sqrt(C)), double), "");
+  static_assert(__is_same(decltype(sqrt(B)), double), "");
+}
 
 // The floating-point overloads must keep working, and an int argument must
 // pick double, not _Float16: sqrt(16) is 4.0 exactly either way, but
 // exp(12) overflows _Float16 (max 65504) and is representable as double.
-__device__ double expIntNotHalf(int Arg) { return exp(Arg); }
+__device__ double expIntNotHalf(int Arg) {
+  static_assert(__is_same(decltype(exp(Arg)), double), "");
+  return exp(Arg);
+}
 __device__ _Float16 sqrtHalf(_Float16 Arg) { return sqrt(Arg); }
 __device__ float sqrtFloat(float Arg) { return sqrt(Arg); }
 __device__ double sqrtDouble(double Arg) { return sqrt(Arg); }
