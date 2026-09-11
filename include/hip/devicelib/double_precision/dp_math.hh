@@ -601,7 +601,7 @@ CHIP_DEF_LONG_DOUBLE_FN2(pow)
 // functions below at global scope. int -> _Float16 and int -> double are
 // floating-integral conversions of the same rank, so neither candidate is
 // better and a device side call with an integer argument, such as sqrt(1), is
-// ambiguous. [c.math.fpret] requires an integer argument to be treated as
+// ambiguous. [cmath.syn] requires an integer argument to be treated as
 // double, so give such a call an exact match that forwards to the double
 // overload. See CHIP-SPV/chipStar#1586.
 //
