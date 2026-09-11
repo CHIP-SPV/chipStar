@@ -597,16 +597,11 @@ CHIP_DEF_LONG_DOUBLE_FN2(pow)
 #undef CHIP_DEF_LONG_DOUBLE_FN1
 #undef CHIP_DEF_LONG_DOUBLE_FN2
 
-// devicelib declares both an api_half (_Float16) and a double overload of the
-// functions below at global scope. int -> _Float16 and int -> double are
-// floating-integral conversions of the same rank, so neither candidate is
-// better and a device side call with an integer argument, such as sqrt(1), is
-// ambiguous. [cmath.syn] requires an integer argument to be treated as
-// double, so give such a call an exact match that forwards to the double
-// overload. See CHIP-SPV/chipStar#1586.
-//
-// Only the names half_math.hh declares for api_half; the float/double ties of
-// the other math names are CHIP-SPV/chipStar#1623.
+// An integer argument ties the api_half and double overloads of these names
+// (int -> _Float16 and int -> double have the same conversion rank);
+// [cmath.syn] treats such an argument as double. Only the names half_math.hh
+// declares for api_half; the float/double ties of the other names are
+// CHIP-SPV/chipStar#1623.
 #define CHIP_DEF_INTEGRAL_FN1(NAME)                                            \
   template <class T>                                                           \
   static inline __device__ typename chipDevicelibImpl::enableIfType<           \
