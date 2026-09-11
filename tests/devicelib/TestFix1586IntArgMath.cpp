@@ -2,7 +2,7 @@
 // (_Float16) and a double overload of these math functions at global scope,
 // and int -> _Float16 and int -> double are floating-integral conversions of
 // the same rank. Neither candidate is better, so a device-side call with an
-// integer argument is ambiguous. [c.math.fpret] requires such a call to be
+// integer argument is ambiguous. [cmath.syn] requires such a call to be
 // treated as double.
 //
 // The unqualified form is ambiguous with any standard library. The std::
