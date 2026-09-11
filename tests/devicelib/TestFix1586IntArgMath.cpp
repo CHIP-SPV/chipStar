@@ -35,10 +35,7 @@ CHECK_INT_ARG(log2)
 CHECK_INT_ARG(sin)
 CHECK_INT_ARG(sqrt)
 CHECK_INT_ARG(trunc)
-
-// rint is declared for api_half and double too, but is not hoisted into
-// namespace std by devicelib, so only the unqualified form is checked.
-__device__ double unqualified_rint(int Arg) { return rint(Arg); }
+CHECK_INT_ARG(rint)
 
 // Other integer types must resolve the same way.
 __device__ void otherIntegerTypes(short S, long L, unsigned U, char C, bool B) {
