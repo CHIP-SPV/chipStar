@@ -280,6 +280,8 @@ option(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "Lower volatile global accesses to r
 
 option(CHIP_KEEP_KERNEL_DEBUG_INFO "Keep device debug info in kernels. No SPIR-V producer emits debug info that validates, and only IGC on Intel Data Center GPU Max tolerates it, so this is off by default and should only be enabled for that device." OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
+option(CHIP_SET_RPATH_OCL "Add OpenCL_DIR to the RPATH for chipStar executables" ON)
+option(CHIP_SET_RPATH_L0 "Add LevelZeroLib_DIR to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
@@ -828,13 +830,17 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
   "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 
 if(OpenCL_LIBRARY)
-  target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
+  if(CHIP_SET_RPATH_OCL)
+    target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
+  endif()
   target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
 endif()
 
 if(LevelZero_LIBRARY)
   include_directories(CHIP PUBLIC ${LevelZeroInclude_DIR})
-  target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZeroLib_DIR})
+  if(CHIP_SET_RPATH_L0)
+    target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZeroLib_DIR})
+  endif()
   target_link_directories(CHIP PUBLIC ${LevelZeroLib_DIR})
 endif()
 
