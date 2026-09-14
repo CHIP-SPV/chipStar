@@ -530,7 +530,7 @@ string(REPLACE ";" " " NONRDC_EMITTER_OPTS_STR "${NONRDC_EMITTER_OPTS}")
 set(_cc_probe_src "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/chip_cache_controls_probe.hip")
 file(WRITE "${_cc_probe_src}" "__attribute__((device)) void chipCacheControlsProbe(void) {}\n")
 execute_process(
-  COMMAND ${CLANG_ROOT_PATH_BIN}/clang++ "-###" -x hip -nogpulib -nogpuinc -c
+  COMMAND ${CMAKE_CXX_COMPILER} "-###" -x hip -nogpulib -nogpuinc -c
           --offload-device-only --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS}
           "${_cc_probe_src}"
   OUTPUT_VARIABLE _cc_out ERROR_VARIABLE _cc_err RESULT_VARIABLE _cc_rc)
