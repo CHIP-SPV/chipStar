@@ -142,7 +142,7 @@ add_library(LLVMHipPasses MODULE
 # still succeeds, the symbol is still exported, and only an actual opt run
 # notices. Without this test the failure surfaces as every hipcc invocation
 # reporting "unknown pass name" with no build error anywhere.
-find_program(LLVM_OPT NAMES opt-${LLVM_VERSION_MAJOR} opt
+find_program(LLVM_OPT NAMES opt-${LLVM_VERSION_MAJOR} opt NAMES_PER_DIR
   NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
 if(LLVM_OPT)
   set(PLUGIN_PROBE_IR ${CMAKE_CURRENT_BINARY_DIR}/plugin-probe.ll)
