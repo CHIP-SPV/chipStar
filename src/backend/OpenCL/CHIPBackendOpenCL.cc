@@ -651,6 +651,17 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
   HipDeviceProps_.concurrentManagedAccess = 0;
   HipDeviceProps_.pageableMemoryAccess = 0;
   HipDeviceProps_.pageableMemoryAccessUsesHostPageTables = 0;
+  // Asked of the allocation kind that backs hipHostMalloc on this device.
+  if (AllocStrat == AllocationStrategy::IntelUSM) {
+    cl_bitfield HostCaps = 0;
+    clGetDeviceInfo(ClDevice->get(), CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
+                    sizeof(HostCaps), &HostCaps, nullptr);
+    HipDeviceProps_.hostNativeAtomicSupported =
+        (HostCaps & CL_UNIFIED_SHARED_MEMORY_ATOMIC_ACCESS_INTEL) ? 1 : 0;
+  } else {
+    HipDeviceProps_.hostNativeAtomicSupported =
+        HasUnifiedMemorySupport && SupportsSVMAtomics ? 1 : 0;
+  }
 
   auto Max1D2DWidth = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>();
   auto Max2DHeight = ClDevice->getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>();
