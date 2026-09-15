@@ -132,6 +132,10 @@ endforeach()
 # lowering faulting on pinned or managed memory, so it must not be lost with
 # the probe.
 add_hip_runtime_test(TestFix1508VolatileGlobalStaleness.hip MODES staleness guard)
+if(CHIP_VOLATILE_LOWERING_ATOMIC)
+  target_compile_definitions(TestFix1508VolatileGlobalStaleness
+    PRIVATE CHIP_VOLATILE_LOWERING_ATOMIC)
+endif()
 
 # hipGraphGetEdges overflowing the caller's arrays must abort at the free
 # instead of depending on the heap layout to surface it.
