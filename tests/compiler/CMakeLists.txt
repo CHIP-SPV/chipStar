@@ -155,6 +155,7 @@ add_shell_test(TestHipcc692Regression.bash)
 add_shell_test(TestHipccFileOrderPreservation.bash)
 add_shell_test(TestHipcc945MacroSpace.bash)
 add_shell_test(TestHipccArgOrder.bash)
+add_shell_test(TestFix1631HipccClangFallback.bash)
 # Separate compilation and -fgpu-rdc use clang-offload-bundler which calls
 # llvm-objcopy with options not supported on MachO (macOS).
 if(NOT APPLE)
