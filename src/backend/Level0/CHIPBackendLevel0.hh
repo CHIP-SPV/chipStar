@@ -381,6 +381,14 @@ protected:
 
   virtual bool query() override;
 
+  // Marker query() keeps on the command list, which other streams may share.
+  ze_event_pool_handle_t QueryEventPool_ = nullptr;
+  ze_event_handle_t QueryEvent_ = nullptr;
+  bool QueryArmed_ = false;
+  uint64_t QuerySubmitCount_ = 0;
+  // The command list was handed to the application; SubmitCount_ cannot see its appends.
+  std::atomic<bool> NativeHandlesEscaped_{false};
+
   // In case of interop queue may or may not be owned by chipStar
   // Ownership indicator helps during teardown
   bool zeCmdQOwnership_{true};
@@ -413,6 +421,12 @@ public:
   // its own private mutex via make_shared in initializeCmdListImm().
   std::shared_ptr<std::mutex> CmdListMtx_;
   std::atomic<bool> IsEmptyQueue_{true};
+  // Number of times work was submitted to this queue.
+  std::atomic<uint64_t> SubmitCount_{0};
+  void markBusy() {
+    IsEmptyQueue_.store(false);
+    SubmitCount_.fetch_add(1);
+  }
   // Tracks whether zeCommandListHostSynchronize has been called at least once
   // on this queue's command list(s). Intel Arc L0 driver requires one full
   // blocking sync to transition a command list to "idle" state that allows
