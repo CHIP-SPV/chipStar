@@ -544,7 +544,7 @@ endif()
 if(NOT _cc_cmds MATCHES "spirv-ext=")
   # No extension list at all means the probe did not reach a device
   # compilation, so its answer says nothing about the toolchain.
-  message(WARNING "Could not read an extension list from ${CLANG_ROOT_PATH_BIN}/clang++ "
+  message(WARNING "Could not read an extension list from ${CMAKE_CXX_COMPILER} "
                   "(exit ${_cc_rc}); assuming SPV_INTEL_cache_controls is unavailable")
   set(_cc_supported OFF)
 endif()
