@@ -76,3 +76,14 @@ add_test(NAME TestFix1486SpirvToolsInstallPrefix
     -DGENERATOR=${CMAKE_GENERATOR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1486SpirvToolsInstallPrefix.cmake)
 set_tests_properties(TestFix1486SpirvToolsInstallPrefix PROPERTIES TIMEOUT 300)
+
+# Reproduce #1632: a build directory reconfigured with a different
+# LLVM_CONFIG_BIN kept the first LLVM's tools, packages and compilers.
+add_test(NAME TestFix1632LlvmConfigChanged
+  COMMAND ${CMAKE_COMMAND}
+    -DCHIPSTAR_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -DLLVM_CONFIG_BIN=${LLVM_CONFIG_BIN}
+    -DGENERATOR=${CMAKE_GENERATOR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1632LlvmConfigChanged.cmake)
+set_tests_properties(TestFix1632LlvmConfigChanged PROPERTIES TIMEOUT 300
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
