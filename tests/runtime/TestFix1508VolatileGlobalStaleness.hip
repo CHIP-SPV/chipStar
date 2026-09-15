@@ -173,13 +173,25 @@ static int runOneHostVisibleCase(const char *Kind, int *Flag) {
 
 static int runHostVisibleGuard() {
   int Errors = 0;
-  int *Pinned = nullptr;
-  CHECK(hipHostMalloc(&Pinned, sizeof(int)));
-  Errors += runOneHostVisibleCase("pinned", Pinned);
-  CHECK(hipHostFree(Pinned));
-
   int Device = 0;
   CHECK(hipGetDevice(&Device));
+  int PinnedAtomic = 1;
+#ifdef CHIP_VOLATILE_LOWERING_ATOMIC
+  // Atomics here can fault where the device reports no atomic host access.
+  CHECK(hipDeviceGetAttribute(&PinnedAtomic,
+                              hipDeviceAttributeHostNativeAtomicSupported,
+                              Device));
+#endif
+  if (PinnedAtomic) {
+    int *Pinned = nullptr;
+    CHECK(hipHostMalloc(&Pinned, sizeof(int)));
+    Errors += runOneHostVisibleCase("pinned", Pinned);
+    CHECK(hipHostFree(Pinned));
+  } else {
+    printf("guard: pinned not run, the device reports no atomic access to "
+           "host memory\n");
+  }
+
   int ManagedSupport = 0;
   CHECK(hipDeviceGetAttribute(&ManagedSupport, hipDeviceAttributeManagedMemory,
                               Device));
@@ -189,6 +201,8 @@ static int runHostVisibleGuard() {
     Errors += runOneHostVisibleCase("managed", Managed);
     CHECK(hipFree(Managed));
   }
+  if (!PinnedAtomic && !ManagedSupport)
+    printf("HIP_SKIP_THIS_TEST: no host-visible allocation kind to guard\n");
   return Errors;
 }
 
