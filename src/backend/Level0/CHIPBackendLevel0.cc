@@ -531,7 +531,7 @@ void CHIPQueueLevel0::recordEvent(chipstar::Event *ChipEvent) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDeviceGetGlobalTimestamps);
 
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImm();
   auto CommandListCopy = this->getCmdListImmCopy();
 
@@ -799,7 +799,7 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
 
   // Lock before using immediate command list
   LOCK(*ChipQueueLz->CmdListMtx_);
-  ChipQueueLz->IsEmptyQueue_.store(false);
+  ChipQueueLz->markBusy();
   ze_command_list_handle_t CommandList = ChipQueueLz->getCmdListImm();
 
   // Add a barrier so that it signals
@@ -1017,6 +1017,13 @@ CHIPQueueLevel0::~CHIPQueueLevel0() {
   if (PatternBuffer3D_) {
     ChipCtxLz_->freeImpl(PatternBuffer3D_);
     PatternBuffer3D_ = nullptr;
+  }
+
+  // A marker still pending on the shared command list must outlive the queue.
+  if (QueryEvent_ &&
+      (!QueryArmed_ || zeEventQueryStatus(QueryEvent_) == ZE_RESULT_SUCCESS)) {
+    zeEventDestroy(QueryEvent_);
+    zeEventPoolDestroy(QueryEventPool_);
   }
 
   // The immediate CL is shared across all streams that map to the same hardware
@@ -1542,7 +1549,7 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
 
   // if using immediate command lists, lock the mutex
   LOCK(*CmdListMtx_); // TODO this is probably not needed when using RCL
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImm();
 
   // Do we need to annotate indirect buffer accesses?
@@ -1643,7 +1650,7 @@ CHIPQueueLevel0::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemFillEvent);
   
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -1696,7 +1703,7 @@ CHIPQueueLevel0::memCopy3DAsyncImpl(void *Dst, size_t Dpitch, size_t Dspitch,
       addDependenciesQueueSync(MemCopyRegionEvent);
   
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -1787,7 +1794,7 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(CopyEvent);
 
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImmCopy();
 
   // Wait for pattern buffer to be filled
@@ -1872,7 +1879,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(ImageCopyEvent);
   if (!SrcRegion.isPitched()) {
     LOCK(*CmdListMtx_);
-    IsEmptyQueue_.store(false);
+    markBusy();
     auto CommandList = this->getCmdListImm();
     // The application must not call this function from
     // simultaneous threads with the same command list handle.
@@ -1892,7 +1899,7 @@ CHIPQueueLevel0::memCopyToImage(ze_image_handle_t Image, const void *Src,
              "UNIMPLEMENTED: 3D pitched image copy.");
   const char *SrcRow = (const char *)Src;
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImm();
   for (size_t Row = 0; Row < SrcRegion.Size[1]; Row++) {
     bool LastRow = Row == SrcRegion.Size[1] - 1;
@@ -1927,6 +1934,7 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
     *NumHandles = 6;
     return hipSuccess;
   }
+  NativeHandlesEscaped_ = true;
 
   // get the immediate command list handle
   NativeInfo[5] = (uintptr_t)ZeCmdListImm_;
@@ -2010,7 +2018,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueBarrierImpl(
 
   // TODO Should this be memory or compute?
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImm();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -2040,7 +2048,7 @@ CHIPQueueLevel0::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(MemCopyEvent);
   
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImmCopy();
   // The application must not call this function from simultaneous threads with
   // the same command list handle
@@ -2072,7 +2080,7 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
     // For CPU prefetch, just create an event that's already complete
     // The memory will be accessible on CPU by default for managed memory
     LOCK(*CmdListMtx_);
-    IsEmptyQueue_.store(false);
+    markBusy();
     auto CommandList = this->getCmdListImmCopy();
     
     // Append a barrier to signal completion (no actual prefetch command)
@@ -2095,7 +2103,7 @@ CHIPQueueLevel0::memPrefetchImpl(const void *Ptr, size_t Count, int DstDevId) {
   auto [EventHandles, EventLocks] = addDependenciesQueueSync(PrefetchEvent);
 
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImmCopy();
   
   // Append memory prefetch command to the command list
@@ -2200,28 +2208,54 @@ void CHIPQueueLevel0::finishWithoutEventsMtx() {
 }
 
 bool CHIPQueueLevel0::query() {
-  // use a zero timeout zeCommandListHostSynchronize
-  bool executeReady = true;
-  bool copyReady = true;
-  zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, 0);
-  if (zeStatus == ZE_RESULT_SUCCESS) {
-    executeReady = true;
-  } else if (zeStatus == ZE_RESULT_NOT_READY) {
-    executeReady = false;
-  } else {
+  if (NativeHandlesEscaped_) {
+    zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, 0);
+    if (zeStatus == ZE_RESULT_NOT_READY)
+      return false;
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
+    return true;
   }
 
-  zeStatus = zeCommandListHostSynchronize(ZeCmdListImmCopy_, 0);
-  if (zeStatus == ZE_RESULT_SUCCESS) {
-    copyReady = true;
-  } else if (zeStatus == ZE_RESULT_NOT_READY) {
-    copyReady = false;
-  } else {
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListHostSynchronize);
+  // Poll a marker behind this queue's work: zeCommandListHostSynchronize also
+  // waits for other streams sharing the command list.
+  LOCK(*CmdListMtx_);
+  uint64_t Submits = SubmitCount_.load();
+  if (IsEmptyQueue_.load())
+    return true;
+
+  if (QueryArmed_) {
+    zeStatus = zeEventQueryStatus(QueryEvent_);
+    // Work submitted after a pending marker cannot have completed either.
+    if (zeStatus == ZE_RESULT_NOT_READY)
+      return false;
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventQueryStatus);
+    if (Submits == QuerySubmitCount_)
+      return true;
+    zeStatus = zeEventHostReset(QueryEvent_);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostReset);
+    QueryArmed_ = false;
+  } else if (!QueryEvent_) {
+    ze_event_pool_desc_t PoolDesc = {ZE_STRUCTURE_TYPE_EVENT_POOL_DESC, nullptr,
+                                     ZE_EVENT_POOL_FLAG_HOST_VISIBLE, 1};
+    zeStatus =
+        zeEventPoolCreate(ChipCtxLz_->get(), &PoolDesc, 0, nullptr, &QueryEventPool_);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventPoolCreate);
+    ze_event_desc_t EventDesc = {ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr, 0,
+                                 ZE_EVENT_SCOPE_FLAG_HOST};
+    zeStatus = zeEventCreate(QueryEventPool_, &EventDesc, &QueryEvent_);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventCreate);
   }
 
-  return executeReady && copyReady;
+  zeStatus = zeCommandListAppendSignalEvent(ZeCmdListImm_, QueryEvent_);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendSignalEvent);
+  QueryArmed_ = true;
+  QuerySubmitCount_ = Submits;
+
+  zeStatus = zeEventQueryStatus(QueryEvent_);
+  if (zeStatus == ZE_RESULT_NOT_READY)
+    return false;
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventQueryStatus);
+  return true;
 }
 
 void CHIPQueueLevel0::executeCommandList(
