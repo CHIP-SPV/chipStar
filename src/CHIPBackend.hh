@@ -699,6 +699,8 @@ private:
   /// Tells if the variable has an initializer. NOTE: Variables are
   /// initialized via a shadow kernel.
   bool HasInitializer_ = false;
+  /// CHIPVarInfo[2] reported for the variable.
+  int64_t InitKind_ = 0;
 
 public:
   DeviceVar(const SPVVariable *SrcVar) : SrcVar_(SrcVar) {}
@@ -716,6 +718,8 @@ public:
   }
   bool hasInitializer() const { return HasInitializer_; }
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
+  void setInitKind(int64_t Kind) { InitKind_ = Kind; }
+  bool hasGridStrideInit() const { return InitKind_ == ChipVarInitGridStride; }
 };
 
 class Event : public ihipEvent_t {
