@@ -769,6 +769,15 @@ execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
 string(STRIP ${HOST_ARCH} HOST_ARCH)
 set(HOST_ARCH "--target=${HOST_ARCH}")
 
+# Sysroot options given on the command line reach the build tree only; the
+# installed files must not carry a path that exists on the build host alone.
+# STRIP first: the split below is on spaces, so edge tabs and newlines would
+# otherwise end up inside an argument.
+string(STRIP "${HIP_SYSROOT_OPTIONS}" CHIP_BUILD_SYSROOT_OPTIONS_)
+string(REPLACE " " ";" CHIP_BUILD_SYSROOT_OPTIONS_ "${CHIP_BUILD_SYSROOT_OPTIONS_}")
+string(STRIP "${HIP_SYSROOT_LINK_OPTIONS}" CHIP_BUILD_SYSROOT_LINK_OPTIONS_)
+string(REPLACE " " ";" CHIP_BUILD_SYSROOT_LINK_OPTIONS_ "${CHIP_BUILD_SYSROOT_LINK_OPTIONS_}")
+
 # On macOS, pass the sysroot only to host compilation (-Xarch_host).
 # The spirv64 device compilation cannot use the macOS SDK sysroot because
 # TargetConditionals.h uses __is_target_arch which fails for spirv64.
@@ -808,6 +817,7 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   --hip-path=${CMAKE_BINARY_DIR}
   ${HOST_ARCH}
   ${HIP_SYSROOT_OPTIONS}
+  ${CHIP_BUILD_SYSROOT_OPTIONS_}
   ${HIP_FIXUPS_HEADER_BUILD}
   -I${CMAKE_SOURCE_DIR}/include
   -I${CMAKE_SOURCE_DIR}/HIP/include
@@ -828,6 +838,7 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
   "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
   ${HIP_SYSROOT_LINK_OPTIONS}
+  ${CHIP_BUILD_SYSROOT_LINK_OPTIONS_}
   "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 
 if(OpenCL_LIBRARY)
