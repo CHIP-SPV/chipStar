@@ -159,6 +159,9 @@ else()
   message(STATUS "icpx or MKL not found: Not building SYCL interop samples.")
 endif()
 
+# After the last conditional append, so conditionally added samples can be skipped too.
+list(REMOVE_ITEM SAMPLES ${CHIP_SKIP_SAMPLES})
+
 add_custom_target(samples DEPENDS ${SAMPLES})
 foreach (SAMPLE ${SAMPLES})
   add_subdirectory(${SAMPLE})

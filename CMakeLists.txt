@@ -285,6 +285,7 @@ option(CHIP_SET_RPATH_L0 "Add LevelZeroLib_DIR to the RPATH for chipStar executa
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
+set(CHIP_SKIP_SAMPLES "" CACHE STRING "Sample directory names not to build, semicolon separated, e.g. hipDeviceLink; cuda_samples is not covered")
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" ON)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
 option(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS "Enable device-side features that emit program-scope \
