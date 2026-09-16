@@ -15,6 +15,11 @@ kernel() {
   cat <<EOF
 target triple = "spirv64"
 declare double @ext_helper(double)
+declare i64 @_Z12get_local_idj(i32)
+define spir_func double @bad(double %x) noinline {
+  %y = fadd double %x, %x
+  ret double %y
+}
 define spir_kernel void @k(ptr %p, double %a, double %b) {
   %m = fmul $1 double %a, %b
   %s = fadd $1 double %m, %b
@@ -50,5 +55,7 @@ check() {
 check contract contract "" 0
 check uncontracted "" "" 1
 check undefined-callee contract "%c = call double @ext_helper(double %s)" 1
+check builtin-callee contract "%c = call i64 @_Z12get_local_idj(i32 0)" 0
+check uncontracted-callee contract "%c = call double @bad(double %s)" 1
 
 echo "PASSED"
