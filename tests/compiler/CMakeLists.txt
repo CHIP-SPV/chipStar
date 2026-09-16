@@ -202,6 +202,7 @@ add_hipcc_test(TestDeviceVirtualFunctions.hip HIPCC_OPTIONS -c)
 add_shell_test(TestDeadVTableVirtualBase.bash)
 # Program-scope variable init kernels must use their work items (#582).
 add_shell_test(TestFix582VarInitWorkItems.bash)
+add_hipcc_test(TestFix1647ShadowKernelNames.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # Check CHIP_FAST_MATH is set for -ffast-math and preprocessor guards
