@@ -208,10 +208,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // still narrowed to the global or local address space.
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerSubwordAtomicsPass()), "HipLowerSubwordAtomicsPass");
   addPassWithVerification(MPM, HipLowerRoundIntrinsicsPass(), "HipLowerRoundIntrinsicsPass");
-  // Before the DCE below, so the address computations feeding an erased
-  // llvm.prefetch go with it.
-  addPassWithVerification(MPM, HipLowerHintIntrinsicsPass(),
-                          "HipLowerHintIntrinsicsPass");
   addPassWithVerification(MPM, HipAbortPass(), "HipAbortPass");
   // This pass must appear after HipDynMemExternReplaceNewPass.
   addPassWithVerification(MPM, HipGlobalVariablesPass(), "HipGlobalVariablesPass");
@@ -220,6 +216,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   // This pass must be last one that modifies kernel parameter list.
   addPassWithVerification(MPM, HipKernelArgSpillerPass(), "HipKernelArgSpillerPass");
+
+  // After every pass that can create a copy, so a zero length one it emits is
+  // erased too, and before the DCE below, so the address computations feeding
+  // an erased llvm.prefetch go with it.
+  addPassWithVerification(MPM, HipLowerHintIntrinsicsPass(),
+                          "HipLowerHintIntrinsicsPass");
 
   // Remove dead code left over by HIP lowering passes and kept alive by
   // llvm.used and llvm.compiler.used intrinsic variable.
