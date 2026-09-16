@@ -602,20 +602,36 @@ static GVarMapT emitIndirectGlobalVariables(Module &M) {
   return GVarMap;
 }
 
+// Returns true if C takes the address of a global variable in GVarMap.
+static bool refersToLoweredGlobal(Constant *C, const GVarMapT &GVarMap) {
+  if (auto *GVar = dyn_cast<GlobalVariable>(C))
+    return GVarMap.count(GVar);
+  if (!isa<ConstantExpr>(C) && !isa<ConstantAggregate>(C))
+    return false;
+  return any_of(C->operand_values(), [&](Value *Op) {
+    return refersToLoweredGlobal(cast<Constant>(Op), GVarMap);
+  });
+}
+
 // Find global device variables that are not host accessible but which should be
 // reinitialized on hipDeviceReset() call - for example, static local variables.
-static std::vector<GlobalVariable *> findResettableNonSymbolGVs(Module &M) {
+static std::vector<GlobalVariable *>
+findResettableNonSymbolGVs(Module &M, const GVarMapT &GVarMap) {
   std::vector<GlobalVariable *> Result;
   for (GlobalVariable &GV : M.globals()) {
     if (GV.hasSection()) // Non-user defined variable - e.g. llvm.used
                          // intrinsic.
       continue;
+    if (GVarMap.count(&GV))
+      continue;
     // So far, all host-inaccessible global device variables either has a COMDAT
     // section or lacks the externally_initialized attribute.
     if (GV.isExternallyInitialized() && !GV.hasComdat())
       continue;
-    if (GV.isConstant() || !GV.hasInitializer() ||
-        isa<UndefValue>(GV.getInitializer()))
+    if (!GV.hasInitializer() || isa<UndefValue>(GV.getInitializer()))
+      continue;
+    // A constant needs the reset kernel only to learn a lowered global's address.
+    if (GV.isConstant() && !refersToLoweredGlobal(GV.getInitializer(), GVarMap))
       continue;
     if (GV.getAddressSpace() == SpirvWorkgroupAS)
       continue;
@@ -628,13 +644,18 @@ static std::vector<GlobalVariable *> findResettableNonSymbolGVs(Module &M) {
 // Emit a kernel for resetting GVs back to their initialization value.
 // Returns true if any code emitted and false otherwise.
 bool emitNonSymbolInitializerKernel(const std::vector<GlobalVariable *> GVs,
-                                    Module &M) {
+                                    Module &M, const GVarMapT &GVarMap) {
   if (GVs.empty())
     return false;
   IRBuilder<> Builder(createKernelStub(M, ChipNonSymbolResetKernelName));
   for (auto *GV : GVs) {
     assert(GV->hasInitializer());
     Builder.CreateStore(GV->getInitializer(), GV);
+    // A lowered global's address is known only at runtime, via the store above.
+    if (refersToLoweredGlobal(GV->getInitializer(), GVarMap)) {
+      GV->setInitializer(Constant::getNullValue(GV->getValueType()));
+      GV->setConstant(false);
+    }
   }
   return true;
 }
@@ -853,6 +874,13 @@ static bool lowerGlobalVariables(Module &M) {
 
   // Lower host accessible global device variables.
   GVarMapT GVarMap = emitIndirectGlobalVariables(M);
+
+  // Lower global device variables which are not accessible by the host but
+  // should be reset on hipDeviceReset() call. For example: static function
+  // local variables. First, so the replacement below rewrites what it stores.
+  auto NonSymbolGVs = findResettableNonSymbolGVs(M, GVarMap);
+  Changed |= emitNonSymbolInitializerKernel(NonSymbolGVs, M, GVarMap);
+
   if (!GVarMap.empty()) {
     // Collect (lowered-i64-GVar, original-GVar) pairs that need initialization,
     // in a deterministic order, for the combined init kernel (#582).
@@ -892,11 +920,11 @@ static bool lowerGlobalVariables(Module &M) {
 #endif
   }
 
-  // Lower global device variables which are not accessible by the host but
-  // should be reset on hipDeviceReset() call. For example: static function
-  // local variables.
-  auto NonSymbolGVs = findResettableNonSymbolGVs(M);
-  Changed |= emitNonSymbolInitializerKernel(NonSymbolGVs, M);
+  // Keep the reset kernel last: JIT caches key on the module's function order.
+  if (auto *ResetKernel = M.getFunction(ChipNonSymbolResetKernelName)) {
+    ResetKernel->removeFromParent();
+    M.getFunctionList().push_back(ResetKernel);
+  }
 
   return Changed;
 }
