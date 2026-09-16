@@ -110,6 +110,10 @@ if(OpenMP_CXX_FOUND)
   add_hipcc_test(TestHipccFopenmp.cc HIPCC_OPTIONS -fopenmp)
 endif()
 
+# -fopenmp-simd must stay host-only; on the device clang asserts (#1566).
+add_hipcc_test(TestHipccAcceptCcFiles.cc TEST_NAME TestFix1566FopenmpSimd
+  HIPCC_OPTIONS -fopenmp-simd)
+
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
 add_test(NAME "TestHipccNeedsDashO"
