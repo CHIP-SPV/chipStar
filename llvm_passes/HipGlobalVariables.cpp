@@ -178,7 +178,27 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
 
   if (isa<ConstantData>(C)) return C;
 
-  if (isa<ConstantAggregate>(C)) return C;
+  if (auto *CA = dyn_cast<ConstantAggregate>(C)) {
+    SmallVector<Value *, 4> Ops;
+    bool AnyOpExpanded = false;
+    for (Value *Op : CA->operand_values()) {
+      Value *V =
+          expandConstant(cast<Constant>(Op), GVarMap, Builder, InsnCache);
+      Ops.push_back(V);
+      AnyOpExpanded |= !isa<Constant>(V);
+    }
+
+    if (!AnyOpExpanded) return CA;
+
+    // Rebuild the aggregate element by element from the expanded operands.
+    Value *Agg = PoisonValue::get(CA->getType());
+    for (unsigned I = 0; I < Ops.size(); ++I)
+      Agg = isa<VectorType>(CA->getType())
+                ? Builder.CreateInsertElement(Agg, Ops[I], I)
+                : Builder.CreateInsertValue(Agg, Ops[I], I);
+    InsnCache[CA] = cast<Instruction>(Agg);
+    return Agg;
+  }
 
   if (auto *GVar = dyn_cast<GlobalVariable>(C)) {
     if (GVarMap.count(GVar)) {
