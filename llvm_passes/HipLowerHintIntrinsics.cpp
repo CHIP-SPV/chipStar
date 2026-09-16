@@ -60,6 +60,17 @@ static bool lowerCall(IntrinsicInst *II, const DataLayout &DL) {
     // No TLI: it only adds recognition of host libc allocators.
     Repl = lowerObjectSizeCall(II, DL, /*TLI=*/nullptr, /*MustSucceed=*/true);
     break;
+  case Intrinsic::memcpy:
+  case Intrinsic::memmove: {
+    // WORKAROUND(CHIP-SPV/chipStar#1634, llvm/llvm-project#201904,
+    // KhronosGroup/SPIRV-LLVM-Translator#3827): on LLVM 21 and 22 both
+    // producers emit OpCopyMemorySized with the constant zero Size the spec
+    // forbids. Remove once LLVM 21 and 22 are unsupported.
+    auto *Len = dyn_cast<ConstantInt>(cast<MemTransferInst>(II)->getLength());
+    if (!Len || !Len->isZero())
+      return false;
+    break;
+  }
   case Intrinsic::memcpy_inline: {
     // OpCopyMemorySized must not have a constant zero Size.
     auto *MC = cast<MemCpyInst>(II);
@@ -85,10 +96,13 @@ static bool lowerCall(IntrinsicInst *II, const DataLayout &DL) {
 PreservedAnalyses HipLowerHintIntrinsicsPass::run(Module &M,
                                                   ModuleAnalysisManager &AM) {
   SmallVector<IntrinsicInst *, 8> Worklist;
+  SmallVector<IntrinsicInst *, 8> Copies;
   for (Function &F : M)
     for (Instruction &I : instructions(F))
       if (auto *II = dyn_cast<IntrinsicInst>(&I))
-        Worklist.push_back(II);
+        (isa<MemTransferInst>(II) ? Copies : Worklist).push_back(II);
+  // A copy's length can be an intrinsic folded above, so visit copies last.
+  Worklist.append(Copies.begin(), Copies.end());
 
   bool Changed = false;
   for (IntrinsicInst *II : Worklist)
