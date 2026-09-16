@@ -183,6 +183,9 @@ add_shell_test(TestFix1577PointerVectors.bash)
 # A constant zero length copy must not reach SPIR-V emission.
 add_shell_test(TestFix1634ZeroLengthCopy.bash)
 add_shell_test(TestFix1640AggregateInitGlobalAddress.bash)
+if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  add_shell_test(TestFix1654FPContract.bash)
+endif()
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.
 add_shell_test(CanaryPointerVectorsRejected.bash)
