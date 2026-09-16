@@ -103,13 +103,13 @@
 
 |   **CUDA**                                                |   **HIP**                                             |  **chipStar**|
 |-----------------------------------------------------------|-------------------------------------------------------|:----------------:|
-| `cudaOccupancyMaxActiveBlocksPerMultiprocessor`           | `hipOccupancyMaxActiveBlocksPerMultiprocessor`         | N |
-| `cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags`  | `hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags`| N |
-| ?                                                         | `hipModuleOccupancyMaxPotentialBlockSize`              | N |
-| ?                                                         | `hipModuleOccupancyMaxPotentialBlockSizeWithFlags`     | N |
-| ?                                                         | `hipModuleOccupancyMaxActiveBlocksPerMultiprocessor`   | N |
-| ?                                                         | `hipModuleOccupancyMaxActiveBlocksPerMultiprocessorWithFlags`  N |
-| ?                                                         | `hipOccupancyMaxPotentialBlockSize`                    | N |
+| `cudaOccupancyMaxActiveBlocksPerMultiprocessor`           | `hipOccupancyMaxActiveBlocksPerMultiprocessor`         | Y |
+| `cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags`  | `hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags`| Y |
+| ?                                                         | `hipModuleOccupancyMaxPotentialBlockSize`              | Y |
+| ?                                                         | `hipModuleOccupancyMaxPotentialBlockSizeWithFlags`     | Y |
+| ?                                                         | `hipModuleOccupancyMaxActiveBlocksPerMultiprocessor`   | Y |
+| ?                                                         | `hipModuleOccupancyMaxActiveBlocksPerMultiprocessorWithFlags`| Y |
+| ?                                                         | `hipOccupancyMaxPotentialBlockSize`                    | Y |
 
 
 ## **9. Memory Management**
