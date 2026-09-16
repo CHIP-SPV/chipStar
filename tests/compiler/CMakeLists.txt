@@ -180,6 +180,8 @@ add_shell_test(TestFix1577PointerVectors.bash)
 add_shell_test(TestFix1634ZeroLengthCopy.bash)
 if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   add_shell_test(TestFix1654FPContract.bash)
+  # Fails the day the backend stops forcing ContractionOff. Read its header.
+  add_shell_test(CanaryFPContractionOff.bash)
 endif()
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.
