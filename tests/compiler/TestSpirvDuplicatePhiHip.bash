@@ -23,8 +23,8 @@ if [ "${LLVM_SPIRV}" = "NOT_NEEDED" ] || [ ! -x "${LLVM_SPIRV}" ]; then
   exit 0
 fi
 if [ ! -x "${SPIRV_VAL}" ]; then
-  echo "spirv-val not found; skipping"
-  exit 0
+  echo "FAIL: spirv-val not found at '${SPIRV_VAL}'"
+  exit 1
 fi
 
 rm -rf "${OUT}"
