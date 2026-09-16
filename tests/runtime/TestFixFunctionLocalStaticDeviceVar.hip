@@ -5,7 +5,7 @@
 // when a second module carries the same variables.
 //
 // HipGlobalVariables.cpp lowers every externally_initialized global into an
-// address slot __chip_var_<X> plus __chip_var_info_<X> / __chip_var_bind_<X>
+// address slot __chip_var_addr_<X> and __chip_var_info_<X>, __chip_var_bind_<X>
 // shadow kernels, and __chip_var_init_all writes each variable's initializer
 // through its slot. clang emits no __hipRegisterVar for these variables, so
 // the runtime discovers them from the info kernels instead; that discovery
@@ -63,7 +63,7 @@ static void expectShapes(const char *What, const int *Got, int Want) {
 }
 
 // Every __chip_var_info_<X> shadow kernel in a module means the module's code
-// reads X through a __chip_var_<X> address slot that only the runtime can
+// reads X through a __chip_var_addr_<X> address slot that only the runtime can
 // fill. Count the info kernels whose variable has no storage bound.
 static int countUnboundVariables(const char *Label, const void *KernelPtr) {
   auto *Kernel = Backend->getActiveDevice()->findKernel(HostPtr(KernelPtr));
