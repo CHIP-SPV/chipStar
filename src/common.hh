@@ -78,10 +78,14 @@ constexpr char ChipVarInitAllName[] = "__chip_var_init_all";
 /// CHIPVarInfo[0]: Size in bytes.
 /// CHIPVarInfo[1]: Requested alignment.
 /// CHIPVarInfo[2]: Zero if variable has no initializer. Otherwise
-/// ChipVarInitGridStride if its init kernel runs on any 1-D launch geometry, or
+/// ChipVarInitGridStride if its init kernel runs on any 1-D launch geometry,
+/// ChipVarInitHostFill if the runtime zeroes it instead of the init kernel, or
 /// another non-zero value if it must run on a single work item.
 using CHIPVarInfo = int64_t[3];
 constexpr int64_t ChipVarInitGridStride = 2;
+constexpr int64_t ChipVarInitHostFill = 3;
+/// Zero initializers at least this large are filled by the runtime.
+constexpr uint64_t ChipVarFillThreshold = 64 * 1024 * 1024;
 
 /// The name of the shadow kernel responsible for resetting host-inaccessible
 /// global device variables (e.g. static local variables in device code).

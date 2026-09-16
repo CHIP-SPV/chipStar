@@ -566,6 +566,12 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   logTrace("Initialize device variables in module: {}", (void *)this);
 
   bool QueuedKernels = false;
+  const char Zero = 0;
+  for (auto *Var : ChipVars_)
+    if (Var->isHostFilled()) {
+      Queue->memFillAsync(Var->getDevAddr(), Var->getSize(), &Zero, 1);
+      QueuedKernels = true;
+    }
   // Fast path (#582): the program-scope-globals lowering emits a single
   // combined init kernel that initializes ALL variables in one launch, instead
   // of one single-work-item init kernel per variable. Launch it once when
@@ -577,7 +583,7 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
     bool GridStride = true;
     size_t MaxBytes = 0;
     for (auto *Var : ChipVars_)
-      if (Var->hasInitializer()) {
+      if (Var->hasInitializer() && !Var->isHostFilled()) {
         GridStride &= Var->hasGridStrideInit();
         MaxBytes = std::max(MaxBytes, Var->getSize());
       }
@@ -591,7 +597,7 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
     for (auto *Var : ChipVars_) {
       logTrace("Checking variable '{}' for initialization: hasInitializer={}",
                Var->getName(), Var->hasInitializer());
-      if (!Var->hasInitializer())
+      if (!Var->hasInitializer() || Var->isHostFilled())
         continue;
       logTrace("Initializing variable '{}'", Var->getName());
       queueVariableInitShadowKernel(Queue, this, Var);

@@ -696,8 +696,7 @@ private:
   // NOTE: The alignment infromation is not carried in __hipRegisterVar() calls
   // It have to be queried via shadow kernels.
   size_t Alignment_ = 0;
-  /// Tells if the variable has an initializer. NOTE: Variables are
-  /// initialized via a shadow kernel.
+  /// Tells if the variable has an initializer.
   bool HasInitializer_ = false;
   /// CHIPVarInfo[2] reported for the variable.
   int64_t InitKind_ = 0;
@@ -720,6 +719,7 @@ public:
   void markHasInitializer(bool State = true) { HasInitializer_ = State; }
   void setInitKind(int64_t Kind) { InitKind_ = Kind; }
   bool hasGridStrideInit() const { return InitKind_ == ChipVarInitGridStride; }
+  bool isHostFilled() const { return InitKind_ == ChipVarInitHostFill; }
 };
 
 class Event : public ihipEvent_t {
