@@ -77,8 +77,11 @@ constexpr char ChipVarInitAllName[] = "__chip_var_init_all";
 /// A structure to where properties of a device variable are written.
 /// CHIPVarInfo[0]: Size in bytes.
 /// CHIPVarInfo[1]: Requested alignment.
-/// CHIPVarInfo[2]: Non-zero if variable has initializer. Otherwise zero.
+/// CHIPVarInfo[2]: Zero if variable has no initializer. Otherwise
+/// ChipVarInitGridStride if its init kernel runs on any 1-D launch geometry, or
+/// another non-zero value if it must run on a single work item.
 using CHIPVarInfo = int64_t[3];
+constexpr int64_t ChipVarInitGridStride = 2;
 
 /// The name of the shadow kernel responsible for resetting host-inaccessible
 /// global device variables (e.g. static local variables in device code).

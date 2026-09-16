@@ -47,6 +47,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "PassPluginCompat.h"
 
 #define DEBUG_TYPE "hip-lower-gv"
@@ -104,7 +105,7 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
   //   void <ChipVarInfoPrefix>Foo(int64_t *info) {
   //     info[0] = sizeof(Foo);      // In bytes.
   //     info[1] = alignof(Foo);     // In bytes.
-  //     info[2] = <HasInitializer>; // [0, 1].
+  //     info[2] = <HasInitializer> ? ChipVarInitGridStride : 0;
   //   }
   //
   // *1: Emitted by emitIndirectGlobalVariable().
@@ -130,9 +131,11 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
       Builder.CreateConstInBoundsGEP1_64(Builder.getInt64Ty(), InfoArg, 1);
   Builder.CreateStore(Builder.getInt64(Alignment), Ptr);
 
-  // info[2] = <HasInitializer>;
+  // info[2] = <HasInitializer> ? ChipVarInitGridStride : 0;
   Ptr = Builder.CreateConstInBoundsGEP1_64(Builder.getInt64Ty(), InfoArg, 2);
-  Builder.CreateStore(Builder.getInt64(GVar->hasInitializer()), Ptr);
+  Builder.CreateStore(
+      Builder.getInt64(GVar->hasInitializer() ? ChipVarInitGridStride : 0),
+      Ptr);
 }
 
 // Emit a shadow kernel for setting the transformed global variable to point to
@@ -165,6 +168,70 @@ static void emitGlobalVarBindShadowKernel(Module &M, GlobalVariable *GVar,
   Value *AddrAsInt = Builder.CreatePtrToInt(BindArg,
                                             Type::getInt64Ty(M.getContext()));
   Builder.CreateStore(AddrAsInt, GVar);
+}
+
+/// get_global_id(0) and get_global_size(0) of an init kernel.
+struct WorkItemIds {
+  Value *Gid;
+  Value *Gsz;
+};
+
+static Value *emitWorkItemCall(Module &M, IRBuilder<> &B, StringRef Name) {
+  auto *FTy = FunctionType::get(B.getInt64Ty(), {B.getInt32Ty()}, false);
+  auto *F = dyn_cast<Function>(M.getOrInsertFunction(Name, FTy).getCallee());
+  if (!F || F->getFunctionType() != FTy)
+    report_fatal_error(Twine(Name) + " is not declared as i64(i32)",
+                       /*GenCrashDiag=*/false);
+  F->setCallingConv(CallingConv::SPIR_FUNC);
+  CallInst *Call = B.CreateCall(F, {B.getInt32(0)});
+  Call->setCallingConv(CallingConv::SPIR_FUNC);
+  return Call;
+}
+
+/// Emit at the start of the kernel so the ids dominate every init loop.
+static WorkItemIds emitWorkItemIds(Module &M, IRBuilder<> &B) {
+  return {emitWorkItemCall(M, B, "_Z13get_global_idj"),
+          emitWorkItemCall(M, B, "_Z15get_global_sizej")};
+}
+
+/// Emit `for (i = gid; i < N; i += gsize) Dst[i] = Src ? Src[i] : 0;`.
+static void emitGridStrideInitLoop(IRBuilder<> &Builder, const WorkItemIds &Ids,
+                                   Value *Dst, Value *Src, uint64_t Size,
+                                   uint64_t Alignment) {
+  uint64_t ElemSize = 1;
+  if (Size % 8 == 0 && Alignment >= 8)
+    ElemSize = 8;
+  else if (Size % 4 == 0 && Alignment >= 4)
+    ElemSize = 4;
+  Type *ElemTy = Builder.getIntNTy(ElemSize * 8);
+
+  BasicBlock *Pre = Builder.GetInsertBlock();
+  Function *F = Pre->getParent();
+  BasicBlock *Cont =
+      Pre->splitBasicBlock(Builder.GetInsertPoint(), "gvinit.cont");
+  Pre->getTerminator()->eraseFromParent();
+  BasicBlock *Check =
+      BasicBlock::Create(F->getContext(), "gvinit.check", F, Cont);
+  BasicBlock *Body =
+      BasicBlock::Create(F->getContext(), "gvinit.body", F, Cont);
+
+  IRBuilder<> B(Pre);
+  B.CreateBr(Check);
+  B.SetInsertPoint(Check);
+  PHINode *Idx = B.CreatePHI(B.getInt64Ty(), 2, "gvinit.i");
+  Idx->addIncoming(Ids.Gid, Pre);
+  B.CreateCondBr(B.CreateICmpULT(Idx, B.getInt64(Size / ElemSize)), Body, Cont);
+
+  B.SetInsertPoint(Body);
+  Value *Val = Constant::getNullValue(ElemTy);
+  if (Src)
+    Val = B.CreateAlignedLoad(ElemTy, B.CreateGEP(ElemTy, Src, Idx),
+                              Align(ElemSize));
+  B.CreateAlignedStore(Val, B.CreateGEP(ElemTy, Dst, Idx), Align(ElemSize));
+  Idx->addIncoming(B.CreateAdd(Idx, Ids.Gsz, "gvinit.next"), Body);
+  B.CreateBr(Check);
+
+  Builder.SetInsertPoint(Cont, Cont->getFirstInsertionPt());
 }
 
 // Returns a constant expression rewritten as instructions if needed.
@@ -217,8 +284,9 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
 }
 
 /// Create initializer value for emitGlobalVarInitShadowKernel that can be
-/// used as source (a pointer) for memcpy.
-static Value *createCopyableValue(Module &M, Constant *Initializer) {
+/// used as the source (a pointer) of the initializing copy.
+static Value *createCopyableValue(Module &M, Constant *Initializer,
+                                  MaybeAlign Alignment) {
   // Name does not really matter but having <ChipVarPrefix> prefix in it we can
   // distinguish chipStar emitted values from source code originated ones and
   // handle them correctly.
@@ -227,6 +295,8 @@ static Value *createCopyableValue(Module &M, Constant *Initializer) {
       M, Initializer->getType(), /* IsConstant = */ true,
       GlobalValue::PrivateLinkage, Initializer, Name, nullptr,
       GlobalValue::NotThreadLocal, SpirvUniformConstantAS);
+  // The destination's alignment, so the copy loop can read wide elements.
+  InitValue->setAlignment(Alignment);
   return InitValue;
 }
 
@@ -260,15 +330,16 @@ static bool hasNoRuntimeConstants(Constant *C, const GVarMapT &GVarMap) {
 // is shared by the per-variable init shadow kernel and the single combined
 // init kernel.
 static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
-                                  GlobalVariable *GVar,
+                                  const WorkItemIds &Ids, GlobalVariable *GVar,
                                   GlobalVariable *OriginalGVar,
                                   GVarMapT &GVarMap) {
   // For original global variable in pseudo code:
   //
   //   SomeType Foo = SomeInit;
   //
-  // A) Emit:
-  //     memcpy(<ChipVarPrefix>Foo, &Foo, sizeof(SomeType));
+  // A) Emit a loop partitioned across the work items of the launch:
+  //     for (i = gid; i < sizeof(SomeType) / sizeof(E); i += gsize)
+  //       ((E *)<ChipVarPrefix>Foo)[i] = SomeInit is zero ? 0 : ((E *)&Foo)[i];
   //
   // B) Emit (fallback for initializers referencing other lowered variables
   //    whose addresses are resolved at runtime):
@@ -290,11 +361,14 @@ static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
     Value *AddrInt = Builder.CreateLoad(GVar->getValueType(), GVar);
     Value *Ptr = Builder.CreateIntToPtr(AddrInt, PtrAS);
 
-    auto *InitSrc = createCopyableValue(M, OriginalGVar->getInitializer());
     auto Alignment = OriginalGVar->getAlign();
     auto Size =
         M.getDataLayout().getTypeStoreSize(OriginalGVar->getValueType());
-    Builder.CreateMemCpy(Ptr, Alignment, InitSrc, MaybeAlign(1), Size);
+    Constant *Init = OriginalGVar->getInitializer();
+    Value *InitSrc =
+        Init->isNullValue() ? nullptr : createCopyableValue(M, Init, Alignment);
+    emitGridStrideInitLoop(Builder, Ids, Ptr, InitSrc, Size,
+                           Alignment.valueOrOne().value());
     return;
   }
 
@@ -304,6 +378,11 @@ static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
   // variables we are going to replace with load instructions so we need to
   // rewrite the constant expression as a sequence of instructions.
   LLVM_DEBUG(dbgs() << "May have runtime constants: " << *OriginalGVar << "\n");
+
+  // B) stores the whole value, so only work item 0 runs it.
+  Instruction *Rest = &*Builder.GetInsertPoint();
+  Builder.SetInsertPoint(SplitBlockAndInsertIfThen(
+      Builder.CreateICmpEQ(Ids.Gid, Builder.getInt64(0)), Rest, false));
   Const2InstMapT Cache;
   Value *Init =
       expandConstant(OriginalGVar->getInitializer(), GVarMap, Builder, Cache);
@@ -314,6 +393,7 @@ static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
 
   // *<ChipVarPrefix>Foo = SomeInit;
   Builder.CreateStore(Init, Ptr);
+  Builder.SetInsertPoint(Rest);
 }
 
 // Emit a per-variable shadow kernel for initializing the global variable.
@@ -324,7 +404,8 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
                                           GVarMapT GVarMap) {
   auto Name = std::string(ChipVarInitPrefix) + OriginalGVar->getName().str();
   IRBuilder<> Builder(createKernelStub(M, Name, {}));
-  emitGlobalVarInitBody(M, Builder, GVar, OriginalGVar, GVarMap);
+  WorkItemIds Ids = emitWorkItemIds(M, Builder);
+  emitGlobalVarInitBody(M, Builder, Ids, GVar, OriginalGVar, GVarMap);
 }
 
 // Emit a single combined shadow kernel that initializes ALL host-accessible
@@ -340,8 +421,9 @@ static bool emitCombinedGlobalVarInitKernel(
   if (InitVars.empty())
     return false;
   IRBuilder<> Builder(createKernelStub(M, ChipVarInitAllName, {}));
+  WorkItemIds Ids = emitWorkItemIds(M, Builder);
   for (auto &Pair : InitVars)
-    emitGlobalVarInitBody(M, Builder, Pair.first, Pair.second, GVarMap);
+    emitGlobalVarInitBody(M, Builder, Ids, Pair.first, Pair.second, GVarMap);
   return true;
 }
 
