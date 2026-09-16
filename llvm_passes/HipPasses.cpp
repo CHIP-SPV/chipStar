@@ -30,6 +30,7 @@
 #include "HipSanityChecks.h"
 #include "HipLowerSwitch.h"
 #include "HipLowerMemset.h"
+#include "HipLowerHintIntrinsics.h"
 #include "HipLowerFPAtomicMinMax.h"
 #include "HipLowerRoundIntrinsics.h"
 #include "HipLowerSubwordAtomics.h"
@@ -207,6 +208,10 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // still narrowed to the global or local address space.
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerSubwordAtomicsPass()), "HipLowerSubwordAtomicsPass");
   addPassWithVerification(MPM, HipLowerRoundIntrinsicsPass(), "HipLowerRoundIntrinsicsPass");
+  // Before the DCE below, so the address computations feeding an erased
+  // llvm.prefetch go with it.
+  addPassWithVerification(MPM, HipLowerHintIntrinsicsPass(),
+                          "HipLowerHintIntrinsicsPass");
   addPassWithVerification(MPM, HipAbortPass(), "HipAbortPass");
   // This pass must appear after HipDynMemExternReplaceNewPass.
   addPassWithVerification(MPM, HipGlobalVariablesPass(), "HipGlobalVariablesPass");
@@ -337,6 +342,12 @@ llvmGetPassPluginInfo() {
                   // as standalone, which makes it directly testable with opt.
                   if (Name == "hip-function-pointer-as") {
                     MPM.addPass(HipFunctionPointerASPass());
+                    return true;
+                  }
+                  // Register the hint intrinsic lowering as standalone,
+                  // which makes it directly testable with opt.
+                  if (Name == "hip-lower-hint-intrinsics") {
+                    MPM.addPass(HipLowerHintIntrinsicsPass());
                     return true;
                   }
                   // Register SPIR-V function reorder pass as standalone
