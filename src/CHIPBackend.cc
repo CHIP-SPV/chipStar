@@ -549,7 +549,16 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   // of one single-work-item init kernel per variable. Launch it once when
   // present; otherwise fall back to the per-variable init kernels (used by the
   // globals-as-kernel-args/rusticl lowering).
-  if (auto *CombinedInitKernel = findKernel(ChipVarInitAllName)) {
+  auto *CombinedInitKernel = findKernel(ChipVarInitAllName);
+  // Reject the per-variable init kernel of a variable named `all`.
+  if (CombinedInitKernel &&
+      (CombinedInitKernel->getFuncInfo()->getNumKernelArgs() != 0 ||
+       std::count_if(ChipKernels_.begin(), ChipKernels_.end(),
+                     [](chipstar::Kernel *K) {
+                       return K->getName().rfind(ChipVarInitPrefix, 0) == 0;
+                     }) > 1))
+    CombinedInitKernel = nullptr;
+  if (CombinedInitKernel) {
     logTrace("Initializing all device variables via combined init kernel");
     queueKernel(Queue, CombinedInitKernel);
     QueuedKernels = true;
