@@ -92,6 +92,13 @@ static Instruction *createKernelStub(Module &M, StringRef Name,
   return B.CreateRetVoid();
 }
 
+/// True if the runtime zeroes GVar instead of the init kernel.
+static bool isHostFilled(const GlobalVariable *GVar) {
+  return GVar->hasInitializer() && GVar->getInitializer()->isNullValue() &&
+         GVar->getParent()->getDataLayout().getTypeStoreSize(
+             GVar->getValueType()) >= ChipVarFillThreshold;
+}
+
 // Emit a shadow kernel for relaying properties about the original variable.
 static void emitGlobalVarInfoShadowKernel(Module &M,
                                           const GlobalVariable *GVar) {
@@ -105,7 +112,7 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
   //   void <ChipVarInfoPrefix>Foo(int64_t *info) {
   //     info[0] = sizeof(Foo);      // In bytes.
   //     info[1] = alignof(Foo);     // In bytes.
-  //     info[2] = <HasInitializer> ? ChipVarInitGridStride : 0;
+  //     info[2] = 0, ChipVarInitGridStride or ChipVarInitHostFill;
   //   }
   //
   // *1: Emitted by emitIndirectGlobalVariable().
@@ -131,11 +138,12 @@ static void emitGlobalVarInfoShadowKernel(Module &M,
       Builder.CreateConstInBoundsGEP1_64(Builder.getInt64Ty(), InfoArg, 1);
   Builder.CreateStore(Builder.getInt64(Alignment), Ptr);
 
-  // info[2] = <HasInitializer> ? ChipVarInitGridStride : 0;
+  // info[2] = 0, ChipVarInitGridStride or ChipVarInitHostFill;
+  int64_t InitKind = !GVar->hasInitializer() ? 0
+                     : isHostFilled(GVar)    ? ChipVarInitHostFill
+                                             : ChipVarInitGridStride;
   Ptr = Builder.CreateConstInBoundsGEP1_64(Builder.getInt64Ty(), InfoArg, 2);
-  Builder.CreateStore(
-      Builder.getInt64(GVar->hasInitializer() ? ChipVarInitGridStride : 0),
-      Ptr);
+  Builder.CreateStore(Builder.getInt64(InitKind), Ptr);
 }
 
 // Emit a shadow kernel for setting the transformed global variable to point to
@@ -412,8 +420,8 @@ static void emitGlobalVarInitShadowKernel(Module &M, GlobalVariable *GVar,
 // program-scope variables in one kernel launch. This avoids the O(N) launch
 // overhead of launching one single-work-item init kernel per variable (#582).
 // The InitVars are (lowered-i64-GVar, original-GVar) pairs; the caller has
-// already filtered out variables without initializers and the special
-// device-heap-null case. Returns true if a kernel was emitted.
+// already filtered out variables without initializers, the host-filled ones
+// and the special device-heap-null case. Returns true if a kernel was emitted.
 static bool emitCombinedGlobalVarInitKernel(
     Module &M,
     ArrayRef<std::pair<GlobalVariable *, GlobalVariable *>> InitVars,
@@ -853,12 +861,12 @@ static bool lowerGlobalVariables(Module &M) {
       emitGlobalVarInfoShadowKernel(M, Kv.first);
       emitGlobalVarBindShadowKernel(M, Kv.second, Kv.first);
       if (Kv.first->hasInitializer()) {
-        // Skip init only for __chipspv_device_heap which has a pointer-typed
+        // Skip init for __chipspv_device_heap which has a pointer-typed
         // null initializer that clspv cannot handle.
         bool IsDeviceHeapNull =
             Kv.first->getName() == ChipDeviceHeapName &&
             Kv.first->getInitializer()->isNullValue();
-        if (!IsDeviceHeapNull)
+        if (!IsDeviceHeapNull && !isHostFilled(Kv.first))
           InitVars.push_back(std::make_pair(Kv.second, Kv.first));
       }
     }
