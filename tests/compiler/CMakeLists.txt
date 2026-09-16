@@ -207,6 +207,21 @@ endif()
 # Test for math header conflicts between system cmath and HIP device math
 add_hipcc_test(TestMathHeaderConsolidated.hip HIPCC_OPTIONS -fsyntax-only)
 
+# Builtins whose intrinsics reach the device link and fail there. -O0 only:
+# LLVM's LowerConstantIntrinsics folds llvm.objectsize away from -O1 up.
+foreach(HINT_TEST
+    TestBuiltinPrefetch
+    TestBuiltinReadCycleCounter
+    TestBuiltinReadSteadyCounter
+    TestBuiltinFltRounds
+    TestBuiltinAllowRuntimeCheck
+    TestBuiltinReturnAddress
+    TestBuiltinFrameAddress
+    TestBuiltinMemcpyInline
+    TestBuiltinObjectSize)
+  add_hipcc_test(${HINT_TEST}.hip HIPCC_OPTIONS -O0 -c)
+endforeach()
+
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
 
