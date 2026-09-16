@@ -76,11 +76,11 @@ static bool hasPotentialIGBAs(Module &M) {
           return true;
         }
         if (auto *LI = dyn_cast<LoadInst>(&I)) {
-          // Skip the check for __chip_var___chipspv_device_heap
+          // Skip the check for __chip_var_addr___chipspv_device_heap
           Value *PtrOp = LI->getPointerOperand();
           if (PtrOp && PtrOp->hasName() &&
-              PtrOp->getName() == "__chip_var___chipspv_device_heap") {
-            LLVM_DEBUG(dbgs() << "Skipping LoadInst for __chip_var___chipspv_device_heap\n");
+              PtrOp->getName() == "__chip_var_addr___chipspv_device_heap") {
+            LLVM_DEBUG(dbgs() << "Skipping LoadInst for __chip_var_addr___chipspv_device_heap\n");
             continue;
           }
           // If an instruction loads a pointer from memory, it's a potential IGBA.

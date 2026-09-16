@@ -58,8 +58,9 @@ bool analyzeSPIRV(uint32_t *Stream, size_t NumWords, SPVModuleInfo &ModuleInfo);
 // Processing done after analysis.
 bool postprocessSPIRV(std::vector<uint32_t> &Binary);
 
-/// A prefix given to lowered global scope device variables.
-constexpr char ChipVarPrefix[] = "__chip_var_";
+/// A prefix given to lowered global scope device variables. No shadow kernel
+/// name may start with it.
+constexpr char ChipVarPrefix[] = "__chip_var_addr_";
 /// A prefix used for a shadow kernel used for querying device
 /// variable properties.
 constexpr char ChipVarInfoPrefix[] = "__chip_var_info_";

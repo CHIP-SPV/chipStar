@@ -645,11 +645,11 @@ bool emitNonSymbolInitializerKernel(const std::vector<GlobalVariable *> GVs,
 //
 // Some OpenCL drivers (rusticl/radeonsi on Mesa/ACO) cannot consume
 // program-scope CrossWorkgroup globals. The default lowering above leaves an
-// i64 `__chip_var_<name>` address-holder global which trips them. Here we run a
+// i64 `__chip_var_addr_<name>` address holder which trips them. Here we run a
 // post-transform that removes those globals and instead passes each global's
 // device address as an implicit trailing kernel pointer argument:
 //
-//   * every kernel that loads `__chip_var_<G>` gets a trailing
+//   * every kernel that loads `__chip_var_addr_<G>` gets a trailing
 //     `i8 addrspace(1)*` parameter per distinct G it uses; the load is replaced
 //     by ptrtoint(param).
 //   * a `__chip_gvararg_<kernel>` annotation (NUL-separated original global
@@ -729,7 +729,7 @@ static void emitGVarArgAnnotation(Module &M, StringRef KernelName,
                      GlobalValue::NotThreadLocal, SpirvCrossWorkGroupAS);
 }
 
-// Original device-global name from a `__chip_var_<name>` address holder.
+// Original device-global name from a `__chip_var_addr_<name>` address holder.
 static std::string originalNameOf(const GlobalVariable *NewGV) {
   StringRef N = NewGV->getName();
   N.consume_front(ChipVarPrefix);

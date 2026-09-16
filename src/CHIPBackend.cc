@@ -424,7 +424,7 @@ chipstar::DeviceVar *chipstar::Module::getGlobalVar(const char *VarName) {
 
 void chipstar::Module::addUnregisteredDeviceVariables() {
   // A __chip_var_info_<X> shadow kernel means HipGlobalVariables.cpp lowered X
-  // into a __chip_var_<X> address slot: the module's code reads X through the
+  // into a __chip_var_addr_<X> address slot: the module's code reads X via the
   // slot and __chip_var_init_all writes X's initializer through it, so the
   // slot must be bound to storage before the module's first launch whether or
   // not the host registered X. clang emits no __hipRegisterVar for a
