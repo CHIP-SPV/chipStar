@@ -188,7 +188,8 @@ endif()
 # Release builds keep it off due to the compile-time cost (CHIP-SPV/chipStar#1047).
 target_compile_definitions(LLVMHipPasses PRIVATE
   $<$<CONFIG:Debug>:CHIP_DEBUG_BUILD>
-  $<$<BOOL:${CHIP_KEEP_KERNEL_DEBUG_INFO}>:CHIP_KEEP_KERNEL_DEBUG_INFO>)
+  $<$<BOOL:${CHIP_KEEP_KERNEL_DEBUG_INFO}>:CHIP_KEEP_KERNEL_DEBUG_INFO>
+  $<$<BOOL:${CHIP_LLVM_USE_INTERGRATED_SPIRV}>:CHIP_LLVM_USE_INTERGRATED_SPIRV>)
 
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
 target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
