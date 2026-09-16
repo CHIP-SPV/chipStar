@@ -636,8 +636,11 @@ find_package(SPIRV-Tools)
 if (NOT SPIRV-Tools_FOUND)
   message(STATUS "spirv-tools not found, building...")
   include(cmake/SpirvToolsExternal.cmake)
+  set(CHIP_SPIRV_VAL "${SPIRV_TOOLS_INSTALL_DIR}/bin/spirv-val")
 else()
   message(STATUS "spirv-tools: ${SPIRV-Tools_FOUND}")
+  # spirv-val is not part of the SPIRV-Tools package; look beside that package.
+  find_program(CHIP_SPIRV_VAL spirv-val HINTS "${SPIRV-Tools_DIR}/../../../bin")
 endif()
 
 add_subdirectory(tools/spirv-extractor)
