@@ -179,6 +179,12 @@ add_shell_test(TestFix1577PointerVectors.bash)
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.
 add_shell_test(CanaryPointerVectorsRejected.bash)
+# Fails the day llvm-spirv stops rejecting one of the hint intrinsics, which is
+# the signal to delete that case. Read its header before acting. Needs the
+# translator, so it is not registered when LLVM_SPIRV is NOT_NEEDED.
+if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
+  add_shell_test(CanaryHintIntrinsicsRejected.bash)
+endif()
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
