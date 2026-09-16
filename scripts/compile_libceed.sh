@@ -17,6 +17,6 @@ else
 fi
 
 rm -rf libCEED
-git clone https://github.com/CHIP-SPV/libCEED.git -b chipStar
+git clone https://github.com/CEED/libCEED.git
 cd libCEED
 make FC= CC=hipcc CXX=hipcc BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j 

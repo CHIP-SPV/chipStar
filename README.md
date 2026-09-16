@@ -64,7 +64,7 @@ These libraries are ported for Intel GPUs using oneAPI MKL as backend:
 ## Applications
 
 chipStar has so far been tested using the following applications:
-- [libCEED](https://github.com/CHIP-SPV/libCEED) Our fork includes some workarounds. 
+- [libCEED](https://github.com/CEED/libCEED)
 - [GAMESS](https://www.msg.chem.iastate.edu/gamess/) Source code is not public.
 - [HeCBench](https://github.com/zjin-lcf/HeCBench) CUDA Benchmarks. 
 
