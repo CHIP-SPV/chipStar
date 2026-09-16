@@ -2921,8 +2921,10 @@ void CHIPDeviceLevel0::populateDevicePropertiesImpl() {
   HipDeviceProps_.major = 2;
   HipDeviceProps_.minor = 0;
 
-  HipDeviceProps_.maxThreadsPerMultiProcessor =
-      ZeDeviceProps_.numEUsPerSubslice * ZeDeviceProps_.numThreadsPerEU; //  10;
+  // Never below maxThreadsPerBlock: an accepted block must fit on one unit.
+  HipDeviceProps_.maxThreadsPerMultiProcessor = std::max(
+      ZeDeviceProps_.numEUsPerSubslice * ZeDeviceProps_.numThreadsPerEU,
+      static_cast<uint32_t>(HipDeviceProps_.maxThreadsPerBlock));
 
   HipDeviceProps_.computeMode = hipComputeModeDefault;
   HipDeviceProps_.arch = {};
