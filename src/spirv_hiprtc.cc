@@ -506,6 +506,19 @@ static std::string hipccToolchainStamp() {
   AppendDir(LLVM_LIBRARY_DIR, "libLLVM");
   AppendDir(LLVM_LIBRARY_DIR, "libclang-cpp");
 #endif
+  // hipcc's environment overrides (HIPCC src/hipBin_base.h readEnvVariables).
+  auto Env = [](const char *Name) -> std::string {
+    const char *Value = std::getenv(Name);
+    return Value ? Value : "";
+  };
+  Stamp += "flags|" + Env("HIPCC_COMPILE_FLAGS_APPEND") + "\n";
+  if (auto Bin = Env("HIP_COMPILER_BIN"); !Bin.empty())
+    appendFileStamp(Stamp, Bin);
+  if (auto Dir = Env("HIP_CLANG_PATH"); !Dir.empty())
+    for (const char *Tool : {"clang", "clang++"})
+      appendFileStamp(Stamp, fs::path(Dir) / Tool);
+  if (auto Dir = Env("HIP_PATH"); !Dir.empty())
+    appendFileStamp(Stamp, fs::path(Dir) / "share/.hipInfo");
   return Stamp;
 }
 
@@ -753,7 +766,13 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
     // the key reflects header content reached via -I filesystem paths.
     std::optional<fs::path> TmpDir;
     std::optional<std::string> Preprocessed;
-    bool CacheUsable = true;
+    // A bare HIP_COMPILER_BIN resolves through PATH, which the key cannot stamp.
+    const char *CompilerBin = std::getenv("HIP_COMPILER_BIN");
+    bool CacheUsable = !CompilerBin || !*CompilerBin ||
+                       fs::path(CompilerBin).has_parent_path();
+    if (!CacheUsable)
+      logWarn("hiprtc: HIP_COMPILER_BIN has no directory; compiling without "
+              "caching.");
 
     // Process the user options exactly once, before the cache is consulted.
     //
