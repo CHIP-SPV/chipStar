@@ -135,14 +135,8 @@ which is issue
 `bin/hipcc` is a wrapper whose exec target is the builder container's path,
 and `bin/hipcc.bin` behind it is x86, so no `PATH` change could have helped.
 
-Two things in chipStar are worked around here rather than fixed, and
-should be fixed there:
+One hipcc issue is worked around here:
 
-* `CMakeLists.txt` derives `HOST_ARCH` from `llvm-config --host-target`
-  and passes it as `--target=` to every host compile, after the toolchain
-  file's `--target`, so it wins. It is a plain `set()` and cannot be
-  overridden with `-D`. Pass 2 hands chipStar an `llvm-config` wrapper
-  that answers `--host-target` with the aarch64 triple.
 * hipcc drops `HIPCC_LINK_FLAGS_APPEND` on its `-no-hip-rt` link path
   (`hipBin_spirv.h`: the no-hip-rt copy is taken before the append is
   applied). Pass 2 wraps `bin/hipcc` to put the flags on every invocation.
