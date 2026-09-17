@@ -19,4 +19,4 @@ fi
 rm -rf libCEED
 git clone https://github.com/CEED/libCEED.git
 cd libCEED
-make FC= CC=hipcc CXX=hipcc BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j 
+make FC= CC=hipcc CXX=hipcc ROCM_DIR="${HIP_DIR}" BACKENDS="/gpu/hip/ref /gpu/hip/shared /gpu/hip/gen" -j 
