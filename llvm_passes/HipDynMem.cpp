@@ -353,6 +353,9 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
       Args.push_back(LastArg);
       B.SetInsertPoint(CI);
       CallInst *NewCI = B.CreateCall(FT, NewF, Args);
+      NewCI->setCallingConv(CI->getCallingConv());
+      // Not its function attributes: a call-site memory() would go stale here.
+      NewCI->setAttributes(CI->getAttributes().removeFnAttributes(M.getContext()));
 
       CI->replaceAllUsesWith(NewCI);
       CI->eraseFromParent();
