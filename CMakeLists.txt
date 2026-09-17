@@ -285,7 +285,6 @@ option(CHIP_SET_RPATH_L0 "Add LevelZeroLib_DIR to the RPATH for chipStar executa
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
-set(CHIP_SKIP_SAMPLES "" CACHE STRING "Sample directory names not to build, semicolon separated, e.g. hipDeviceLink; cuda_samples is not covered")
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" ON)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
 option(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS "Enable device-side features that emit program-scope \
@@ -763,11 +762,11 @@ if (NOT CLANG_VERSION_LESS_15)
     -no-hip-rt) # Clang 15+: Prevents linking amdhip64 library.
 endif()
 
-# For use by hipcc
-execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
-  OUTPUT_VARIABLE HOST_ARCH)
-string(STRIP ${HOST_ARCH} HOST_ARCH)
-set(HOST_ARCH "--target=${HOST_ARCH}")
+# Keep hipcc on the CMake toolchain target; otherwise use the compiler default.
+set(HOST_ARCH "")
+if(CMAKE_CXX_COMPILER_TARGET)
+  set(HOST_ARCH "--target=${CMAKE_CXX_COMPILER_TARGET}")
+endif()
 
 # Sysroot options given on the command line reach the build tree only; the
 # installed files must not carry a path that exists on the build host alone.
@@ -834,9 +833,11 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 # device bitcode during -fgpu-rdc links (spurious "different data layouts"
 # warnings from llvm-link, see issue #525).
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
+  ${HOST_ARCH}
   ${HIP_SYSROOT_LINK_OPTIONS}
   "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
+  ${HOST_ARCH}
   ${HIP_SYSROOT_LINK_OPTIONS}
   ${CHIP_BUILD_SYSROOT_LINK_OPTIONS_}
   "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
@@ -882,12 +883,14 @@ target_compile_options(deviceInternal INTERFACE
   # published in .hipInfo, where hipcc must be free to withhold the emitter
   # selection from RDC compiles.
   ${NONRDC_EMITTER_OPTS})
+target_link_options(deviceInternal INTERFACE ${HOST_ARCH})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE
   $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_}
   ${NONRDC_EMITTER_OPTS})
+target_link_options(device INTERFACE ${HOST_ARCH})
 target_link_libraries(device INTERFACE CHIP)
 
 # same as device on chipStar but provides compatibility with AMD
