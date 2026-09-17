@@ -304,23 +304,6 @@ preprocessForCacheKey(const chipstar::Program &Program,
   return readFromFile(OutputFile);
 }
 
-// Conservative test for whether the source may pull in external header content
-// via a preprocessor directive. When it can't, the raw source fully determines
-// the compilation output (in-memory headers are hashed separately; toolchain
-// headers are covered by the compiler-version component of the key), so we can
-// skip the costly preprocess pass and key on the raw source.
-//
-// This MUST NOT produce false negatives: missing a real directive would let a
-// header edit go unnoticed (stale cache). It errs the other way — a match
-// inside a comment or string literal merely triggers an unnecessary preprocess,
-// which is harmless. Backslash-newline continuations are stripped first so a
-// directive split across lines (e.g. "#\\\ninclude") is still detected.
-static bool sourceMayIncludeHeaders(const std::string &Source) {
-  std::string Spliced = std::regex_replace(Source, std::regex(R"(\\\n)"), "");
-  static const std::regex Directive(R"(#[ \t]*(include|import))");
-  return std::regex_search(Spliced, Directive);
-}
-
 static void getLoweredNameExpressions(chipstar::Program &Program,
                                       const fs::path &WorkingDirectory,
                                       const fs::path &LoweredNamesFile) {
@@ -698,11 +681,6 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
   try {
     auto &Program = *(chipstar::Program *)Prog;
 
-    // Only preprocess when the source may pull in header content. For a
-    // self-contained kernel (no #include/#import) the raw source is a complete
-    // cache key, so we keep the original zero-I/O fast path: no temp dir, no
-    // preprocess subprocess. Sources that do include headers pay a preprocess so
-    // the key reflects header content reached via -I filesystem paths.
     std::optional<fs::path> TmpDir;
     std::optional<std::string> Preprocessed;
     bool CacheUsable = true;
@@ -723,23 +701,22 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
     if (processOptions(Program, NumOptions, Options, ProcessedOptions))
       return HIPRTC_ERROR_INVALID_INPUT;
 
-    if (sourceMayIncludeHeaders(Program.getSource())) {
-      TmpDir = createTemporaryDirectory();
-      if (!TmpDir) {
-        logError(
-            "hiprtc: Failed to create a temporary directory for compilation.");
-        return HIPRTC_ERROR_COMPILATION;
-      }
-      Preprocessed = preprocessForCacheKey(Program, ProcessedOptions, *TmpDir);
-      if (!Preprocessed) {
-        // We could not build a key that reflects #include content. Keying on
-        // the raw source instead would ignore header edits and could serve
-        // stale SPIR-V — the exact bug #1335 is about — so disable the cache
-        // for this compilation entirely: no lookup, and no new entry written.
-        logWarn("hiprtc: could not preprocess source for the cache key; "
-                "compiling without caching for this program.");
-        CacheUsable = false;
-      }
+    // Always preprocess: even an include-free source force-includes headers.
+    TmpDir = createTemporaryDirectory();
+    if (!TmpDir) {
+      logError(
+          "hiprtc: Failed to create a temporary directory for compilation.");
+      return HIPRTC_ERROR_COMPILATION;
+    }
+    Preprocessed = preprocessForCacheKey(Program, ProcessedOptions, *TmpDir);
+    if (!Preprocessed) {
+      // We could not build a key that reflects #include content. Keying on
+      // the raw source instead would ignore header edits and could serve
+      // stale SPIR-V — the exact bug #1335 is about — so disable the cache
+      // for this compilation entirely: no lookup, and no new entry written.
+      logWarn("hiprtc: could not preprocess source for the cache key; "
+              "compiling without caching for this program.");
+      CacheUsable = false;
     }
 
     // Check the HIPRTC output cache before invoking clang, unless caching was
@@ -754,21 +731,11 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
         double elapsed = std::chrono::duration<double>(t1 - t0).count();
         logInfo("hiprtc: Cache hit — skipped clang compilation ({:.3f}s saved)",
                 elapsed);
-        if (TmpDir && !ChipEnvVars.getSaveTemps()) {
+        if (!ChipEnvVars.getSaveTemps()) {
           std::error_code IgnoreErrors;
           fs::remove_all(*TmpDir, IgnoreErrors);
         }
         return HIPRTC_SUCCESS;
-      }
-    }
-
-    // Miss: ensure a temp dir exists for the real compilation.
-    if (!TmpDir) {
-      TmpDir = createTemporaryDirectory();
-      if (!TmpDir) {
-        logError(
-            "hiprtc: Failed to create a temporary directory for compilation.");
-        return HIPRTC_ERROR_COMPILATION;
       }
     }
 
