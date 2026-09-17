@@ -466,6 +466,9 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
 
       // now clone the direct users and replace GVar references inside them
       for (Function *F : DirectUserSet) {
+        // Also an indirect user: cloned above, GVar uses included.
+        if (IndirectUserSet.count(F))
+          continue;
 
         Function *NewF = cloneFunctionWithDynMemArg(F, M, GV);
         if(NewF == nullptr)
