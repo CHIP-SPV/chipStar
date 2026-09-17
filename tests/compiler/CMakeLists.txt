@@ -116,6 +116,9 @@ add_test(NAME "TestHipccNeedsDashO"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccNeedDashO.cc)
 
+# A shared memory user that calls another user must be lowered once (#1662).
+add_shell_test(TestFix1662DynMemUserCallsUser.bash)
+
 add_hipcc_test(TestHipVersion.cc HIPCC_OPTIONS)
 
 add_test(NAME "TestHipccHalfConversions"
