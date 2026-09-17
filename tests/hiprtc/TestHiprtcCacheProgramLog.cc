@@ -39,8 +39,7 @@
 // This test compiles the same program twice against one cache directory that is
 // empty at start, so compile 1 is a cold miss and compile 2 is a hit, and
 // requires exactly one warning from each. It is run for a self-contained source
-// and for an #include-bearing one, because only the latter takes the preprocess
-// path where the double-count occurred.
+// and for an #include-bearing one.
 //
 // This is a compile-only test: it never launches a kernel, so it needs no device.
 //
@@ -60,14 +59,12 @@
 #include <unistd.h>
 #include <vector>
 
-// Self-contained: no #include, so hiprtc keys on the raw source and never runs
-// the preprocess pass.
+// Self-contained: no #include.
 static constexpr auto PlainSource = R"---(
 extern "C" __global__ void add1(int *Out, const int *In) { *Out = *In + 1; }
 )---";
 
-// Includes a header, so hiprtc preprocesses the source to build the cache key.
-// This is the path that used to process the options a second time.
+// Includes a header.
 static constexpr auto IncludingSource = R"---(
 #include <hip/hip_runtime.h>
 extern "C" __global__ void add2(int *Out, const int *In) { *Out = *In + 2; }
@@ -179,9 +176,9 @@ int main() {
   }
 
   checkLogIsCacheIndependent(PlainSource, "plain.hip",
-                             "self-contained source (no preprocess pass)");
+                             "self-contained source");
   checkLogIsCacheIndependent(IncludingSource, "including.hip",
-                             "#include-bearing source (preprocess pass runs)");
+                             "#include-bearing source");
 
   std::cerr << "Test passed: the program log is identical on cache hit and "
                "miss, and diagnostics are not duplicated.\n";
