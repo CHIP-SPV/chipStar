@@ -178,6 +178,8 @@ add_shell_test(TestSpirvDuplicatePhiHip.bash)
 add_shell_test(TestFix1577PointerVectors.bash)
 # A constant zero length copy must not reach SPIR-V emission.
 add_shell_test(TestFix1634ZeroLengthCopy.bash)
+# A shared memory user that calls another user must be lowered once (#1662).
+add_shell_test(TestFix1662DynMemUserCallsUser.bash)
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.
 add_shell_test(CanaryPointerVectorsRejected.bash)
