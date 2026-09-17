@@ -160,6 +160,8 @@ add_shell_test(TestHipccFileOrderPreservation.bash)
 add_shell_test(TestHipcc945MacroSpace.bash)
 add_shell_test(TestHipccArgOrder.bash)
 add_shell_test(TestFix1631HipccClangFallback.bash)
+# A call rewritten for shared memory must keep how it calls the callee (#1673).
+add_shell_test(TestFix1673DynMemCallConv.bash)
 # Separate compilation and -fgpu-rdc use clang-offload-bundler which calls
 # llvm-objcopy with options not supported on MachO (macOS).
 if(NOT APPLE)
