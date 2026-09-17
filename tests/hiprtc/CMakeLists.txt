@@ -44,6 +44,18 @@ set_tests_properties(TestProjectionBasisKernel PROPERTIES
   PASS_REGULAR_EXPRESSION
     "All projection basis HIPRTC tests PASSED|HIP_SKIP_THIS_TEST")
 
+add_executable(TestFix1335HiprtcCacheForcedInclude EXCLUDE_FROM_ALL
+  TestFix1335HiprtcCacheForcedInclude.cc)
+# Plain C++, no deviceInternal: no fat binary, so no backend init and no GPU.
+target_link_libraries(TestFix1335HiprtcCacheForcedInclude host)
+target_include_directories(TestFix1335HiprtcCacheForcedInclude
+  PUBLIC ${CMAKE_BINARY_DIR}/include)
+add_dependencies(build_tests TestFix1335HiprtcCacheForcedInclude)
+add_test(NAME TestFix1335HiprtcCacheForcedInclude
+  COMMAND ${CMAKE_COMMAND}
+    -DTEST_EXECUTABLE=$<TARGET_FILE:TestFix1335HiprtcCacheForcedInclude>
+    -P ${CMAKE_SOURCE_DIR}/tests/run_test_with_fresh_cache.cmake)
+
 add_hip_test(TestHiprtcCacheNameExpressions.cc)
 # This test exercises the HIPRTC SPIR-V cache, so it needs CHIP_MODULE_CACHE_DIR
 # set in the environment at libCHIP static-init time. Use a private directory
