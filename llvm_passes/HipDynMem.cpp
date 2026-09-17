@@ -19,7 +19,6 @@
 
 #include "HipDynMem.h"
 
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -44,7 +43,6 @@ using namespace llvm;
 #define SPIR_LOCAL_AS 3
 #define GENERIC_AS 4
 
-typedef llvm::SmallPtrSet<Function *, 16> FSet;
 typedef llvm::SetVector<Function *> OrderedFSet;
 typedef llvm::SmallVector<GlobalVariable *, 8> GVarVec;
 
@@ -91,7 +89,7 @@ private:
     }
   }
 
-  static void recursivelyFindDirectUsers(Value *V, FSet &FS) {
+  static void recursivelyFindDirectUsers(Value *V, OrderedFSet &FS) {
     for (auto U : V->users()) {
       Instruction *Inst = dyn_cast<Instruction>(U);
       if (Inst) {
@@ -440,7 +438,7 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
 
 
     for (GlobalVariable *GV : GVars) {
-      FSet DirectUserSet;
+      OrderedFSet DirectUserSet;
 
       // first, find functions that directly use the GVar. However, these may be
       // called from other functions, so we need to append the
