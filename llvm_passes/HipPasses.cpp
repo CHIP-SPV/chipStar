@@ -30,6 +30,7 @@
 #include "HipSanityChecks.h"
 #include "HipLowerSwitch.h"
 #include "HipLowerMemset.h"
+#include "HipLowerHintIntrinsics.h"
 #include "HipLowerFPAtomicMinMax.h"
 #include "HipLowerRoundIntrinsics.h"
 #include "HipLowerSubwordAtomics.h"
@@ -216,6 +217,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // This pass must be last one that modifies kernel parameter list.
   addPassWithVerification(MPM, HipKernelArgSpillerPass(), "HipKernelArgSpillerPass");
 
+  // After every pass that can create a copy, so a zero length one it emits is
+  // erased too, and before the DCE below, so the address computations feeding
+  // an erased llvm.prefetch go with it.
+  addPassWithVerification(MPM, HipLowerHintIntrinsicsPass(),
+                          "HipLowerHintIntrinsicsPass");
+
   // Remove dead code left over by HIP lowering passes and kept alive by
   // llvm.used and llvm.compiler.used intrinsic variable.
   addPassWithVerification(MPM, HipStripUsedIntrinsicsPass(), "HipStripUsedIntrinsicsPass");
@@ -337,6 +344,12 @@ llvmGetPassPluginInfo() {
                   // as standalone, which makes it directly testable with opt.
                   if (Name == "hip-function-pointer-as") {
                     MPM.addPass(HipFunctionPointerASPass());
+                    return true;
+                  }
+                  // Register the hint intrinsic lowering as standalone,
+                  // which makes it directly testable with opt.
+                  if (Name == "hip-lower-hint-intrinsics") {
+                    MPM.addPass(HipLowerHintIntrinsicsPass());
                     return true;
                   }
                   // Register SPIR-V function reorder pass as standalone

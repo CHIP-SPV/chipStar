@@ -544,6 +544,9 @@ template <class T> struct isSameType<T, T> { static const bool Value = true; };
 template <bool B, class T> struct enableIfType {};
 template <class T> struct enableIfType<true, T> { typedef T Type; };
 template <class T> struct isLongDouble : isSameType<T, long double> {};
+template <class T> struct isIntegral {
+  static const bool Value = __is_integral(T);
+};
 } // namespace chipDevicelibImpl
 
 #define CHIP_DEF_LONG_DOUBLE_FN1(NAME)                                         \
@@ -593,6 +596,33 @@ CHIP_DEF_LONG_DOUBLE_FN2(pow)
 
 #undef CHIP_DEF_LONG_DOUBLE_FN1
 #undef CHIP_DEF_LONG_DOUBLE_FN2
+
+// An integer argument ties the api_half and double overloads of these names
+// (int -> _Float16 and int -> double have the same conversion rank);
+// [cmath.syn] treats such an argument as double. Only the names half_math.hh
+// declares for api_half; the float/double ties of the other names are
+// CHIP-SPV/chipStar#1623.
+#define CHIP_DEF_INTEGRAL_FN1(NAME)                                            \
+  template <class T>                                                           \
+  static inline __device__ typename chipDevicelibImpl::enableIfType<           \
+      chipDevicelibImpl::isIntegral<T>::Value, double>::Type                   \
+  NAME(T x) {                                                                  \
+    return ::NAME(static_cast<double>(x));                                     \
+  }
+
+CHIP_DEF_INTEGRAL_FN1(ceil)
+CHIP_DEF_INTEGRAL_FN1(cos)
+CHIP_DEF_INTEGRAL_FN1(exp)
+CHIP_DEF_INTEGRAL_FN1(floor)
+CHIP_DEF_INTEGRAL_FN1(log)
+CHIP_DEF_INTEGRAL_FN1(log10)
+CHIP_DEF_INTEGRAL_FN1(log2)
+CHIP_DEF_INTEGRAL_FN1(rint)
+CHIP_DEF_INTEGRAL_FN1(sin)
+CHIP_DEF_INTEGRAL_FN1(sqrt)
+CHIP_DEF_INTEGRAL_FN1(trunc)
+
+#undef CHIP_DEF_INTEGRAL_FN1
 
 namespace std {
 // Clang does provide device side std:: functions via HIP include

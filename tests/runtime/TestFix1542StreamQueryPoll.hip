@@ -255,6 +255,22 @@ int main() {
              Left, Kernel);
       return 1;
     }
+
+    // A wait on an unfinished event must hold off a poll that already drained.
+    spin<<<1, 1>>>(P, Iters);
+    CHECK(hipEventRecord(E, 0));
+    CHECK(hipStreamWaitEvent(S, E, 0));
+    if (pollUntilDone(S))
+      return 1;
+    Start = Clock::now();
+    CHECK(hipStreamSynchronize(S));
+    Left = msSince(Start);
+    if (Left > Kernel / 2) {
+      printf("FAIL: hipStreamQuery reported a stream drained with %.1f ms of a "
+             "%.1f ms kernel it waits on still to run\n",
+             Left, Kernel);
+      return 1;
+    }
   }
 
   // 5. Hand the stream's native queue to the application, then keep querying

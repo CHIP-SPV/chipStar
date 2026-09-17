@@ -110,6 +110,10 @@ if(OpenMP_CXX_FOUND)
   add_hipcc_test(TestHipccFopenmp.cc HIPCC_OPTIONS -fopenmp)
 endif()
 
+# -fopenmp-simd must stay host-only; on the device clang asserts (#1566).
+add_hipcc_test(TestHipccAcceptCcFiles.cc TEST_NAME TestFix1566FopenmpSimd
+  HIPCC_OPTIONS -fopenmp-simd)
+
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
 add_test(NAME "TestHipccNeedsDashO"
@@ -155,6 +159,7 @@ add_shell_test(TestHipcc692Regression.bash)
 add_shell_test(TestHipccFileOrderPreservation.bash)
 add_shell_test(TestHipcc945MacroSpace.bash)
 add_shell_test(TestHipccArgOrder.bash)
+add_shell_test(TestFix1631HipccClangFallback.bash)
 # Separate compilation and -fgpu-rdc use clang-offload-bundler which calls
 # llvm-objcopy with options not supported on MachO (macOS).
 if(NOT APPLE)
@@ -175,9 +180,17 @@ add_shell_test(TestPrintfStaticString.bash)
 # (LLVM_SPIRV=NOT_NEEDED), since the patch targets the external translator.
 add_shell_test(TestSpirvDuplicatePhiHip.bash)
 add_shell_test(TestFix1577PointerVectors.bash)
+# A constant zero length copy must not reach SPIR-V emission.
+add_shell_test(TestFix1634ZeroLengthCopy.bash)
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.
 add_shell_test(CanaryPointerVectorsRejected.bash)
+# Fails the day llvm-spirv stops rejecting one of the hint intrinsics, which is
+# the signal to delete that case. Read its header before acting. Needs the
+# translator, so it is not registered when LLVM_SPIRV is NOT_NEEDED.
+if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
+  add_shell_test(CanaryHintIntrinsicsRejected.bash)
+endif()
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
@@ -191,6 +204,9 @@ add_hipcc_test(TestDeviceVirtualFunctions.hip HIPCC_OPTIONS -c)
 # Dead vtables of an explicit instantiation must not survive into the device
 # module (#1382). Inspects the lowered device bitcode.
 add_shell_test(TestDeadVTableVirtualBase.bash)
+# Program-scope variable init kernels must use their work items (#582).
+add_shell_test(TestFix582VarInitWorkItems.bash)
+add_hipcc_test(TestFix1647ShadowKernelNames.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # Check CHIP_FAST_MATH is set for -ffast-math and preprocessor guards
@@ -205,6 +221,21 @@ endif()
 
 # Test for math header conflicts between system cmath and HIP device math
 add_hipcc_test(TestMathHeaderConsolidated.hip HIPCC_OPTIONS -fsyntax-only)
+
+# Builtins whose intrinsics reach the device link and fail there. -O0 only:
+# LLVM's LowerConstantIntrinsics folds llvm.objectsize away from -O1 up.
+foreach(HINT_TEST
+    TestBuiltinPrefetch
+    TestBuiltinReadCycleCounter
+    TestBuiltinReadSteadyCounter
+    TestBuiltinFltRounds
+    TestBuiltinAllowRuntimeCheck
+    TestBuiltinReturnAddress
+    TestBuiltinFrameAddress
+    TestBuiltinMemcpyInline
+    TestBuiltinObjectSize)
+  add_hipcc_test(${HINT_TEST}.hip HIPCC_OPTIONS -O0 -c)
+endforeach()
 
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
