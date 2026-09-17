@@ -85,3 +85,19 @@ add_test(NAME TestHiprtcCacheProgramLog
     -P ${CMAKE_SOURCE_DIR}/tests/run_test_with_fresh_cache.cmake)
 set_tests_properties(TestHiprtcCacheProgramLog PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+add_executable(TestFix1660HiprtcCacheToolchain EXCLUDE_FROM_ALL
+  TestFix1660HiprtcCacheToolchain.cc)
+# Plain C++, no deviceInternal: no fat binary, so no backend init and no GPU.
+target_link_libraries(TestFix1660HiprtcCacheToolchain host)
+target_include_directories(TestFix1660HiprtcCacheToolchain
+  PUBLIC ${CMAKE_BINARY_DIR}/include)
+target_compile_definitions(TestFix1660HiprtcCacheToolchain
+  PRIVATE PASS_PLUGIN="$<TARGET_FILE:LLVMHipPasses>")
+add_dependencies(build_tests TestFix1660HiprtcCacheToolchain)
+add_test(NAME TestFix1660HiprtcCacheToolchain
+  COMMAND ${CMAKE_COMMAND}
+    -DTEST_EXECUTABLE=$<TARGET_FILE:TestFix1660HiprtcCacheToolchain>
+    -P ${CMAKE_SOURCE_DIR}/tests/run_test_with_fresh_cache.cmake)
+# The mtime bump changes every concurrent hipRTC cache key, so run alone.
+set_tests_properties(TestFix1660HiprtcCacheToolchain PROPERTIES RUN_SERIAL TRUE)
