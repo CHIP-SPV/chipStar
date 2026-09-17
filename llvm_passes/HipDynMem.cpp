@@ -345,14 +345,11 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
     // ... and replace them with calls to new function
     for (CallInst *CI : CallInstUses) {
       llvm::SmallVector<Value *, 12> Args;
-      Function *CallerF = CI->getCaller();
-      assert(CallerF);
-      assert(CallerF->arg_size() > 0);
       for (Value *V : CI->args()) {
         Args.push_back(V);
       }
-      Argument *LastArg = CallerF->getArg(CallerF->arg_size() - 1);
-      Args.push_back(LastArg);
+      // The caller may not have its argument yet; GV stands in for it.
+      Args.push_back(GV);
       B.SetInsertPoint(CI);
       CallInst *NewCI = B.CreateCall(FT, NewF, Args);
 
@@ -456,8 +453,7 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
       }
 
       // find the functions that indirectly use the GVar. These will be processed (cloned with
-      // dyn mem arg) before the direct users, so that the direct users
-      // can rely on dyn mem argument being present in their caller.
+      // dyn mem arg) before the direct users.
       for (auto FI = IndirectUserSet.rbegin(); FI != IndirectUserSet.rend(); ++FI) {
         Function *F = *FI;
         Function *NewF = cloneFunctionWithDynMemArg(F, M, GV);
@@ -472,6 +468,11 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
           llvm_unreachable("cloning failed");
         Modified = true;
       }
+
+      // Replace GV passed by rewritten calls with each caller's own argument.
+      for (Function &F : M)
+        if (isGVarUsedInFunction(GV, &F))
+          replaceGVarUsesWith(GV, &F, F.getArg(F.arg_size() - 1));
 
       // it seems that there are some leftover users of the GVar (ConstExprs)
       while (GV->getNumUses() > 0) {
