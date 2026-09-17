@@ -138,6 +138,9 @@ add_hipcc_test(TestFix1582StdTraitSpecialization.hip HIPCC_OPTIONS -fsyntax-only
 
 add_hipcc_test(TestRocmVersionHeader.hip HIPCC_OPTIONS -fsyntax-only)
 
+# A call rewritten for shared memory must keep how it calls the callee (#1673).
+add_shell_test(TestFix1673DynMemCallConv.bash)
+
 add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O0
   HIPCC_OPTIONS -O0 -c)
 add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O1
