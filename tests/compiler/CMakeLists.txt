@@ -128,6 +128,9 @@ add_test(NAME "TestHipccHalfOperators"
 
 add_hipcc_test(TestFix1248HalfHostOps.hip HIPCC_OPTIONS -fsyntax-only)
 
+# A call to a shared memory user must pass the caller's argument (#1670).
+add_shell_test(TestFix1670DynMemCallArgs.bash)
+
 add_hipcc_test(TestHalfDeviceMathFuncs.hip HIPCC_OPTIONS -fsyntax-only)
 
 add_hipcc_test(TestFix1582StdTraitSpecialization.hip HIPCC_OPTIONS -fsyntax-only)
