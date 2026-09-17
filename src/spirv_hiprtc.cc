@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "Utils.hh"
 #include "logging.hh"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -463,6 +464,51 @@ hiprtcResult hiprtcAddNameExpression(hiprtcProgram Prog,
 // fnv1a64 lives in Utils.hh: the module cache needs the same stable hash, and
 // two copies would be free to drift.
 
+static void appendFileStamp(std::string &Out, const fs::path &File) {
+  std::error_code EC;
+  Out += File.string() + "|" + std::to_string(fs::file_size(File, EC)) + "|" +
+         // libc++'s file_time_type counts in __int128, which to_string lacks.
+         std::to_string(static_cast<int64_t>(
+             fs::last_write_time(File, EC).time_since_epoch().count())) +
+         "\n";
+}
+
+// Size and mtime of the toolchain files hipcc compiles with.
+static std::string hipccToolchainStamp() {
+  std::string Stamp;
+  auto AppendDir = [&](const fs::path &Dir, std::string_view Prefix) {
+    std::error_code EC;
+    std::vector<fs::path> Files;
+    for (fs::directory_iterator It(Dir, EC), End; !EC && It != End;
+         It.increment(EC)) {
+      auto Name = It->path().filename().string();
+      if (Name.rfind(Prefix, 0) == 0 && It->path().extension() != ".a")
+        Files.push_back(It->path());
+    }
+    std::sort(Files.begin(), Files.end());
+    for (const auto &F : Files)
+      appendFileStamp(Stamp, F);
+  };
+  if (auto Hipcc = getHIPCCPath()) {
+    auto Root = Hipcc->parent_path().parent_path();
+    for (const auto &F :
+         {*Hipcc, Root / "share/.hipInfo", Root / "lib/libLLVMHipSpvPasses.so",
+          Root / "lib/llvm/libLLVMHipSpvPasses.so"})
+      appendFileStamp(Stamp, F);
+    AppendDir(Root / "lib/hip-device-lib", "");
+  }
+#ifdef LLVM_TOOLS_BINARY_DIR
+  for (const char *Tool :
+       {"clang", "clang++", "llvm-link", "opt", "llvm-spirv"})
+    appendFileStamp(Stamp, fs::path(LLVM_TOOLS_BINARY_DIR) / Tool);
+#endif
+#ifdef LLVM_LIBRARY_DIR
+  AppendDir(LLVM_LIBRARY_DIR, "libLLVM");
+  AppendDir(LLVM_LIBRARY_DIR, "libclang-cpp");
+#endif
+  return Stamp;
+}
+
 /// Compute a cache key for HIPRTC output based on source, headers, options,
 /// and registered name expressions.
 /// The key is a portable, stable hash of all inputs that affect the SPIRV
@@ -510,6 +556,8 @@ computeHiprtcCacheKey(const chipstar::Program &Program, int NumOptions,
 #ifdef CHIPSTAR_VERSION
   combined += CHIPSTAR_VERSION;
 #endif
+  combined += "\n";
+  combined += hipccToolchainStamp();
 
   return std::to_string(fnv1a64(combined));
 }
