@@ -36,13 +36,15 @@ RUNS=4
 GENESIS_DIR=${GENESIS_CI_PROJECT_DIR:-/home/bertoni/projects/p01.chipStar/GENESIS-Share-CI}
 
 # seconds; the minimum of the timed runs must be <= baseline * (1 + PERF_MARGIN)
-BASELINE_zerork=84
+BASELINE_zerork=77
 BASELINE_opensn=31
 BASELINE_homusic=85
 PERF_MARGIN=0.06
 
 OPENSN_COMMIT=d0644cd9c633c6ae5e7110d3f8721641e5ef2982
 OPENSN_LAPACK_TARBALL=/lus/flare/projects/chipStar_test/chipStar/dependencies/f2cblaslapack-3.8.0.q2.tar.gz
+OPENSN_CMAKE_MODULE_PATH=/lus/flare/projects/chipStar_test/chipStar/dependencies/modulefiles
+OPENSN_CMAKE_MODULE=cmake/4.3.2.lua
 
 die() { echo "run_apps.sh: $*" >&2; exit 2; }
 banner() { echo; echo "=== $* ==="; }
@@ -214,6 +216,10 @@ build_opensn() {
   cmake -DCMAKE_INSTALL_PREFIX="$base/opensn/dependencies" ../tools/dependencies
   make -j"$BUILD_JOBS"
   cd ..
+
+  # the main build needs this cmake, not the default 3.x
+  module use "$OPENSN_CMAKE_MODULE_PATH"
+  module load "$OPENSN_CMAKE_MODULE"
 
   source "$base/opensn/dependencies/bin/set_opensn_env.sh"
   mkdir -p build_debug

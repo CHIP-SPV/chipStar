@@ -23,6 +23,9 @@ variables:
   GENESIS_CI_PROJECT_DIR: "/home/bertoni/projects/p01.chipStar/GENESIS-Share-CI/"
   CHIP_MODULE_CACHE_DIR: ""
   BUILD_JOBS: "20"
+  # app driver
+  RUN_APPS: "${WRK_DIR}/chipStar/tests/apps/run_apps.sh
+             -w ${WRK_DIR} -M ${WRK_DIR}/modulefiles -m chipStar/llvm21 -j ${BUILD_JOBS}"
 
 stages:
     - .pre
@@ -66,23 +69,6 @@ setup:
       fi
     - git submodule update --init --recursive
     - module list
-    - |
-      cat > ${WRK_DIR}/timing_stats.awk <<'EOF'
-      {t[n++] = $1 + 0}
-      END {
-        if (!n) exit
-        min = max = t[0]
-        for (i = 1; i < n; i++) {
-          if (t[i] < min) min = t[i]
-          if (t[i] > max) max = t[i]
-        }
-        printf "runs=%d  min=%.3f  max=%.3f  spread=%.3f (%.1f%%)\n", \
-          n, min, max, max - min, (min ? 100 * (max - min) / min : 0)
-        printf "values:"
-        for (i = 0; i < n; i++) printf " %.3f", t[i]
-        print ""
-      }
-      EOF
 
 #
 # Toolchain builds
@@ -210,15 +196,7 @@ zeroRK_build:
   variables:
     MAKEFLAGS: "-j${BUILD_JOBS}"
   script:
-   - cd ${WRK_DIR}
-   - git clone git@github.com:CHIP-SPV/zero-rk.git -b hip-chipStar
-   - cd zero-rk
-   - module use /soft/modulefiles
-   - module use ${WRK_DIR}/modulefiles
-   - module load chipStar/llvm21 cmake
-   - mkdir -p build_aurora
-   - cd build_aurora
-   - sh ../scripts/build_aurora.sh  --no-module-loads
+   - ${RUN_APPS} --phases build zerork
 
 opensn_build:
   stage: app_build
@@ -226,31 +204,7 @@ opensn_build:
   # wave 3
   needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
   script:
-   - cd ${WRK_DIR}
-   - module load frameworks/2025.3.1
-   - export ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
-   - export ONEAPI_DEVICE_SELECTOR=level_zero:gpu
-   - module use /soft/modulefiles
-   - module use ${WRK_DIR}/modulefiles
-   - module load chipStar/llvm21 cmake
-   - export BASE=$PWD
-   - git clone git@github.com:Open-Sn/opensn.git
-   - cd opensn
-   - git checkout d0644cd9c633c6ae5e7110d3f8721641e5ef2982
-   - grep -q -- '--download-f2cblaslapack=yes' tools/dependencies/CMakeLists.txt
-   - sed -i 's|--download-f2cblaslapack=yes|--download-f2cblaslapack=/lus/flare/projects/chipStar_test/chipStar/dependencies/f2cblaslapack-3.8.0.q2.tar.gz|' tools/dependencies/CMakeLists.txt
-   - mkdir -p build_deps
-   - cd build_deps
-   - cmake -DCMAKE_INSTALL_PREFIX=$BASE/dependencies ../tools/dependencies
-   - make -j${BUILD_JOBS}
-   - cd ..
-   - module use /home/pvelesko/modulefiles
-   - module load cmake/4.3.2.lua
-   - source $BASE/dependencies/bin/set_opensn_env.sh
-   - mkdir build_debug
-   - cd build_debug
-   - CC=hipcc CXX=hipcc cmake -DOPENSN_WITH_HIP=ON -DCMAKE_HIP_ARCHITECTURES=spirv -DCMAKE_HIP_PLATFORM=spirv -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-   - make -j${BUILD_JOBS}
+   - ${RUN_APPS} --phases build opensn
 
 #
 # Application runs
@@ -264,19 +218,7 @@ hoMusic:
   variables:
     MAKEFLAGS: "-j${BUILD_JOBS}"
   script:
-    - set -o pipefail
-    - ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh build chipStar/llvm21
-    - rm -f ${GENESIS_CI_PROJECT_DIR}/output_${CI_PIPELINE_ID}
-    - |
-      # 4 runs, each in its own dir; hoMusic_performance takes the min.
-      rc=0
-      for i in 1 2 3 4; do
-        echo "=== hoMusic run $i/4 ==="
-        ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh run chipStar/llvm21 $i \
-          |& tee -a ${GENESIS_CI_PROJECT_DIR}/output_${CI_PIPELINE_ID} || rc=1
-      done
-      ${GENESIS_CI_PROJECT_DIR}/hoMusic_ci_improved.sh clean chipStar/llvm21
-      exit $rc
+    - ${RUN_APPS} --phases build,run homusic
 
 zeroRK_run:
   stage: app_run
@@ -284,53 +226,7 @@ zeroRK_run:
   extends: .aurora-batch-runner
   needs: [zeroRK_build, chipStar_aurora_script_test_run]
   script:
-  - cd ${WRK_DIR}/zero-rk
-  - module use /soft/modulefiles
-  - module use ${WRK_DIR}/modulefiles
-  - module load chipStar/llvm21
-  - rm -f ${WRK_DIR}/zero-rk/output
-  - set -o pipefail
-  - |
-    # every section runs even if an earlier one fails; the job names what broke
-    # and fails at the end
-    failed=""
-
-    # 4 runs, each in its own dir; performance_zeroRK takes the min.
-    for i in 1 2 3 4; do
-      RUN_DIR=${WRK_DIR}/zero-rk/running_test_aurora_run${i}
-      rm -rf ${RUN_DIR}
-      cp -a ${WRK_DIR}/zero-rk/running_test_aurora ${RUN_DIR}
-      cd ${RUN_DIR}
-      mkdir -p logs
-      chmod a+x ./submit_job.sh
-      echo "=== zeroRK run $i/4 (${RUN_DIR}) ==="
-      ./submit_job.sh |& tee -a ${WRK_DIR}/zero-rk/output || failed="${failed} timing-run-${i}"
-      cd ${WRK_DIR}/zero-rk
-    done
-
-    # CPU-vs-GPU comparison in both LU modes; the scripts cd relative to here
-    for lu in 1 0; do
-      echo "=== zeroRK correctness: hydrogen, ZERORK_REACTOR_USE_LU=$lu ==="
-      cd ${WRK_DIR}/zero-rk
-      bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh $lu \
-        || failed="${failed} hydrogen-lu${lu}"
-    done
-
-    # temperature-trend check in both LU modes
-    for lu in 1 0; do
-      echo "=== zeroRK correctness: box reactor, ZERORK_REACTOR_USE_LU=$lu ==="
-      cd ${WRK_DIR}/zero-rk
-      bash ${WRK_DIR}/chipStar/tests/apps/ZeroRK/zerork_correctness_box_reactor.sh $lu \
-        || failed="${failed} box-reactor-lu${lu}"
-    done
-
-    echo
-    echo "================ zeroRK summary ================"
-    if [ -n "${failed}" ]; then
-      echo "FAILED:${failed}"
-      exit 1
-    fi
-    echo "all 8 checks passed (4 timing runs, hydrogen lu1/lu0, box reactor lu1/lu0)"
+  - ${RUN_APPS} --phases run zerork
 
 opensn_run:
   stage: app_run
@@ -340,170 +236,44 @@ opensn_run:
   variables:
     CHIP_MODULE_CACHE_DIR: "${WRK_DIR}/module_cache"
   script:
-   - module use ${WRK_DIR}/modulefiles
-   - module use /soft/modulefiles
-   - module load chipStar/llvm21
-   - module load hdf5
-   - rm -f ${WRK_DIR}/opensn/output
-   - set -o pipefail
-   - |
-     OPENSN_BIN=${WRK_DIR}/opensn/build_debug/python/opensn
-     INPUTS=${WRK_DIR}/chipStar/tests/apps/OpenSn
-
-     # 4 runs, each in its own dir; performance_opensn takes the min.
-     rc=0
-     for i in 1 2 3 4; do
-       RUN_DIR=${WRK_DIR}/opensn/run_${i}
-       echo "=== OpenSn run $i/4 (${RUN_DIR}) ==="
-       rm -rf ${RUN_DIR}
-       mkdir -p ${RUN_DIR}
-       cp ${INPUTS}/strong_scaling.* ${INPUTS}/xs_168g.xs ${RUN_DIR}/
-       cd ${RUN_DIR}
-       CHIP_LOGLEVEL=off mpiexec --cpu-bind=list:1-8 --env OMP_NUM_THREADS=8 --env OMP_PLACES=cores -n 1 \
-         gpu_tile_compact.sh ${OPENSN_BIN} -i strong_scaling.py |& tee -a ${WRK_DIR}/opensn/output || rc=1
-     done
-     exit $rc
+   - ${RUN_APPS} --phases run opensn
 
 #
 # Performance analysis
 #
 
-hoMusic_performance:
+.app_report:
   stage: app_report
   extends: .aurora-shell-runner
-  needs: [hoMusic]
   script:
-    - cd ${GENESIS_CI_PROJECT_DIR}
+    - set -o pipefail
     - |
-      OUTPUT=output_${CI_PIPELINE_ID}
-
-      # hoMusic_ci_improved.sh emits one "HOMUSIC_ELAPSED_SECONDS <seconds>" line per run.
-      # Anchored: the script runs under "bash -x", so its trace of the awk command that
-      # prints this line also contains the string, with "awk" where the seconds belong.
-      grep "^HOMUSIC_ELAPSED_SECONDS" $OUTPUT || true
-      ACTUAL_TIME=$(awk '/^HOMUSIC_ELAPSED_SECONDS/ {t = $2 + 0; if (n++ == 0 || t < min) min = t} \
-                         END {if (n) printf "%.3f", min}' $OUTPUT)
-      NRUNS=$(grep -c "^HOMUSIC_ELAPSED_SECONDS" $OUTPUT || true)
-
-      if [ -z "$ACTUAL_TIME" ]; then
-        echo "Performance check failed: no timing lines found in $OUTPUT"
-        exit 1
-      fi
-      echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
-
-      # Define baseline and 6% upper threshold
-      BASELINE=85.0
-      THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
-      UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
-
-      echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
-
-      # Compare using bc (returns 1 for true, 0 for false)
-      IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
-
+      # report_github_status reads reason_* for the one-line PR description
+      LOG=${WRK_DIR}/report_${CI_JOB_NAME}.log
       rc=0
-      if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
-        echo "Performance check passed: $ACTUAL_TIME is at or below $UPPER_BOUND"
-      else
-        echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
-        echo ": ${ACTUAL_TIME}s > ${UPPER_BOUND}s" > ${WRK_DIR}/reason_${CI_JOB_NAME}
-        rc=1
+      ${RUN_APPS} --phases report ${APP} |& tee ${LOG} || rc=1
+      if [ $rc -ne 0 ]; then
+        sed -n 's/^performance check failed//p' ${LOG} | head -1 > ${WRK_DIR}/reason_${CI_JOB_NAME}
       fi
-
-      echo
-      echo "=== hoMusic timing spread ==="
-      awk '/^HOMUSIC_ELAPSED_SECONDS/ {print $2}' $OUTPUT \
-        | awk -f ${WRK_DIR}/timing_stats.awk
       exit $rc
 
+hoMusic_performance:
+  extends: .app_report
+  needs: [hoMusic]
+  variables:
+    APP: homusic
+
 zeroRK_performance:
-  stage: app_report
-  extends: .aurora-shell-runner
+  extends: .app_report
   needs: [zeroRK_run]
-  script:
-  - cd ${WRK_DIR}/zero-rk
-  - |
-    # submit_job.sh emits one "Job time in seconds: N" line per run; take the min
-    grep "Job time in seconds" output || true
-    ACTUAL_TIME=$(awk -F': ' '/Job time in seconds/ {t = $2 + 0; if (n++ == 0 || t < min) min = t} \
-                       END {if (n) print min}' output)
-    NRUNS=$(grep -c "Job time in seconds" output || true)
-
-    if [ -z "$ACTUAL_TIME" ]; then
-      echo "Performance check failed: no timing lines found in output"
-      exit 1
-    fi
-    echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
-
-    # Define baseline and 6% threshold
-    BASELINE=84
-    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
-    UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
-
-    echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
-
-    # Compare using bc (returns 1 for true, 0 for false)
-    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
-
-    rc=0
-    if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
-      echo "Performance check passed: $ACTUAL_TIME is at or below $UPPER_BOUND"
-    else
-      echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
-      echo ": ${ACTUAL_TIME}s > ${UPPER_BOUND}s" > ${WRK_DIR}/reason_${CI_JOB_NAME}
-      rc=1
-    fi
-
-    echo
-    echo "=== zeroRK timing spread ==="
-    awk -F': ' '/Job time in seconds/ {print $2 + 0}' output \
-      | awk -f ${WRK_DIR}/timing_stats.awk
-    exit $rc
+  variables:
+    APP: zerork
 
 opensn_performance:
-  stage: app_report
-  extends: .aurora-shell-runner
+  extends: .app_report
   needs: [opensn_run]
-  script:
-  - cd ${WRK_DIR}/opensn
-  - |
-    # min over the 4 runs; format is "Elapsed execution time: HH:MM:SS.s"
-    grep "Elapsed execution time" output || true
-    ACTUAL_TIME=$(awk '/Elapsed execution time/ {split($NF, f, ":"); \
-                       t = (f[1] * 3600) + (f[2] * 60) + f[3]; \
-                       if (n++ == 0 || t < min) min = t} \
-                       END {if (n) printf "%.3f", min}' output)
-    NRUNS=$(grep -c "Elapsed execution time" output || true)
-
-    if [ -z "$ACTUAL_TIME" ]; then
-      echo "Performance check failed: no timing lines found in output"
-      exit 1
-    fi
-    echo "Minimum of $NRUNS runs: $ACTUAL_TIME s"
-
-    # Define baseline and 6% threshold
-    BASELINE=31
-    THRESHOLD=$(echo "$BASELINE * 0.06" | bc -l)
-    UPPER_BOUND=$(echo "$BASELINE + $THRESHOLD" | bc -l)
-
-    echo "Actual: $ACTUAL_TIME s | Target: < $BASELINE s + $THRESHOLD s)"
-
-    IS_WITHIN_LIMITS=$(echo "$ACTUAL_TIME <= $UPPER_BOUND" | bc -l)
-
-    rc=0
-    if [ "$IS_WITHIN_LIMITS" -eq 1 ]; then
-      echo "Performance check passed: $ACTUAL_TIME is at or below $UPPER_BOUND"
-    else
-      echo "Performance check failed: $ACTUAL_TIME is above $UPPER_BOUND"
-      echo ": ${ACTUAL_TIME}s > ${UPPER_BOUND}s" > ${WRK_DIR}/reason_${CI_JOB_NAME}
-      rc=1
-    fi
-
-    echo
-    echo "=== opensn timing spread ==="
-    awk '/Elapsed execution time/ {split($NF, f, ":"); print (f[1] * 3600) + (f[2] * 60) + f[3]}' output \
-      | awk -f ${WRK_DIR}/timing_stats.awk
-    exit $rc
+  variables:
+    APP: opensn
 
 cleanup:
   stage: cleanup
