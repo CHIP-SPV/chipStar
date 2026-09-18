@@ -142,7 +142,8 @@ perf_check() {
 
 build_zerork() {
   cd "$WRK_DIR"
-  [ -d zero-rk ] || git clone git@github.com:CHIP-SPV/zero-rk.git -b hip-chipStar
+  [ -d zero-rk ] && rm -rf zero-rk
+  git clone git@github.com:CHIP-SPV/zero-rk.git -b hip-chipStar
   cd zero-rk
   load_chipstar
   mkdir -p build_aurora
@@ -201,7 +202,8 @@ build_opensn() {
   load_chipstar
 
   local base=$WRK_DIR
-  [ -d opensn ] || git clone git@github.com:Open-Sn/opensn.git
+  [ -d opensn ] && rm -rf opensn
+  git clone git@github.com:Open-Sn/opensn.git
   cd opensn
   git checkout $OPENSN_COMMIT
 

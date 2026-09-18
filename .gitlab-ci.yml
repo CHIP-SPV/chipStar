@@ -74,33 +74,10 @@ setup:
 # Toolchain builds
 #
 
-# testing with hand script
-aurora_build_test:
-  stage: build
-  extends: .aurora-shell-runner
-  # wave 1
-  needs: [setup]
-  script:
-    - hostname
-    - echo "Running on $(hostname) with setuid shell runner"
-    - cd ${WRK_DIR}/chipStar
-    - module use /soft/modulefiles
-    - module load cmake chipStar/.llvm21/20260808-21/release
-    - rm -rf build
-    - mkdir build
-    - cd build
-    - cmake -DCMAKE_BUILD_TYPE=Release -DCHIP_BUILD_SAMPLES=ON -DCMAKE_INSTALL_PREFIX=${WRK_DIR}/install_aurora ..
-    - gitcommit=$(git rev-parse HEAD)
-    - make -j${BUILD_JOBS}
-    - make install
-    - cd ..
-    - rm -rf build
-
 chipStar_script_install_llvm22:
   stage: build
   extends: .aurora-shell-runner
-  # wave 2
-  needs: [aurora_build_test]
+  # wave 1
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
@@ -115,8 +92,7 @@ chipStar_script_install_llvm22:
 chipStar_aurora_script_test:
   stage: build
   extends: .aurora-shell-runner
-  # wave 2
-  needs: [aurora_build_test]
+  # wave 1
   variables:
     MAKEFLAGS: "-j${BUILD_JOBS}"
   script:
@@ -131,7 +107,7 @@ chipStar_aurora_script_test:
 chipStar_aurora_script_test_llvm22:
   stage: build
   extends: .aurora-shell-runner
-  # wave 3
+  # wave 2
   needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
   variables:
     MAKEFLAGS: "-j${BUILD_JOBS}"
@@ -191,7 +167,7 @@ chipStar_aurora_script_test_llvm22_run:
 zeroRK_build:
   stage: app_build
   extends: .aurora-shell-runner
-  # wave 3
+  # wave 2
   needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
   variables:
     MAKEFLAGS: "-j${BUILD_JOBS}"
@@ -201,7 +177,7 @@ zeroRK_build:
 opensn_build:
   stage: app_build
   extends: .aurora-shell-runner
-  # wave 3
+  # wave 2
   needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
   script:
    - ${RUN_APPS} --phases build opensn
