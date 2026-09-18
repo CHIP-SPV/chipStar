@@ -209,7 +209,7 @@ std::optional<fs::path> getHIPCCPath() {
       }
   });
 
-  logDebug("HIPCC path: {}", HIPCCPath->c_str());
+  logDebug("HIPCC path: {}", HIPCCPath ? HIPCCPath->c_str() : "not found");
   return HIPCCPath;
 }
 

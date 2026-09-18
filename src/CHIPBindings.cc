@@ -6902,11 +6902,100 @@ hipError_t hipIpcGetEventHandle(hipIpcEventHandle_t *Handle, hipEvent_t Event) {
   CHIP_CATCH
 }
 
+/// Largest block the kernel, the device and the caller's limit all accept.
+static int maxFeasibleBlockSize(const hipDeviceProp_t &Props,
+                                const hipFuncAttributes &Attr,
+                                int BlockSizeLimit) {
+  int MaxBlock = std::min(Attr.maxThreadsPerBlock, Props.maxThreadsPerBlock);
+  if (BlockSizeLimit > 0)
+    MaxBlock = std::min(MaxBlock, BlockSizeLimit);
+  return MaxBlock;
+}
+
+/// Blocks of \p BlockSize that fit one multiprocessor's threads and memory.
+static hipError_t occupancyMaxActiveBlocksPerMP(int *NumBlocks,
+                                                chipstar::Kernel *Kernel,
+                                                int BlockSize,
+                                                size_t DynSharedMemPerBlk) {
+  NULLCHECK(NumBlocks, Kernel);
+  if (BlockSize <= 0)
+    RETURN(hipErrorInvalidValue);
+
+  hipDeviceProp_t Props = Backend->getActiveDevice()->getDeviceProps();
+  hipFuncAttributes Attr{};
+  hipError_t Err = Kernel->getAttributes(&Attr);
+  if (Err != hipSuccess)
+    RETURN(Err);
+
+  size_t ShmemPerMP = Props.maxSharedMemoryPerMultiProcessor;
+  *NumBlocks = 0;
+  if (BlockSize > std::min(Attr.maxThreadsPerBlock, Props.maxThreadsPerBlock) ||
+      Attr.sharedSizeBytes > ShmemPerMP ||
+      DynSharedMemPerBlk > ShmemPerMP - Attr.sharedSizeBytes)
+    RETURN(hipSuccess);
+
+  size_t ShmemPerBlock = Attr.sharedSizeBytes + DynSharedMemPerBlk;
+  int Limit = Props.maxThreadsPerMultiProcessor / BlockSize;
+  if (ShmemPerBlock)
+    Limit = std::min<size_t>(Limit, ShmemPerMP / ShmemPerBlock);
+
+  *NumBlocks = Limit;
+  RETURN(hipSuccess);
+}
+
+/// The feasible or warp-aligned block that keeps the most threads resident.
+static hipError_t occupancyMaxPotentialBlockSize(int *GridSize, int *BlockSize,
+                                                 chipstar::Kernel *Kernel,
+                                                 size_t DynSharedMemPerBlk,
+                                                 int BlockSizeLimit) {
+  NULLCHECK(GridSize, BlockSize, Kernel);
+
+  hipDeviceProp_t Props = Backend->getActiveDevice()->getDeviceProps();
+  hipFuncAttributes Attr{};
+  hipError_t Err = Kernel->getAttributes(&Attr);
+  if (Err != hipSuccess)
+    RETURN(Err);
+
+  int BestBlock = 0, BestBlocks = 0, Warp = std::max(Props.warpSize, 1);
+  for (int Block = maxFeasibleBlockSize(Props, Attr, BlockSizeLimit); Block > 0;
+       Block = (Block - 1) / Warp * Warp) {
+    int Blocks = 0;
+    Err = occupancyMaxActiveBlocksPerMP(&Blocks, Kernel, Block,
+                                        DynSharedMemPerBlk);
+    if (Err != hipSuccess)
+      RETURN(Err);
+    if (Block * Blocks > BestBlock * BestBlocks) {
+      BestBlock = Block;
+      BestBlocks = Blocks;
+    }
+  }
+  if (BestBlocks == 0)
+    RETURN(hipErrorInvalidValue);
+
+  *BlockSize = BestBlock;
+  *GridSize = std::max(Props.multiProcessorCount, 1) * BestBlocks;
+  RETURN(hipSuccess);
+}
+
+/// chipStar never overrides caching, so DisableCachingOverride is a no-op.
+static bool isKnownOccupancyFlags(unsigned int Flags) {
+  return Flags == hipOccupancyDefault ||
+         Flags == hipOccupancyDisableCachingOverride;
+}
+
 hipError_t hipModuleOccupancyMaxPotentialBlockSize(int *GridSize,
                                                    int *BlockSize,
                                                    hipFunction_t Func,
                                                    size_t DynSharedMemPerBlk,
-                                                   int BlockSizeLimit);
+                                                   int BlockSizeLimit) {
+  CHIP_TRY
+  LOCK(ApiMtx);
+  CHIPInitialize();
+  RETURN(occupancyMaxPotentialBlockSize(GridSize, BlockSize,
+                                        static_cast<chipstar::Kernel *>(Func),
+                                        DynSharedMemPerBlk, BlockSizeLimit));
+  CHIP_CATCH
+}
 
 hipError_t hipModuleOccupancyMaxPotentialBlockSizeWithFlags(
     int *GridSize, int *BlockSize, hipFunction_t Func,
@@ -6914,7 +7003,11 @@ hipError_t hipModuleOccupancyMaxPotentialBlockSizeWithFlags(
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  if (!isKnownOccupancyFlags(Flags))
+    RETURN(hipErrorInvalidValue);
+  RETURN(occupancyMaxPotentialBlockSize(GridSize, BlockSize,
+                                        static_cast<chipstar::Kernel *>(Func),
+                                        DynSharedMemPerBlk, BlockSizeLimit));
   CHIP_CATCH
 }
 
@@ -6924,7 +7017,9 @@ hipError_t hipModuleOccupancyMaxActiveBlocksPerMultiprocessor(
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  RETURN(occupancyMaxActiveBlocksPerMP(NumBlocks,
+                                       static_cast<chipstar::Kernel *>(Func),
+                                       BlockSize, DynSharedMemPerBlk));
   CHIP_CATCH
 }
 
@@ -6934,7 +7029,11 @@ hipError_t hipModuleOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  if (!isKnownOccupancyFlags(Flags))
+    RETURN(hipErrorInvalidValue);
+  RETURN(occupancyMaxActiveBlocksPerMP(NumBlocks,
+                                       static_cast<chipstar::Kernel *>(Func),
+                                       BlockSize, DynSharedMemPerBlk));
   CHIP_CATCH
 }
 
@@ -6945,7 +7044,12 @@ hipOccupancyMaxActiveBlocksPerMultiprocessor(int *NumBlocks, const void *Func,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  chipstar::Kernel *Kernel =
+      Backend->getActiveDevice()->findKernel(HostPtr(Func));
+  if (!Kernel)
+    RETURN(hipErrorInvalidDeviceFunction);
+  RETURN(occupancyMaxActiveBlocksPerMP(NumBlocks, Kernel, BlockSize,
+                                       DynSharedMemPerBlk));
   CHIP_CATCH
 }
 
@@ -6955,7 +7059,14 @@ hipError_t hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  if (!isKnownOccupancyFlags(Flags))
+    RETURN(hipErrorInvalidValue);
+  chipstar::Kernel *Kernel =
+      Backend->getActiveDevice()->findKernel(HostPtr(Func));
+  if (!Kernel)
+    RETURN(hipErrorInvalidDeviceFunction);
+  RETURN(occupancyMaxActiveBlocksPerMP(NumBlocks, Kernel, BlockSize,
+                                       DynSharedMemPerBlk));
   CHIP_CATCH
 }
 
@@ -6966,7 +7077,12 @@ hipError_t hipOccupancyMaxPotentialBlockSize(int *GridSize, int *BlockSize,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  chipstar::Kernel *Kernel =
+      Backend->getActiveDevice()->findKernel(HostPtr(Func));
+  if (!Kernel)
+    RETURN(hipErrorInvalidDeviceFunction);
+  RETURN(occupancyMaxPotentialBlockSize(GridSize, BlockSize, Kernel,
+                                        DynSharedMemPerBlk, BlockSizeLimit));
   CHIP_CATCH
 }
 
