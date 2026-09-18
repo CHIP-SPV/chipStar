@@ -55,6 +55,23 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K,
   delete EI;
 }
 
+/// Launch geometry for a grid-stride init kernel writing up to Bytes bytes.
+static void getVarInitLaunchGeometry(chipstar::Device *Dev,
+                                     chipstar::Kernel *Kern, size_t Bytes,
+                                     dim3 &GridDim, dim3 &BlockDim) {
+  size_t BlockSize = 256;
+  hipFuncAttributes Attrs{};
+  if (Kern->getAttributes(&Attrs) == hipSuccess && Attrs.maxThreadsPerBlock > 0)
+    BlockSize = std::min<size_t>(BlockSize, Attrs.maxThreadsPerBlock);
+  size_t NumBlocks = std::min<size_t>(Bytes / 8 / BlockSize + 1, 1024);
+  NumBlocks =
+      std::min<size_t>(NumBlocks, Dev->getAttr(hipDeviceAttributeMaxGridDimX));
+  GridDim = dim3(NumBlocks, 1, 1);
+  BlockDim = dim3(BlockSize, 1, 1);
+  logTrace("Device variable init geometry: {} bytes -> grid={} block={}", Bytes,
+           GridDim.x, BlockDim.x);
+}
+
 /// Queue a shadow kernel for binding a device variable (a pointer) to
 /// the given allocation.
 static void queueVariableInfoShadowKernel(chipstar::Queue *Q,
@@ -98,14 +115,18 @@ static void queueVariableInitShadowKernel(chipstar::Queue *Q,
   auto *K = M->getKernelByName(std::string(ChipVarInitPrefix) +
                                std::string(Var->getName()));
   assert(K && "chipstar::Module is missing a shadow kernel?");
+  dim3 GridDim, BlockDim;
+  if (Var->hasGridStrideInit())
+    getVarInitLaunchGeometry(Q->getDevice(), K, Var->getSize(), GridDim,
+                             BlockDim);
   if (K->getFuncInfo()->getNumKernelArgs() == 1) {
     // Globals-as-kernel-args lowering: the init kernel takes the storage
     // address as its argument instead of reading a program-scope global.
     auto *DevPtr = Var->getDevAddr();
     void *Args[] = {&DevPtr};
-    queueKernel(Q, K, Args);
+    queueKernel(Q, K, Args, GridDim, BlockDim);
   } else
-    queueKernel(Q, K);
+    queueKernel(Q, K, nullptr, GridDim, BlockDim);
 }
 
 void *chipstar::getDeviceGlobalArgAddr(chipstar::Kernel *Kernel,
@@ -403,7 +424,7 @@ chipstar::DeviceVar *chipstar::Module::getGlobalVar(const char *VarName) {
 
 void chipstar::Module::addUnregisteredDeviceVariables() {
   // A __chip_var_info_<X> shadow kernel means HipGlobalVariables.cpp lowered X
-  // into a __chip_var_<X> address slot: the module's code reads X through the
+  // into a __chip_var_addr_<X> address slot: the module's code reads X via the
   // slot and __chip_var_init_all writes X's initializer through it, so the
   // slot must be bound to storage before the module's first launch whether or
   // not the host registered X. clang emits no __hipRegisterVar for a
@@ -485,6 +506,7 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
     Var->setDevAddr(
         Ctx->allocate(Size, Alignment, hipMemoryType::hipMemoryTypeDevice));
     Var->markHasInitializer(HasInitializer);
+    Var->setInitKind((*VarInfo.second)[2]);
     // Sanity check for object sizes reported by the shadow kernels vs
     // __hipRegisterVar. For device-only variables, we don't have __hipRegisterVar
     // so the size is 0 - update it from the shadow kernel.
@@ -544,20 +566,47 @@ void chipstar::Module::prepareDeviceVariablesNoLock(chipstar::Device *Device,
   logTrace("Initialize device variables in module: {}", (void *)this);
 
   bool QueuedKernels = false;
+  const char Zero = 0;
+  for (auto *Var : ChipVars_)
+    if (Var->isHostFilled()) {
+      Queue->memFillAsync(Var->getDevAddr(), Var->getSize(), &Zero, 1);
+      QueuedKernels = true;
+    }
   // Fast path (#582): the program-scope-globals lowering emits a single
   // combined init kernel that initializes ALL variables in one launch, instead
   // of one single-work-item init kernel per variable. Launch it once when
   // present; otherwise fall back to the per-variable init kernels (used by the
   // globals-as-kernel-args/rusticl lowering).
-  if (auto *CombinedInitKernel = findKernel(ChipVarInitAllName)) {
+  auto *CombinedInitKernel = findKernel(ChipVarInitAllName);
+  // Reject the per-variable init kernel of a variable named `all`.
+  if (CombinedInitKernel &&
+      (CombinedInitKernel->getFuncInfo()->getNumKernelArgs() != 0 ||
+       std::count_if(ChipKernels_.begin(), ChipKernels_.end(),
+                     [](chipstar::Kernel *K) {
+                       return K->getName().rfind(ChipVarInitPrefix, 0) == 0;
+                     }) > 1))
+    CombinedInitKernel = nullptr;
+  if (CombinedInitKernel) {
     logTrace("Initializing all device variables via combined init kernel");
-    queueKernel(Queue, CombinedInitKernel);
+    // Only grid-stride init kernels may run on more than one work item.
+    bool GridStride = true;
+    size_t MaxBytes = 0;
+    for (auto *Var : ChipVars_)
+      if (Var->hasInitializer() && !Var->isHostFilled()) {
+        GridStride &= Var->hasGridStrideInit();
+        MaxBytes = std::max(MaxBytes, Var->getSize());
+      }
+    dim3 GridDim, BlockDim;
+    if (GridStride)
+      getVarInitLaunchGeometry(Queue->getDevice(), CombinedInitKernel, MaxBytes,
+                               GridDim, BlockDim);
+    queueKernel(Queue, CombinedInitKernel, nullptr, GridDim, BlockDim);
     QueuedKernels = true;
   } else {
     for (auto *Var : ChipVars_) {
       logTrace("Checking variable '{}' for initialization: hasInitializer={}",
                Var->getName(), Var->hasInitializer());
-      if (!Var->hasInitializer())
+      if (!Var->hasInitializer() || Var->isHostFilled())
         continue;
       logTrace("Initializing variable '{}'", Var->getName());
       queueVariableInitShadowKernel(Queue, this, Var);

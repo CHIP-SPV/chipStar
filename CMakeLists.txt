@@ -280,6 +280,8 @@ option(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "Lower volatile global accesses to r
 
 option(CHIP_KEEP_KERNEL_DEBUG_INFO "Keep device debug info in kernels. No SPIR-V producer emits debug info that validates, and only IGC on Intel Data Center GPU Max tolerates it, so this is off by default and should only be enabled for that device." OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
+option(CHIP_SET_RPATH_OCL "Add OpenCL_DIR to the RPATH for chipStar executables" ON)
+option(CHIP_SET_RPATH_L0 "Add LevelZeroLib_DIR to the RPATH for chipStar executables" ON)
 option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compile" OFF)
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
@@ -528,7 +530,7 @@ string(REPLACE ";" " " NONRDC_EMITTER_OPTS_STR "${NONRDC_EMITTER_OPTS}")
 set(_cc_probe_src "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/chip_cache_controls_probe.hip")
 file(WRITE "${_cc_probe_src}" "__attribute__((device)) void chipCacheControlsProbe(void) {}\n")
 execute_process(
-  COMMAND ${CLANG_ROOT_PATH_BIN}/clang++ "-###" -x hip -nogpulib -nogpuinc -c
+  COMMAND ${CMAKE_CXX_COMPILER} "-###" -x hip -nogpulib -nogpuinc -c
           --offload-device-only --offload=${OFFLOAD_TRIPLE} ${SPIRV_EMITTER_OPTS}
           "${_cc_probe_src}"
   OUTPUT_VARIABLE _cc_out ERROR_VARIABLE _cc_err RESULT_VARIABLE _cc_rc)
@@ -542,7 +544,7 @@ endif()
 if(NOT _cc_cmds MATCHES "spirv-ext=")
   # No extension list at all means the probe did not reach a device
   # compilation, so its answer says nothing about the toolchain.
-  message(WARNING "Could not read an extension list from ${CLANG_ROOT_PATH_BIN}/clang++ "
+  message(WARNING "Could not read an extension list from ${CMAKE_CXX_COMPILER} "
                   "(exit ${_cc_rc}); assuming SPV_INTEL_cache_controls is unavailable")
   set(_cc_supported OFF)
 endif()
@@ -763,11 +765,20 @@ if (NOT CLANG_VERSION_LESS_15)
     -no-hip-rt) # Clang 15+: Prevents linking amdhip64 library.
 endif()
 
-# For use by hipcc
-execute_process(COMMAND ${LLVM_CONFIG_BIN} --host-target
-  OUTPUT_VARIABLE HOST_ARCH)
-string(STRIP ${HOST_ARCH} HOST_ARCH)
-set(HOST_ARCH "--target=${HOST_ARCH}")
+# Keep hipcc on the CMake toolchain target; otherwise use the compiler default.
+set(HOST_ARCH "")
+if(CMAKE_CXX_COMPILER_TARGET)
+  set(HOST_ARCH "--target=${CMAKE_CXX_COMPILER_TARGET}")
+endif()
+
+# Sysroot options given on the command line reach the build tree only; the
+# installed files must not carry a path that exists on the build host alone.
+# STRIP first: the split below is on spaces, so edge tabs and newlines would
+# otherwise end up inside an argument.
+string(STRIP "${HIP_SYSROOT_OPTIONS}" CHIP_BUILD_SYSROOT_OPTIONS_)
+string(REPLACE " " ";" CHIP_BUILD_SYSROOT_OPTIONS_ "${CHIP_BUILD_SYSROOT_OPTIONS_}")
+string(STRIP "${HIP_SYSROOT_LINK_OPTIONS}" CHIP_BUILD_SYSROOT_LINK_OPTIONS_)
+string(REPLACE " " ";" CHIP_BUILD_SYSROOT_LINK_OPTIONS_ "${CHIP_BUILD_SYSROOT_LINK_OPTIONS_}")
 
 # On macOS, pass the sysroot only to host compilation (-Xarch_host).
 # The spirv64 device compilation cannot use the macOS SDK sysroot because
@@ -808,6 +819,7 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   --hip-path=${CMAKE_BINARY_DIR}
   ${HOST_ARCH}
   ${HIP_SYSROOT_OPTIONS}
+  ${CHIP_BUILD_SYSROOT_OPTIONS_}
   ${HIP_FIXUPS_HEADER_BUILD}
   -I${CMAKE_SOURCE_DIR}/include
   -I${CMAKE_SOURCE_DIR}/HIP/include
@@ -824,20 +836,27 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
 # device bitcode during -fgpu-rdc links (spurious "different data layouts"
 # warnings from llvm-link, see issue #525).
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_
+  ${HOST_ARCH}
   ${HIP_SYSROOT_LINK_OPTIONS}
   "-L${LIB_INSTALL_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
+  ${HOST_ARCH}
   ${HIP_SYSROOT_LINK_OPTIONS}
+  ${CHIP_BUILD_SYSROOT_LINK_OPTIONS_}
   "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 
 if(OpenCL_LIBRARY)
-  target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
+  if(CHIP_SET_RPATH_OCL)
+    target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
+  endif()
   target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
 endif()
 
 if(LevelZero_LIBRARY)
   include_directories(CHIP PUBLIC ${LevelZeroInclude_DIR})
-  target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZeroLib_DIR})
+  if(CHIP_SET_RPATH_L0)
+    target_link_options(CHIP PUBLIC -Wl,-rpath,${LevelZeroLib_DIR})
+  endif()
   target_link_directories(CHIP PUBLIC ${LevelZeroLib_DIR})
 endif()
 
@@ -867,12 +886,14 @@ target_compile_options(deviceInternal INTERFACE
   # published in .hipInfo, where hipcc must be free to withhold the emitter
   # selection from RDC compiles.
   ${NONRDC_EMITTER_OPTS})
+target_link_options(deviceInternal INTERFACE ${HOST_ARCH})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
 target_compile_options(device INTERFACE
   $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_}
   ${NONRDC_EMITTER_OPTS})
+target_link_options(device INTERFACE ${HOST_ARCH})
 target_link_libraries(device INTERFACE CHIP)
 
 # same as device on chipStar but provides compatibility with AMD

@@ -33,15 +33,17 @@ cd "${OUT}"
 
 # -O3 so the optimizer threads the shared-return switch; --save-temps keeps the
 # lowered device bitcode (the input the SPIR-V writer consumes).
-"${HIPCC}" -O3 --save-temps=cwd -c "${SRC_DIR}/TestSpirvDuplicatePhiHip.hip" \
+# -fno-jump-tables stops LLVM 23 turning the switch into a lookup table.
+"${HIPCC}" -O3 -fno-jump-tables --save-temps=cwd -c "${SRC_DIR}/TestSpirvDuplicatePhiHip.hip" \
   -o "${OUT}/TestSpirvDuplicatePhiHip.o"
 
-BC=$(ls "${OUT}"/*-generic-lower.bc 2>/dev/null | head -1)
+BC=$(ls "${OUT}"/*-lower.bc 2>/dev/null | head -1)
 if [ -z "${BC}" ]; then
-  echo "FAIL: no lowered device bitcode (*-generic-lower.bc) produced by hipcc"
+  echo "FAIL: no lowered device bitcode (*-lower.bc) produced by hipcc"
   exit 1
 fi
 
-"${LLVM_SPIRV}" --spirv-max-version=1.2 "${BC}" -o "${OUT}/TestSpirvDuplicatePhiHip.spv"
+# No --spirv-max-version: llvm-spirv rejects a cap below a versioned triple.
+"${LLVM_SPIRV}" "${BC}" -o "${OUT}/TestSpirvDuplicatePhiHip.spv"
 "${SPIRV_VAL}" "${OUT}/TestSpirvDuplicatePhiHip.spv"
 echo "PASSED"
