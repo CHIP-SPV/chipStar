@@ -20,7 +20,7 @@ jobs:
       github.event.issue.pull_request.url != '' &&
       contains(github.event.comment.body, '/run-aurora-ci') &&
       (
-           contains(fromJSON('["bertoni", "pvelesko"]'), github.event.comment.user.login)
+           contains(fromJSON('["colleeneb", "pvelesko"]'), github.event.comment.user.login)
       )
     runs-on: ubuntu-latest
     permissions:
