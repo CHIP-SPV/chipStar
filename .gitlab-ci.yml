@@ -69,7 +69,7 @@ setup:
       fi
     - git submodule update --init --recursive
     - git fetch origin main
-    - git checkout origin/main -- tests/apps/run_apps.sh install_chipstar.py
+    - git checkout origin/main -- tests/apps/run_apps.sh install_chipstar.py scripts/check.py
     - module list
 
 #
