@@ -600,7 +600,7 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
           : 0;
   HipDeviceProps_.integrated = 0;
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
-      HipDeviceProps_.sharedMemPerBlock * 16;
+      HipDeviceProps_.sharedMemPerBlock;
   HipDeviceProps_.cooperativeLaunch = 0;
   HipDeviceProps_.cooperativeMultiDeviceLaunch = 0;
   HipDeviceProps_.cooperativeMultiDeviceUnmatchedFunc = 0;

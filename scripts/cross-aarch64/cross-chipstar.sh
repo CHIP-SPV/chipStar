@@ -72,21 +72,6 @@ cmake -S "$SRC" -B "$NATIVE" -G Ninja \
 ninja -C "$NATIVE" -j"$JOBS" hipcc.bin hipconfig.bin LLVMHipPasses prepare-builtins
 
 # --- pass 2: aarch64 chipStar + tests -----------------------------------
-# chipStar reads `llvm-config --host-target` and passes it as --target= to
-# every host compile (CMakeLists.txt: HOST_ARCH). That is the compiler's
-# host, x86, and it lands AFTER the toolchain file's --target on the command
-# line, so it wins and every test's host half comes out x86. It is a plain
-# set() from execute_process, not a cache variable, so it cannot be
-# overridden with -D. Instead pass 2 sees an llvm-config that answers
-# --host-target with the aarch64 triple and forwards everything else to
-# the real one. Only the answer to that one query differs.
-mkdir -p "$WORK_DIR/x-llvm-config"
-cat > "$WORK_DIR/x-llvm-config/llvm-config" <<'WRAP'
-#!/bin/sh
-if [ "$1" = "--host-target" ]; then echo aarch64-unknown-linux-gnu; exit 0; fi
-exec /opt/llvm-x86-aarch64/bin/llvm-config "$@"
-WRAP
-chmod +x "$WORK_DIR/x-llvm-config/llvm-config"
 "$HERE/libmali-stub/make-stub.sh" "$WORK_DIR/mali-stub"
 CROSS="$WORK_DIR/cross-$SHA"
 # Always a fresh configure: toolchain-file *_INIT variables only seed a new
@@ -97,7 +82,7 @@ cmake -S "$SRC" -B "$CROSS" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="$STAGE_PREFIX" \
   -DCMAKE_INSTALL_RPATH="$STAGE_PREFIX/lib" \
-  -DLLVM_CONFIG_BIN="$WORK_DIR/x-llvm-config/llvm-config" \
+  -DLLVM_CONFIG_BIN="$X86_LLVM/bin/llvm-config" \
   -DCHIP_LLVM_USE_INTERGRATED_SPIRV="${INTEGRATED_SPIRV:-ON}" \
   -DCHIP_MALI_GPU_WORKAROUNDS=ON \
   -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \

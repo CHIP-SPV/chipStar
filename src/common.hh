@@ -58,8 +58,9 @@ bool analyzeSPIRV(uint32_t *Stream, size_t NumWords, SPVModuleInfo &ModuleInfo);
 // Processing done after analysis.
 bool postprocessSPIRV(std::vector<uint32_t> &Binary);
 
-/// A prefix given to lowered global scope device variables.
-constexpr char ChipVarPrefix[] = "__chip_var_";
+/// A prefix given to lowered global scope device variables. No shadow kernel
+/// name may start with it.
+constexpr char ChipVarPrefix[] = "__chip_var_addr_";
 /// A prefix used for a shadow kernel used for querying device
 /// variable properties.
 constexpr char ChipVarInfoPrefix[] = "__chip_var_info_";
@@ -77,8 +78,15 @@ constexpr char ChipVarInitAllName[] = "__chip_var_init_all";
 /// A structure to where properties of a device variable are written.
 /// CHIPVarInfo[0]: Size in bytes.
 /// CHIPVarInfo[1]: Requested alignment.
-/// CHIPVarInfo[2]: Non-zero if variable has initializer. Otherwise zero.
+/// CHIPVarInfo[2]: Zero if variable has no initializer. Otherwise
+/// ChipVarInitGridStride if its init kernel runs on any 1-D launch geometry,
+/// ChipVarInitHostFill if the runtime zeroes it instead of the init kernel, or
+/// another non-zero value if it must run on a single work item.
 using CHIPVarInfo = int64_t[3];
+constexpr int64_t ChipVarInitGridStride = 2;
+constexpr int64_t ChipVarInitHostFill = 3;
+/// Zero initializers at least this large are filled by the runtime.
+constexpr uint64_t ChipVarFillThreshold = 64 * 1024 * 1024;
 
 /// The name of the shadow kernel responsible for resetting host-inaccessible
 /// global device variables (e.g. static local variables in device code).

@@ -110,6 +110,10 @@ if(OpenMP_CXX_FOUND)
   add_hipcc_test(TestHipccFopenmp.cc HIPCC_OPTIONS -fopenmp)
 endif()
 
+# -fopenmp-simd must stay host-only; on the device clang asserts (#1566).
+add_hipcc_test(TestHipccAcceptCcFiles.cc TEST_NAME TestFix1566FopenmpSimd
+  HIPCC_OPTIONS -fopenmp-simd)
+
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
 add_test(NAME "TestHipccNeedsDashO"
@@ -183,6 +187,7 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Fails the day the backend stops forcing ContractionOff. Read its header.
   add_shell_test(CanaryFPContractionOff.bash)
 endif()
+add_shell_test(TestFix1640AggregateInitGlobalAddress.bash)
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.
 add_shell_test(CanaryPointerVectorsRejected.bash)
@@ -205,6 +210,9 @@ add_hipcc_test(TestDeviceVirtualFunctions.hip HIPCC_OPTIONS -c)
 # Dead vtables of an explicit instantiation must not survive into the device
 # module (#1382). Inspects the lowered device bitcode.
 add_shell_test(TestDeadVTableVirtualBase.bash)
+# Program-scope variable init kernels must use their work items (#582).
+add_shell_test(TestFix582VarInitWorkItems.bash)
+add_hipcc_test(TestFix1647ShadowKernelNames.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
 # Check CHIP_FAST_MATH is set for -ffast-math and preprocessor guards

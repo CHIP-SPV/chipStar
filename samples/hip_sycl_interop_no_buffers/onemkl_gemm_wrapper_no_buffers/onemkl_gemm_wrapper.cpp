@@ -113,7 +113,7 @@ int oneMKLGemmTest(uintptr_t *nativeHandlers, float *A,
         sycl::context sycl_context =
             sycl::detail::make_context((ur_native_handle_t)hContext, {}, sycl::backend::opencl, false);
         sycl_queue =
-            sycl::detail::make_queue((ur_native_handle_t)hQueue, false, sycl_context, &sycl_device, false, {}, {}, sycl::backend::opencl);
+            sycl::detail::make_queue((ur_native_handle_t)hQueue, false, sycl_context, &sycl_device, true, {}, {}, sycl::backend::opencl);
 #else
         // MKL 2024 and earlier use PI API
         sycl::platform sycl_platform =

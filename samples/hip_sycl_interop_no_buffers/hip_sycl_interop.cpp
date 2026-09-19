@@ -31,6 +31,9 @@
 #include "hip_sycl_interop.h"
 
 #include "hip/hip_interop.h"
+#ifdef HAVE_OPENCL
+#include <CL/cl.h>
+#endif
 
 using namespace std;
 
@@ -116,9 +119,34 @@ int main() {
   hipMemcpy(d_A, A, WIDTH * WIDTH * sizeof(float), hipMemcpyHostToDevice);
   hipMemcpy(d_B, B, WIDTH * WIDTH * sizeof(float), hipMemcpyHostToDevice);
 
+#ifdef HAVE_OPENCL
+  // Hold a reference so an over-release shows as a lower count, not a crash.
+  bool IsOpenCL = std::string((char *)nativeHandlers[0]) == "opencl";
+  cl_command_queue Queue = (cl_command_queue)nativeHandlers[4];
+  cl_uint RefsBefore = 0, RefsAfter = 0;
+  if (IsOpenCL) {
+    clRetainCommandQueue(Queue);
+    clGetCommandQueueInfo(Queue, CL_QUEUE_REFERENCE_COUNT, sizeof(cl_uint),
+                          &RefsBefore, nullptr);
+  }
+#endif
+
   // Invoke oneMKL GEMM
   oneMKLGemmTest(nativeHandlers, d_A, d_B, d_C, WIDTH, WIDTH,
                  WIDTH, ldA, ldB, ldC, alpha, beta);
+
+#ifdef HAVE_OPENCL
+  if (IsOpenCL) {
+    clGetCommandQueueInfo(Queue, CL_QUEUE_REFERENCE_COUNT, sizeof(cl_uint),
+                          &RefsAfter, nullptr);
+    clReleaseCommandQueue(Queue);
+    if (RefsAfter < RefsBefore) {
+      std::cout << "FAIL: oneMKLGemmTest released the stream's cl_command_queue"
+                << std::endl;
+      return 1;
+    }
+  }
+#endif
 
   // copy back C
   hipMemcpy(C, d_C, WIDTH * WIDTH * sizeof(float), hipMemcpyDeviceToHost);

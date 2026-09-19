@@ -9,7 +9,7 @@
 | Stream API                    |     10    |     10    | |
 | Event API                     |     7     |     7     | |
 | Execution API                 |     10    |     7     | hipFuncSetSharedMemConfig, hipFuncSetCacheConfig, hipFuncGetAttributes only partially |
-| Occupancy API                 |     7     |     0     | hipModuleOccupancyMaxPotentialBlockSize, hipModuleOccupancyMaxPotentialBlockSizeWithFlags, hipModuleOccupancyMaxActiveBlocksPerMultiprocessor, hipModuleOccupancyMaxActiveBlocksPerMultiprocessorWithFlags, hipOccupancyMaxActiveBlocksPerMultiprocessor, hipOccupancyMaxActiveBlocksPerMultiprocessorWithFlags, hipOccupancyMaxPotentialBlockSize  |
+| Occupancy API                 |     7     |     7     | |
 | Mem Manag API                 |     47    |     42    | hipMemcpyPeer, hipMemcpyPeerAsync, hipMemPrefetchAsync, hipMemAdvise, hipMemRangeGetAttribute |
 | Unified Addressing API        |     1     |     1     | |
 | Peer Mem Access API           |     3     |     0     | hipDeviceCanAccessPeer, hipDeviceEnablePeerAccess, hipDeviceDisablePeerAccess |
@@ -22,4 +22,4 @@
 | Primary Context API           |     5     |     2     | hipDevicePrimaryCtxRelease, hipDevicePrimaryCtxRetain,  hipDevicePrimaryCtxSetFlags |
 | Module API                    |     3     |     3     | hipModuleLaunchKernel has some caveats |
 |                               |           |           | |
-| Total                         |     200   |     98    | 49% |
+| Total                         |     200   |     105   | 52% |
