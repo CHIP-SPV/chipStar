@@ -194,6 +194,8 @@ if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
 endif()
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
+# A call to a shared memory user must pass the caller's argument (#1670).
+add_shell_test(TestFix1670DynMemCallArgs.bash)
 
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
