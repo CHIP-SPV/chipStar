@@ -194,6 +194,7 @@ if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
 endif()
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
+add_shell_test(TestFix1650NonLoweredInitGlobalAddress.bash)
 
 add_hipcc_test(TestLdg.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
