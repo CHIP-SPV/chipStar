@@ -44,6 +44,9 @@
 #include "HipVerify.h"
 #include "HipCanonicalizeGEP.h"
 
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "PassPluginCompat.h"
@@ -128,6 +131,49 @@ public:
 
   static bool isRequired() { return true; }
 };
+
+#ifdef CHIP_LLVM_USE_INTERGRATED_SPIRV
+// WORKAROUND(CHIP-SPV/chipStar#1654, llvm/llvm-project#206404): the in-tree
+// backend puts ContractionOff on every kernel unless opencl.enable.FP_CONTRACT
+// is present, llvm-spirv only on kernels reaching an op that forbids
+// contraction. Remove when the backend's default decides from the operations.
+class HipFPContractPass : public PassInfoMixin<HipFPContractPass> {
+  // What makes llvm-spirv disable contraction for the enclosing function.
+  static bool forbidsContraction(const Instruction &I) {
+    if (auto *B = dyn_cast<BinaryOperator>(&I))
+      return (B->getOpcode() == Instruction::FAdd ||
+              B->getOpcode() == Instruction::FSub) &&
+             !B->hasAllowContract();
+    auto *CI = dyn_cast<CallInst>(&I);
+    if (!CI || isa<IntrinsicInst>(CI))
+      return false;
+    const Function *Callee = CI->getCalledFunction();
+    if (!Callee)
+      return true;
+    if (!Callee->isDeclaration())
+      return false;
+    // Builtins are named printf, __spirv_*, or mangled as _Z<len><name>.
+    StringRef Name = Callee->getName();
+    if (Name.size() > 2 && Name.starts_with("_Z") && isDigit(Name[2]))
+      Name = Name.drop_front(2).ltrim("0123456789");
+    else if (Name != "printf" && !Name.starts_with("__spirv_"))
+      return true;
+    // Any other __ name is a chipStar runtime helper, not a builtin.
+    return Name.starts_with("__") && !Name.starts_with("__spirv_");
+  }
+
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    for (const Function &F : M)
+      for (const Instruction &I : instructions(F))
+        if (forbidsContraction(I))
+          return PreservedAnalyses::all();
+    M.getOrInsertNamedMetadata("opencl.enable.FP_CONTRACT");
+    return PreservedAnalyses::all();
+  }
+  static bool isRequired() { return true; }
+};
+#endif
 
 // Insert a helper that adds a pass with HipVerify validation
 template <typename PassT>
@@ -272,6 +318,11 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Must be last: removes __chip_*/__hip_* globals and stubs their users.
   // Runs after HipIGBADetectorPass which creates __chip_module_has_no_IGBAs.
   addPassWithVerification(MPM, HipCleanupPass(), "HipCleanupPass");
+
+#ifdef CHIP_LLVM_USE_INTERGRATED_SPIRV
+  // After every pass that creates or removes FP operations or calls.
+  addPassWithVerification(MPM, HipFPContractPass(), "HipFPContractPass");
+#endif
 
   // Steers SPIR-V emission away from an access chain form IGC miscompiles.
   // Runs last so nothing downstream reintroduces the canonicalized shape.
