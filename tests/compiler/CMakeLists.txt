@@ -85,6 +85,9 @@ endfunction()
 add_hipcc_test(TestNoinlineAttrs.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestAPIObjects.hip HIPCC_OPTIONS -c)
 
+# Calls HipPrintf builds must use their callee's convention (#1677).
+add_shell_test(TestFix1677PrintfCallConv.bash)
+
 # Test the hip_runtime.h header compiles in C++ mode. If the test
 # passes - the header probably is compilable by other regular C++
 # compilers too (e.g. g++).
