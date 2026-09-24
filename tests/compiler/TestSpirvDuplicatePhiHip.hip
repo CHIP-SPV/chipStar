@@ -1,8 +1,6 @@
 #include <hip/hip_runtime.h>
 
-// Regression test for the coalesce-duplicate-phi-predecessors patch in
-// llvm-patches/llvm-<version>/spirv-translator/
-// (coalesce duplicate-predecessor OpPhi).
+// Regression test for HipCoalesceDuplicatePhiPredsPass (CHIP-SPV/chipStar#1680).
 // This results in LLVM IR produced to have a phi node with
 // duplicate entries (for at least LLVM22) which then
 // produces invalid SPIRV since SPIRV does not allow dupilcate entries. 
