@@ -23,10 +23,13 @@ for OPT in -O0 -O2; do
     exit 1
   fi
   if [ -x "${SPIRV_VAL}" ]; then
+    SPV=0
     for F in ./*; do
       [ -f "${F}" ] && [ "$(od -An -tx1 -N4 "${F}" | tr -d ' \n')" = "03022307" ] || continue
       "${SPIRV_VAL}" "${F}"
+      SPV=$((SPV + 1))
     done
+    [ "${SPV}" -ge 1 ] || { echo "FAIL ${OPT}: hipcc emitted no SPIR-V module"; exit 1; }
   fi
 done
 echo "PASSED"
