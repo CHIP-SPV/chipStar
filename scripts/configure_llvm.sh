@@ -403,7 +403,12 @@ fi
 if [ "$LINK_TYPE" == "static" ]; then
   CMAKE_COMMAND="cmake ../ ${COMMON_CMAKE_OPTIONS[@]}"
 elif [ "$LINK_TYPE" == "dynamic" ]; then
-  CMAKE_COMMAND="cmake ../ ${COMMON_CMAKE_OPTIONS[@]} \"-DCMAKE_INSTALL_RPATH=${INSTALL_DIR}/lib\" \"-DLLVM_LINK_LLVM_DYLIB=ON\" \"-DLLVM_BUILD_LLVM_DYLIB=ON\""
+  # macOS keeps LLVM's relocatable @loader_path rpath; SIP strips DYLD_LIBRARY_PATH.
+  INSTALL_RPATH_OPTION="\"-DCMAKE_INSTALL_RPATH=${INSTALL_DIR}/lib\""
+  if [[ "$(uname)" == "Darwin" ]]; then
+    INSTALL_RPATH_OPTION=""
+  fi
+  CMAKE_COMMAND="cmake ../ ${COMMON_CMAKE_OPTIONS[@]} ${INSTALL_RPATH_OPTION} \"-DLLVM_LINK_LLVM_DYLIB=ON\" \"-DLLVM_BUILD_LLVM_DYLIB=ON\""
 else
   echo "Invalid link_type. Must be 'static' or 'dynamic'."
   exit 1
