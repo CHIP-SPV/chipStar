@@ -40,7 +40,12 @@ static bool isGlobalPointer(Value *P) {
   if (auto *I2P = dyn_cast<IntToPtrInst>(P))
     if (auto *P2I = dyn_cast<PtrToIntInst>(I2P->getOperand(0)))
       P = getUnderlyingObject(P2I->getPointerOperand());
-  return P->getType()->getPointerAddressSpace() == 1;
+  // __device__ variables reach it as inttoptr(load @__chip_var_addr_<name>).
+  auto *I2P = dyn_cast<IntToPtrInst>(P);
+  auto *Load = I2P ? dyn_cast<LoadInst>(I2P->getOperand(0)) : nullptr;
+  bool DeviceVar = Load && isa<GlobalVariable>(Load->getPointerOperand());
+  return (DeviceVar || isa<Argument, GlobalVariable>(P)) &&
+         P->getType()->getPointerAddressSpace() == 1;
 }
 
 /// Rewrite one call. Returns true if \p II was replaced and erased.
