@@ -8,7 +8,11 @@
 #include <iostream>
 #include <string>
 
-template <typename T> __global__ void passArgs(T *Dst, T Src) { *Dst = Src; }
+// The prefetch also checks that drivers accept a lowered OpenCL prefetch.
+template <typename T> __global__ void passArgs(T *Dst, T Src) {
+  __builtin_prefetch(Dst);
+  *Dst = Src;
+}
 
 template <typename T> T passThroughKernel(T ArgIn) {
   T *ArgOutD;
