@@ -5,6 +5,8 @@
 # -mtriple=spirv64 on every supported LLVM accepts it too. memcpy.inline and
 # objectsize should fire when
 # https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3990 lands.
+# prefetch needs more: the producer must also drop non-global pointers, which
+# https://github.com/llvm/llvm-project/pull/215505 does not.
 set -u
 LLVM_AS="@LLVM_TOOLS_BINARY_DIR@/llvm-as"
 LLVM_SPIRV="@LLVM_SPIRV@"

@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Erases or folds the intrinsics llvm-spirv rejects, to values LangRef permits.
+// Erases, folds or lowers intrinsics llvm-spirv rejects, as LangRef permits.
 //
 // Copyright (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
