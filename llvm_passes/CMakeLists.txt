@@ -109,6 +109,7 @@ add_library(LLVMHipPasses MODULE
     HipAbort.cpp
     HipCanonicalizeGEP.cpp
     HipCleanup.cpp
+    HipCoalesceDuplicatePhiPreds.cpp
     HipDefrost.cpp
     HipDynMem.cpp
     HipEmitLoweredNames.cpp
