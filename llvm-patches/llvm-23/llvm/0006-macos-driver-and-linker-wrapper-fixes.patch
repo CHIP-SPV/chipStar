@@ -10,7 +10,7 @@ offload programs on macOS hosts.
 the new clang/test/Driver/darwin-hip-spirv-version.hip test):
 Backport of llvm/llvm-project#206902, merged to main on 2026-07-21 as
 f90e121dde60bea7e2988cf277ca4a484bce33b9, after the release/23.x branch
-was cut. Taken verbatim from that commit; it applies to llvmorg-23.1.0-rc2
+was cut. Taken verbatim from that commit; it applies to llvmorg-23.1.2
 without modification.
 
 Darwin::ensureTargetInitialized() recorded the raw triple OS version from
@@ -38,7 +38,7 @@ llvm-project main as of 2026-08-14):
 - Accept ld64's -lto_library/-lto_object_path as separate-argument
   options so their path arguments are not parsed as -l<libname>.
 
-Applies-to: LLVM llvmorg-23.1.0-rc2
+Applies-to: LLVM llvmorg-23.1.2
 Backport-of: llvm/llvm-project#206902 (f90e121dde60bea7e2988cf277ca4a484bce33b9) [Darwin.cpp, Darwin.h, darwin-hip-spirv-version.hip only]
 Upstream-status: Darwin driver part merged upstream, first ships in
 LLVM 24; linker-wrapper part not yet submitted upstream.

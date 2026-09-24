@@ -3,7 +3,7 @@
 # Ubuntu 22.04) on an x86_64 host, inside the container built from the
 # Dockerfile next to this script.
 #
-# The source tree (clone of llvmorg-23.1.0-rc2 + SPIRV-LLVM-Translator
+# The source tree (clone of llvmorg-23.1.2 + SPIRV-LLVM-Translator
 # llvm_release_230 + the llvm-patches/llvm-23 series) is produced by
 # scripts/configure_llvm.sh --version 23 --source-only, so the pinned refs and
 # the patch series live in exactly one place. Only the cmake configure is

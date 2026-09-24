@@ -34,7 +34,7 @@ printf("%s", ...) should assert there too.
 Reproducer: chipStar's hip-tests catch/unit/printf/printfFlags_exe.cc,
 which crashes clang during hipspv-link.
 
-Applies-to: llvm-project llvmorg-23.1.0-rc2
+Applies-to: llvm-project llvmorg-23.1.2
 Upstream-status: not yet reported; the same code is on main and looks
 like a genuine latent bug rather than a release-branch gap. Re-verified
 2026-08-14: main's SPIRVEmitIntrinsics.cpp still indexes

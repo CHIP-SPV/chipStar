@@ -33,7 +33,7 @@ below)") that refers to the #210504 block release/23.x does not have, and
 the hipspv-toolchain.hip hunk, which reaches the same final content from
 the pre-#210504 base.
 
-Applies-to: LLVM llvmorg-23.1.0-rc2
+Applies-to: LLVM llvmorg-23.1.2
 Backport-of: llvm/llvm-project#213052 (7ef0ca2b13f9ee1061f2e3ec5a622f4ad74fe4b7)
 Upstream-status: merged upstream, first ships in LLVM 24.
 ---

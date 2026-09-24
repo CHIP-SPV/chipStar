@@ -135,8 +135,8 @@ static bool lowerRoundIntrinsics(Module &M) {
 // llvm.ldexp. The in tree backend fails to legalize G_FLDEXP and the translator
 // rejects the intrinsic outright, so the calls are rewritten here instead.
 // Both upstream fixes have merged, but neither has reached a version chipStar
-// pins: llvm/llvm-project#195402 landed on main after the llvmorg-23.1.0-rc2
-// tag, and the LLVM 21 lanes will never receive it. Remove this block, from
+// pins: llvm/llvm-project#195402 landed on main after release/23.x branched,
+// and the LLVM 21 lanes will never receive it. Remove this block, from
 // here down to the end of lowerLdexpIntrinsics, once every supported LLVM and
 // translator carries them; CHIP-SPV/chipStar#1476 holds the removal condition
 // for the whole pass.

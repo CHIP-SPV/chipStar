@@ -18,7 +18,7 @@ the machine that first built it.
 | `cross-build.sh` | Runs inside the container: fetches and patches the LLVM sources via `scripts/configure_llvm.sh --version 23 --source-only`, configures/builds the cross LLVM, then builds the openmp runtime standalone, and stages the install. |
 
 `cross-build.sh` deliberately does **not** re-implement the source setup. The pinned
-refs (`llvmorg-23.1.0-rc2`, SPIRV-LLVM-Translator `llvm_release_230`) and the
+refs (`llvmorg-23.1.2`, SPIRV-LLVM-Translator `llvm_release_230`) and the
 `llvm-patches/llvm-23/` series stay solely in `scripts/configure_llvm.sh`,
 which grew a `--source-only` mode for this. What `cross-build.sh` does own is the
 cmake configure, because the cross build genuinely differs from the native one:
