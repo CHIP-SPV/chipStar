@@ -14,10 +14,9 @@ LLVM_SPIRV="@LLVM_SPIRV@"
 SPIRV_VAL="@CMAKE_BINARY_DIR@/external/spirv-tools/bin/spirv-val"
 OUT="@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d"
 
-# 0005 patches the external SPIRV-LLVM-Translator. When chipStar uses the in-tree
-# LLVM SPIR-V backend (LLVM_SPIRV=NOT_NEEDED) the patch does not apply -- skip.
+# Only the external translator emits the duplicate; skip on the in-tree backend.
 if [ "${LLVM_SPIRV}" = "NOT_NEEDED" ] || [ ! -x "${LLVM_SPIRV}" ]; then
-  echo "external llvm-spirv not in use; skipping (0005 not applicable)"
+  echo "external llvm-spirv not in use; skipping"
   exit 0
 fi
 if [ ! -x "${SPIRV_VAL}" ]; then
