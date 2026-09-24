@@ -532,6 +532,95 @@ jobs:
           rm -rf "$HOME/llvm-stage/${{ matrix.build-id }}"
           rm -rf "$HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }}.prev"
 
+  # The rusticl runner (AMD W6400, container on cupcake) builds the LLVM that
+  # unit-tests-amd-rusticl.yml uses, in a writable bind mount of its own.
+  build-test-rusticl:
+    needs: detect
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+      && needs.detect.outputs.run_21 == 'true'
+    name: Build LLVM 21 and test chipStar (rusticl W6400)
+    runs-on: [rusticl]
+    env:
+      CI_LLVM: /space/pvelesko/rusticl-ci-llvm
+      LLVM_STAGE: /space/pvelesko/rusticl-ci-llvm/llvm-stage/21/space/pvelesko/rusticl-ci-llvm/install/llvm/21.0
+      RUSTICL_ENABLE: radeonsi
+      OCL_ICD_VENDORS: /home/runner/.rusticl-icd
+      LD_LIBRARY_PATH: /space/pvelesko/install/ocl-icd-loder/lib:/space/pvelesko/install/llvm/22.0-native-amd/lib:/space/pvelesko/install/libdrm/2.4.134/lib/x86_64-linux-gnu:/space/pvelesko/install/oneapi/2025.3.2/lib:/space/pvelesko/install/oneapi/2025.3.2/lib64
+      CHIP_BE: opencl
+      CHIP_PLATFORM: "0"
+      CHIP_DEVICE: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - name: Build and stage LLVM 21
+        run: |
+          set -euo pipefail
+          mkdir -p $CI_LLVM/llvm-builds/21 && cd $CI_LLVM/llvm-builds/21
+          rm -rf scripts llvm-patches
+          cp -r ${{ github.workspace }}/scripts ${{ github.workspace }}/llvm-patches .
+          # The container sees host /usr/local/lib but not /usr/local/bin, which
+          # SPIRV-Tools' cmake config references; build the translator without it.
+          echo 'set(CMAKE_DISABLE_FIND_PACKAGE_SPIRV-Tools-tools ON)' > $RUNNER_TEMP/tc.cmake
+          CMAKE_TOOLCHAIN_FILE=$RUNNER_TEMP/tc.cmake ./scripts/configure_llvm.sh --version 21 \
+            --install-dir $CI_LLVM/install/llvm/21.0 --configure-only
+          # Shared host: leave a core idle and ~2 GB of RAM per job.
+          JOBS=$(( $(nproc) - 1 )); MEM=$(awk '/MemAvailable/{print int($2/2097152)}' /proc/meminfo)
+          [ "$MEM" -lt "$JOBS" ] && JOBS=$MEM
+          cmake --build llvm-project/llvm/build_21 -j$JOBS
+          rm -rf $CI_LLVM/llvm-stage/21
+          DESTDIR=$CI_LLVM/llvm-stage/21 cmake --install llvm-project/llvm/build_21
+        timeout-minutes: 300
+      - name: Build chipStar with the staged LLVM 21
+        run: |
+          set -euo pipefail
+          # The staged clang's RUNPATH names the live install; load the stage's libraries.
+          export LD_LIBRARY_PATH=$LLVM_STAGE/lib:$LD_LIBRARY_PATH
+          ldd $LLVM_STAGE/bin/clang | grep "$LLVM_STAGE/lib/libclang-cpp"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=$LLVM_STAGE/bin/clang \
+            -DCMAKE_CXX_COMPILER=$LLVM_STAGE/bin/clang++ \
+            -DLLVM_CONFIG_BIN=$LLVM_STAGE/bin/llvm-config \
+            -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DCMAKE_INSTALL_PREFIX=build/install
+          cmake --build build -j$(nproc)
+          cmake --build build --target build_tests -j$(nproc)
+        timeout-minutes: 60
+      - name: Test chipStar with LLVM 21 (rusticl W6400)
+        run: |
+          export LD_LIBRARY_PATH=$LLVM_STAGE/lib:$LD_LIBRARY_PATH
+          cd build
+          ../scripts/check.py ./ dgpu opencl --num-threads 4 --timeout 180
+        timeout-minutes: 90
+      - name: Mark the stage as validated
+        run: |
+          echo "${{ github.event.pull_request.head.sha || github.sha }}" \
+            > $CI_LLVM/llvm-stage/21/.chipstar-validated
+
+  install-llvm-on-main-rusticl:
+    needs: detect
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.detect.outputs.run_21 == 'true'
+    name: Install LLVM 21 on main branch (rusticl)
+    runs-on: [rusticl]
+    steps:
+      - name: Promote the validated LLVM 21 stage
+        run: |
+          set -euo pipefail
+          P=/space/pvelesko/rusticl-ci-llvm/install/llvm/21.0
+          S=/space/pvelesko/rusticl-ci-llvm/llvm-stage/21
+          test -f $S/.chipstar-validated && test -d $S$P \
+            || { echo "::error::no validated LLVM 21 stage at $S"; exit 1; }
+          rm -rf $P.prev; [ ! -e $P ] || mv $P $P.prev
+          mv $S$P $P
+          $P/bin/clang --version || { rm -rf $P; mv $P.prev $P; exit 1; }
+          rm -rf $S $P.prev
+
   # macOS (pastrami) and Linux ARM64 (salami) build only the latest LLVM (23);
   # only the x86 Linux runner keeps building every version. LLVM 23 needs a
   # single native build: chipStar patches in llvm#213052, so the SPIRV-target
