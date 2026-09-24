@@ -314,6 +314,8 @@ static bool spillKernelArgs(Function *F) {
 #endif
     auto SrcAlign = DL.getABITypeAlign(AllocaTy);
     auto *LocalCopy = createEntryAlloca(B, AllocaTy);
+    auto ParamAlign = F->getParamAlign(OrigArg.getArgNo()).valueOrOne();
+    LocalCopy->setAlignment(std::max(LocalCopy->getAlign(), ParamAlign));
     auto AllocSizeInBitsOpt = LocalCopy->getAllocationSizeInBits(DL);
     assert(AllocSizeInBitsOpt);
 #if LLVM_VERSION_MAJOR > 17
