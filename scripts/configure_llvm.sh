@@ -117,7 +117,7 @@ if [ -z "$VERSION" ]; then
   echo "Usage: $0 --version <version> --install-dir <dir> --link-type static/dynamic(default) [--variant translator|native] [--with-binutils [path]] [--configure-only] [-N]"
   echo "--version: LLVM version 21, 22, 23, or latest"
   echo "           21/22: upstream release branch plus patches from llvm-patches/llvm-<version>/"
-  echo "           23: upstream tag llvmorg-23.1.0-rc2 plus patches from llvm-patches/llvm-23/"
+  echo "           23: upstream tag llvmorg-23.1.2 plus patches from llvm-patches/llvm-23/"
   echo "           latest (experimental): CHIP-SPV/llvm-project branch chipStar-llvm-23, maintained"
   echo "           directly with no patches (patches exist only for the release-pinned versions)"
   echo "--install-dir: installation directory"
@@ -180,11 +180,10 @@ if [ "$VERSION" == "latest" ]; then
   LLVM_BRANCH="chipStar-llvm-23"
   TRANSLATOR_BRANCH="llvm_release_230"
 elif [ "$VERSION" == "23" ]; then
-  # Pinned to a release candidate tag rather than release/23.x: the branch
-  # moves, and the llvm-patches/llvm-23 series (in particular the llvm#213052
-  # backport) is verified against this exact tree.
+  # Pinned to a release tag rather than release/23.x: the branch moves, and
+  # the llvm-patches/llvm-23 series is verified against this exact tree.
   LLVM_REPO="https://github.com/llvm/llvm-project.git"
-  LLVM_BRANCH="llvmorg-23.1.0-rc2"
+  LLVM_BRANCH="llvmorg-23.1.2"
   TRANSLATOR_BRANCH="llvm_release_230"
 else
   LLVM_REPO="https://github.com/llvm/llvm-project.git"

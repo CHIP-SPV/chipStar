@@ -26,7 +26,7 @@ NonSemantic.Shader.DebugInfo (SPV_KHR_non_semantic_info,
 those flags are no-ops when the bitcode carries no debug info.
 
 Refs: CHIP-SPV/chipStar#1004
-Applies-to: LLVM llvmorg-23.1.0-rc2
+Applies-to: LLVM llvmorg-23.1.2
 Upstream-status: the unconditional form was upstreamed in
 llvm/llvm-project#210504 (3093d8c577d71a98ec4d9a2bdf26b196cc7a0f8d); the
 backend gate added here is chipStar-specific and not upstream. Verified

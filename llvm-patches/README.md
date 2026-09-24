@@ -18,7 +18,7 @@ llvm-patches/
 
 `scripts/configure_llvm.sh --version <21|22|23>` clones the matching
 upstream LLVM ref (`release/<version>.x`, except 23 which is pinned to the
-tag `llvmorg-23.1.0-rc2`) together with the translator branch
+tag `llvmorg-23.1.2`) together with the translator branch
 `llvm_release_<version>0`, and applies every patch in the version's
 directory, in lexicographic (numeric) order, with `git apply`. There is no
 per-patch version gating: everything in a version directory applies to that
@@ -37,7 +37,7 @@ the release-pinned versions.
 |---|---|---|
 | 21 | `llvm/llvm-project` `release/21.x` | `llvm-patches/llvm-21/` |
 | 22 | `llvm/llvm-project` `release/22.x` | `llvm-patches/llvm-22/` |
-| 23 | `llvm/llvm-project` `llvmorg-23.1.0-rc2` | `llvm-patches/llvm-23/` |
+| 23 | `llvm/llvm-project` `llvmorg-23.1.2` | `llvm-patches/llvm-23/` |
 | latest (experimental) | `CHIP-SPV/llvm-project` `chipStar-llvm-23` | none |
 
 LLVM 17 through 20 support was dropped.
