@@ -92,6 +92,9 @@ add_hipcc_test(TestHipRuntimeHeaderInclude.cpp
   TEST_NAME hip-runtime-header-cpp-mode
   HIPCC_OPTIONS -x c++ -fsyntax-only)
 
+# A shared memory clone must not keep memory(argmem: none) (#1679).
+add_shell_test(TestFix1679DynMemCloneMemoryAttr.bash)
+
 add_hipcc_test(TestAtomicAddNoRet.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestFloat128Macros.hip TEST_NAME TestFloat128gnupp14
   HIPCC_OPTIONS -std=gnu++14 -fsyntax-only)
