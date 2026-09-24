@@ -191,6 +191,8 @@ add_shell_test(CanaryPointerVectorsRejected.bash)
 # translator, so it is not registered when LLVM_SPIRV is NOT_NEEDED.
 if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
   add_shell_test(CanaryHintIntrinsicsRejected.bash)
+  # Fails once llvm-spirv carries KhronosGroup/SPIRV-LLVM-Translator#3866; read its header.
+  add_shell_test(CanaryDuplicatePhiPredecessors.bash)
 endif()
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
