@@ -43,6 +43,7 @@
 #include "HipSpirvFunctionReorderPass.h"
 #include "HipVerify.h"
 #include "HipCanonicalizeGEP.h"
+#include "HipCoalesceDuplicatePhiPreds.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -277,6 +278,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Runs last so nothing downstream reintroduces the canonicalized shape.
   addPassWithVerification(MPM, HipCanonicalizeGEPPass(),
                           "HipCanonicalizeGEPPass");
+
+  // WORKAROUND(CHIP-SPV/chipStar#1680, KhronosGroup/SPIRV-LLVM-Translator#3866): llvm-spirv emits one OpPhi entry per LLVM phi entry, duplicating predecessors. Remove when the pinned llvm_release branch includes #3866.
+  // Last CFG change before SPIR-V emission, so nothing merges the forwarding blocks back.
+  addPassWithVerification(
+      MPM, createModuleToFunctionPassAdaptor(HipCoalesceDuplicatePhiPredsPass()),
+      "HipCoalesceDuplicatePhiPredsPass");
 
   // Final verification pass with summary printing
   MPM.addPass(HipVerifyPass("Post-HIP passes", true)); // true = print final summary
