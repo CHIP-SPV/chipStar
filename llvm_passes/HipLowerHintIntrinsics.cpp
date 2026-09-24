@@ -20,13 +20,13 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Operator.h"
 
 using namespace llvm;
 
@@ -35,20 +35,12 @@ namespace {
 /// True if \p P provably points to addrspace(1), the only address space
 /// OpenCL.std prefetch accepts.
 static bool isGlobalPointer(Value *P) {
-  while (P->getType()->getPointerAddressSpace() != 1) {
-    if (auto *GEP = dyn_cast<GEPOperator>(P))
-      P = GEP->getPointerOperand();
-    else if (auto *ASC = dyn_cast<AddrSpaceCastOperator>(P))
-      P = ASC->getPointerOperand();
-    // HIP kernel pointer arguments reach the body as inttoptr(ptrtoint(p1)).
-    else if (isa<IntToPtrInst>(P) &&
-             isa<PtrToIntInst>(cast<IntToPtrInst>(P)->getOperand(0)))
-      P = cast<PtrToIntInst>(cast<IntToPtrInst>(P)->getOperand(0))
-              ->getPointerOperand();
-    else
-      return false;
-  }
-  return true;
+  P = getUnderlyingObject(P);
+  // HIP kernel pointer arguments reach the body as inttoptr(ptrtoint(p1)).
+  if (auto *I2P = dyn_cast<IntToPtrInst>(P))
+    if (auto *P2I = dyn_cast<PtrToIntInst>(I2P->getOperand(0)))
+      P = getUnderlyingObject(P2I->getPointerOperand());
+  return P->getType()->getPointerAddressSpace() == 1;
 }
 
 /// Rewrite one call. Returns true if \p II was replaced and erased.
