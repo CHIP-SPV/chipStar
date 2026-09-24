@@ -118,6 +118,9 @@ add_hipcc_test(TestHipccAcceptCcFiles.cc TEST_NAME TestFix1566FopenmpSimd
 
 add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
+# The spilled kernel must call the original one the way it is declared.
+add_shell_test(TestFix1678SpillerCallConv.bash)
+
 add_test(NAME "TestHipccNeedsDashO"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccNeedDashO.cc)
