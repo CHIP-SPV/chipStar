@@ -56,9 +56,9 @@ static bool lowerCall(IntrinsicInst *II, const DataLayout &DL) {
 
   switch (II->getIntrinsicID()) {
   case Intrinsic::prefetch: {
-    // WORKAROUND(CHIP-SPV/chipStar#1633, llvm/llvm-project#215505): the OpenCL
-    // prefetch that PR emits, but only on a provably global pointer, the only
-    // kind OpenCL.std prefetch accepts. Any other prefetch is dropped.
+    // WORKAROUND(CHIP-SPV/chipStar#1633, llvm/llvm-project#215505): that PR
+    // prefetches any pointer, but OpenCL.std prefetch takes only a global one;
+    // keep until kernel pointers reach producers global and others are dropped.
     Value *P = II->getArgOperand(0);
     if (!isGlobalPointer(P))
       break;
