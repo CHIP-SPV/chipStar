@@ -65,6 +65,18 @@ add_hip_test(TestHiprtcCacheNameExpressions.cc)
 set_tests_properties(TestHiprtcCacheNameExpressions PROPERTIES
   ENVIRONMENT "CHIP_MODULE_CACHE_DIR=${CMAKE_CURRENT_BINARY_DIR}/test_cache_TestHiprtcCacheNameExpressions")
 
+add_executable(TestFix1682HiprtcCacheNameExprMacro EXCLUDE_FROM_ALL
+  TestFix1682HiprtcCacheNameExprMacro.cc)
+# Plain C++, no deviceInternal: no fat binary, so no backend init and no GPU.
+target_link_libraries(TestFix1682HiprtcCacheNameExprMacro host)
+target_include_directories(TestFix1682HiprtcCacheNameExprMacro
+  PUBLIC ${CMAKE_BINARY_DIR}/include)
+add_dependencies(build_tests TestFix1682HiprtcCacheNameExprMacro)
+add_test(NAME TestFix1682HiprtcCacheNameExprMacro
+  COMMAND ${CMAKE_COMMAND}
+    -DTEST_EXECUTABLE=$<TARGET_FILE:TestFix1682HiprtcCacheNameExprMacro>
+    -P ${CMAKE_SOURCE_DIR}/tests/run_test_with_fresh_cache.cmake)
+
 # TestHiprtcCacheIncludes needs its cache env set before the process starts (see
 # tests/run_test_with_fresh_cache.cmake), so instead of add_hip_test's plain
 # command we build the executable the same way and register it through the run
