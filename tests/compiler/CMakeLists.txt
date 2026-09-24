@@ -173,10 +173,10 @@ add_test(NAME "TestHipccMultiSource" COMMAND
   ${CMAKE_BINARY_DIR}/bin/hipcc ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkMain.cpp ${CMAKE_CURRENT_SOURCE_DIR}/TestHipccCompileThenLinkKernel.cpp -o TestHipccMultiSource)
 add_shell_test(TestPrintfStaticString.bash)
 
+add_shell_test(TestFix1680DuplicatePhiPreds.bash)
 # Regression test for HipCoalesceDuplicatePhiPredsPass (#1680). Translates to
 # SPIR-V and runs spirv-val; skips when LLVM_SPIRV is NOT_NEEDED.
 add_shell_test(TestSpirvDuplicatePhiHip.bash)
-add_shell_test(TestFix1680DuplicatePhiPreds.bash)
 add_shell_test(TestFix1577PointerVectors.bash)
 # A constant zero length copy must not reach SPIR-V emission.
 add_shell_test(TestFix1634ZeroLengthCopy.bash)
