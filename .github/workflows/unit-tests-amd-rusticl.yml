@@ -7,7 +7,7 @@ name: Unit tests (AMD rusticl)
 # -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF.
 #
 # The runner is a container that bind-mounts the host GPU userspace at
-# /space/pvelesko/install (rusticl + LLVM 21 toolchain + libdrm + oneAPI) and
+# /space/pvelesko/install (rusticl + libdrm + oneAPI) and
 # passes /dev/dri/renderD128. It carries ONLY the custom labels (no defaults).
 
 on:
@@ -28,8 +28,8 @@ jobs:
     runs-on: [rusticl]
     timeout-minutes: 120
     env:
-      # LLVM 21 toolchain used to build chipStar (matches the rusticl-amdgpu build).
-      LLVM_PREFIX: /space/pvelesko/install/llvm/21.0
+      # LLVM 21 with chipStar's patches, installed by test-llvm-patches.yml.
+      LLVM_PREFIX: /space/pvelesko/rusticl-ci-llvm/install/llvm/21.0
       # rusticl runtime: dedicated AMDGPU LLVM 22 + libdrm 2.4.134 + oneAPI + ocl-icd
       # loader (ahead of oneAPI's so OCL_ICD_VENDORS is honoured). Mirrors the
       # working host invocation / the container's /etc/profile.d/00-rusticl.sh.
