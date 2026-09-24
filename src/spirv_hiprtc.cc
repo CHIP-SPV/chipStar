@@ -275,14 +275,15 @@ preprocessForCacheKey(const chipstar::Program &Program,
   auto OutputFile = WorkingDirectory / "pp_output.i";
   auto LogFile = WorkingDirectory / "pp.log";
 
-  // Write the in-memory headers and the raw user source. Name-expression
-  // injection is intentionally omitted: templates are not instantiated by the
-  // preprocessor, and name expressions are already hashed separately.
+  // Write the in-memory headers and the raw user source.
   if (!createHeaderFiles(Program, WorkingDirectory))
     return std::nullopt;
   {
     std::ofstream F(SourceFile);
     F << Program.getSource() << "\n";
+    // Name expressions too, so macros they use are expanded into the key.
+    for (auto &Kv : Program.getNameExpressionMap())
+      F << Kv.first << ";\n";
     if (!F.good())
       return std::nullopt;
   }
