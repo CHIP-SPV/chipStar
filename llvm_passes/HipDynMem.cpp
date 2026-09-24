@@ -320,6 +320,8 @@ private:
     SmallVector<ReturnInst *, 1> RI;
 
 CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
+    // The clone reaches shared memory through its new argument.
+    NewF->removeFnAttr(Attribute::Memory);
     IRBuilder<> B(M.getContext());
 
     // float* (without AS, for MDNode)
