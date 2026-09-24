@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Erases or folds intrinsics llvm-spirv rejects, to values LangRef permits.
+// Erases, folds or lowers intrinsics llvm-spirv rejects, as LangRef permits.
 //
 // WORKAROUND(CHIP-SPV/chipStar#1633, KhronosGroup/SPIRV-LLVM-Translator#3990):
 // llvm-spirv rejects these intrinsics. Remove each case once every supported
@@ -26,10 +26,30 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 
 using namespace llvm;
 
 namespace {
+
+/// True if \p P provably points to addrspace(1), the only address space
+/// OpenCL.std prefetch accepts.
+static bool isGlobalPointer(Value *P) {
+  while (P->getType()->getPointerAddressSpace() != 1) {
+    if (auto *GEP = dyn_cast<GEPOperator>(P))
+      P = GEP->getPointerOperand();
+    else if (auto *ASC = dyn_cast<AddrSpaceCastOperator>(P))
+      P = ASC->getPointerOperand();
+    // HIP kernel pointer arguments reach the body as inttoptr(ptrtoint(p1)).
+    else if (isa<IntToPtrInst>(P) &&
+             isa<PtrToIntInst>(cast<IntToPtrInst>(P)->getOperand(0)))
+      P = cast<PtrToIntInst>(cast<IntToPtrInst>(P)->getOperand(0))
+              ->getPointerOperand();
+    else
+      return false;
+  }
+  return true;
+}
 
 /// Rewrite one call. Returns true if \p II was replaced and erased.
 static bool lowerCall(IntrinsicInst *II, const DataLayout &DL) {
@@ -38,8 +58,21 @@ static bool lowerCall(IntrinsicInst *II, const DataLayout &DL) {
   Value *Repl = nullptr;
 
   switch (II->getIntrinsicID()) {
-  case Intrinsic::prefetch:
+  case Intrinsic::prefetch: {
+    // WORKAROUND(CHIP-SPV/chipStar#1633, llvm/llvm-project#215505): the OpenCL
+    // prefetch that PR emits, but only on a provably global pointer, the only
+    // kind OpenCL.std prefetch accepts. Any other prefetch is dropped.
+    Value *P = II->getArgOperand(0);
+    if (!isGlobalPointer(P))
+      break;
+    IRBuilder<> B(II);
+    FunctionCallee F = II->getModule()->getOrInsertFunction(
+        "_Z8prefetchPU3AS1Kcm", B.getVoidTy(), B.getPtrTy(1), B.getInt64Ty());
+    cast<Function>(F.getCallee())->setCallingConv(CallingConv::SPIR_FUNC);
+    B.CreateCall(F, {B.CreateAddrSpaceCast(P, B.getPtrTy(1)), B.getInt64(1)})
+        ->setCallingConv(CallingConv::SPIR_FUNC);
     break;
+  }
   case Intrinsic::readcyclecounter:
   case Intrinsic::readsteadycounter:
     Repl = ConstantInt::get(Ty, 0);
