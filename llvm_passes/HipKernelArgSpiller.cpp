@@ -328,7 +328,9 @@ static bool spillKernelArgs(Function *F) {
     CallArgs.push_back(LocalCopy);
   }
 
-  B.CreateCall(F, CallArgs); // Call the original kernel.
+  auto *Call = B.CreateCall(F, CallArgs); // Call the original kernel.
+  Call->setCallingConv(F->getCallingConv());
+  Call->setAttributes(F->getAttributes().removeFnAttributes(F->getContext()));
 
   annotateSpilledArgs(NewF, ArgsToSpill);
 
