@@ -64,7 +64,6 @@ SPIR-V producers reachable on 21 emit debug info that `spirv-val` rejects.
 | 0001-pretend-subgroup-caps-are-spirv-1.2 | Report subgroup shuffle capabilities as requiring SPIR-V 1.2 instead of 1.3 | Deliberate spec deviation, permanent |
 | 0002-fix-loop-merge-placement | Fix LoopMerge instruction placement | Upstream in translator 220+ ([KhronosGroup#3277](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3277)) |
 | 0003-fix-block-merge-innermost-loop | Fix block merging in innermost loops | Upstream in translator 220+ ([KhronosGroup#3280](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3280)) |
-| 0004-coalesce-duplicate-phi-predecessors | Coalesce duplicate phi predecessors during translation | Pending upstream ([KhronosGroup#3866](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3866)) |
 
 ## llvm-22
 
@@ -85,7 +84,6 @@ upstream in translator 220+. As in llvm-21, the numbering gap is
 | Patch | Purpose | Upstream status |
 |---|---|---|
 | 0001-pretend-subgroup-caps-are-spirv-1.2 | As in llvm-21 | Deliberate spec deviation, permanent |
-| 0002-coalesce-duplicate-phi-predecessors | As in llvm-21 | Pending upstream ([KhronosGroup#3866](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3866)) |
 
 ## llvm-23
 
@@ -115,7 +113,6 @@ a `DICompileUnit` on that path.
 | Patch | Purpose | Upstream status |
 |---|---|---|
 | 0001-pretend-subgroup-caps-are-spirv-1.2 | As in llvm-21 | Deliberate spec deviation, permanent |
-| 0002-coalesce-duplicate-phi-predecessors | As in llvm-21 | Pending upstream ([KhronosGroup#3866](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3866)) |
 
 ## Removed in the layout change
 

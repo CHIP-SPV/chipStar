@@ -1,12 +1,10 @@
 #!/bin/bash
-# Regression test for the coalesce-duplicate-phi-predecessors patch in
-# llvm-patches/llvm-<version>/spirv-translator/
-# (coalesce duplicate-predecessor OpPhi). Compiles a small HIP kernel that
-# mirrors a real-world crash pattern, keeps the lowered device bitcode, translates
-# it to SPIR-V with the build's llvm-spirv, and validates it.
-#
-# Without 0005 the SPIR-V writer emits an OpPhi that lists a predecessor block
-# more than once and spirv-val rejects the module; with 0005 it is valid.
+# Regression test for HipCoalesceDuplicatePhiPredsPass (CHIP-SPV/chipStar#1680).
+# Compiles a small HIP kernel that mirrors a real-world crash pattern, keeps the
+# lowered device bitcode, translates it to SPIR-V with the build's llvm-spirv,
+# and validates it. Without the pass, an llvm-spirv lacking
+# KhronosGroup/SPIRV-LLVM-Translator#3866 emits an OpPhi that lists a
+# predecessor block more than once and spirv-val rejects the module.
 #
 set -eu
 
