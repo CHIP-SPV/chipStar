@@ -508,7 +508,8 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
                      << "  Invalid format string or missing arguments?\n");
           Value *ErrorFmt = getOrCreateStrLiteralArg(
               "Error: Invalid printf format string\n", B);
-          CallInst::Create(OpenCLPrintfF, ArrayRef(ErrorFmt), "", &OrigCall);
+          CallInst::Create(OpenCLPrintfF, ArrayRef(ErrorFmt), "", &OrigCall)
+              ->setCallingConv(llvm::CallingConv::SPIR_FUNC);
           auto *PoisonInt = PoisonValue::get(Type::getInt32Ty(Ctx));
           OrigCall.replaceAllUsesWith(PoisonInt);
           EraseList.insert(&OrigCall);
@@ -590,7 +591,8 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
             if (!toAdd.empty()) {
               Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
               toAdd.clear();
-              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+              CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall)
+                  ->setCallingConv(llvm::CallingConv::SPIR_FUNC);
               Args.clear();
             }
 
@@ -605,7 +607,8 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
                 B.CreateAddrSpaceCast(OrigArg, GenericPtrTy, "str.generic");
 
             Args.push_back(GenericPtr);
-            CallInst::Create(getOrCreatePrintStringF(), Args, "", &OrigCall);
+            CallInst::Create(getOrCreatePrintStringF(), Args, "", &OrigCall)
+                ->setCallingConv(llvm::CallingConv::SPIR_FUNC);
             Args.clear();
             continue;
           }
@@ -621,7 +624,8 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
         if (!toAdd.empty()) {
           Args.insert(Args.begin(), getOrCreateStrLiteralArg(toAdd, B));
           toAdd.clear();
-          CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall);
+          CallInst::Create(OpenCLPrintfF, Args, "", &OrigCall)
+              ->setCallingConv(llvm::CallingConv::SPIR_FUNC);
           Args.clear();
         }
 
