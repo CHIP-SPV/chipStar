@@ -259,6 +259,8 @@ foreach(HINT_TEST
     TestBuiltinObjectSize)
   add_hipcc_test(${HINT_TEST}.hip HIPCC_OPTIONS -O0 -c)
 endforeach()
+# A prefetch on a global pointer reaches SPIR-V as a real OpenCL prefetch.
+add_shell_test(TestPrefetchLowering.bash)
 
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
