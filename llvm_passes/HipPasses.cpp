@@ -45,6 +45,7 @@
 #include "HipCanonicalizeGEP.h"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
@@ -175,33 +176,78 @@ public:
 };
 #endif
 
+// WORKAROUND(CHIP-SPV/chipStar#1703, no upstream report): the SPIR-V backend
+// indexes an initializer's byte offset into the global's own type. Remove
+// when it offsets by bytes.
+static bool retypeToBytes(GlobalVariable &GV) {
+  Type *I8 = Type::getInt8Ty(GV.getContext());
+  if (auto *Ty = dyn_cast<ArrayType>(GV.getValueType());
+      Ty && Ty->getElementType() == I8)
+    return true;
+  if (!GV.hasLocalLinkage() || !GV.hasDefinitiveInitializer())
+    return false;
+  const DataLayout &DL = GV.getParent()->getDataLayout();
+  Constant *Init = GV.getInitializer();
+  auto *Ty = ArrayType::get(I8, DL.getTypeAllocSize(GV.getValueType()));
+  Constant *Bytes = ConstantAggregateZero::get(Ty);
+  if (!Init->isNullValue()) {
+    // The most constituents one OpConstantComposite can hold.
+    if (Ty->getNumElements() > 65532)
+      return false;
+    SmallVector<uint8_t, 64> Data;
+    for (uint64_t I = 0; I < Ty->getNumElements(); ++I) {
+      // Null for a byte of a pointer or of undef.
+      auto *B = dyn_cast_or_null<ConstantInt>(
+          ConstantFoldLoadFromConst(Init, I8, APInt(64, I), DL));
+      if (!B)
+        return false;
+      Data.push_back(B->getZExtValue());
+    }
+    Bytes = ConstantDataArray::get(GV.getContext(), Data);
+  }
+  if (!GV.getAlign())
+    GV.setAlignment(DL.getPreferredAlign(&GV));
+  GV.replaceInitializer(Bytes);
+  return true;
+}
+
 // WORKAROUND(CHIP-SPV/chipStar#1693, CHIP-SPV/chipStar#1695; no upstream
 // reports): in a global initializer, the in-tree SPIR-V backend aborts on a
 // getelementptr over an addrspacecast of a global, and IGC stores 0 for it.
 // Rewrites it as an addrspacecast of the getelementptr. Remove when both
-// handle the original.
+// handle the original and #1703 is fixed.
 class HipOffsetBeforeCastPass : public PassInfoMixin<HipOffsetBeforeCastPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    // Literal indices: rewriting one entry then cannot change, and free,
+    // another.
+    auto IsOffset = [](User *U, User *CE) {
+      auto *GEP = dyn_cast<GEPOperator>(U);
+      return GEP && isa<ConstantExpr>(U) && GEP->getPointerOperand() == CE &&
+             all_of(GEP->indices(),
+                    [](Value *Idx) { return isa<ConstantInt>(Idx); });
+    };
+    auto IsCast = [](User *U) {
+      auto *CE = dyn_cast<ConstantExpr>(U);
+      return CE && CE->getOpcode() == Instruction::AddrSpaceCast;
+    };
     SmallVector<std::pair<GlobalVariable *, GEPOperator *>, 8> Work;
     for (GlobalVariable &GV : M.globals()) {
-      // The backend takes the byte offset as an index into GV's array.
-      auto *Ty = dyn_cast<ArrayType>(GV.getValueType());
-      if (!Ty || !Ty->getElementType()->isIntegerTy(8))
+      GV.removeDeadConstantUsers();
+      // Retype GV only if a rewrite below reaches a constant.
+      if (none_of(GV.users(), [&](User *CE) {
+            return IsCast(CE) && any_of(CE->users(), [&](User *U) {
+                     return IsOffset(U, CE) &&
+                            !all_of(U->users(), IsaPred<Instruction>);
+                   });
+          }) ||
+          !retypeToBytes(GV))
         continue;
-      for (User *Cast : GV.users()) {
-        auto *CE = dyn_cast<ConstantExpr>(Cast);
-        if (!CE || CE->getOpcode() != Instruction::AddrSpaceCast)
-          continue;
-        // Literal indices: rewriting one entry then cannot change, and free,
-        // another.
-        for (User *U : CE->users())
-          if (auto *GEP = dyn_cast<GEPOperator>(U);
-              GEP && isa<ConstantExpr>(U) && GEP->getPointerOperand() == CE &&
-              all_of(GEP->indices(),
-                     [](Value *Idx) { return isa<ConstantInt>(Idx); }))
-            Work.emplace_back(&GV, GEP);
-      }
+      for (User *CE : GV.users())
+        if (IsCast(CE))
+          for (User *U : CE->users())
+            if (IsOffset(U, CE))
+              Work.emplace_back(&GV, cast<GEPOperator>(U));
     }
     for (auto [GV, GEP] : Work) {
       SmallVector<Value *, 4> Idx(GEP->idx_begin(), GEP->idx_end());

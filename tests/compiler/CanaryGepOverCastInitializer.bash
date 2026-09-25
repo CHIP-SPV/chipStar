@@ -7,8 +7,9 @@
 # ptrtoint form emits valid SPIR-V too. Delete the pass and
 # tests/runtime/TestFix1693StringTableOffset.hip only once IGC also resolves
 # the original shape instead of storing 0
-# (https://github.com/CHIP-SPV/chipStar/issues/1695); this canary does not
-# check IGC. No upstream report exists for either bug.
+# (https://github.com/CHIP-SPV/chipStar/issues/1695) and
+# CanaryByteOffsetInitializer has fired too; this canary does not check IGC.
+# No upstream report exists for either bug.
 set -eu
 
 CLANG="@LLVM_TOOLS_BINARY_DIR@/clang"
