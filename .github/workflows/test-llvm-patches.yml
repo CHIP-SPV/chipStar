@@ -379,8 +379,9 @@ jobs:
       - name: Mark the stage as validated
         if: success()
         run: |
-          echo "${{ github.event.pull_request.head.sha || github.sha }}" \
-            > "$HOME/llvm-stage/${{ matrix.build-id }}/.chipstar-validated"
+          { echo "${{ github.event.pull_request.head.sha || github.sha }}"
+            scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }}
+          } > "$HOME/llvm-stage/${{ matrix.build-id }}/.chipstar-validated"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -423,6 +424,9 @@ jobs:
             module-name: "23.0"
       fail-fast: false
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - name: Install LLVM ${{ matrix.build-id }}
         id: install_llvm
         env:
@@ -465,7 +469,13 @@ jobs:
             echo "::error::Stage at ${STAGED} carries no .chipstar-validated marker; refusing to promote an untested toolchain."
             exit 1
           fi
-          echo "Promoting stage built from $(cat "${STAGED}/.chipstar-validated")"
+          # The stage is shared by every PR, so it may hold another PR's LLVM.
+          WANT=$(scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }})
+          if [ "$(tail -n +2 "${STAGED}/.chipstar-validated")" != "$WANT" ]; then
+            echo "::error::Stage at ${STAGED} was built from $(head -1 "${STAGED}/.chipstar-validated"), whose configure_llvm.sh or llvm-patches/llvm-${{ matrix.llvm-version }} differ from ${{ github.sha }}; refusing to promote it."
+            exit 1
+          fi
+          echo "Promoting stage built from $(head -1 "${STAGED}/.chipstar-validated")"
 
           # Keep the previous toolchain until the new one is in place, so a
           # failure here is recoverable.
@@ -658,8 +668,9 @@ jobs:
       - name: Mark the stage as validated
         if: success()
         run: |
-          echo "${{ github.event.pull_request.head.sha || github.sha }}" \
-            > "$HOME/llvm-stage/23/.chipstar-validated"
+          { echo "${{ github.event.pull_request.head.sha || github.sha }}"
+            scripts/llvm_stage_fingerprint.sh 23
+          } > "$HOME/llvm-stage/23/.chipstar-validated"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -676,6 +687,9 @@ jobs:
     name: Install LLVM 23 on main branch (macOS)
     runs-on: [self-hosted, ARM64, MacOS]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - name: Install LLVM 23
         id: install_llvm_macos
         run: |
@@ -695,7 +709,13 @@ jobs:
             echo "::error::Stage at ${STAGED} carries no .chipstar-validated marker; refusing to promote an untested toolchain."
             exit 1
           fi
-          echo "Promoting stage built from $(cat "${STAGED}/.chipstar-validated")"
+          # See the Linux job: the stage may hold another PR's LLVM.
+          WANT=$(scripts/llvm_stage_fingerprint.sh 23)
+          if [ "$(tail -n +2 "${STAGED}/.chipstar-validated")" != "$WANT" ]; then
+            echo "::error::Stage at ${STAGED} was built from $(head -1 "${STAGED}/.chipstar-validated"), whose configure_llvm.sh or llvm-patches/llvm-23 differ from ${{ github.sha }}; refusing to promote it."
+            exit 1
+          fi
+          echo "Promoting stage built from $(head -1 "${STAGED}/.chipstar-validated")"
 
           BACKUP="${INSTALL_DIR}.prev"
           rm -rf "$BACKUP"
