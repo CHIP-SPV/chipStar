@@ -105,6 +105,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1592ExtractorExitStatus.hip # compiled by TestFix1592ExtractorExitStatus.bash, not a test
   TestFix1600ExtractorArgvBoundaries.hip # compiled by TestFix1600ExtractorArgvBoundaries.bash, not a test
   TestFix1693StringTableOffset.hip # needs program-scope globals, registered below
+  TestFix1703ByteOffsetTable.hip # needs program-scope globals, registered below
 
   TestFixVolatileLoadLowering.hip # compiled by TestFixVolatileLoadLoweringSPIRV.bash, not a test
   TestFixKokkosUnorderedMapInsert.hip # reference idiom only, see the comment below
@@ -159,6 +160,7 @@ endif()
 # rejects ("Initializer for CrossWorkgroup variable not yet supported").
 if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
   add_hip_runtime_test(TestFix1693StringTableOffset.hip)
+  add_hip_runtime_test(TestFix1703ByteOffsetTable.hip)
 endif()
 
 add_shell_test(TestAssert.bash)
