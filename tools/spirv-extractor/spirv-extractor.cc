@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
   // Perform SPIR-V validation if requested (lighter weight than full verify)
   if (validateSpirv) {
     std::cout << "Running SPIR-V validator..." << std::endl;
-    spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
+    spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_6);
     spv_diagnostic diagnostic = nullptr;
 
     spv_result_t validationResult = spvValidateBinary(
@@ -255,32 +255,12 @@ int main(int argc, char *argv[]) {
     outputFileText << spirvText;
     outputFileText.close();
 
-    spv_context context = spvContextCreate(SPV_ENV_UNIVERSAL_1_1);
-    spv_binary binary = nullptr;
-    spv_diagnostic diagnostic = nullptr;
-
-    spv_result_t result = spvTextToBinary(
-        context, spirvText.data(), spirvText.size(), &binary, &diagnostic);
-
-    if (result == SPV_SUCCESS) {
-      std::ofstream outputFileBinary(outputFilename, std::ios::binary);
-      if (!outputFileBinary) {
-        std::cerr << "Failed to open file: " << outputFilename << std::endl;
-        return 1;
-      }
-      outputFileBinary.write(reinterpret_cast<const char *>(binary->code),
-                             binary->wordCount * sizeof(uint32_t));
-      outputFileBinary.close();
-      spvBinaryDestroy(binary);
-    } else {
-      std::cerr << "Failed to assemble SPIR-V: " << diagnostic->error
-                << std::endl;
-      spvDiagnosticDestroy(diagnostic);
-      spvContextDestroy(context);
+    std::ofstream outputFileBinary(outputFilename, std::ios::binary);
+    if (!outputFileBinary) {
+      std::cerr << "Failed to open file: " << outputFilename << std::endl;
       return 1;
     }
-
-    spvContextDestroy(context);
+    outputFileBinary.write(spirvBinary.data(), spirvBinary.size());
   } else {
     std::cout << spirvText << std::endl;
   }
