@@ -448,18 +448,18 @@ jobs:
 
           # This job runs on every push to main, but the stage is produced by a
           # *prior* pull_request run of this workflow. A version this merge did
-          # not touch legitimately has no stage. A version it *did* touch must
-          # have one: silently skipping there leaves main's toolchain older than
-          # the patches on main, and every later PR is then validated against a
-          # compiler that does not match the tree.
-          if [ ! -d "${STAGED}${INSTALL_DIR}" ]; then
-            if [ "$CHANGED" = "true" ]; then
-              echo "::error::LLVM ${{ matrix.build-id }} changed in this merge but has no staged build at ${STAGED}${INSTALL_DIR}. The PR run never staged it."
-              exit 1
-            fi
-            echo "LLVM ${{ matrix.build-id }} unchanged by this merge and not staged; leaving $INSTALL_DIR untouched."
+          # not touch is left alone even if some PR staged it. A version it
+          # *did* touch must have a stage: silently skipping there leaves main's
+          # toolchain older than the patches on main, and every later PR is
+          # then validated against a compiler that does not match the tree.
+          if [ "$CHANGED" != "true" ]; then
+            echo "LLVM ${{ matrix.build-id }} unchanged by this merge; leaving $INSTALL_DIR untouched."
             echo "installed=false" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          if [ ! -d "${STAGED}${INSTALL_DIR}" ]; then
+            echo "::error::LLVM ${{ matrix.build-id }} changed in this merge but has no staged build at ${STAGED}${INSTALL_DIR}. The PR run never staged it."
+            exit 1
           fi
 
           # Written by the PR run only after chipStar built and its dGPU and CPU
