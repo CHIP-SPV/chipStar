@@ -175,6 +175,49 @@ public:
 };
 #endif
 
+// WORKAROUND(CHIP-SPV/chipStar#1693, CHIP-SPV/chipStar#1695; no upstream
+// reports): in a global initializer, the in-tree SPIR-V backend aborts on a
+// getelementptr over an addrspacecast of a global, and IGC stores 0 for it.
+// Rewrites it as an addrspacecast of the getelementptr. Remove when both
+// handle the original.
+class HipOffsetBeforeCastPass : public PassInfoMixin<HipOffsetBeforeCastPass> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    SmallVector<std::pair<GlobalVariable *, GEPOperator *>, 8> Work;
+    for (GlobalVariable &GV : M.globals()) {
+      // The backend takes the byte offset as an index into GV's array.
+      auto *Ty = dyn_cast<ArrayType>(GV.getValueType());
+      if (!Ty || !Ty->getElementType()->isIntegerTy(8))
+        continue;
+      for (User *Cast : GV.users()) {
+        auto *CE = dyn_cast<ConstantExpr>(Cast);
+        if (!CE || CE->getOpcode() != Instruction::AddrSpaceCast)
+          continue;
+        // Literal indices: rewriting one entry then cannot change, and free,
+        // another.
+        for (User *U : CE->users())
+          if (auto *GEP = dyn_cast<GEPOperator>(U);
+              GEP && isa<ConstantExpr>(U) && GEP->getPointerOperand() == CE &&
+              all_of(GEP->indices(),
+                     [](Value *Idx) { return isa<ConstantInt>(Idx); }))
+            Work.emplace_back(&GV, GEP);
+      }
+    }
+    for (auto [GV, GEP] : Work) {
+      SmallVector<Value *, 4> Idx(GEP->idx_begin(), GEP->idx_end());
+      Constant *Offset = ConstantExpr::getGetElementPtr(
+          GEP->getSourceElementType(), GV, Idx, GEP->getNoWrapFlags(),
+          GEP->getInRange());
+      // Direct instruction operands compile fine with the original shape.
+      GEP->replaceUsesWithIf(
+          ConstantExpr::getAddrSpaceCast(Offset, GEP->getType()),
+          [](Use &U) { return !isa<Instruction>(U.getUser()); });
+    }
+    return Work.empty() ? PreservedAnalyses::all() : PreservedAnalyses::none();
+  }
+  static bool isRequired() { return true; }
+};
+
 // Insert a helper that adds a pass with HipVerify validation
 template <typename PassT>
 static void
@@ -257,6 +300,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, HipAbortPass(), "HipAbortPass");
   // This pass must appear after HipDynMemExternReplaceNewPass.
   addPassWithVerification(MPM, HipGlobalVariablesPass(), "HipGlobalVariablesPass");
+  addPassWithVerification(MPM, HipOffsetBeforeCastPass(), "HipOffsetBeforeCastPass");
 
   addPassWithVerification(MPM, HipWarpsPass(), "HipWarpsPass");
 
