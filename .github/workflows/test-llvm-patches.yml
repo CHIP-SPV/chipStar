@@ -143,13 +143,15 @@ jobs:
         run: |
           mkdir -p $HOME/llvm-builds/${{ matrix.build-id }}
           cd $HOME/llvm-builds/${{ matrix.build-id }}
+          # scripts/.configured names the inputs of a completed configure; step 2 checks it.
           rm -rf scripts llvm-patches
           cp -r ${{ github.workspace }}/scripts .
           cp -r ${{ github.workspace }}/llvm-patches .
           chmod +x scripts/configure_llvm.sh
           ./scripts/configure_llvm.sh --version ${{ matrix.llvm-version }} \
             --install-dir $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }} \
-            ${{ matrix.variant-flag }} --configure-only
+            ${{ matrix.variant-flag }} --configure-only \
+            && ${{ github.workspace }}/scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }} > scripts/.configured
 
   step2-build-test:
     needs: [detect, step1-configure-all]
@@ -182,6 +184,10 @@ jobs:
       - name: Build LLVM ${{ matrix.build-id }}
         id: build_llvm
         run: |
+          # The tree is shared, so another PR's step 1 may have reconfigured it since ours.
+          FP=$(scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }}) || exit 1
+          [ "$(cat "$HOME/llvm-builds/${{ matrix.build-id }}/scripts/.configured" 2>/dev/null)" = "$FP" ] \
+            || { echo "::error::$HOME/llvm-builds/${{ matrix.build-id }} is not configured from this commit's inputs."; exit 1; }
           BUILD_DIR="$HOME/llvm-builds/${{ matrix.build-id }}/llvm-project/llvm/build_${{ matrix.llvm-version }}"
           if [ ! -d "$BUILD_DIR" ]; then
             echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
@@ -561,7 +567,7 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
       - name: Configure LLVM 23
-        shell: /bin/bash {0}
+        shell: /bin/bash -e {0}
         run: |
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           BUILD_DIR="$HOME/llvm-builds/23"
@@ -573,7 +579,8 @@ jobs:
           chmod +x scripts/configure_llvm.sh
           ./scripts/configure_llvm.sh --version 23 \
             --install-dir $HOME/install/llvm/23.0 \
-            --variant native --configure-only
+            --variant native --configure-only \
+            && ${{ github.workspace }}/scripts/llvm_stage_fingerprint.sh 23 > scripts/.configured
 
   step2-build-test-macos:
     needs: [detect, step1-configure-all-macos]
@@ -596,6 +603,10 @@ jobs:
         shell: /bin/bash {0}
         run: |
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          # See the Linux lane: another PR may have reconfigured the shared tree.
+          FP=$(scripts/llvm_stage_fingerprint.sh 23) || exit 1
+          [ "$(cat "$HOME/llvm-builds/23/scripts/.configured" 2>/dev/null)" = "$FP" ] \
+            || { echo "::error::$HOME/llvm-builds/23 is not configured from this commit's inputs."; exit 1; }
           BUILD_DIR="$HOME/llvm-builds/23/llvm-project/llvm/build_23"
           if [ ! -d "$BUILD_DIR" ]; then
             echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
