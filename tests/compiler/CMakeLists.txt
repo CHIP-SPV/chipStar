@@ -156,6 +156,10 @@ set_tests_properties(hipcc-TestFix1692DynSharedLocalInit PROPERTIES TIMEOUT 120)
 # Fails the day clang stops hoisting such an initializer, which is the signal to
 # delete HipSharedAddrLocalInitPass. Read its header before acting.
 add_shell_test(CanarySharedAddrInitHoisted.bash)
+# A static table of dynamic shared addresses cannot be lowered; hipcc must say so.
+add_hipcc_test(TestFix1692DynSharedStaticTable.hip HIPCC_OPTIONS -c)
+set_tests_properties(hipcc-TestFix1692DynSharedStaticTable PROPERTIES TIMEOUT 120
+  PASS_REGULAR_EXPRESSION "initialized with the address of dynamic shared memory")
 
 add_hipcc_test(TestHalfDeviceMathFuncs.hip HIPCC_OPTIONS -fsyntax-only)
 
