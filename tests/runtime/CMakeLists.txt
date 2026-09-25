@@ -104,6 +104,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
   TestFix1592ExtractorExitStatus.hip # compiled by TestFix1592ExtractorExitStatus.bash, not a test
   TestFix1600ExtractorArgvBoundaries.hip # compiled by TestFix1600ExtractorArgvBoundaries.bash, not a test
+  TestFix1693StringTableOffset.hip # needs program-scope globals, registered below
 
   TestFixVolatileLoadLowering.hip # compiled by TestFixVolatileLoadLoweringSPIRV.bash, not a test
   TestFixKokkosUnorderedMapInsert.hip # reference idiom only, see the comment below
@@ -153,6 +154,11 @@ if(NOT APPLE)
 endif()
 if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
+endif()
+# String literals are initialized program-scope globals, which rusticl/Mesa
+# rejects ("Initializer for CrossWorkgroup variable not yet supported").
+if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+  add_hip_runtime_test(TestFix1693StringTableOffset.hip)
 endif()
 
 add_shell_test(TestAssert.bash)
