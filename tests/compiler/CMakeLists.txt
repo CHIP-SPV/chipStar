@@ -153,6 +153,9 @@ add_shell_test(TestFix1670DynMemCallArgs.bash)
 add_hipcc_test(TestFix1692DynSharedLocalInit.hip HIPCC_OPTIONS -O2 -c)
 # TIMEOUT is a hang guard only; the test takes about a second.
 set_tests_properties(hipcc-TestFix1692DynSharedLocalInit PROPERTIES TIMEOUT 120)
+# Fails the day clang stops hoisting such an initializer, which is the signal to
+# delete HipSharedAddrLocalInitPass. Read its header before acting.
+add_shell_test(CanarySharedAddrInitHoisted.bash)
 
 add_hipcc_test(TestHalfDeviceMathFuncs.hip HIPCC_OPTIONS -fsyntax-only)
 
