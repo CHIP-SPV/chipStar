@@ -25,7 +25,7 @@ printf '%s\n' 'target triple = "spirv64-unknown-unknown"' \
   { echo "FAIL: llc does not compile the module"; cat m.log; exit 1; }
 
 D=$(awk '$1 == "OpName" && $3 == "\"D\"" { print $2 }' m.s)
-C=$(awk '$3 == "OpConstant" && $5 == "12" { print $1 }' m.s | paste -sd'|')
+C=$(awk '$3 == "OpConstant" && $5 == "12" { printf "%s%s", s, $1; s="|" }' m.s)
 # The id of @D's pointer type, of its pointee, and of that array's element.
 P=$(awk -v d="${D}" '$1 == d && $3 == "OpVariable" { print $4 }' m.s)
 A=$(awk -v p="${P}" '$1 == p && $3 == "OpTypePointer" { print $5 }' m.s)
