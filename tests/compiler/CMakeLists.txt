@@ -101,6 +101,11 @@ add_hipcc_test(TestFix797ShflHalf.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestHipComplexInclude.hip HIPCC_OPTIONS)
 
 add_shell_test(TestFix1650NonLoweredInitGlobalAddress.bash)
+if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  # Fails the day the backend accepts the shape HipOffsetBeforeCastPass
+  # rewrites. Read its header before acting.
+  add_shell_test(CanaryGepOverCastInitializer.bash)
+endif()
 
 add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
 add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
