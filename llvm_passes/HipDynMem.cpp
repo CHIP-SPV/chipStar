@@ -489,9 +489,15 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
           }
         } else
         if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
-          if (U->getNumUses() <= 1) {
-            CE->destroyConstant();
-          }
+          CE->removeDeadConstantUsers();
+          // A live user is a global's initializer, which cannot be lowered.
+          if (!CE->use_empty())
+            report_fatal_error(
+                "HipDynMem: a static or global variable is "
+                "initialized with the address of dynamic shared memory '" +
+                    GV->getName() + "', which is unsupported",
+                /*GenCrashDiag=*/false);
+          CE->destroyConstant();
         } else
         llvm_unreachable("unknown User of Global Variable - bug!");
       }
