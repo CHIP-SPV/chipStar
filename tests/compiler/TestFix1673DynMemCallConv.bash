@@ -18,8 +18,8 @@ BC=$(ls ./*-lower.bc 2>/dev/null | head -1)
 "${LLVM_DIS}" "${BC}" -o lowered.ll
 
 # h is spir_func and sign extends both its result and its argument.
-CALLS=$(grep -v '^define' lowered.ll | grep '@_Z1hc(' || true)
-GOOD=$(echo "${CALLS}" | grep -E 'call spir_func .*signext i8 @_Z1hc\(i8 .*signext ' || true)
+CALLS=$(grep -v '^define' lowered.ll | grep '@_Z1ha(' || true)
+GOOD=$(echo "${CALLS}" | grep -E 'call spir_func .*signext i8 @_Z1ha\(i8 .*signext ' || true)
 if [ -z "${CALLS}" ] || [ "${CALLS}" != "${GOOD}" ]; then
   echo "FAIL: every call to h must be spir_func and sign extend, found:"
   echo "${CALLS}"
