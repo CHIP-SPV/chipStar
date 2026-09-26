@@ -121,6 +121,16 @@ jobs:
             ${{ steps.tree.outputs.tree }}-${{ matrix.variant }}
         timeout-minutes: 15
 
+      # Compile tests salami drops, with the aarch64 Linux host ABI; -E: those the x86 builder cannot run.
+      - name: Compile tests for aarch64 host (${{ matrix.variant }})
+        run: |
+          set -euo pipefail
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work -v "$CROSS_WORK":/work \
+            "$CROSS_IMAGE" ctest --output-on-failure -j"$(( $(nproc) > 1 ? $(nproc) - 1 : 1 ))" \
+              --test-dir /work/cross-${{ steps.tree.outputs.tree }}-${{ matrix.variant }}/tests/compiler \
+              -E '^(TestHipccAcceptCFiles|TestRDCWithSingleHipccCmd|TestRDCWithMultipleHipccCmds|TestWholeProgramCompilation|TestSeparateCompilation|TestBFloat16RDC|TestPrintfStaticString|TestStaticLibRDC|hipSubwordAtomics-subword-atomics|hipVolatileAccesses-volatile-accesses)$'
+        timeout-minutes: 10
+
   test-mali:
     name: run on Mali (${{ matrix.variant }})
     needs: cross-compile
