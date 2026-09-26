@@ -149,6 +149,18 @@ add_hipcc_test(TestFix1248HalfHostOps.hip HIPCC_OPTIONS -fsyntax-only)
 # A call to a shared memory user must pass the caller's argument (#1670).
 add_shell_test(TestFix1670DynMemCallArgs.bash)
 
+# A local array initialized with shared memory addresses must compile (#1692).
+add_hipcc_test(TestFix1692DynSharedLocalInit.hip HIPCC_OPTIONS -O2 -c)
+# TIMEOUT is a hang guard only; the test takes about a second.
+set_tests_properties(hipcc-TestFix1692DynSharedLocalInit PROPERTIES TIMEOUT 120)
+# Fails the day clang stops hoisting such an initializer, which is the signal to
+# delete HipSharedAddrLocalInitPass. Read its header before acting.
+add_shell_test(CanarySharedAddrInitHoisted.bash)
+# A static table of dynamic shared addresses cannot be lowered; hipcc must say so.
+add_hipcc_test(TestFix1692DynSharedStaticTable.hip HIPCC_OPTIONS -c)
+set_tests_properties(hipcc-TestFix1692DynSharedStaticTable PROPERTIES TIMEOUT 120
+  PASS_REGULAR_EXPRESSION "initialized with the address of dynamic shared memory")
+
 add_hipcc_test(TestHalfDeviceMathFuncs.hip HIPCC_OPTIONS -fsyntax-only)
 
 add_hipcc_test(TestFix1582StdTraitSpecialization.hip HIPCC_OPTIONS -fsyntax-only)
