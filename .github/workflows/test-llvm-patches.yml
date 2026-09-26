@@ -143,13 +143,15 @@ jobs:
         run: |
           mkdir -p $HOME/llvm-builds/${{ matrix.build-id }}
           cd $HOME/llvm-builds/${{ matrix.build-id }}
+          # scripts/.configured names the inputs of a completed configure; step 2 checks it.
           rm -rf scripts llvm-patches
           cp -r ${{ github.workspace }}/scripts .
           cp -r ${{ github.workspace }}/llvm-patches .
           chmod +x scripts/configure_llvm.sh
           ./scripts/configure_llvm.sh --version ${{ matrix.llvm-version }} \
             --install-dir $HOME/install/llvm/${{ matrix.llvm-version }}.0${{ matrix.install-suffix }} \
-            ${{ matrix.variant-flag }} --configure-only
+            ${{ matrix.variant-flag }} --configure-only \
+            && ${{ github.workspace }}/scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }} > scripts/.configured
 
   step2-build-test:
     needs: [detect, step1-configure-all]
@@ -182,6 +184,10 @@ jobs:
       - name: Build LLVM ${{ matrix.build-id }}
         id: build_llvm
         run: |
+          # The tree is shared, so another PR's step 1 may have reconfigured it since ours.
+          FP=$(scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }}) || exit 1
+          [ "$(cat "$HOME/llvm-builds/${{ matrix.build-id }}/scripts/.configured" 2>/dev/null)" = "$FP" ] \
+            || { echo "::error::$HOME/llvm-builds/${{ matrix.build-id }} is not configured from this commit's inputs."; exit 1; }
           BUILD_DIR="$HOME/llvm-builds/${{ matrix.build-id }}/llvm-project/llvm/build_${{ matrix.llvm-version }}"
           if [ ! -d "$BUILD_DIR" ]; then
             echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
@@ -379,8 +385,9 @@ jobs:
       - name: Mark the stage as validated
         if: success()
         run: |
-          echo "${{ github.event.pull_request.head.sha || github.sha }}" \
-            > "$HOME/llvm-stage/${{ matrix.build-id }}/.chipstar-validated"
+          { echo "${{ github.event.pull_request.head.sha || github.sha }}"
+            scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }}
+          } > "$HOME/llvm-stage/${{ matrix.build-id }}/.chipstar-validated"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -423,6 +430,9 @@ jobs:
             module-name: "23.0"
       fail-fast: false
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - name: Install LLVM ${{ matrix.build-id }}
         id: install_llvm
         env:
@@ -444,18 +454,18 @@ jobs:
 
           # This job runs on every push to main, but the stage is produced by a
           # *prior* pull_request run of this workflow. A version this merge did
-          # not touch legitimately has no stage. A version it *did* touch must
-          # have one: silently skipping there leaves main's toolchain older than
-          # the patches on main, and every later PR is then validated against a
-          # compiler that does not match the tree.
-          if [ ! -d "${STAGED}${INSTALL_DIR}" ]; then
-            if [ "$CHANGED" = "true" ]; then
-              echo "::error::LLVM ${{ matrix.build-id }} changed in this merge but has no staged build at ${STAGED}${INSTALL_DIR}. The PR run never staged it."
-              exit 1
-            fi
-            echo "LLVM ${{ matrix.build-id }} unchanged by this merge and not staged; leaving $INSTALL_DIR untouched."
+          # not touch is left alone even if some PR staged it. A version it
+          # *did* touch must have a stage: silently skipping there leaves main's
+          # toolchain older than the patches on main, and every later PR is
+          # then validated against a compiler that does not match the tree.
+          if [ "$CHANGED" != "true" ]; then
+            echo "LLVM ${{ matrix.build-id }} unchanged by this merge; leaving $INSTALL_DIR untouched."
             echo "installed=false" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          if [ ! -d "${STAGED}${INSTALL_DIR}" ]; then
+            echo "::error::LLVM ${{ matrix.build-id }} changed in this merge but has no staged build at ${STAGED}${INSTALL_DIR}. The PR run never staged it."
+            exit 1
           fi
 
           # Written by the PR run only after chipStar built and its dGPU and CPU
@@ -465,7 +475,13 @@ jobs:
             echo "::error::Stage at ${STAGED} carries no .chipstar-validated marker; refusing to promote an untested toolchain."
             exit 1
           fi
-          echo "Promoting stage built from $(cat "${STAGED}/.chipstar-validated")"
+          # The stage is shared by every PR, so it may hold another PR's LLVM.
+          WANT=$(scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }})
+          if [ "$(tail -n +2 "${STAGED}/.chipstar-validated")" != "$WANT" ]; then
+            echo "::error::Stage at ${STAGED} was built from $(head -1 "${STAGED}/.chipstar-validated"), whose configure_llvm.sh or llvm-patches/llvm-${{ matrix.llvm-version }} differ from ${{ github.sha }}; refusing to promote it."
+            exit 1
+          fi
+          echo "Promoting stage built from $(head -1 "${STAGED}/.chipstar-validated")"
 
           # Keep the previous toolchain until the new one is in place, so a
           # failure here is recoverable.
@@ -551,7 +567,7 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
       - name: Configure LLVM 23
-        shell: /bin/bash {0}
+        shell: /bin/bash -e {0}
         run: |
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
           BUILD_DIR="$HOME/llvm-builds/23"
@@ -563,7 +579,8 @@ jobs:
           chmod +x scripts/configure_llvm.sh
           ./scripts/configure_llvm.sh --version 23 \
             --install-dir $HOME/install/llvm/23.0 \
-            --variant native --configure-only
+            --variant native --configure-only \
+            && ${{ github.workspace }}/scripts/llvm_stage_fingerprint.sh 23 > scripts/.configured
 
   step2-build-test-macos:
     needs: [detect, step1-configure-all-macos]
@@ -586,6 +603,10 @@ jobs:
         shell: /bin/bash {0}
         run: |
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          # See the Linux lane: another PR may have reconfigured the shared tree.
+          FP=$(scripts/llvm_stage_fingerprint.sh 23) || exit 1
+          [ "$(cat "$HOME/llvm-builds/23/scripts/.configured" 2>/dev/null)" = "$FP" ] \
+            || { echo "::error::$HOME/llvm-builds/23 is not configured from this commit's inputs."; exit 1; }
           BUILD_DIR="$HOME/llvm-builds/23/llvm-project/llvm/build_23"
           if [ ! -d "$BUILD_DIR" ]; then
             echo "Error: Build directory $BUILD_DIR does not exist. Step 1 may have failed."
@@ -658,8 +679,9 @@ jobs:
       - name: Mark the stage as validated
         if: success()
         run: |
-          echo "${{ github.event.pull_request.head.sha || github.sha }}" \
-            > "$HOME/llvm-stage/23/.chipstar-validated"
+          { echo "${{ github.event.pull_request.head.sha || github.sha }}"
+            scripts/llvm_stage_fingerprint.sh 23
+          } > "$HOME/llvm-stage/23/.chipstar-validated"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -676,6 +698,9 @@ jobs:
     name: Install LLVM 23 on main branch (macOS)
     runs-on: [self-hosted, ARM64, MacOS]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - name: Install LLVM 23
         id: install_llvm_macos
         run: |
@@ -695,7 +720,13 @@ jobs:
             echo "::error::Stage at ${STAGED} carries no .chipstar-validated marker; refusing to promote an untested toolchain."
             exit 1
           fi
-          echo "Promoting stage built from $(cat "${STAGED}/.chipstar-validated")"
+          # See the Linux job: the stage may hold another PR's LLVM.
+          WANT=$(scripts/llvm_stage_fingerprint.sh 23)
+          if [ "$(tail -n +2 "${STAGED}/.chipstar-validated")" != "$WANT" ]; then
+            echo "::error::Stage at ${STAGED} was built from $(head -1 "${STAGED}/.chipstar-validated"), whose configure_llvm.sh or llvm-patches/llvm-23 differ from ${{ github.sha }}; refusing to promote it."
+            exit 1
+          fi
+          echo "Promoting stage built from $(head -1 "${STAGED}/.chipstar-validated")"
 
           BACKUP="${INSTALL_DIR}.prev"
           rm -rf "$BACKUP"
