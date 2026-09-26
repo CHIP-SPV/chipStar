@@ -12,7 +12,8 @@ OUT="@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d"
 rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}"
 
 # -O2 keeps h noinline, so the rewritten call is still in the lowered module.
-"${HIPCC}" -O2 --save-temps=cwd -c "${SRC_DIR}/@TEST_NAME@.hip" -o "@TEST_NAME@.o"
+# -fsigned-char: plain char is unsigned on aarch64 Linux, which gives zeroext.
+"${HIPCC}" -O2 -fsigned-char --save-temps=cwd -c "${SRC_DIR}/@TEST_NAME@.hip" -o "@TEST_NAME@.o"
 BC=$(ls ./*-lower.bc 2>/dev/null | head -1)
 [ -n "${BC}" ] || { echo "FAIL: hipcc left no lowered device bitcode"; exit 1; }
 "${LLVM_DIS}" "${BC}" -o lowered.ll
