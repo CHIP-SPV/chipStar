@@ -123,7 +123,7 @@ chipStar_aurora_script_test_llvm22:
     - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm_22
     - NO_FRESH_CHIPSTAR_PULL=true llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
 
-chipStar_script_install_llvm23:
+chipStar_aurora_script_test_llvm23:
   stage: build
   extends: .aurora-shell-runner
   # wave 2
@@ -179,11 +179,11 @@ chipStar_aurora_script_test_llvm22_run:
     - CHIP_BE=level0 make build_tests -j
     - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
 
-chipStar_script_test_llvm23_run:
+chipStar_aurora_script_test_llvm23_run:
   stage: test
   resource_group: aurora_slot_1
   extends: .aurora-batch-runner
-  needs: [chipStar_script_install_llvm23]
+  needs: [chipStar_aurora_script_test_llvm23]
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
@@ -217,7 +217,7 @@ opensn_build:
 zeroRK_build_llvm23:
   stage: app_build
   extends: .aurora-shell-runner
-  needs: [chipStar_script_install_llvm23]
+  needs: [chipStar_aurora_script_test_llvm23]
   variables:
     MAKEFLAGS: "-j${BUILD_JOBS}"
   script:
@@ -226,7 +226,7 @@ zeroRK_build_llvm23:
 opensn_build_llvm23:
   stage: app_build
   extends: .aurora-shell-runner
-  needs: [chipStar_script_install_llvm23]
+  needs: [chipStar_aurora_script_test_llvm23]
   script:
    - ${RUN_APPS_LLVM23} --phases build opensn
 
@@ -266,9 +266,11 @@ hoMusic_llvm23:
   stage: app_run
   resource_group: aurora_slot_1
   extends: .aurora-batch-runner
-  needs: [chipStar_script_install_llvm23, chipStar_script_test_llvm23_run]
+  needs: [chipStar_aurora_script_test_llvm23, chipStar_aurora_script_test_llvm23_run]
   variables:
     MAKEFLAGS: "-j${BUILD_JOBS}"
+    # its own build dir, env file and run dirs; the llvm21 job uses the bare id
+    HOMUSIC_RUN_ID: "${CI_PIPELINE_ID}-llvm23"
   script:
     - ${RUN_APPS_LLVM23} --phases build,run homusic
 
@@ -276,7 +278,7 @@ zeroRK_run_llvm23:
   stage: app_run
   resource_group: aurora_slot_2
   extends: .aurora-batch-runner
-  needs: [zeroRK_build_llvm23, chipStar_script_test_llvm23_run]
+  needs: [zeroRK_build_llvm23, chipStar_aurora_script_test_llvm23_run]
   script:
   - ${RUN_APPS_LLVM23} --phases run zerork
 
@@ -284,7 +286,7 @@ opensn_run_llvm23:
   stage: app_run
   resource_group: aurora_slot_3
   extends: .aurora-batch-runner
-  needs: [opensn_build_llvm23, chipStar_script_test_llvm23_run]
+  needs: [opensn_build_llvm23, chipStar_aurora_script_test_llvm23_run]
   variables:
     CHIP_MODULE_CACHE_DIR: "${WRK_DIR}/module_cache_llvm23"
   script:
