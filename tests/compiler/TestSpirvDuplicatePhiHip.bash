@@ -11,7 +11,7 @@ set -eu
 SRC_DIR="@CMAKE_CURRENT_SOURCE_DIR@"
 HIPCC="@CMAKE_BINARY_DIR@/bin/hipcc"
 LLVM_SPIRV="@LLVM_SPIRV@"
-SPIRV_VAL="@CMAKE_BINARY_DIR@/external/spirv-tools/bin/spirv-val"
+SPIRV_VAL="@CHIP_SPIRV_VAL@"
 OUT="@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d"
 
 # Only the external translator emits the duplicate; skip on the in-tree backend.
@@ -20,8 +20,8 @@ if [ "${LLVM_SPIRV}" = "NOT_NEEDED" ] || [ ! -x "${LLVM_SPIRV}" ]; then
   exit 0
 fi
 if [ ! -x "${SPIRV_VAL}" ]; then
-  echo "spirv-val not found; skipping"
-  exit 0
+  echo "FAIL: spirv-val not found at '${SPIRV_VAL}'"
+  exit 1
 fi
 
 rm -rf "${OUT}"
