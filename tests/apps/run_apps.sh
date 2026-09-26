@@ -75,6 +75,9 @@ wants() { case ,$PHASES, in *,$1,*) return 0 ;; *) return 1 ;; esac; }
 
 WRK_DIR=$(mkdir -p "$WRK_DIR" && cd "$WRK_DIR" && pwd)
 
+# hoMusic runs "module restore", so the driver re-adds these itself
+export HOMUSIC_MODULE_PATHS="${MODULE_PATHS[*]}"
+
 load_chipstar() {
   local d
   for d in "${MODULE_PATHS[@]}"; do
