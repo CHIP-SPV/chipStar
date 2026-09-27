@@ -20,7 +20,7 @@
 #ifndef LLVM_PASSES_HIP_LOWER_POINTER_VECTORS_H
 #define LLVM_PASSES_HIP_LOWER_POINTER_VECTORS_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
@@ -29,7 +29,7 @@ using namespace llvm;
 #endif
 
 class HipLowerPointerVectorsPass
-    : public PassInfoMixin<HipLowerPointerVectorsPass> {
+    : public HipRequiredPassInfoMixin<HipLowerPointerVectorsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

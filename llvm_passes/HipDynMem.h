@@ -18,12 +18,12 @@
 #ifndef LLVM_PASSES_HIP_DYN_MEM_H
 #define LLVM_PASSES_HIP_DYN_MEM_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
 class HipDynMemExternReplaceNewPass
-    : public PassInfoMixin<HipDynMemExternReplaceNewPass> {
+    : public HipRequiredPassInfoMixin<HipDynMemExternReplaceNewPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

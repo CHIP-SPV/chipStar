@@ -15,13 +15,13 @@
 #ifndef LLVM_PASSES_HIP_COALESCE_DUPLICATE_PHI_PREDS_H
 #define LLVM_PASSES_HIP_COALESCE_DUPLICATE_PHI_PREDS_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
 // WORKAROUND(CHIP-SPV/chipStar#1680, KhronosGroup/SPIRV-LLVM-Translator#3866): llvm-spirv emits one OpPhi entry per LLVM phi entry, duplicating predecessors. Remove when the pinned llvm_release branch includes #3866.
 class HipCoalesceDuplicatePhiPredsPass
-    : public PassInfoMixin<HipCoalesceDuplicatePhiPredsPass> {
+    : public HipRequiredPassInfoMixin<HipCoalesceDuplicatePhiPredsPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static bool isRequired() { return true; }

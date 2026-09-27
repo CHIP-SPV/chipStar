@@ -14,12 +14,11 @@
 #ifndef LLVM_PASSES_HIP_DEFROST_H
 #define LLVM_PASSES_HIP_DEFROST_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipDefrostPass
-    : public PassInfoMixin<HipDefrostPass> {
+class HipDefrostPass : public HipRequiredPassInfoMixin<HipDefrostPass> {
 public:
   PreservedAnalyses run(Function &M, FunctionAnalysisManager &AM);
   static bool isRequired() { return true; }

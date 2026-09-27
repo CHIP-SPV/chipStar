@@ -14,11 +14,12 @@
 #ifndef LLVM_PASSES_HIP_SANITYCHECKS_H
 #define LLVM_PASSES_HIP_SANITYCHECKS_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipSanityChecksPass : public PassInfoMixin<HipSanityChecksPass> {
+class HipSanityChecksPass
+    : public HipRequiredPassInfoMixin<HipSanityChecksPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

@@ -16,12 +16,12 @@
 #ifndef LLVM_PASSES_HIP_LOWER_SUBWORD_ATOMICS_H
 #define LLVM_PASSES_HIP_LOWER_SUBWORD_ATOMICS_H
 
-#include <llvm/IR/PassManager.h>
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
 class HipLowerSubwordAtomicsPass
-    : public PassInfoMixin<HipLowerSubwordAtomicsPass> {
+    : public HipRequiredPassInfoMixin<HipLowerSubwordAtomicsPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static bool isRequired() { return true; }
