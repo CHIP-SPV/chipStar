@@ -449,7 +449,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(DCEPass()), "DCEPass");
   addPassWithVerification(MPM, GlobalDCEPass(), "GlobalDCEPass");
 
-  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)), "InferAddressSpacesPass");
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4u)), "InferAddressSpacesPass");
 
   // Move vtable function pointers into the generic address space. Runs after
   // inlining and InferAddressSpaces so it only sees the indirect calls that
