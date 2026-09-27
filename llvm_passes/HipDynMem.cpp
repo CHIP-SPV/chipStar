@@ -371,7 +371,7 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
     // if the function uses dynamic shared memory (via the GVar),
     // replace all uses of GVar inside function with the new dyn mem Argument
     if (isGVarUsedInFunction(GV, NewF)) {
-      B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHI());
+      B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHIIt());
 
 #if LLVM_VERSION_MAJOR >= 20
       // LLVM 20+ only supports opaque pointers: just replace GVar with the argument
