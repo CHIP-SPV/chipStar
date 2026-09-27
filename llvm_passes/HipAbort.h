@@ -17,14 +17,14 @@
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 #include <map>
 #include <set>
 
 using namespace llvm;
 
-class HipAbortPass : public PassInfoMixin<HipAbortPass> {
+class HipAbortPass : public HipRequiredPassInfoMixin<HipAbortPass> {
 public:
   // Rules:
   //   Unresolved + WontAbort -> Unresolved.

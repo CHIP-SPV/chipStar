@@ -18,11 +18,12 @@
 #ifndef LLVM_PASSES_HIP_CANONICALIZE_GEP_H
 #define LLVM_PASSES_HIP_CANONICALIZE_GEP_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipCanonicalizeGEPPass : public PassInfoMixin<HipCanonicalizeGEPPass> {
+class HipCanonicalizeGEPPass
+    : public HipRequiredPassInfoMixin<HipCanonicalizeGEPPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

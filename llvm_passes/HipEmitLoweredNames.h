@@ -16,7 +16,7 @@
 #ifndef LLVM_PASSES_HIP_EMIT_LOWERED_NAMES_H
 #define LLVM_PASSES_HIP_EMIT_LOWERED_NAMES_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
@@ -24,7 +24,8 @@ using namespace llvm;
 #error LLVM 14+ required.
 #endif
 
-class HipEmitLoweredNamesPass : public PassInfoMixin<HipEmitLoweredNamesPass> {
+class HipEmitLoweredNamesPass
+    : public HipRequiredPassInfoMixin<HipEmitLoweredNamesPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

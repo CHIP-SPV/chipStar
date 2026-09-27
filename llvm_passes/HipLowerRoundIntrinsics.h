@@ -19,12 +19,12 @@
 #ifndef LLVM_PASSES_HIP_LOWER_ROUND_INTRINSICS_H
 #define LLVM_PASSES_HIP_LOWER_ROUND_INTRINSICS_H
 
-#include <llvm/IR/PassManager.h>
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
 class HipLowerRoundIntrinsicsPass
-    : public PassInfoMixin<HipLowerRoundIntrinsicsPass> {
+    : public HipRequiredPassInfoMixin<HipLowerRoundIntrinsicsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

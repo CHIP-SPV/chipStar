@@ -15,13 +15,13 @@
 #ifndef LLVM_PASSES_HIP_VERIFY_H
 #define LLVM_PASSES_HIP_VERIFY_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 #include <vector>
 #include <string>
 
 namespace llvm {
 
-class HipVerifyPass : public PassInfoMixin<HipVerifyPass> {
+class HipVerifyPass : public HipRequiredPassInfoMixin<HipVerifyPass> {
 public:
   struct VerificationResult {
     std::string ModuleName;

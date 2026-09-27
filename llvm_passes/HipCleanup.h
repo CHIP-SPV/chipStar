@@ -16,11 +16,11 @@
 #ifndef LLVM_PASSES_HIP_CLEANUP_H
 #define LLVM_PASSES_HIP_CLEANUP_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipCleanupPass : public PassInfoMixin<HipCleanupPass> {
+class HipCleanupPass : public HipRequiredPassInfoMixin<HipCleanupPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

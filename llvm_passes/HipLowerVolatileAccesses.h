@@ -19,12 +19,12 @@
 #ifndef LLVM_PASSES_HIP_LOWER_VOLATILE_ACCESSES_H
 #define LLVM_PASSES_HIP_LOWER_VOLATILE_ACCESSES_H
 
-#include <llvm/IR/PassManager.h>
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
 class HipLowerVolatileAccessesPass
-    : public PassInfoMixin<HipLowerVolatileAccessesPass> {
+    : public HipRequiredPassInfoMixin<HipLowerVolatileAccessesPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static bool isRequired() { return true; }

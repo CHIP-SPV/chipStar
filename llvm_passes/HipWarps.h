@@ -15,11 +15,11 @@
 #define LLVM_PASSES_HIP_WARPS_H
 
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipWarpsPass : public PassInfoMixin<HipWarpsPass> {
+class HipWarpsPass : public HipRequiredPassInfoMixin<HipWarpsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

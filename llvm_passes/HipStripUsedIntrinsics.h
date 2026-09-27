@@ -16,12 +16,12 @@
 #ifndef LLVM_PASSES_HIP_STRIP_COMPILER_USED_H
 #define LLVM_PASSES_HIP_STRIP_COMPILER_USED_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
 class HipStripUsedIntrinsicsPass
-    : public PassInfoMixin<HipStripUsedIntrinsicsPass> {
+    : public HipRequiredPassInfoMixin<HipStripUsedIntrinsicsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

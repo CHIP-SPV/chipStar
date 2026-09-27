@@ -12,11 +12,12 @@
 #ifndef LLVM_PASSES_HIP_IGBA_DETECTOR_H
 #define LLVM_PASSES_HIP_IGBA_DETECTOR_H
 
-#include <llvm/IR/PassManager.h>
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipIGBADetectorPass : public PassInfoMixin<HipIGBADetectorPass> {
+class HipIGBADetectorPass
+    : public HipRequiredPassInfoMixin<HipIGBADetectorPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

@@ -14,7 +14,7 @@
 #ifndef LLVM_PASSES_HIP_KERNEL_ARG_SPILLER_H
 #define LLVM_PASSES_HIP_KERNEL_ARG_SPILLER_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
@@ -22,7 +22,8 @@ using namespace llvm;
 #error LLVM 14+ required.
 #endif
 
-class HipKernelArgSpillerPass : public PassInfoMixin<HipKernelArgSpillerPass> {
+class HipKernelArgSpillerPass
+    : public HipRequiredPassInfoMixin<HipKernelArgSpillerPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

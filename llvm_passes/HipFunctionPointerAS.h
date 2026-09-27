@@ -17,12 +17,12 @@
 #define LLVM_PASSES_HIP_FUNCTION_POINTER_AS_H
 
 #include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
 class HipFunctionPointerASPass
-    : public PassInfoMixin<HipFunctionPointerASPass> {
+    : public HipRequiredPassInfoMixin<HipFunctionPointerASPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }
