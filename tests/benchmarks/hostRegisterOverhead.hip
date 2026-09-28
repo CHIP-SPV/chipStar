@@ -45,6 +45,10 @@ int main() {
   CHECK(hipMalloc(&DevPtrPtr, sizeof(double *)));
   CHECK(hipMemcpy(DevPtrPtr, &DevBuf, sizeof(double *), hipMemcpyHostToDevice));
 
+  // Untimed: the first launch compiles the kernel, which only the first loop would pay.
+  KERNEL_LAUNCH(DevPtrPtr);
+  CHECK(hipDeviceSynchronize());
+
   // --- with hipHostRegister ---
   CHECK(hipHostRegister(HostBuf, BUF_SIZE, 0));
 
