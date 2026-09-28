@@ -59,6 +59,12 @@ jobs:
           for lib in /Users/paulius/install/pocl/lib/libpocl.*.dylib; do
             if [ -f "$lib" ]; then
               otool -l "$lib" | grep -q "path ${LLVM_LIBDIR}" || install_name_tool -add_rpath "${LLVM_LIBDIR}" "$lib" || true
+              # Load LLVM by its unversioned names, so a promotion that renames the versioned dylibs cannot strand PoCL.
+              refs=$(otool -L "$lib" | awk '/@rpath\/lib(LLVM|clang-cpp)\.[0-9]/{print $1}')
+              for ref in $refs; do
+                install_name_tool -change "$ref" "$(echo "$ref" | sed -E 's/\.[0-9][^/]*\.dylib$/.dylib/')" "$lib"
+              done
+              [ -z "$refs" ] || codesign -f -s - "$lib"
             fi
           done
 
