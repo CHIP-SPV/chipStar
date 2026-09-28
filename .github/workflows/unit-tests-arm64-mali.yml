@@ -128,7 +128,7 @@ jobs:
           docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work -v "$CROSS_WORK":/work \
             "$CROSS_IMAGE" ctest --output-on-failure -j"$(( $(nproc) > 1 ? $(nproc) - 1 : 1 ))" \
               --test-dir /work/cross-${{ steps.tree.outputs.tree }}-${{ matrix.variant }}/tests/compiler \
-              -E '^(TestHipccAcceptCFiles|TestRDCWithSingleHipccCmd|TestRDCWithMultipleHipccCmds|TestWholeProgramCompilation|TestSeparateCompilation|TestBFloat16RDC|TestPrintfStaticString|TestStaticLibRDC|hipSubwordAtomics-subword-atomics|hipVolatileAccesses-volatile-accesses)$'
+              -E '^(TestHipccAcceptCFiles|TestRDCWithSingleHipccCmd|TestRDCWithMultipleHipccCmds|TestWholeProgramCompilation|TestSeparateCompilation|TestBFloat16RDC|TestPrintfStaticString|TestStaticLibRDC|hipSubwordAtomics-subword-atomics|hipVolatileAccesses-volatile-accesses|TestSpirvDuplicatePhiHip)$'
         timeout-minutes: 10
 
   test-mali:
