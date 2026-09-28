@@ -277,26 +277,46 @@ extern "C++" inline __device__ unsigned long atomicMax_system(unsigned long *add
   return __chip_atomic_max_system_ul(address, val);
 }
 
-extern "C" __device__ unsigned int __chip_atomic_inc2_u(unsigned int *address,
-                                                        unsigned int val);
-extern "C++" inline __device__ unsigned atomicInc(unsigned *address) {
-  return __chip_atomic_inc2_u(address, 1);
-}
-
+extern "C" __device__ unsigned int __chip_atomic_inc_u(unsigned int *address,
+                                                       unsigned int val);
 extern "C++" inline __device__ unsigned
-atomicInc(unsigned *address, unsigned val) { // Undocumented
-  return __chip_atomic_inc2_u(address, val);
+atomicInc(unsigned *address, unsigned val) {
+  return __chip_atomic_inc_u(address, val);
 }
 
-extern "C" __device__ unsigned int __chip_atomic_dec2_u(unsigned int *address,
-                                                        unsigned int val);
-extern "C++" inline __device__ unsigned int atomicDec(unsigned int *address) {
-  return __chip_atomic_dec2_u(address, 1);
+extern "C" __device__ unsigned int
+__chip_atomic_inc_system_u(unsigned int *address, unsigned int val);
+extern "C++" inline __device__ unsigned
+atomicInc_system(unsigned *address, unsigned val) {
+  return __chip_atomic_inc_system_u(address, val);
 }
 
+extern "C" __device__ unsigned int
+__chip_atomic_inc_block_u(unsigned int *address, unsigned int val);
+extern "C++" inline __device__ unsigned
+atomicInc_block(unsigned *address, unsigned val) {
+  return __chip_atomic_inc_block_u(address, val);
+}
+
+extern "C" __device__ unsigned int __chip_atomic_dec_u(unsigned int *address,
+                                                       unsigned int val);
 extern "C++" inline __device__ unsigned int
-atomicDec(unsigned *address, unsigned val) { // Undocumented
-  return __chip_atomic_dec2_u(address, val);
+atomicDec(unsigned *address, unsigned val) {
+  return __chip_atomic_dec_u(address, val);
+}
+
+extern "C" __device__ unsigned int
+__chip_atomic_dec_system_u(unsigned int *address, unsigned int val);
+extern "C++" inline __device__ unsigned int
+atomicDec_system(unsigned *address, unsigned val) {
+  return __chip_atomic_dec_system_u(address, val);
+}
+
+extern "C" __device__ unsigned int
+__chip_atomic_dec_block_u(unsigned int *address, unsigned int val);
+extern "C++" inline __device__ unsigned int
+atomicDec_block(unsigned *address, unsigned val) {
+  return __chip_atomic_dec_block_u(address, val);
 }
 
 // AMD GCN builtins for the wrapping atomic increment/decrement. Clang only
@@ -304,20 +324,19 @@ atomicDec(unsigned *address, unsigned val) { // Undocumented
 // example desul's atomic_fetch_inc_mod / atomic_fetch_dec_mod, which Kokkos
 // bundles) does not compile for SPIR-V. Their semantics are exactly
 // atomicInc/atomicDec, which chipStar already implements, so forward to those.
-// The memory order and scope arguments are accepted and ignored, matching the
-// relaxed device-scope behaviour of __chip_atomic_{inc,dec}2_u.
+// The memory order and scope arguments are accepted and ignored.
 extern "C++" inline __device__ unsigned int
 __builtin_amdgcn_atomic_inc32(unsigned int *address, unsigned int val,
                               int /*order*/, const char * /*scope*/,
                               bool /*isVolatile*/ = false) {
-  return __chip_atomic_inc2_u(address, val);
+  return __chip_atomic_inc_u(address, val);
 }
 
 extern "C++" inline __device__ unsigned int
 __builtin_amdgcn_atomic_dec32(unsigned int *address, unsigned int val,
                               int /*order*/, const char * /*scope*/,
                               bool /*isVolatile*/ = false) {
-  return __chip_atomic_dec2_u(address, val);
+  return __chip_atomic_dec_u(address, val);
 }
 
 extern "C" __device__ int __chip_atomic_cmpxchg_i(int *address, int compare,

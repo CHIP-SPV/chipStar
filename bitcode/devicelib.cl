@@ -653,46 +653,6 @@ DEF_CHIP_ATOMIC2 (xor, fetch_xor)
 // __chip_atomic_xchg_i, __chip_atomic_xchg_u, __chip_atomic_xchg_l
 DEF_CHIP_ATOMIC2 (exch, exchange)
 
-#define DEF_CHIP_ATOMIC1_ORDER_SCOPE(NAME, OP, ORDER, SCOPE)                  \
-  int OVLD atomic_##OP##_explicit (volatile __generic int *, int,             \
-                                   memory_order order, memory_scope scope);   \
-  uint OVLD atomic_##OP##_explicit (volatile __generic uint *, uint,          \
-                                    memory_order order, memory_scope scope);  \
-  ulong OVLD atomic_##OP##_explicit (volatile __generic ulong *, ulong,       \
-                                     memory_order order, memory_scope scope); \
-  int __chip_atomic_##NAME##_i (DEFAULT_AS int *address)                      \
-  {                                                                           \
-    return atomic_##OP##_explicit ((volatile __generic int *)address, 1,      \
-                                   memory_order_##ORDER,                      \
-                                   memory_scope_##SCOPE);                     \
-  }                                                                           \
-  uint __chip_atomic_##NAME##_u (DEFAULT_AS uint *address)                    \
-  {                                                                           \
-    return atomic_##OP##_explicit ((volatile __generic uint *)address, 1,     \
-                                   memory_order_##ORDER,                      \
-                                   memory_scope_##SCOPE);                     \
-  }                                                                           \
-  ulong __chip_atomic_##NAME##_l (DEFAULT_AS ulong *address)                  \
-  {                                                                           \
-    return atomic_##OP##_explicit ((volatile __generic ulong *)address, 1,    \
-                                   memory_order_##ORDER,                      \
-                                   memory_scope_##SCOPE);                     \
-  }
-
-// __chip_atomic_inc_i, __chip_atomic_inc_u, __chip_atomic_inc_l
-DEF_CHIP_ATOMIC1_ORDER_SCOPE (inc, fetch_add, relaxed, device)
-
-DEF_CHIP_ATOMIC1_ORDER_SCOPE (inc_system, fetch_add, relaxed, all_svm_devices)
-
-DEF_CHIP_ATOMIC1_ORDER_SCOPE (inc_block, fetch_add, relaxed, work_group)
-
-// __chip_atomic_dec_i, __chip_atomic_dec_u, __chip_atomic_dec_l
-DEF_CHIP_ATOMIC1_ORDER_SCOPE (dec, fetch_sub, relaxed, device)
-
-DEF_CHIP_ATOMIC1_ORDER_SCOPE (dec_system, fetch_sub, relaxed, all_svm_devices)
-
-DEF_CHIP_ATOMIC1_ORDER_SCOPE (dec_block, fetch_sub, relaxed, work_group)
-
 #define DEF_CHIP_ATOMIC3_ORDER_SCOPE(NAME, OP, ORDER, SCOPE)                  \
   int __chip_atomic_##NAME##_i (DEFAULT_AS int *address, int cmp, int val)    \
   {                                                                           \
@@ -787,69 +747,51 @@ DEF_CHIP_ATOMIC2F(exch, exchange)
 /**************************************************************************************/
 /**************************************************************************************/
 
-static OVLD uint __chip_atomic_inc2_u(volatile local uint *address, uint val) {
-  uint old = *address;
-  uint r;
-  do {
-    r = old;
-    old = atom_cmpxchg(address, r, ((r >= val) ? 0 : (r + 1)));
-  } while (r != old);
+// atomicInc and atomicDec are not OpenCL atomics: each wraps around at val,
+//
+//   atomicInc: old >= val ? 0 : old + 1
+//   atomicDec: (old == 0 || old > val) ? val : old - 1
+//
+// so both are compare-exchange loops. Like DEF_CHIP_ATOMIC3_ORDER_SCOPE above,
+// the exchange is OpenCL 2.0's atomic_compare_exchange_strong_explicit, which
+// takes a memory scope and acts on a generic pointer. The cl_khr atom_cmpxchg
+// it replaces has one overload per address space, which is why atomicInc was
+// split by to_global/to_local before; a generic pointer covers both spaces and
+// the scope argument gives the device, system and block variants. A successful
+// exchange leaves `expected` holding the value read before the update, which
+// is the old value both functions return.
+//
+// The order is relaxed, as for the atomics CUDA's manual describes as "legacy":
+// they promise atomicity, not ordering, and the scope below only names the
+// set of threads the operation is atomic among. `expected` is seeded with a
+// plain read through a non-atomic pointer, the same read the cl_khr version
+// did and the one CUDA's own device implementations use.
+#define DEF_CHIP_ATOMIC_INCDEC(NAME, EXPR, SCOPE)                             \
+  uint __chip_atomic_##NAME##_u(DEFAULT_AS uint *address, uint val) {         \
+    volatile __generic atomic_uint *addr =                                    \
+        (volatile __generic atomic_uint *)address;                            \
+    uint expected = *(volatile __generic uint *)address;                      \
+    uint desired;                                                             \
+    do {                                                                      \
+      desired = (EXPR);                                                       \
+    } while (!atomic_compare_exchange_strong_explicit(                        \
+        addr, &expected, desired, memory_order_relaxed,                       \
+        memory_order_relaxed, memory_scope_##SCOPE));                         \
+    return expected;                                                          \
+  }
 
-  return r;
-}
+#define DEF_CHIP_ATOMIC_INCDEC_SCOPES(NAME, EXPR)                             \
+  DEF_CHIP_ATOMIC_INCDEC(NAME, EXPR, device)                                  \
+  DEF_CHIP_ATOMIC_INCDEC(NAME##_system, EXPR, all_svm_devices)                \
+  DEF_CHIP_ATOMIC_INCDEC(NAME##_block, EXPR, work_group)
 
-static OVLD uint __chip_atomic_dec2_u(volatile local uint *address, uint val) {
-  uint old = *address;
-  uint r;
-  do {
-    r = old;
-    old = atom_cmpxchg(address, r, (((r == 0) || (r > val)) ? val : (r - 1)));
-  } while (r != old);
+// __chip_atomic_inc_u, __chip_atomic_inc_system_u, __chip_atomic_inc_block_u
+DEF_CHIP_ATOMIC_INCDEC_SCOPES(inc, (expected >= val) ? 0 : (expected + 1))
 
-  return r;
-}
+// __chip_atomic_dec_u, __chip_atomic_dec_system_u, __chip_atomic_dec_block_u
+DEF_CHIP_ATOMIC_INCDEC_SCOPES(
+    dec, ((expected == 0) || (expected > val)) ? val : (expected - 1))
 
-static OVLD uint __chip_atomic_inc2_u(volatile global uint *address, uint val) {
-  uint old = *address;
-  uint r;
-  do {
-    r = old;
-    old = atom_cmpxchg(address, r, ((r >= val) ? 0 : (r + 1)));
-  } while (r != old);
-
-  return r;
-}
-
-static OVLD uint __chip_atomic_dec2_u(volatile global uint *address, uint val) {
-  uint old = *address;
-  uint r;
-  do {
-    r = old;
-    old = atom_cmpxchg(address, r, (((r == 0) || (r > val)) ? val : (r - 1)));
-  } while (r != old);
-
-  return r;
-}
-
-EXPORT uint __chip_atomic_inc2_u(DEFAULT_AS uint *address, uint val) {
-  volatile global uint *gi = to_global((DEFAULT_AS uint *)address);
-  if (gi)
-    return __chip_atomic_inc2_u(gi, val);
-  volatile local uint *li = to_local((DEFAULT_AS uint *)address);
-  if (li)
-    return __chip_atomic_inc2_u(li, val);
-  return 0;
-}
-
-EXPORT uint __chip_atomic_dec2_u(DEFAULT_AS uint *address, uint val) {
-  volatile global uint *gi = to_global((DEFAULT_AS uint *)address);
-  if (gi)
-    return __chip_atomic_dec2_u(gi, val);
-  volatile local uint *li = to_local((DEFAULT_AS uint *)address);
-  if (li)
-    return __chip_atomic_dec2_u(li, val);
-  return 0;
-}
 /**********************************************************************/
 
 // Use the KHR subgroup shuffles (cl_khr_subgroup_shuffle). They lower to
