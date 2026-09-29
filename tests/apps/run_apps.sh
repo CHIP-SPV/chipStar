@@ -199,7 +199,7 @@ report_zerork() { perf_check zerork "$WRK_DIR/zero-rk/output"; }
 
 build_opensn() {
   cd "$WRK_DIR"
-  module load frameworks/2025.3.1
+  module load frameworks
   export ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
   export ONEAPI_DEVICE_SELECTOR=level_zero:gpu
   load_chipstar
