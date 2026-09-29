@@ -65,7 +65,7 @@ Found HIP installation: /home/michal/0/build/b_chip_sycl, version 5.1.0
 
 This is a library which contains HIP device-side functions (math, workgroup and others) which either don't exist in OpenCL at all, or have different implementation (different name, function signature etc), and implements these by using OpenCL device-side functions (or OpenCL extensions where possible).
 
-For example, the `__syncthreads()` call is implemented by calling `barrier(CLK_LOCAL_MEM_FENCE)`, `rhypot()` has no equivalent in OpenCL so it's implemented via OCML, and shuffle functions are implemented using cl_khr_subgroup_shuffle and cl_khr_subgroup_shuffle_relative extensions. Kernels that call cross-lane intrinsics that are sensitive to the fixed warp width are handled by annotating them with cl_intel_reqd_sub_group_size.
+For example, the `__syncthreads()` call is implemented by calling `barrier(CLK_LOCAL_MEM_FENCE)`, `rhypot()` has no equivalent in OpenCL so it's implemented via OCML, and shuffle functions are implemented using cl_khr_subgroup_shuffle and cl_khr_subgroup_shuffle_relative extensions. Kernels that can exchange data between lanes, through a subgroup builtin or shared memory, get the `intel_reqd_sub_group_size` metadata (the cl_intel_required_subgroup_size extension) set to the warp size, unless they reach an indirect call.
 
 ### chipStar-specific LLVM passes
 
