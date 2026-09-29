@@ -428,10 +428,11 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, HipGlobalVariablesPass(), "HipGlobalVariablesPass");
   addPassWithVerification(MPM, HipOffsetBeforeCastPass(), "HipOffsetBeforeCastPass");
 
-  addPassWithVerification(MPM, HipWarpsPass(), "HipWarpsPass");
-
   // This pass must be last one that modifies kernel parameter list.
   addPassWithVerification(MPM, HipKernelArgSpillerPass(), "HipKernelArgSpillerPass");
+
+  // After the spiller, so the pin lands on the kernels it creates.
+  addPassWithVerification(MPM, HipWarpsPass(), "HipWarpsPass");
 
   // After every pass that can create a copy, so a zero length one it emits is
   // erased too, and before the DCE below, so the address computations feeding
