@@ -9,11 +9,11 @@ for IN in @TEST_NAME@ @TEST_NAME@Ballot; do
     -passes=hip-post-link-passes -S "@CMAKE_CURRENT_SOURCE_DIR@/${IN}.ll" -o - >> "${OUT}"
 done
 # Kernels whose lanes exchange data must be pinned to the warp size.
-for K in lockstep dynshared syncwarp ballot; do
+for K in lockstep dynshared syncwarp ballot spilled; do
   grep -E "define spir_kernel void @$K\(.*!intel_reqd_sub_group_size" "${OUT}" || { echo "FAIL: @$K not pinned"; exit 1; }
 done
 # Others, and kernels reaching an indirect call, must not be.
-for K in plain indirect; do
+for K in plain indirect spilled_indirect; do
   grep -q "define spir_kernel void @$K(" "${OUT}" || { echo "FAIL: @$K missing"; exit 1; }
   if grep -E "define spir_kernel void @$K\(.*!intel_reqd_sub_group_size" "${OUT}"; then
     echo "FAIL: @$K pinned"; exit 1

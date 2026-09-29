@@ -47,3 +47,21 @@ entry:
   call spir_func void %f(ptr addrspace(1) %o)
   ret void
 }
+
+; Over 1024 bytes of arguments: HipKernelArgSpiller replaces these kernels.
+%struct.Big = type { [128 x i64] }
+
+define spir_kernel void @spilled(ptr addrspace(1) %o, ptr byval(%struct.Big) align 8 %b) {
+entry:
+  call spir_func void @_Z17sub_group_barrierj(i32 2)
+  %v = load i32, ptr %b, align 4
+  store i32 %v, ptr addrspace(1) %o, align 4
+  ret void
+}
+
+define spir_kernel void @spilled_indirect(ptr addrspace(1) %o, ptr %f, ptr byval(%struct.Big) align 8 %b) {
+entry:
+  call spir_func void @_Z17sub_group_barrierj(i32 2)
+  call spir_func void %f(ptr addrspace(1) %o)
+  ret void
+}
