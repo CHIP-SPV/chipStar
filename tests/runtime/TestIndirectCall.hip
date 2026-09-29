@@ -25,15 +25,10 @@ __global__ void k(int *Data, int Sel) {
   *Data = Fns[Sel](*Data);
 }
 
-// A warp primitive anywhere in the module makes HipWarpsPass stamp
-// intel_reqd_sub_group_size. A stamped kernel loses the arguments of an
-// indirect call after the first one, so the callees below take two arguments
-// and the kernel that reaches them must come out unstamped. touchShfl is never
-// launched; it only has to exist so the shuffle declaration is in the module.
-// One #include of Kokkos_Core.hpp was enough to trigger this, which broke
-// device-side dispatch for every Kokkos application (CHIP-SPV/chipStar#1380).
-__device__ int Sink;
-__global__ void touchShfl(int V) { Sink = __shfl(V, 0); }
+// HipWarpsPass stamps intel_reqd_sub_group_size on kernels that use warp
+// operations. A stamped kernel loses the arguments of an indirect call after
+// the first one, so the callees below take two arguments and the kernel that
+// reaches them must come out unstamped (CHIP-SPV/chipStar#1380).
 
 static __device__ double implA(double X, int I) {
   return X * 1000.0 + I * 10.0 + 6.0;
@@ -44,6 +39,7 @@ typedef double (*Callee)(double, int);
 
 // Select through a kernel argument so the indirect call survives the optimizer.
 __global__ void dispatch(double *Out, int Sel) {
+  __syncwarp(); // A warp operation, so only the exclusion keeps it unstamped.
   Callee Fns[] = {implA, implB};
   Out[0] = Fns[Sel](7.0, 3);
 }
