@@ -1771,7 +1771,11 @@ void chipstar::Backend::initialize() {
 
 void chipstar::Backend::setActiveContext(chipstar::Context *ChipContext) {
   LOCK(::Backend->ActiveCtxMtx); // writing Backend::ChipCtxStack
-  ChipCtxStack.push(ChipContext);
+  // Replaces the top of the stack, as cuCtxSetCurrent does; null just pops.
+  if (!ChipCtxStack.empty())
+    ChipCtxStack.pop();
+  if (ChipContext)
+    ChipCtxStack.push(ChipContext);
 }
 
 void chipstar::Backend::setActiveDevice(chipstar::Device *ChipDevice) {
