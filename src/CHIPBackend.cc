@@ -512,7 +512,7 @@ chipstar::Module::allocateDeviceVariablesNoLock(chipstar::Device *Device,
     // so the size is 0 - update it from the shadow kernel.
     if (Var->getSize() == 0) {
       // This is a device-only variable - update the size
-      const_cast<SPVVariable*>(Var->getSrcVar())->Size = Size;
+      Var->setSize(Size);
     }
     assert(Var->getSize() == Size && "Object size discrepancy!");
     queueVariableBindShadowKernel(Queue, this, Var);

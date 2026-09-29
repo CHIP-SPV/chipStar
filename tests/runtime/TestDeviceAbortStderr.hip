@@ -7,7 +7,7 @@
 //
 // The kernel fails an assertion the way Kokkos::abort does on the device
 // (Kokkos_HIP_Abort.hpp: __assert_fail(msg, "", 0, "")). The runtime services
-// the abort after the launch and terminates the process with SIGABRT.
+// the abort at the synchronization and terminates the process with SIGABRT.
 // tests/run_device_abort_stderr_test.cmake runs this binary with stdout and
 // stderr captured separately and owns the verdict: the process must die with
 // SIGABRT and the assertion message must be on stderr.

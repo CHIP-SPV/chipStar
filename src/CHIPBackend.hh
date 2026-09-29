@@ -691,6 +691,9 @@ public:
 class DeviceVar {
 private:
   const SPVVariable *SrcVar_ = nullptr;
+  // Copied: SrcVar_ is freed when its fat binary is unregistered.
+  std::string Name_;
+  size_t Size_;
   void *DevAddr_ = nullptr;
   /// The alignment requirement of the variable.
   // NOTE: The alignment infromation is not carried in __hipRegisterVar() calls
@@ -702,14 +705,16 @@ private:
   int64_t InitKind_ = 0;
 
 public:
-  DeviceVar(const SPVVariable *SrcVar) : SrcVar_(SrcVar) {}
+  DeviceVar(const SPVVariable *SrcVar)
+      : SrcVar_(SrcVar), Name_(SrcVar->Name), Size_(SrcVar->Size) {}
   ~DeviceVar();
 
   void *getDevAddr() const { return DevAddr_; }
   void setDevAddr(void *Addr) { DevAddr_ = Addr; }
   const SPVVariable *getSrcVar() const { return SrcVar_; }
-  std::string_view getName() const { return SrcVar_->Name; }
-  size_t getSize() const { return SrcVar_->Size; }
+  std::string_view getName() const { return Name_; }
+  size_t getSize() const { return Size_; }
+  void setSize(size_t Size) { Size_ = Size; }
   size_t getAlignment() const { return Alignment_; }
   void setAlignment(size_t TheAlignment) {
     assert(Alignment_ && "Invalid alignment");
@@ -1531,6 +1536,15 @@ public:
   /// Return the number of currently compiled modules on this device.
   size_t getNumCompiledModules() const { return SrcModToCompiledMod_.size(); }
 
+  /// True if M is in this device's compiled-module map.
+  bool hasModule(const chipstar::Module *M) {
+    LOCK(DeviceMtx); // SrcModToCompiledMod_
+    for (auto &Kv : SrcModToCompiledMod_)
+      if (Kv.second == M)
+        return true;
+    return false;
+  }
+
   /**
    * @brief Get the Kernels object
    *
@@ -2252,6 +2266,9 @@ protected:
   bool isPerThreadDefaultQueue_ = false;
 
 public:
+  /// Modules that can abort, launched here since the last abort check.
+  std::set<chipstar::Module *> PendingAbortChecks;
+
   /// @brief Get the host/device timestamps and copy them to the event.
   /// @param Event The event to update.
   virtual void recordEvent(chipstar::Event *Event) = 0;

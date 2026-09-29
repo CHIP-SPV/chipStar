@@ -1182,6 +1182,8 @@ static void handleAbortRequest(chipstar::Queue &Q, chipstar::Module &M) {
     // is used for avoiding kernel launches to read the value to
     // minimize overheads when abort is not used.
     return;
+  if (!Var->getDevAddr())
+    return; // No kernel of M has run on this device.
 
   int32_t AbortFlag = 0;
   hipError_t Err = Q.memCopy(&AbortFlag, Var->getDevAddr(), sizeof(int32_t),
@@ -1237,6 +1239,24 @@ static void handleAbortRequest(chipstar::Queue &Q, chipstar::Module &M) {
   }
 
   printf("[ABORT IGNORED]\n");
+}
+
+// Defers the abort check of a launch from M on Q to a later synchronization
+// with Q; checking here would wait for the kernel.
+static void deferAbortCheck(chipstar::Queue &Q, chipstar::Module &M) {
+  if (M.getGlobalVar(ChipDeviceAbortFlagName))
+    Q.PendingAbortChecks.insert(&M);
+}
+
+// Services the deferred abort checks of Q, reading the flags through CopyQ
+// (default: Q); call only after Q has finished.
+static void handlePendingAbortRequests(chipstar::Queue &Q,
+                                       chipstar::Queue *CopyQ = nullptr) {
+  for (auto *M : Q.PendingAbortChecks)
+    // Another thread may have unloaded M since the launch.
+    if (Q.getDevice()->hasModule(M))
+      handleAbortRequest(CopyQ ? *CopyQ : Q, *M);
+  Q.PendingAbortChecks.clear();
 }
 
 hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
@@ -3145,15 +3165,26 @@ hipError_t hipSetDevice(int DeviceId) {
 
 static inline hipError_t hipDeviceSynchronizeInternal(void) {
   auto Dev = Backend->getActiveDevice();
-  LOCK(Dev->QueueAddRemoveMtx); // prevents queues from being destryed while
-                                // iterating
-  for (auto Q : Dev->getQueuesNoLock())
-    Q->finish();
+  std::vector<chipstar::Queue *> Queues;
+  {
+    LOCK(Dev->QueueAddRemoveMtx); // prevents queues from being destryed while
+                                  // iterating
+    Queues = Dev->getQueuesNoLock();
+    for (auto Q : Queues)
+      Q->finish();
 
-  Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-  if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
-    Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
+    Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
+    if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
+      Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
+    }
   }
+
+  // Outside QueueAddRemoveMtx, which the abort check's memCopy takes.
+  for (auto Q : Queues)
+    handlePendingAbortRequests(*Q);
+  handlePendingAbortRequests(*Dev->getLegacyDefaultQueue());
+  if (Dev->isPerThreadStreamUsed())
+    handlePendingAbortRequests(*Dev->getPerThreadDefaultQueue());
 
   return hipSuccess;
 }
@@ -3839,6 +3870,17 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
   }
 
   ChipQueue->finish();
+  handlePendingAbortRequests(*ChipQueue);
+  // Read through ChipQueue: a copy on the legacy queue would wait for every
+  // blocking stream.
+  if (ChipQueue->getQueueFlags().isBlocking() &&
+      !ChipQueue->isDefaultLegacyQueue() &&
+      !ChipQueue->isDefaultPerThreadQueue()) {
+    auto Dev = Backend->getActiveDevice();
+    handlePendingAbortRequests(*Dev->getLegacyDefaultQueue(), ChipQueue);
+    if (Dev->isPerThreadStreamUsed())
+      handlePendingAbortRequests(*Dev->getPerThreadDefaultQueue(), ChipQueue);
+  }
   return hipSuccess;
 }
 
@@ -5105,9 +5147,23 @@ hipError_t hipMemcpyInternal(void *Dst, const void *Src, size_t SizeBytes,
 
   auto Queue = Backend->getActiveDevice()->getDefaultQueue();
   checkMemcpyKind(*Queue->getDevice(), Kind);
-  LOCK(Queue->QueueMtx);
-
-  return Queue->memCopy(Dst, Src, SizeBytes, Kind);
+  hipError_t Err;
+  {
+    LOCK(Queue->QueueMtx);
+    Err = Queue->memCopy(Dst, Src, SizeBytes, Kind);
+  }
+  handlePendingAbortRequests(*Queue);
+  // A copy on a default queue also waited for the blocking streams.
+  auto *Dev = Queue->getDevice();
+  std::vector<chipstar::Queue *> Queues;
+  {
+    LOCK(Dev->QueueAddRemoveMtx);
+    Queues = Dev->getQueuesNoLock();
+  }
+  for (auto Q : Queues)
+    if (Q->getQueueFlags().isBlocking())
+      handlePendingAbortRequests(*Q, Queue);
+  return Err;
 }
 
 hipError_t hipMemcpy(void *Dst, const void *Src, size_t SizeBytes,
@@ -6266,7 +6322,7 @@ static inline hipError_t hipLaunchKernelInternal(const void *HostFunction,
     CHIPERR_LOG_AND_THROW("Unexpected error: could not find a kernel.",
                           hipErrorTbd);
   ChipQueue->launchKernel(ChipKernel, GridDim, BlockDim, Args, SharedMem);
-  handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
+  deferAbortCheck(*ChipQueue, *ChipKernel->getModule());
 
   return hipSuccess;
 }
@@ -6549,7 +6605,7 @@ static inline hipError_t hipModuleLaunchKernelInternal(
                             SharedMemBytes);
   }
 
-  handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
+  deferAbortCheck(*ChipQueue, *ChipKernel->getModule());
   return hipSuccess;
 }
 
@@ -6645,7 +6701,7 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
   ExecItem->setKernel(ChipKernel);
 
   ChipQueue->launch(ExecItem);
-  handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
+  deferAbortCheck(*ChipQueue, *ChipKernel->getModule());
   delete ExecItem;
 
   return hipSuccess;

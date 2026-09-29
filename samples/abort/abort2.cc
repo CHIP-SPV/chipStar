@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
   hipError_t Err = hipMalloc(&OutD, sizeof(int));
   assert(Err == hipSuccess);
   abort_kernel<<<dim3(1), dim3(1)>>>(OutD);
+  (void)hipDeviceSynchronize();
   // Control should not reach here.
   printf("Error: abort() was ignored!\n");
   return 0;
