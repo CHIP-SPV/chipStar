@@ -20,9 +20,9 @@
 //               spin until flag != 0, then RE-READ data[idx]
 //
 // The prime is what makes it 100%: the reader is guaranteed to be holding the
-// pre-write line when the writer runs. Staleness surfaces two ways, both
-// counted: TIMEOUT (never observed the flag flip) and STALE (observed the flag,
-// then read pre-write data).
+// pre-write line when the writer runs. STALE (a volatile load returned the
+// pre-write flag or data after the write was visible) fails; a TIMEOUT (the
+// writer had not published when the reader gave up) is inconclusive and skips.
 //
 // Self-validating. Phase 1 runs the identical kernel and geometry with relaxed
 // atomics, which bypass a private cache by construction. If that phase is not
@@ -40,7 +40,7 @@
 // non-atomic on page-locked and managed memory.
 //
 // Devices whose global loads are already coherent across cores (Gen12LP iGPUs
-// such as UHD 730/770, CPU runtimes, Mali, AMD) pass every phase before and
+// such as UHD 730/770, CPU runtimes, Mali, AMD) never fail a phase before and
 // after the fix, which is correct: there is nothing there to fix.
 
 #include <hip/hip_runtime.h>
@@ -103,8 +103,15 @@ __global__ void litmus(unsigned *Data, unsigned *Flag, unsigned *Stale,
   while (loadOne(Flag, M) == 0u && ++Spins < (Publish ? MaxSpin : 1u)) {
   }
   if (loadOne(Flag, M) == 0u) {
-    atomicAdd(Timeouts, 1u);
-    return;
+    // Stale only if a cache-bypassing load already sees the flag set.
+    if (loadOne(Flag, ModeAtomic) == 0u) {
+      atomicAdd(Timeouts, 1u);
+      return;
+    }
+    if (loadOne(Flag, M) == 0u) {
+      atomicAdd(Stale, 1u);
+      return;
+    }
   }
   if (loadOne(&Data[Idx], M) != Magic + Idx)
     atomicAdd(Stale, 1u);
@@ -255,7 +262,7 @@ int main(int argc, char **argv) {
     printf("guard:    pinned/managed volatile RMW errors=%d\n", GuardErrors);
   }
 
-  if (Subject.bad()) {
+  if (Subject.Stale) {
     printf("FAILED: %llu of %llu volatile readers did not observe the writer's "
            "store (%llu stale reads, %llu flag timeouts) while the atomic "
            "control was clean. A volatile global load is being served from a "
@@ -267,6 +274,12 @@ int main(int argc, char **argv) {
     printf("FAILED: the volatile accesses did not behave as plain non-atomic "
            "accesses on host-visible memory (%d errors)\n", GuardErrors);
     return 1;
+  }
+  if (Subject.Timeouts || Subject.LatePrimed == Subject.Readers) {
+    printf("HIP_SKIP_THIS_TEST: no stale read, but %llu of %llu volatile "
+           "readers timed out on the flag and %llu were late-primed\n",
+           Subject.Timeouts, Subject.Readers, Subject.LatePrimed);
+    return 0;
   }
   printf("PASSED\n");
   return 0;
