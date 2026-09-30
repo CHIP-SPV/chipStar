@@ -132,8 +132,9 @@ endforeach()
 # deletes the spin loop. The host-allocation guard needs one work-item and no
 # inter-work-group visibility, and it is the check that catches an atomic
 # lowering faulting on pinned or managed memory, so it must not be lost with
-# the probe.
-add_hip_runtime_test(TestFix1508VolatileGlobalStaleness.hip MODES staleness guard)
+# the probe. The timeout mode checks a reader that never sees the flag is not
+# reported as a stale read.
+add_hip_runtime_test(TestFix1508VolatileGlobalStaleness.hip MODES staleness guard timeout)
 if(CHIP_VOLATILE_LOWERING_ATOMIC)
   target_compile_definitions(TestFix1508VolatileGlobalStaleness
     PRIVATE CHIP_VOLATILE_LOWERING_ATOMIC)

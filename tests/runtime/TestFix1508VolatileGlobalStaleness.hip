@@ -81,9 +81,10 @@ __device__ __forceinline__ void storeOne(unsigned *P, unsigned V, int M) {
 }
 
 __global__ void litmus(unsigned *Data, unsigned *Flag, unsigned *Stale,
-                       unsigned *Timeouts, unsigned *LatePrimed, int M) {
+                       unsigned *Timeouts, unsigned *LatePrimed, int M,
+                       bool Publish) {
   if (blockIdx.x == 0) {
-    if (threadIdx.x == 0) {
+    if (threadIdx.x == 0 && Publish) {
       for (unsigned I = 0; I < N; ++I)
         Data[I] = Magic + I; // plain stores, as Kokkos publishes its key
       __threadfence();       // Kokkos::memory_fence()
@@ -99,7 +100,7 @@ __global__ void litmus(unsigned *Data, unsigned *Flag, unsigned *Stale,
     return;
   }
   unsigned Spins = 0;
-  while (loadOne(Flag, M) == 0u && ++Spins < MaxSpin) {
+  while (loadOne(Flag, M) == 0u && ++Spins < (Publish ? MaxSpin : 1u)) {
   }
   if (loadOne(Flag, M) == 0u) {
     atomicAdd(Timeouts, 1u);
@@ -118,7 +119,7 @@ struct Result {
   unsigned long long bad() const { return Stale + Timeouts; }
 };
 
-static Result runPhase(int M) {
+static Result runPhase(int M, bool Publish = true) {
   unsigned *Data, *Flag, *Stale, *Timeouts, *LatePrimed;
   CHECK(hipMalloc(&Data, N * sizeof(unsigned)));
   CHECK(hipMalloc(&Flag, sizeof(unsigned)));
@@ -132,7 +133,7 @@ static Result runPhase(int M) {
     CHECK(hipMemset(Stale, 0, sizeof(unsigned)));
     CHECK(hipMemset(Timeouts, 0, sizeof(unsigned)));
     CHECK(hipMemset(LatePrimed, 0, sizeof(unsigned)));
-    litmus<<<WG, TPB>>>(Data, Flag, Stale, Timeouts, LatePrimed, M);
+    litmus<<<WG, TPB>>>(Data, Flag, Stale, Timeouts, LatePrimed, M, Publish);
     CHECK(hipGetLastError());
     CHECK(hipDeviceSynchronize());
     unsigned S, T, P;
@@ -214,10 +215,13 @@ static void report(const char *Name, const Result &R) {
 int main(int argc, char **argv) {
   // Phase selection so an abort in one phase cannot mask another's result.
   //   (none) = all phases, "staleness" = phases 1+2 only, "guard" = phase 3 only
+  //   "timeout" = phase 2 only, with no writer, so every reader times out
   const char *Sel = argc > 1 ? argv[1] : "all";
-  const bool DoStale = !strcmp(Sel, "all") || !strcmp(Sel, "staleness");
+  const bool NoWriter = !strcmp(Sel, "timeout");
+  const bool DoStale =
+      !strcmp(Sel, "all") || !strcmp(Sel, "staleness") || NoWriter;
   const bool DoGuard = !strcmp(Sel, "all") || !strcmp(Sel, "guard");
-  if (!DoStale && !DoGuard) { printf("usage: %s [all|staleness|guard]\n", argv[0]); return 2; }
+  if (!DoStale && !DoGuard) { printf("usage: %s [all|staleness|guard|timeout]\n", argv[0]); return 2; }
   if (!DoStale) {
     int GE = runHostVisibleGuard();
     printf("guard:    pinned/managed volatile RMW errors=%d\n", GE);
@@ -226,7 +230,7 @@ int main(int argc, char **argv) {
   }
 
   // Phase 1: the control.
-  Result Control = runPhase(ModeAtomic);
+  Result Control = NoWriter ? Result() : runPhase(ModeAtomic);
   report("atomic:", Control);
   if (Control.bad()) {
     printf("HIP_SKIP_THIS_TEST: the atomic control did not complete cleanly "
@@ -234,14 +238,14 @@ int main(int argc, char **argv) {
            Control.bad(), Control.Readers);
     return 0;
   }
-  if (Control.LatePrimed == Control.Readers) {
+  if (!NoWriter && Control.LatePrimed == Control.Readers) {
     printf("HIP_SKIP_THIS_TEST: every reader was late-primed, so no sample held "
            "a stale line\n");
     return 0;
   }
 
   // Phase 2: the subject. Identical kernel and geometry, volatile accesses.
-  Result Subject = runPhase(ModeVolatile);
+  Result Subject = runPhase(ModeVolatile, !NoWriter);
   report("volatile:", Subject);
 
   // Phase 3: the non-atomic guard on host-visible allocations.
