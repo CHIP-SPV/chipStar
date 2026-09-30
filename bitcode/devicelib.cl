@@ -1063,7 +1063,7 @@ EXPORT OVLD int __chip_any(int predicate) {
   return __chip_ballot(predicate) != 0;
 }
 
-EXPORT OVLD unsigned __chip_ballot_sync(unsigned mask, int predicate) {
+EXPORT OVLD ulong __chip_ballot_sync(unsigned mask, int predicate) {
   if (mask == 0) {
     return 0;
   } else if (mask == 0xFFFFFFFF) {
