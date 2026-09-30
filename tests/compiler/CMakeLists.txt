@@ -287,6 +287,8 @@ foreach(HINT_TEST
 endforeach()
 # A prefetch on a global pointer reaches SPIR-V as a real OpenCL prefetch.
 add_shell_test(TestPrefetchLowering.bash)
+# __ballot_sync must call a __chip_ballot_sync of matching type (#1723).
+add_shell_test(TestFix1723BallotSyncType.bash)
 
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
