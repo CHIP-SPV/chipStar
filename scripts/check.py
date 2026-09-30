@@ -50,7 +50,8 @@ def run_cmd(cmd):
     if args.dry_run:
         print(cmd)
         return "", 0
-    return_code = subprocess.call(cmd, shell=True)
+    # pipefail so the status is the command's, not tee's.
+    return_code = subprocess.call(["bash", "-o", "pipefail", "-c", cmd])
     with open(file_name, "rb") as f:
         return f.read().decode(errors='replace'), return_code
 
@@ -186,7 +187,4 @@ else:
     num_tries = args.num_tries
 
 res, err = run_tests(num_tries)
-if "0 tests failed" in res:
-    exit(0)
-else:
-    exit(1)
+exit(0 if err == 0 else 1)
