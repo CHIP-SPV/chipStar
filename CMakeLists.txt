@@ -1181,6 +1181,30 @@ install(TARGETS CHIP
   INCLUDES DESTINATION ${CHIP_CMAKE_INSTALL_INCLUDEDIR}
 )
 
+# libcuda.so and libcudart.so symlink to libCHIP.so; libcudadevrt.so and
+# libcudart_static.a are empty placeholders for find_package(CUDAToolkit).
+file(REMOVE "${CMAKE_BINARY_DIR}/libcuda.so")
+file(CREATE_LINK "libCHIP.so" "${CMAKE_BINARY_DIR}/libcuda.so" SYMBOLIC)
+file(REMOVE "${CMAKE_BINARY_DIR}/libcudart.so")
+file(CREATE_LINK "libCHIP.so" "${CMAKE_BINARY_DIR}/libcudart.so" SYMBOLIC)
+file(WRITE "${CMAKE_BINARY_DIR}/libcudadevrt.so" "")
+file(WRITE "${CMAKE_BINARY_DIR}/libcudart_static.a" "")
+
+install(FILES
+  "${CMAKE_BINARY_DIR}/libcuda.so"
+  "${CMAKE_BINARY_DIR}/libcudart.so"
+  "${CMAKE_BINARY_DIR}/libcudadevrt.so"
+  "${CMAKE_BINARY_DIR}/libcudart_static.a"
+  DESTINATION ${CHIP_CMAKE_INSTALL_LIBDIR})
+
+# CMake insists on finding an nvvm/libdevice directory under the toolkit root.
+file(WRITE "${CMAKE_BINARY_DIR}/nvvm/libdevice/.keep" "")
+install(FILES "${CMAKE_BINARY_DIR}/nvvm/libdevice/.keep"
+  DESTINATION nvvm/libdevice)
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/chipstar/cuda-toolchain.cmake
+  DESTINATION share/cmake/chipstar)
+
 install(FILES ${CMAKE_BINARY_DIR}/include/chipStarConfig.hh DESTINATION ${INCLUDE_INSTALL_DIR})
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/HIP/include DESTINATION . USE_SOURCE_PERMISSIONS)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include DESTINATION . USE_SOURCE_PERMISSIONS
