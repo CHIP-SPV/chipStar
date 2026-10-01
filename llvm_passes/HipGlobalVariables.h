@@ -17,11 +17,12 @@
 #ifndef LLVM_PASSES_HIP_GLOBAL_VARIABLES_H
 #define LLVM_PASSES_HIP_GLOBAL_VARIABLES_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipGlobalVariablesPass : public PassInfoMixin<HipGlobalVariablesPass> {
+class HipGlobalVariablesPass
+    : public HipOptionalPassInfoMixin<HipGlobalVariablesPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };

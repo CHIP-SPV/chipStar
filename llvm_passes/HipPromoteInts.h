@@ -1,12 +1,12 @@
 #ifndef HIP_PROMOTE_INTS_H
 #define HIP_PROMOTE_INTS_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 #include "llvm/IR/Module.h"
 
 namespace llvm {
 
-class HipPromoteIntsPass : public PassInfoMixin<HipPromoteIntsPass> {
+class HipPromoteIntsPass : public HipOptionalPassInfoMixin<HipPromoteIntsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   

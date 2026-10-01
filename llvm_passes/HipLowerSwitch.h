@@ -14,11 +14,11 @@
 #ifndef LLVM_PASSES_HIP_LOWER_SWITCH_H
 #define LLVM_PASSES_HIP_LOWER_SWITCH_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipLowerSwitchPass : public PassInfoMixin<HipLowerSwitchPass> {
+class HipLowerSwitchPass : public HipRequiredPassInfoMixin<HipLowerSwitchPass> {
 public:
   PreservedAnalyses run(Function &M, FunctionAnalysisManager &AM);
   static bool isRequired() { return true; }

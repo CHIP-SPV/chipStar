@@ -132,7 +132,7 @@ private:
 
       if (llvm::AddrSpaceCastInst *ASCI = dyn_cast<AddrSpaceCastInst>(U)) {
         B.SetInsertPoint(ASCI);
-        PointerType *PT = PointerType::get(ElemType, ASCI->getDestAddressSpace());
+        PointerType *PT = PointerType::get(ElemType->getContext(), ASCI->getDestAddressSpace());
         Value *NewASCI = B.CreateAddrSpaceCast(DestV, PT);
 
         recursivelyReplaceArrayWithPointer(NewASCI, ASCI, ElemType, B);
@@ -289,7 +289,7 @@ private:
     Type *ElemT = GVTy->getArrayElementType();
 
     // float addrspace(3)*
-    PointerType *AS3_PTR = PointerType::get(ElemT, GV->getAddressSpace());
+    PointerType *AS3_PTR = PointerType::get(ElemT->getContext(), GV->getAddressSpace());
 
     for (Function::const_arg_iterator i = F->arg_begin(), e = F->arg_end();
          i != e; ++i) {
@@ -323,7 +323,7 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
     IRBuilder<> B(M.getContext());
 
     // float* (without AS, for MDNode)
-    PointerType *AS0_PTR = PointerType::get(ElemT, 0);
+    PointerType *AS0_PTR = PointerType::get(ElemT->getContext(), 0);
     updateFunctionMD(NewF, M, AS0_PTR);
 
     // insert new function with dynamic mem = last argument
@@ -371,7 +371,7 @@ CloneFunctionInto(NewF, F, VV, CloneFunctionChangeType::GlobalChanges, RI);
     // if the function uses dynamic shared memory (via the GVar),
     // replace all uses of GVar inside function with the new dyn mem Argument
     if (isGVarUsedInFunction(GV, NewF)) {
-      B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHI());
+      B.SetInsertPoint(NewF->getEntryBlock().getFirstNonPHIIt());
 
 #if LLVM_VERSION_MAJOR >= 20
       // LLVM 20+ only supports opaque pointers: just replace GVar with the argument

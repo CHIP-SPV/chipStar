@@ -16,14 +16,14 @@
 #define LLVM_PASSES_HIP_PRINTF_H
 
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 #include <map>
 
 using namespace llvm;
 
 class HipPrintfToOpenCLPrintfPass
-    : public PassInfoMixin<HipPrintfToOpenCLPrintfPass> {
+    : public HipRequiredPassInfoMixin<HipPrintfToOpenCLPrintfPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

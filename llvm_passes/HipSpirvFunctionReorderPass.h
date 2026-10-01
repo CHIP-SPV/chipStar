@@ -27,12 +27,13 @@
 #ifndef LLVM_PASSES_HIP_SPIRV_FUNCTION_REORDER_H
 #define LLVM_PASSES_HIP_SPIRV_FUNCTION_REORDER_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 #include "llvm/IR/Module.h"
 
 using namespace llvm;
 
-class HipSpirvFunctionReorderPass : public PassInfoMixin<HipSpirvFunctionReorderPass> {
+class HipSpirvFunctionReorderPass
+    : public HipRequiredPassInfoMixin<HipSpirvFunctionReorderPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

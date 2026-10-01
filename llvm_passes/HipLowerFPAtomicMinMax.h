@@ -15,12 +15,12 @@
 #ifndef LLVM_PASSES_HIP_LOWER_FP_ATOMIC_MIN_MAX_H
 #define LLVM_PASSES_HIP_LOWER_FP_ATOMIC_MIN_MAX_H
 
-#include <llvm/IR/PassManager.h>
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
 class HipLowerFPAtomicMinMaxPass
-    : public PassInfoMixin<HipLowerFPAtomicMinMaxPass> {
+    : public HipRequiredPassInfoMixin<HipLowerFPAtomicMinMaxPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static bool isRequired() { return true; }
