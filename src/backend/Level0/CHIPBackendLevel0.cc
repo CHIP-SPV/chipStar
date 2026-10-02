@@ -3787,6 +3787,11 @@ void CHIPExecItemLevel0::takeOwnedKernelClone() {
   OwnsKernel_ = true;
 }
 
+CHIPExecItemLevel0::~CHIPExecItemLevel0() {
+  if (OwnsKernel_)
+    delete ChipKernel_;
+}
+
 chipstar::ExecItem *CHIPExecItemLevel0::clone() const {
   auto *NewExecItem = new CHIPExecItemLevel0(*this);
   // Give the clone its own ze_kernel_handle_t so that a duplicated graph (e.g.
