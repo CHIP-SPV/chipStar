@@ -1253,6 +1253,15 @@ if(CHIP_BUILD_TESTS)
   set_directory_properties(PROPERTIES
     COMPILE_DEFINITIONS "${CHIP_SAVED_COMPILE_DEFS}"
     COMPILE_OPTIONS "${CHIP_SAVED_COMPILE_OPTS}")
+  # A Vulkan kernel running past the xe preemption timeout is reset when
+  # another process uses the GPU (#1734); this test's delay kernel runs alone.
+  if(CHIP_USE_NATIVE_VULKAN_SPIRV AND CHIP_USE_EXTERNAL_HIP_TESTS)
+    set(CHIP_VK_SERIAL_TESTS ${CMAKE_BINARY_DIR}/catch-vulkan-serial.cmake)
+    file(WRITE ${CHIP_VK_SERIAL_TESTS} "set_tests_properties(\
+Unit_hipEventQuery_DifferentDevice_EventTest PROPERTIES RUN_SERIAL TRUE)\n")
+    set_property(DIRECTORY hip-tests/catch/unit/event APPEND PROPERTY
+      TEST_INCLUDE_FILES ${CHIP_VK_SERIAL_TESTS})
+  endif()
   # The catch tree sets hipcc.bin as its compiler and never links CHIP, so
   # it inherits none of the ordering that CHIP carries. Every catch
   # executable is built on these object libraries, and the Ninja generator
