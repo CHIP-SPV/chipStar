@@ -14,7 +14,7 @@
 //   __shfl(src)        : read segBase + (src % width)
 //   __shfl_up(delta)   : read lane-delta, clamped at the segment base (else own)
 //   __shfl_down(delta) : read lane+delta, clamped at the segment top  (else own)
-//   __shfl_xor(mask)   : read lane^mask if it stays inside the segment, else own
+//   __shfl_xor(mask)   : read lane^mask unless it is in a later segment, else own
 
 #include <hip/hip_runtime.h>
 #include <cstdio>
@@ -55,7 +55,7 @@ static int ref_down(const int *in, int lane, int width, int delta) {
 static int ref_xor(const int *in, int lane, int width, int mask) {
   int segBase = (lane / width) * width;
   int src = lane ^ mask;
-  if (src < segBase || src >= segBase + width)
+  if (src >= segBase + width)
     src = lane;
   return in[src];
 }
