@@ -1056,7 +1056,7 @@ __SHFL_XOR_SYNC(double);
 EXPORT OVLD ulong __chip_ballot(int predicate);
 
 EXPORT OVLD int __chip_all(int predicate) {
-  return __chip_ballot(predicate) == ((ulong)1 << DEFAULT_WARP_SIZE) - 1;
+  return __chip_ballot(!predicate) == 0;
 }
 
 EXPORT OVLD int __chip_any(int predicate) {
