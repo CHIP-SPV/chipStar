@@ -915,19 +915,15 @@ __SHFL(ulong);
 __SHFL(float);
 __SHFL(double);
 
-// CUDA semantics for __shfl_xor with a width < warpSize: the source lane
-// is laneId ^ laneMask. If that XOR result lands outside the caller's
-// width-segment (i.e. it would reference a later/earlier group), the
-// caller keeps its own value. For width == warpSize this reduces to a
-// plain butterfly shuffle. laneMask is applied to the absolute lane id
-// (not masked to the segment) so that high bits correctly send the
-// access out of the segment.
+// CUDA rule: lanes may read earlier width-segments, but a source lane in a
+// later segment returns the caller's own value. laneMask is not masked to the
+// segment, so its high bits can select another segment.
 #define __SHFL_XOR(T)                                                          \
   EXPORT OVLD T __shfl_xor(T var, int laneMask, int wSize) {                   \
     int laneId = get_sub_group_local_id();                                     \
     int segmentBase = (laneId / wSize) * wSize;                                \
     int srcLane = laneId ^ laneMask;                                           \
-    if (srcLane < segmentBase || srcLane >= segmentBase + wSize)              \
+    if (srcLane < 0 || srcLane >= segmentBase + wSize)                         \
       srcLane = laneId;                                                        \
     return sub_group_shuffle(var, srcLane);                                    \
   }
