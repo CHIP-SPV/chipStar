@@ -238,9 +238,9 @@ static inline bool DAZ_OPT() { return false; }
 static inline bool CORRECTLY_ROUNDED_SQRT32() { return false; }
 
 
-#define BUILTIN_CLASS_F32(x, class) __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, x) == (class)
-#define BUILTIN_CLASS_F64(x, class) __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, x) == (class)
-#define BUILTIN_CLASS_F16(x, class) __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, x) == (class)
+#define BUILTIN_CLASS_F32(x, class) __builtin_isfpclass(x, class)
+#define BUILTIN_CLASS_F64(x, class) __builtin_isfpclass(x, class)
+#define BUILTIN_CLASS_F16(x, class) __builtin_isfpclass(x, class)
 
 #define BUILTIN_FREXP_EXP_F64(x) ({ \
     int exp; \
