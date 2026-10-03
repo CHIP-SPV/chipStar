@@ -126,7 +126,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - pocl-version: "7.1"
+          - pocl-version: "7.2"
             llvm-version: 21
       fail-fast: false
     steps:
@@ -201,7 +201,7 @@ jobs:
         include:
           # PoCL backend with specific version combinations
           - backend: pocl
-            pocl-version: "7.1"
+            pocl-version: "7.2"
             llvm-version: 21
             extra_exclude: ""
       fail-fast: false
