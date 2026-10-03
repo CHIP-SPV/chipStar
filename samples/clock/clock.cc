@@ -58,7 +58,6 @@
 #include <limits>
 
 // Ticks each spin waits for.
-static constexpr unsigned long long LongBudget = 200000;
 static constexpr unsigned long long ShortBudget = 10;
 
 // Bound on the spin's iterations, so that a clock64() which stops advancing
@@ -135,6 +134,20 @@ int main() {
   // the spin.
   Spin Warmup;
   CHECK(runSpin(ShortBudget, DevTicks, Warmup));
+
+  // A cycle counter ticks far faster than a per-call counter: grow the long
+  // budget until its fastest of three spins takes tens of milliseconds.
+  unsigned long long LongBudget = 200000;
+  for (;; LongBudget *= 10) {
+    Spin Probe, Best = {0, std::numeric_limits<double>::infinity()};
+    for (int I = 0; I < 3; ++I) {
+      CHECK(runSpin(LongBudget, DevTicks, Probe));
+      if (Probe.Ms < Best.Ms)
+        Best = Probe;
+    }
+    if (Best.Ms >= 20 || Best.Ticks <= LongBudget)
+      break;
+  }
 
   bool Ok = true;
   Spin Long = {0, std::numeric_limits<double>::infinity()};
