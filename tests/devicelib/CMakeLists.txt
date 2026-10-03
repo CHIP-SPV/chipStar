@@ -29,7 +29,8 @@ add_hip_test(implicitCasts.cpp)
 # omitted when CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS is OFF. Only register
 # this compile test when the feature is enabled.
 # Add this as a hipcc otherwise the `make all` will fail which is not convenient indicator for test failure
-if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+# Device malloc is unavailable on the native Vulkan path.
+if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   add_test(NAME "deviceMallocCompile"
     COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
     ${CMAKE_CURRENT_SOURCE_DIR}/deviceMallocCompile.cpp)
@@ -51,7 +52,8 @@ set_tests_properties(shfl_width PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
 
 # Verify OCML (irif.h) does not emit i128 - buggy irif uses wrong types for OpenCL
-# Run after build (ocml built as part of devicelib)
+# Run after build (ocml built as part of devicelib; Vulkan builds use libclc)
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
 add_test(NAME irif_no_i128
   COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../irif_no_i128.bash
     ${CMAKE_BINARY_DIR}
@@ -59,6 +61,7 @@ add_test(NAME irif_no_i128
 set_tests_properties(irif_no_i128 PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL"
   PASS_REGULAR_EXPRESSION "PASS")
+endif()
 
 add_hip_test(TestAtomicMinMaxFloat.cpp)
 set_tests_properties(TestAtomicMinMaxFloat PROPERTIES

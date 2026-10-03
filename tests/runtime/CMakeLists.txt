@@ -121,6 +121,29 @@ file(GLOB RUNTIME_TEST_SOURCES CONFIGURE_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/Test*.hip
   ${CMAKE_CURRENT_SOURCE_DIR}/Test*.cpp)
 list(REMOVE_ITEM RUNTIME_TEST_SOURCES ${RUNTIME_TESTS_MANUAL})
+# Vulkan compute has no function pointers, no numeric __shared__ addresses
+# and no pointers made from integers.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestIndirectCall.hip
+    TestDeviceVirtualDispatch.hip TestFix1691SharedAddrLocalInit.hip
+    TestSubwordAtomics.hip TestAlignAttrRuntime.hip
+    TestNegativeHasNoIGBAs2.hip TestFixRuntimeWarpSize.hip)
+endif()
+# Checks the native Vulkan lowering of division, which Vulkan does not round.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip)
+endif()
+# Warp votes link the device library, and Mali's clLinkProgram fails (-59).
+if(CHIP_MALI_GPU_WORKAROUNDS)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestWarpVotePartialWarp.hip)
+endif()
+# Need what rusticl/radeonsi, the target of program-scope globals OFF, lacks:
+# a generic address space (a run-time __shared__-or-global pointer faults,
+# chipStar#1807), fp64, and for TestPointerSelection program-scope globals.
+if(NOT CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestPointerSelection.hip
+    TestSharedFloatAtomicAdd.hip)
+endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
 list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
@@ -132,8 +155,10 @@ endforeach()
 target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
-set_tests_properties(TestFixRuntimeWarpSize PROPERTIES
-  ENVIRONMENT "IGC_ForceOCLSIMDWidth=16;CHIP_LAZY_JIT=1")
+if(TEST TestFixRuntimeWarpSize)
+  set_tests_properties(TestFixRuntimeWarpSize PROPERTIES
+    ENVIRONMENT "IGC_ForceOCLSIMDWidth=16;CHIP_LAZY_JIT=1")
+endif()
 
 # The staleness probe needs several work-groups to make progress against each
 # other and skips on a device that cannot run it, for instance where Mesa
@@ -171,8 +196,9 @@ if(LevelZero_LIBRARY) # Depends on Level Zero
   add_hip_runtime_test(TestFix1962PooledResidencyEviction.hip)
 endif()
 # String literals are initialized program-scope globals, which rusticl/Mesa
-# rejects ("Initializer for CrossWorkgroup variable not yet supported").
-if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+# rejects ("Initializer for CrossWorkgroup variable not yet supported"), and
+# native Vulkan has no numeric addresses for constant data.
+if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   add_hip_runtime_test(TestFix1693StringTableOffset.hip)
   add_hip_runtime_test(TestFix1703ByteOffsetTable.hip)
 endif()
@@ -190,7 +216,10 @@ find_program(
   NAMES clang-offload-bundler-${LLVM_VERSION_MAJOR} clang-offload-bundler
   PATHS ${HIP_CLANG_PATH})
 if(SPIRV_DIS AND (NOT USE_NEW_OFFLOAD_DRIVER OR CLANG_OFFLOAD_BUNDLER))
-  add_shell_test(TestBoolKernelParamSPIRV.bash)
+  # Inspects OpenCL-flavored (OpEntryPoint Kernel) SPIR-V.
+  if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+    add_shell_test(TestBoolKernelParamSPIRV.bash)
+  endif()
 endif()
 
 # The runtime's stderr must stay NUL-free at CHIP_LOGLEVEL=info (the Level
@@ -244,7 +273,10 @@ add_shell_test(TestFix1592ExtractorExitStatus.bash)
 add_shell_test(TestFix1600ExtractorArgvBoundaries.bash)
 
 # --validate and -o must handle a module of any SPIR-V version (#1696).
-add_shell_test(TestFix1696ExtractorSpirvVersion.bash)
+# Validates the extracted module against the OpenCL environment.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestFix1696ExtractorSpirvVersion.bash)
+endif()
 
 # They must also exit 0 when the module uses fp64 (#1770).
 add_shell_test(TestFix1770ExtractorFp64ExitStatus.bash)
@@ -266,7 +298,10 @@ add_shell_test(TestFix1770ExtractorFp64ExitStatus.bash)
 # otherwise), in whichever of the two forms this build selected. Inspects the
 # lowered device bitcode of TestFixVolatileLoadLowering.hip, and the SPIR-V
 # module when spirv-dis exists.
-add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
+# Inspects the OpenCL-path *-lower.bc, absent on the native Vulkan build.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
+endif()
 
 # The SPIR-V check above proves what chipStar emits; this one proves what the
 # consumer generates from it. IGC discards a cache hint when it widens adjacent
