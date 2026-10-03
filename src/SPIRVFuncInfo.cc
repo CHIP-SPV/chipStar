@@ -171,7 +171,8 @@ void SPVFuncInfo::visitKernelArgsImpl(void **ClientArgList,
       assert(ArgData && "nullptr in the argument list");
     }
 
-    KernelArg KArg{{{ArgKind, ArgTI.StorageClass, ArgSize, ArgTI.DevGlobalName},
+    KernelArg KArg{{{ArgKind, ArgTI.StorageClass, ArgSize, ArgTI.DevGlobalName,
+                     ArgTI.PushConstOffset, ArgTI.Binding},
                     ArgIndex, ArgData}};
     Visitor(KArg);
 
