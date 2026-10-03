@@ -49,6 +49,10 @@ struct SPVModuleInfo {
   /// Set to true if the module is known not to have indirect global
   /// buffer accesses (IGBA) in any kernel.
   bool HasNoIGBAs = false;
+
+  /// Why the device compiler could not compile a kernel of the module, which
+  /// then fails to load (Vulkan: "__hipspv_error: <message>" entry points).
+  std::string BuildError;
 };
 
 // Processing done before analysis.
@@ -106,6 +110,18 @@ constexpr char ChipSpilledArgsVarPrefix[] = "__chip_spilled_args_";
 /// NUL-separated original global names in trailing-argument order. See
 /// HipGlobalVariables.cpp for details.
 constexpr char ChipGVarArgPrefix[] = "__chip_gvararg_";
+/// Name prefix of those arguments, followed by the global's name; the Vulkan
+/// runtime reads it back from the storage buffer names.
+constexpr char ChipDevGlobalArgPrefix[] = "__chip_dg_";
+/// Name prefix of the Vulkan kernel arguments carrying a pointer field of a
+/// by-value argument: "<prefix><argument number>_<byte offset>".
+constexpr char ChipArgFieldPrefix[] = "__chip_argfield_";
+/// Compile-time size of each `extern __shared__` array in Vulkan kernels; the
+/// runtime resizes it per launch with a specialization constant.
+constexpr unsigned ChipVulkanDynSharedBytes = 64 * 1024;
+/// Name prefix of the Vulkan `extern __shared__` array; HipVulkanRetypeArrays
+/// appends the kernel name.
+constexpr char ChipVulkanDynSharedName[] = "__chip_dyn_shared";
 
 /// The name of a global variable which indicates, when non-zero, if
 /// the abort() function was called by a kernel.

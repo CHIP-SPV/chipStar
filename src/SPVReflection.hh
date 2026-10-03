@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-22 chipStar developers
+ * Copyright (c) 2024-26 chipStar developers
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,17 +20,23 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef CHIP_BACKENDS_H
-#define CHIP_BACKENDS_H
+/// \file SPVReflection.hh
+/// Kernel argument reflection for Vulkan (Logical addressing) SPIR-V modules.
 
-#ifdef HAVE_LEVEL0
-#include "Level0/CHIPBackendLevel0.hh"
-#endif
-#ifdef HAVE_OPENCL
-#include "OpenCL/CHIPBackendOpenCL.hh"
-#endif
-#ifdef HAVE_VULKAN
-#include "Vulkan/CHIPBackendVulkan.hh"
-#endif
+#ifndef CHIPSTAR_SRC_SPV_REFLECTION_HH
+#define CHIPSTAR_SRC_SPV_REFLECTION_HH
 
-#endif
+#include "common.hh"
+
+#include <cstddef>
+#include <cstdint>
+
+/// Fills `Output` from the GLCompute OpEntryPoints, OpNames and Binding/Offset
+/// decorations: each kernel's push constant block (or storage buffer
+/// "<kernel>.args") holds its arguments, and storage buffers named
+/// "<kernel>.<argNo>[~view][.name]" mark its pointer arguments. Returns false
+/// for a non-Logical (OpenCL) module, which the caller then parses as OpenCL.
+bool tryAnalyzeVulkanReflection(const uint32_t *Stream, size_t NumWords,
+                                SPVModuleInfo &Output);
+
+#endif // CHIPSTAR_SRC_SPV_REFLECTION_HH
