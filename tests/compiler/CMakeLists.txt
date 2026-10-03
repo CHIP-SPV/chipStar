@@ -292,6 +292,8 @@ endforeach()
 add_shell_test(TestPrefetchLowering.bash)
 # __ballot_sync must call a __chip_ballot_sync of matching type (#1723).
 add_shell_test(TestFix1723BallotSyncType.bash)
+# __ballot must keep lanes 32..63 with a 64 wide warp (#1746).
+add_shell_test(TestFix1746BallotWarp64.bash)
 
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
