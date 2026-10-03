@@ -29,5 +29,8 @@
 #ifdef HAVE_OPENCL
 #include "OpenCL/CHIPBackendOpenCL.hh"
 #endif
+#ifdef HAVE_VULKAN
+#include "Vulkan/CHIPBackendVulkan.hh"
+#endif
 
 #endif
