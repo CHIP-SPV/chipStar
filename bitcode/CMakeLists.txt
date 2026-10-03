@@ -108,10 +108,14 @@ add_custom_command(
   VERBATIM)
 list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
 
+# The .lib.bc files are undeclared byproducts of the OCML targets' outputs.
+list(TRANSFORM OCML_LIBS REPLACE "(.+)" "$<TARGET_PROPERTY:\\1,OUTPUT_NAME>"
+  OUTPUT_VARIABLE OCML_LIB_OUTPUTS)
+
 # devicelib
 add_custom_command(
   OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
-  DEPENDS ${DEPEND_LIST} ${OCML_LIBS}
+  DEPENDS ${DEPEND_LIST} ${OCML_LIBS} ${OCML_LIB_OUTPUTS}
   COMMAND ${CMAKE_COMMAND} -E make_directory
   "${CMAKE_BINARY_DIR}/${BC_DESTINATION}"
   COMMAND "${LLVM_LINK}"
