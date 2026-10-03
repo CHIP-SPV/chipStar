@@ -68,6 +68,12 @@ struct __chipspv_abort_msg_t {
 };
 __attribute__((weak)) __device__ __chipspv_abort_msg_t __chipspv_abort_msg;
 
+#ifdef CHIP_USE_NATIVE_VULKAN_SPIRV
+// Device printf records for the Vulkan runtime to print; see
+// HipVulkanLowerPrintfPass.
+__attribute__((weak)) __device__ uint32_t __hipspv_printf_buf[1 << 18];
+#endif
+
 // Global pointer for the device heap for device-side malloc/free.
 // Gated behind CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS: this is a program-scope
 // global which some OpenCL drivers (e.g. rusticl/radeonsi) cannot consume
@@ -248,6 +254,18 @@ __assert_rtn(const char *function, const char *file, int line,
              const char *assertion) {
   _cl_assert_fail_print(file, line, function, assertion);
   __chipspv_record_assert_msg(file, line, function, assertion);
+  abort();
+}
+#elif defined(CHIP_USE_NATIVE_VULKAN_SPIRV)
+// Vulkan kernels cannot copy strings through generic pointers; printf records
+// constant ones.
+// printf to stderr, where HIP reports failed assertions.
+extern "C" __device__ int __chip_vk_eprintf(const char *, ...);
+__device__ __attribute__((noinline)) __attribute__((weak)) void
+__assert_fail(const char *assertion, const char *file, unsigned int line,
+              const char *function) {
+  __chip_vk_eprintf("%s:%u: %s: Device-side assertion `%s' failed.\n", file,
+                    line, function, assertion);
   abort();
 }
 #else  // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)

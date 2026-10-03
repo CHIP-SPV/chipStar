@@ -1,0 +1,75 @@
+/*
+ * Copyright (c) 2023 chipStar developers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+// C math names that only reach the native Vulkan device library: the Vulkan
+// compile passes -fmath-errno, so builtins that normally become LLVM
+// intrinsics arrive as C calls. Same shape as c_to_opencl.def.
+
+#ifndef C2OCL_LONG_DOUBLE
+#define C2OCL_LONG_DOUBLE double
+#endif
+#ifndef C2OCL_LONG_LONG
+#define C2OCL_LONG_LONG long
+#endif
+
+DEF_BINARY_FN_MAP(pow, pow, double)
+DEF_BINARY_FN_MAP(powf, pow, float)
+DEF_BINARY_FN_MAP(powl, pow, C2OCL_LONG_DOUBLE)
+DEF_BINARY_FN_MAP(atan2, atan2, double)
+DEF_BINARY_FN_MAP(atan2f, atan2, float)
+DEF_BINARY_FN_MAP(atan2l, atan2, C2OCL_LONG_DOUBLE)
+DEF_BINARY_FN_MAP(fmodl, fmod, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(log2, log2, double)
+DEF_UNARY_FN_MAP(log2f, log2, float)
+DEF_UNARY_FN_MAP(log2l, log2, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(exp2l, exp2, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(expl, exp, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(logl, log, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(log10l, log10, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(sinl, sin, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(cosl, cos, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(tanl, tan, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(sinhl, sinh, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(coshl, cosh, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(tanhl, tanh, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(asinl, asin, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(acosl, acos, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(atanl, atan, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP(sqrtl, sqrt, C2OCL_LONG_DOUBLE)
+DEF_TERNARY_FN_MAP(fma, fma, double)
+DEF_BINARY_FN_MAP_MIXED(ldexp, ldexp, double, int)
+DEF_UNARY_FN_MAP_RET(lround, __chip_vk_lround, long, double)
+DEF_UNARY_FN_MAP_RET(llround, __chip_vk_lround, C2OCL_LONG_LONG, double)
+DEF_UNARY_FN_MAP_RET(lrint, __chip_vk_lrint, long, double)
+DEF_UNARY_FN_MAP_RET(llrint, __chip_vk_lrint, C2OCL_LONG_LONG, double)
+DEF_TERNARY_FN_MAP(fmaf, fma, float)
+DEF_BINARY_FN_MAP_MIXED(ldexpf, ldexp, float, int)
+DEF_UNARY_FN_MAP_RET(lroundf, __chip_vk_lround, long, float)
+DEF_UNARY_FN_MAP_RET(llroundf, __chip_vk_lround, C2OCL_LONG_LONG, float)
+DEF_UNARY_FN_MAP_RET(lrintf, __chip_vk_lrint, long, float)
+DEF_UNARY_FN_MAP_RET(llrintf, __chip_vk_lrint, C2OCL_LONG_LONG, float)
+DEF_TERNARY_FN_MAP(fmal, fma, C2OCL_LONG_DOUBLE)
+DEF_BINARY_FN_MAP_MIXED(ldexpl, ldexp, C2OCL_LONG_DOUBLE, int)
+DEF_UNARY_FN_MAP_RET(lroundl, __chip_vk_lround, long, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP_RET(llroundl, __chip_vk_lround, C2OCL_LONG_LONG, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP_RET(lrintl, __chip_vk_lrint, long, C2OCL_LONG_DOUBLE)
+DEF_UNARY_FN_MAP_RET(llrintl, __chip_vk_lrint, C2OCL_LONG_LONG, C2OCL_LONG_DOUBLE)
