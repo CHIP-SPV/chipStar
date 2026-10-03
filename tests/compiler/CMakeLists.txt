@@ -232,6 +232,12 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Fails the day the backend stops forcing ContractionOff. Read its header.
   add_shell_test(CanaryFPContractionOff.bash)
 endif()
+# Fail the day the SPIR-V backend fixes the bug behind a native Vulkan
+# workaround (#1738, #1742). Read their headers before acting.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(CanaryVulkanStructurizerMergeDominance.bash)
+  add_shell_test(CanaryVulkanBitcastFewerElements.bash)
+endif()
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.
 add_shell_test(CanaryPointerVectorsRejected.bash)
