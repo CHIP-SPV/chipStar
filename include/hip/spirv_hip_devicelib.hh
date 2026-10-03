@@ -233,7 +233,13 @@ using ::modf;
 // monotonic counter is a program-scope global that some OpenCL drivers
 // (e.g. rusticl/radeonsi) cannot consume (issue #1279). When disabled, the
 // clock* functions remain callable but return 0 (no global is emitted).
-#ifdef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
+#if defined(CHIP_USE_NATIVE_VULKAN_SPIRV)
+// The shader's subgroup clock (VK_KHR_shader_clock).
+EXPORT unsigned long long clock64() { return __builtin_readcyclecounter(); }
+EXPORT long clock() { return (long)clock64(); }
+EXPORT unsigned long long wall_clock64() { return clock64(); }
+EXPORT long wall_clock() { return (long)wall_clock64(); }
+#elif defined(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
 // TODO: This is a temporary implementation of clock64(),
 //       in future it will be changed with more reliable implementation.
 __device__ static unsigned long long __chip_clk_counter = 0;
