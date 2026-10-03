@@ -91,7 +91,7 @@ static bool preserveDuringInternalize(const GlobalValue &GV) {
 // noinline are present, they came from the compiler; noinline alone
 // means the user asked for it explicitly.
 class RemoveNoInlineOptNoneAttrsPass
-    : public PassInfoMixin<RemoveNoInlineOptNoneAttrsPass> {
+    : public HipPassInfoMixin<RemoveNoInlineOptNoneAttrsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
     for (auto &F : M) {
@@ -114,7 +114,7 @@ public:
 // This pass works around the issue until some fix is introduced in Clang. The
 // issue is fixed by setting OpenCL version to the same as bitcode library
 // (2.0).
-class HipFixOpenCLMDPass : public PassInfoMixin<HipFixOpenCLMDPass> {
+class HipFixOpenCLMDPass : public HipPassInfoMixin<HipFixOpenCLMDPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
     constexpr auto OCLVersionMDName = "opencl.ocl.version";
@@ -140,7 +140,7 @@ public:
 // global, where IGC reads them as null and PoCL aborts. Remove when a clang fix
 // that initializes such locals in the function lands.
 class HipSharedAddrLocalInitPass
-    : public PassInfoMixin<HipSharedAddrLocalInitPass> {
+    : public HipPassInfoMixin<HipSharedAddrLocalInitPass> {
   static bool refersToShared(const Value *V) {
     if (const auto *GV = dyn_cast<GlobalValue>(V))
       return GV->getAddressSpace() == SPIRV_WORKGROUP_AS;
@@ -214,7 +214,7 @@ public:
 // backend puts ContractionOff on every kernel unless opencl.enable.FP_CONTRACT
 // is present, llvm-spirv only on kernels reaching an op that forbids
 // contraction. Remove when the backend's default decides from the operations.
-class HipFPContractPass : public PassInfoMixin<HipFPContractPass> {
+class HipFPContractPass : public HipPassInfoMixin<HipFPContractPass> {
   // What makes llvm-spirv disable contraction for the enclosing function.
   static bool forbidsContraction(const Instruction &I) {
     if (auto *B = dyn_cast<BinaryOperator>(&I))
@@ -292,7 +292,8 @@ static bool retypeToBytes(GlobalVariable &GV) {
 // getelementptr over an addrspacecast of a global, and IGC stores 0 for it.
 // Rewrites it as an addrspacecast of the getelementptr. Remove when both
 // handle the original and #1703 is fixed.
-class HipOffsetBeforeCastPass : public PassInfoMixin<HipOffsetBeforeCastPass> {
+class HipOffsetBeforeCastPass
+    : public HipPassInfoMixin<HipOffsetBeforeCastPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
     // Literal indices: rewriting one entry then cannot change, and free,
@@ -450,7 +451,9 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(DCEPass()), "DCEPass");
   addPassWithVerification(MPM, GlobalDCEPass(), "GlobalDCEPass");
 
-  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4)), "InferAddressSpacesPass");
+  addPassWithVerification(
+      MPM, createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4u)),
+      "InferAddressSpacesPass");
 
   // Move vtable function pointers into the generic address space. Runs after
   // inlining and InferAddressSpaces so it only sees the indirect calls that

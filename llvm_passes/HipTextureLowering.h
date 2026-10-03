@@ -14,11 +14,11 @@
 #ifndef LLVM_PASSES_HIP_TEXTURE_NEW_H
 #define LLVM_PASSES_HIP_TEXTURE_NEW_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipTextureLoweringPass : public PassInfoMixin<HipTextureLoweringPass> {
+class HipTextureLoweringPass : public HipPassInfoMixin<HipTextureLoweringPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

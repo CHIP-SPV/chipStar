@@ -39,7 +39,8 @@ static Type* getLoweredTypeOrNull(Type *Ty) {
   // Delve into the pointer element
   if (Ty->isPointerTy())
     if (auto *LoweredEltTy = getLoweredTypeOrNull(Ty->getPointerElementType()))
-      return LoweredEltTy->getPointerTo(Ty->getPointerAddressSpace());
+      return PointerType::get(LoweredEltTy->getContext(),
+                              Ty->getPointerAddressSpace());
 #endif
 
   // SPIRV-LLVM translator does not accept zero length arrays. Lower such
@@ -149,8 +150,8 @@ static bool lowerZeroLengthArrayTypes(Function &F) {
         SmallVector<Value *> NewIndices;
         for (auto I = GEP->idx_begin(), E = GEP->idx_end(); I != E; I++)
           NewIndices.push_back(*I);
-        GetElementPtrInst *NewGEP =
-            GetElementPtrInst::Create(NewSrcTy, NewPtr, NewIndices, "", GEP);
+        GetElementPtrInst *NewGEP = GetElementPtrInst::Create(
+            NewSrcTy, NewPtr, NewIndices, "", GEP->getIterator());
         if (hasUnsupportedType(GEP->getType()))
           recordLoweredValue(GEP, NewGEP);
         else
