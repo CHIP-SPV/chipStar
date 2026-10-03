@@ -148,7 +148,13 @@ extern "C++" inline __device__ void *memset(void *ptr, int value, size_t size) {
 
 extern "C" __device__  void *__chip_memcpy(void *dest, const void *src, size_t n);
 extern "C++" inline __device__ void *memcpy(void *dest, const void *src, size_t n) {
+#ifdef CHIP_USE_NATIVE_VULKAN_SPIRV
+  // Vectorized, the library loop's overlap check compares pointers as integers,
+  // which Vulkan cannot do.
+  return __builtin_memcpy(dest, src, n);
+#else
   return __chip_memcpy(dest, src, n);
+#endif
 }
 
 // Expose the device-side memset/memcpy overloads (declared at global scope
