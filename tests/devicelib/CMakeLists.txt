@@ -110,3 +110,7 @@ add_test(NAME "TestFix1586IntArgMath"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc -c
     -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix1586IntArgMath.o
     ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1586IntArgMath.cpp)
+
+add_hip_test(TestFix1750FunnelShift.cpp)
+set_tests_properties(TestFix1750FunnelShift PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
