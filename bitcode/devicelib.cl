@@ -1601,10 +1601,10 @@ EXPORT NOINLINE ulong __chip_float2ull_rz(float x) {
     return (ulong)max(0.0f, trunc(x));
 }
 
-// Convert float to half with round-to-nearest mode
+// Convert float to half with round-toward-negative-infinity mode
 EXPORT _Float16 __ocml_cvtrtn_f16_f32(float x) {
     _Float16 result;
-    vstore_half_rte(x, 0, (void*)&result);
+    vstore_half_rtn(x, 0, (void*)&result);
     return result;
 }
 
