@@ -32,6 +32,7 @@ OVERLOADED ulong __chip_ballot(int predicate) {
 #if DEFAULT_WARP_SIZE <= 32
   return sub_group_ballot(predicate).x;
 #else
-  return sub_group_ballot(predicate).x | (sub_group_ballot(predicate).y << 32);
+  return sub_group_ballot(predicate).x |
+         ((ulong)sub_group_ballot(predicate).y << 32);
 #endif
 }
