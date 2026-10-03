@@ -84,6 +84,10 @@ add_hip_test(TestStdLdexp.cpp)
 set_tests_properties(TestStdLdexp PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
 
+add_hip_test(TestFix1752OcmlClass.cpp)
+set_tests_properties(TestFix1752OcmlClass PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
+
 # The long double / floating-point abs ambiguity of CHIP-SPV/chipStar#1583 only
 # shows up with a C++ standard library whose host math overloads are not
 # constexpr - libc++, i.e. every macOS build. libstdc++ marks them constexpr,
