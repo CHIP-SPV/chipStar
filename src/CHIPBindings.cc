@@ -4096,8 +4096,8 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  // TODO: Why does this check fail for OpenCL but not for Level0
-  NULLCHECK(Event);
+  if (!Event)
+    RETURN(hipErrorInvalidResourceHandle);
   RETURN(hipEventRecordInternal(Event, Stream));
   CHIP_CATCH
 }
@@ -4141,7 +4141,8 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
   CHIPInitialize();
   if (!Ms)
     CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
-  NULLCHECK(Start, Stop);
+  if (!Start || !Stop)
+    RETURN(hipErrorInvalidHandle);
   chipstar::Event *ChipEventStart = static_cast<chipstar::Event *>(Start);
   chipstar::Event *ChipEventStop = static_cast<chipstar::Event *>(Stop);
 
@@ -7296,7 +7297,8 @@ hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Event);
+  if (!Event)
+    RETURN(hipErrorInvalidResourceHandle);
   auto Queue = Stream ? Stream : hipStreamPerThread;
   RETURN(hipEventRecordInternal(Event, Queue));
   CHIP_CATCH
