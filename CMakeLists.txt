@@ -613,7 +613,16 @@ unset(_hip_ver_patch)
 # while the plugin was still being relinked (CHIP-SPV/chipStar#1488). A
 # utility target is waited on completely, and so is every target it
 # depends on.
-add_custom_target(hip_device_toolchain)
+#
+# HIP objects list this stamp in their depfile, so a device library or pass
+# plugin change recompiles them.
+set(HIP_DEVICE_TOOLCHAIN_STAMP ${CMAKE_BINARY_DIR}/hip_device_toolchain.stamp)
+add_custom_command(OUTPUT ${HIP_DEVICE_TOOLCHAIN_STAMP}
+  COMMAND ${CMAKE_COMMAND} -E touch ${HIP_DEVICE_TOOLCHAIN_STAMP}
+  DEPENDS $<TARGET_FILE:LLVMHipPasses>
+    ${CMAKE_BINARY_DIR}/lib/hip-device-lib/hipspv-${OFFLOAD_TRIPLE}.bc
+  VERBATIM)
+add_custom_target(hip_device_toolchain DEPENDS ${HIP_DEVICE_TOOLCHAIN_STAMP})
 add_dependencies(hip_device_toolchain LLVMHipPasses devicelib_bc hipcc.bin)
 
 # The CHIP module itself needs none of this, but HIP program compilation
@@ -656,6 +665,7 @@ add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/hipInfo
   COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
   DEPENDS ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp hipcc.bin CHIP devicelib_bc
+    ${HIP_DEVICE_TOOLCHAIN_STAMP}
 )
 
 add_custom_target(hipInfoBin ALL
@@ -882,6 +892,7 @@ message(STATUS "Generated HIP_OFFLOAD_LINK_OPTIONS: ${HIP_OFFLOAD_LINK_OPTIONS_I
 add_library(deviceInternal INTERFACE)
 target_compile_options(deviceInternal INTERFACE
   $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_}
+  -Xclang=-fdepfile-entry=${HIP_DEVICE_TOOLCHAIN_STAMP}
   # Not part of HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_: those flags are also
   # published in .hipInfo, where hipcc must be free to withhold the emitter
   # selection from RDC compiles.
@@ -1189,7 +1200,9 @@ if(CHIP_BUILD_TESTS)
   # it is added, so set the definition, add the catch tree, then restore. Left
   # set, it would land on every target in this directory, libCHIP included.
   get_directory_property(CHIP_SAVED_COMPILE_DEFS COMPILE_DEFINITIONS)
+  get_directory_property(CHIP_SAVED_COMPILE_OPTS COMPILE_OPTIONS)
   add_compile_definitions(CATCH_CONFIG_NO_POSIX_SIGNALS)
+  add_compile_options(-Xclang=-fdepfile-entry=${HIP_DEVICE_TOOLCHAIN_STAMP})
   if(CHIP_VOLATILE_LOWERING_ATOMIC)
     add_compile_definitions(CHIP_VOLATILE_LOWERING_ATOMIC)
   endif()
@@ -1199,7 +1212,8 @@ if(CHIP_BUILD_TESTS)
     add_subdirectory(HIP/tests/catch catch)
   endif()
   set_directory_properties(PROPERTIES
-    COMPILE_DEFINITIONS "${CHIP_SAVED_COMPILE_DEFS}")
+    COMPILE_DEFINITIONS "${CHIP_SAVED_COMPILE_DEFS}"
+    COMPILE_OPTIONS "${CHIP_SAVED_COMPILE_OPTS}")
   # The catch tree sets hipcc.bin as its compiler and never links CHIP, so
   # it inherits none of the ordering that CHIP carries. Every catch
   # executable is built on these object libraries, and the Ninja generator

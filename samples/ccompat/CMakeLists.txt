@@ -1,5 +1,6 @@
 add_custom_command(
   OUTPUT saxpy.o DEPENDS ${CMAKE_SOURCE_DIR}/samples/ccompat/saxpy.hip
+  ${HIP_DEVICE_TOOLCHAIN_STAMP}
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_SOURCE_DIR}/samples/ccompat/saxpy.hip -c -g -pthread
   -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/HIP/include)
