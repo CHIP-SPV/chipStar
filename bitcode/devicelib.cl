@@ -276,16 +276,16 @@ EXPORT ulong __chip_bitinsert_u64(ulong src0, ulong src1, ulong raw_offset,
 EXPORT unsigned int __chip_funnelshift_l(unsigned int lo, unsigned int hi,
                                          unsigned int shift) {
   unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
-  unsigned int shifted = concat << (shift & 31);
+  unsigned long shifted = concat << (shift & 31);
   return shifted >> 32;
 }
 
 EXPORT unsigned int __chip_funnelshift_lc(unsigned int lo, unsigned int hi,
                                           unsigned int shift) {
   unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
-  unsigned int shifted = concat << (shift & 31);
   unsigned int clamped_shift = shift < 32 ? shift : 32;
-  return shifted >> (32 - clamped_shift);
+  unsigned long shifted = concat << clamped_shift;
+  return shifted >> 32;
 }
 
 EXPORT unsigned int __chip_funnelshift_r(unsigned int lo, unsigned int hi,
@@ -298,9 +298,8 @@ EXPORT unsigned int __chip_funnelshift_r(unsigned int lo, unsigned int hi,
 EXPORT unsigned int __chip_funnelshift_rc(unsigned int lo, unsigned int hi,
                                           unsigned int shift) {
   unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
-  unsigned int shifted = concat >> (shift & 31);
   unsigned int clamped_shift = shift < 32 ? shift : 32;
-  return shifted << (32 - clamped_shift);
+  return concat >> clamped_shift;
 }
 
 EXPORT float __chip_saturate_f32(float x) {
