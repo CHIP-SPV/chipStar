@@ -1122,13 +1122,13 @@ __device__ inline void __stwt(__hip_bfloat162* ptr, __hip_bfloat162 value) {
 }
 
 // Shuffle operations
-__device__ inline __hip_bfloat16 __shfl_down_sync(unsigned mask, __hip_bfloat16 var, unsigned int delta, int width = 32) {
+__device__ inline __hip_bfloat16 __shfl_down_sync(unsigned mask, __hip_bfloat16 var, unsigned int delta, int width = CHIP_DEFAULT_WARP_SIZE) {
     float f = __bfloat162float(var);
     float shuffled = __shfl_down_sync(mask, f, delta, width);
     return __float2bfloat16(shuffled);
 }
 
-__device__ inline __hip_bfloat162 __shfl_down_sync(unsigned mask, __hip_bfloat162 var, unsigned int delta, int width = 32) {
+__device__ inline __hip_bfloat162 __shfl_down_sync(unsigned mask, __hip_bfloat162 var, unsigned int delta, int width = CHIP_DEFAULT_WARP_SIZE) {
     float x = __bfloat162float(var.x);
     float y = __bfloat162float(var.y);
     float shuffled_x = __shfl_down_sync(mask, x, delta, width);
@@ -1136,13 +1136,13 @@ __device__ inline __hip_bfloat162 __shfl_down_sync(unsigned mask, __hip_bfloat16
     return __hip_bfloat162{__float2bfloat16(shuffled_x), __float2bfloat16(shuffled_y)};
 }
 
-__device__ inline __hip_bfloat16 __shfl_sync(unsigned mask, __hip_bfloat16 var, int delta, int width = 32) {
+__device__ inline __hip_bfloat16 __shfl_sync(unsigned mask, __hip_bfloat16 var, int delta, int width = CHIP_DEFAULT_WARP_SIZE) {
     float f = __bfloat162float(var);
     float shuffled = __shfl_sync(mask, f, delta, width);
     return __float2bfloat16(shuffled);
 }
 
-__device__ inline __hip_bfloat162 __shfl_sync(unsigned mask, __hip_bfloat162 var, int delta, int width = 32) {
+__device__ inline __hip_bfloat162 __shfl_sync(unsigned mask, __hip_bfloat162 var, int delta, int width = CHIP_DEFAULT_WARP_SIZE) {
     float x = __bfloat162float(var.x);
     float y = __bfloat162float(var.y);
     float shuffled_x = __shfl_sync(mask, x, delta, width);
@@ -1150,13 +1150,13 @@ __device__ inline __hip_bfloat162 __shfl_sync(unsigned mask, __hip_bfloat162 var
     return __hip_bfloat162{__float2bfloat16(shuffled_x), __float2bfloat16(shuffled_y)};
 }
 
-__device__ inline __hip_bfloat16 __shfl_up_sync(unsigned mask, __hip_bfloat16 var, unsigned int delta, int width = 32) {
+__device__ inline __hip_bfloat16 __shfl_up_sync(unsigned mask, __hip_bfloat16 var, unsigned int delta, int width = CHIP_DEFAULT_WARP_SIZE) {
     float f = __bfloat162float(var);
     float shuffled = __shfl_up_sync(mask, f, delta, width);
     return __float2bfloat16(shuffled);
 }
 
-__device__ inline __hip_bfloat162 __shfl_up_sync(unsigned mask, __hip_bfloat162 var, unsigned int delta, int width = 32) {
+__device__ inline __hip_bfloat162 __shfl_up_sync(unsigned mask, __hip_bfloat162 var, unsigned int delta, int width = CHIP_DEFAULT_WARP_SIZE) {
     float x = __bfloat162float(var.x);
     float y = __bfloat162float(var.y);
     float shuffled_x = __shfl_up_sync(mask, x, delta, width);
@@ -1164,13 +1164,13 @@ __device__ inline __hip_bfloat162 __shfl_up_sync(unsigned mask, __hip_bfloat162 
     return __hip_bfloat162{__float2bfloat16(shuffled_x), __float2bfloat16(shuffled_y)};
 }
 
-__device__ inline __hip_bfloat16 __shfl_xor_sync(unsigned mask, __hip_bfloat16 var, int delta, int width = 32) {
+__device__ inline __hip_bfloat16 __shfl_xor_sync(unsigned mask, __hip_bfloat16 var, int delta, int width = CHIP_DEFAULT_WARP_SIZE) {
     float f = __bfloat162float(var);
     float shuffled = __shfl_xor_sync(mask, f, delta, width);
     return __float2bfloat16(shuffled);
 }
 
-__device__ inline __hip_bfloat162 __shfl_xor_sync(unsigned mask, __hip_bfloat162 var, int delta, int width = 32) {
+__device__ inline __hip_bfloat162 __shfl_xor_sync(unsigned mask, __hip_bfloat162 var, int delta, int width = CHIP_DEFAULT_WARP_SIZE) {
     float x = __bfloat162float(var.x);
     float y = __bfloat162float(var.y);
     float shuffled_x = __shfl_xor_sync(mask, x, delta, width);
