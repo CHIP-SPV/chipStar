@@ -235,6 +235,9 @@ add_shell_test(TestFix1600ExtractorArgvBoundaries.bash)
 # --validate and -o must handle a module of any SPIR-V version (#1696).
 add_shell_test(TestFix1696ExtractorSpirvVersion.bash)
 
+# They must also exit 0 when the module uses fp64 (#1770).
+add_shell_test(TestFix1770ExtractorFp64ExitStatus.bash)
+
 # The two volatile reproducers above are deliberately not registered as ctests:
 # both PASS on a chipStar built without HipLowerVolatileAccessesPass, so neither
 # can gate a regression. TestFixVolatileLoadLowering only checks that the
