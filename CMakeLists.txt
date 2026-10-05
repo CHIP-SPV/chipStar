@@ -873,7 +873,11 @@ endif()
 if(CHIP_SET_RPATH)
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ "-Wl,-rpath,${LIB_INSTALL_DIR}")
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ "-Wl,-rpath,${CMAKE_BINARY_DIR}")
-  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+  set(CHIP_RPATH_ORIGIN "$ORIGIN")
+  if(APPLE)
+    set(CHIP_RPATH_ORIGIN "@loader_path")
+  endif()
+  set(CMAKE_INSTALL_RPATH "${CHIP_RPATH_ORIGIN}")
 endif()
 
 # Workaround istead of trying to generate the CMake generator expression
