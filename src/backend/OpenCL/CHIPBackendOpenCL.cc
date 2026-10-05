@@ -599,6 +599,13 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
           ? 1
           : 0;
   HipDeviceProps_.integrated = 0;
+  // Only Intel USM has a host allocator separate from device memory.
+  cl_bool HostUnified = CL_TRUE; // Kept if the deprecated query fails.
+  clGetDeviceInfo((*ClDevice)(), CL_DEVICE_HOST_UNIFIED_MEMORY,
+                  sizeof(HostUnified), &HostUnified, nullptr);
+  HostAllocUsesGlobalMem_ =
+      getContext()->getAllocStrategy() != AllocationStrategy::IntelUSM ||
+      HostUnified;
   HipDeviceProps_.maxSharedMemoryPerMultiProcessor =
       HipDeviceProps_.sharedMemPerBlock;
   HipDeviceProps_.cooperativeLaunch = 0;
