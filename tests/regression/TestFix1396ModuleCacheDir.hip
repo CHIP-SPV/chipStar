@@ -36,8 +36,10 @@ namespace fs = std::filesystem;
 
 static const char *ChildMarker = "TESTFIX1396_CHILD";
 
-static const char *WantedName = "TestFix1396ChipStarCacheDir";
-static const char *LoweredName = "testfix1396chipstarcachedir";
+// Pid suffix keeps concurrent runs apart and is unchanged by lowercasing.
+static const std::string Pid = std::to_string(getpid());
+static const std::string WantedName = "TestFix1396ChipStarCacheDir" + Pid;
+static const std::string LoweredName = "testfix1396chipstarcachedir" + Pid;
 
 static std::string toLower(std::string S) {
   for (char &C : S)
@@ -117,7 +119,7 @@ int main(int argc, char **argv) {
   }
 
   const std::vector<std::string> Found = onDiskNames(fs::temp_directory_path());
-  printf("requested '%s', created as:", WantedName);
+  printf("requested '%s', created as:", WantedName.c_str());
   for (const std::string &Name : Found)
     printf(" '%s'", Name.c_str());
   if (Found.empty())

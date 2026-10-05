@@ -156,7 +156,8 @@ int main() {
 
   // Private -I directory holding the header we mutate between compiles.
   std::error_code Ec;
-  fs::path IncDir = fs::temp_directory_path() / "chipstar_hiprtc_cache_inc_test";
+  fs::path IncDir = fs::temp_directory_path() /
+                    ("chipstar_hiprtc_cache_inc_test_" + std::to_string(getpid()));
   fs::remove_all(IncDir, Ec);
   TEST_ASSERT(fs::create_directories(IncDir, Ec));
   fs::path HeaderPath = IncDir / IncludeHeaderName;
