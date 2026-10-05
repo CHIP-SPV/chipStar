@@ -200,9 +200,11 @@ std::optional<fs::path> getHIPCCPath() {
 #endif
 
   std::call_once(Flag, [&]() {
-    for (const auto &ExeCand : {fs::path(LibCHIPPath) / "bin/hipcc",
-                                fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
-                                fs::path(CHIP_BUILD_DIR) / "bin/hipcc"})
+    for (const auto &ExeCand :
+         {fs::path(LibCHIPPath) / "bin/hipcc",
+          fs::path(LibCHIPPath).parent_path() / "bin/hipcc",
+          fs::path(CHIP_INSTALL_DIR) / "bin/hipcc",
+          fs::path(CHIP_BUILD_DIR) / "bin/hipcc"})
       if (canExecuteHipcc(ExeCand)) {
         HIPCCPath = ExeCand;
         return;
