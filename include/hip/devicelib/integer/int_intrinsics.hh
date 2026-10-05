@@ -235,8 +235,8 @@ extern "C++" inline __device__ unsigned int __umulhi(unsigned int x,
   return mul_hi(x, y);
 }
 
-extern "C++" __device__ unsigned int hadd(unsigned int x,
-                                          unsigned int y); // OpenCL
+extern "C++" __device__ unsigned int rhadd(unsigned int x,
+                                           unsigned int y); // OpenCL
 extern "C++" inline __device__ unsigned int __urhadd(unsigned int x,
                                                      unsigned int y) {
   return rhadd(x, y);

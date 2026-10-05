@@ -132,26 +132,12 @@ EXPORT /* long */ long int __chip_mul64hi(/* long */ long int x,
 }
 
 EXPORT unsigned int __chip_sad(int x, int y, unsigned int z) {
-  unsigned int result = 0;
-  for (int i = 0; i < sizeof(int) * 8; i++) {
-    int x_bit = (x >> i) & 1;
-    int y_bit = (y >> i) & 1;
-    unsigned int diff = abs(x_bit - y_bit);
-    result += (diff << i);
-  }
-  return result + z;
+  return abs_diff(x, y) + z;
 }
 
 EXPORT unsigned int __chip_usad(unsigned int x, unsigned int y,
                                 unsigned int z) {
-  unsigned int result = 0;
-  for (int i = 0; i < sizeof(unsigned int) * 8; i++) {
-    unsigned int x_bit = (x >> i) & 1;
-    unsigned int y_bit = (y >> i) & 1;
-    unsigned int diff = abs((int)x_bit - (int)y_bit);
-    result += (diff << i);
-  }
-  return result + z;
+  return abs_diff(x, y) + z;
 }
 
 // optimization tries to use llvm intrinsics here, but we don't want that
