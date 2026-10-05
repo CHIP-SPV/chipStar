@@ -84,6 +84,10 @@ add_hip_test(TestStdLdexp.cpp)
 set_tests_properties(TestStdLdexp PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
 
+add_hip_test(TestFix1781RhaddSad.cpp)
+set_tests_properties(TestFix1781RhaddSad PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
+
 add_hip_test(TestFix1752OcmlClass.cpp)
 set_tests_properties(TestFix1752OcmlClass PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
