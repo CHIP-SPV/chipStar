@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <unistd.h>
 
 __global__ void incrementKernel(int *Data) { ++*Data; }
 
@@ -38,8 +39,9 @@ int main() {
   CHECK(hipGraphAddEmptyNode(&Root, Graph, nullptr, 0));
   CHECK(hipGraphAddKernelNode(&Kernel, Graph, &Root, 1, &Params));
 
-  const auto DotPath = std::filesystem::temp_directory_path() /
-                       "TestFixKokkosGraphDebugDotPrint.dot";
+  const auto DotPath =
+      std::filesystem::temp_directory_path() /
+      ("TestFixKokkosGraphDebugDotPrint_" + std::to_string(getpid()) + ".dot");
   std::filesystem::remove(DotPath);
 
   CHECK(hipGraphDebugDotPrint(Graph, DotPath.c_str(),
