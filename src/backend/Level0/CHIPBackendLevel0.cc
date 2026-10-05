@@ -2494,9 +2494,9 @@ void CHIPBackendLevel0::initializeImpl() {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDriverGet);
 
   if (ChipEnvVars.getPlatformIdx() >= DriverCount) {
-    CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeDriverGet,
-                                      "CHIP_PLATFORM for Level0 backend must be"
-                                      " < number of drivers");
+    CHIPERR_LOG_AND_THROW("CHIP_PLATFORM for Level0 backend must be"
+                          " < number of drivers",
+                          hipErrorInitializationError);
   }
 
   // TODO Allow for multilpe platforms(drivers)
