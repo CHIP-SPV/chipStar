@@ -42,8 +42,7 @@ install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/cucc
   PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
 # Install the nvcc symlink
-install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink cucc nvcc
-                               WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin)")
+install(CODE "file(CREATE_LINK cucc \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/bin/nvcc\" SYMBOLIC)")
 
 
 # Run static type check on cucc if there is a tool available for it.
