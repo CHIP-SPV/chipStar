@@ -1580,7 +1580,12 @@ void *chipstar::Context::allocate(size_t Size, size_t Alignment,
          "chipstar::AllocationTracker was not created!");
   if (!ChipDev->AllocTracker->reserveMem(Size))
     return nullptr;
-  AllocatedPtr = allocateImpl(Size, Alignment, MemType);
+  try {
+    AllocatedPtr = allocateImpl(Size, Alignment, MemType);
+  } catch (...) {
+    ChipDev->AllocTracker->releaseMemReservation(Size);
+    throw;
+  }
   if (AllocatedPtr == nullptr)
     ChipDev->AllocTracker->releaseMemReservation(Size);
 
