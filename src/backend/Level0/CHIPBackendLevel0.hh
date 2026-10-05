@@ -78,10 +78,9 @@ public:
                      hipStream_t ChipQueue)
       : ExecItem(GirdDim, BlockDim, SharedMem, ChipQueue) {}
 
-  virtual ~CHIPExecItemLevel0() override {
-    if (OwnsKernel_)
-      delete ChipKernel_;
-  }
+  // Defined out-of-line because deleting ChipKernel_ needs the complete
+  // CHIPKernelLevel0 type, which is not defined until later in this header.
+  virtual ~CHIPExecItemLevel0() override;
 
   virtual void setupAllArgs() override;
   virtual chipstar::ExecItem *clone() const override;
