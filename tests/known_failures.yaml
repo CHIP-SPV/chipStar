@@ -430,6 +430,8 @@ ANY:
     Unit_hipGetLastError_with_Kernel_divide_by_zero_ErrorHandlingTest: 'NUMERICAL'
     Unit_Assert_Positive_Basic_KernelFail_AssertionTest: 'Kernel assert abort not working'
   OPENCL_GPU:
+    cuda-FDTD3d: 'Failed'
+    TestBallot: 'Failed'
     Unit_Device_Complex_Binary_Device_Sanity_Positive - hipFloatComplex_ComplexTest: 'Failed'
     Unit_hipGetLastError_with_hipMemsetAsync_ErrorHandlingTest: 'Failed'
     Unit_hipManagedKeyword_SingleGpu_TypeQualifiers: 'Failed'
@@ -459,12 +461,15 @@ ANY:
     Unit_hipMemset3DSync_MemoryTest2: 'Timeout'
     Unit_Copy_Coherency_synchronizationTests: 'Timeout'
     Unit_hipStreamPerThread_EvtRcrdMThrd_StreamPerThreadTest: 'Timeout'
+    unroll: ''
+    cuda-asyncAPI: ''
     cuda-scan: 'Timeout'
     Unit_hipMemset2DSync_MemoryTest2: 'Timeout'
     Unit_hipStrmPerThrdDefault_StreamPerThreadTest: 'Timeout'
     Unit_hipMemFaultStackAllocation_Check_KernelTest: 'Timeout'
     TestWholeProgramCompilation: 'Timeout'
     TestHiprtcOptions: 'Timeout'
+    TestFixGraphExecKernelNodeSetParams: 'All HIP graph API and stream capture tests'
     Unit_AnyAll_CompileTest_UnitDeviceTests: 'Failed'
     'Unit_Thread_Block_Sync_Positive_Basic - uint16_t_coopGrpTest': 'coopGrp sync fails'
     'Unit_Thread_Block_Sync_Positive_Basic - uint32_t_coopGrpTest': 'coopGrp sync fails'
@@ -498,26 +503,45 @@ ANY:
     TestRecordEventBlocking: 'pass, then pure virtual method called'
     hipDeviceMalloc: 'Either segfault or hang inside the malloc kernel'
     TestMemcpyAsyncPageable: 'Relying on timings for kernels/memory copies not reliable on CPU'
+    TestStaticLibRDC: 'LLVM-16 still being tested but not recompiled to include the static library fix'
     cuda-reduction: 'timeout on LLVM16, enable to reproduce anywhere other than github runne'
     TestUndefKernelArg: ''
+    fp16_half2_math: ''
+    fp16_math: ''
     Unit_hipHostMalloc_CoherentAccess: 'Timeout'
+    TestRDCWithSingleHipccCmd: 'llvm-objcopy MachO not supported for -fgpu-rdc'
+    TestRDCWithMultipleHipccCmds: 'llvm-objcopy MachO not supported for -fgpu-rdc'
+    TestBufferDevAddr: 'hipErrorOutOfMemory with BufferDevAddr on PoCL'
+    TestAssert: 'Works only on dGPU, otherwise, things being printed out of order'
+    TestAssertFail: 'Works only on dGPU, otherwise, things being printed out of order'
     Unit_DoublePrecisionIntrinsics_UnitDeviceTests: 'Device function tests fail on PoCL'
     Unit_FloatMathPrecise_UnitDeviceTests: 'Device function tests fail on PoCL'
     Unit_IntegerIntrinsics_UnitDeviceTests: 'Device function tests fail on PoCL'
     Unit_SinglePrecisionIntrinsics_UnitDeviceTests: 'Device function tests fail on PoCL'
     Unit_SinglePrecisionMathDevice_UnitDeviceTests: 'Device function tests fail on PoCL'
+    Unit_Thread_Block_Getters_Positive_Basic_coopGrpTest: 'Cooperative groups not supported by PoCL'
+    Unit_Thread_Block_Getters_Via_Base_Type_Positive_Basic_coopGrpTest: 'Cooperative groups not supported by PoCL'
+    Unit_Thread_Block_Getters_Via_Non_Member_Functions_Positive_Basic_coopGrpTest: 'Cooperative groups not supported by PoCL'
+    'Unit_Thread_Block_Sync_Positive_Basic - uint16_t_coopGrpTest': 'coopGrp sync fails'
+    'Unit_Thread_Block_Sync_Positive_Basic - uint32_t_coopGrpTest': 'coopGrp sync fails'
+    'Unit_Thread_Block_Sync_Positive_Basic - uint8_t_coopGrpTest': 'coopGrp sync fails'
     Unit_hipEventQuery_DifferentDevice_EventTest: 'Event tests fail on PoCL'
     Unit_hipFreeImplicitSyncDev_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipFreeImplicitSyncHost_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipGetLastError_with_hipMemsetAsync_ErrorHandlingTest: 'Error handling tests fail on PoCL'
+    Unit_hipGraphAddMemcpyNode_HostToHost_GraphsTest1: 'All HIP graph API and stream capture tests'
     Unit_hipGraphAddMemsetNode_hipMallocManaged_GraphsTest2: 'All HIP graph API and stream capture tests'
     Unit_hipGraphDestroyNode_DestroyDependencyNode_GraphsTest1: 'All HIP graph API and stream capture tests'
     Unit_hipGraphGetNodes_Functional_GraphsTest1: 'All HIP graph API and stream capture tests'
     Unit_hipGraphMemcpyNodeSetParams1D_Positive_Basic_GraphsTest2: 'All HIP graph API and stream capture tests'
+    Unit_hipHostMalloc_AllocateMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
+    Unit_hipHostMalloc_AllocateUseMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipMalloc_Positive_Alignment_MemoryTest2: 'Memory tests fail on PoCL'
     Unit_hipMalloc_Positive_Basic_MemoryTest2: 'Memory tests fail on PoCL'
+    Unit_hipMemFaultStackAllocation_Check_KernelTest: 'Kernel tests fail on PoCL'
     Unit_hipMemcpy2DAsync_Positive_Basic_MemoryTest1: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipMemcpy2D_Positive_Synchronization_Behavior_MemoryTest1: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
+    Unit_hipMemcpyDtoDAsync_Positive_Basic_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipMemsetASyncMulti_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipMemsetAsync_QueueJobsMultithreaded_MultiThreadTest: 'Multi-thread tests fail on PoCL'
     'Unit_hipMemsetDASyncMulti - int16_t_MemoryTest2': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
@@ -541,7 +565,6 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
     TestIndirectCall: 'rusticl/radeonsi: spirv_to_nir implements no FunctionPointersINTEL capability'
     Unit___threadfence(_block)?_Positive_Basic_Shared_ThreadfenceTest: 'rusticl/radeonsi: __threadfence/__threadfence_block hangs the GPU (amdgpu CS cancelled / hard recovery / context lost) on the shared-memory path'
     TestHiprtcOptions: 'flaky/unreliable on rusticl: hiprtc runtime compilation intermittently fails/hangs'
-    cuda-asyncAPI: 'rusticl/radeonsi: CL_INVALID_WORK_GROUP_SIZE / driver gaps on these CUDA-sample ports'
     cuda-scan: 'rusticl/radeonsi: CL_INVALID_WORK_GROUP_SIZE / driver gaps on these CUDA-sample ports'
     cuda-vectorAdd: 'rusticl/radeonsi: CL_INVALID_WORK_GROUP_SIZE / driver gaps on these CUDA-sample ports'
     hipTestResetStaticVar: 'rusticl/radeonsi: function-local static device variable is not convertible to a kernel argument (issue #1279 kernel-arg lowering), so it falls back to a program-scope CrossWorkgroup global, which rusticl/Mesa cannot consume (driver panic)'
@@ -614,34 +637,13 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     # these two entries when the PoCL side is fixed.
     'Unit_Device_Complex_hipCfma_Device_Sanity_Positive - hipFloatComplex_ComplexTest': 'SEGFAULT in PoCL pocl_svm_memcpy_common, null dereference reached from hipMemcpy (#1594)'
     'Unit_Device_Complex_hipCfma_Device_Sanity_Positive - hipDoubleComplex_ComplexTest': 'SEGFAULT in PoCL pocl_svm_memcpy_common, null dereference reached from hipMemcpy (#1594)'
-    TestAssert: 'Works only on dGPU, otherwise, things being printed out of order'
-    TestAssertFail: 'Works only on dGPU, otherwise, things being printed out of order'
-    TestBufferDevAddr: 'hipErrorOutOfMemory with BufferDevAddr on PoCL'
-    TestRDCWithMultipleHipccCmds: 'llvm-objcopy MachO not supported for -fgpu-rdc'
-    TestRDCWithSingleHipccCmd: 'llvm-objcopy MachO not supported for -fgpu-rdc'
-    TestStaticLibRDC: 'LLVM-16 still being tested but not recompiled to include the static library fix'
-    Unit_Thread_Block_Getters_Positive_Basic_coopGrpTest: 'Cooperative groups not supported by PoCL'
-    Unit_Thread_Block_Getters_Via_Base_Type_Positive_Basic_coopGrpTest: 'Cooperative groups not supported by PoCL'
-    Unit_Thread_Block_Getters_Via_Non_Member_Functions_Positive_Basic_coopGrpTest: 'Cooperative groups not supported by PoCL'
-    'Unit_Thread_Block_Sync_Positive_Basic - uint16_t_coopGrpTest': 'coopGrp sync fails'
-    'Unit_Thread_Block_Sync_Positive_Basic - uint32_t_coopGrpTest': 'coopGrp sync fails'
-    'Unit_Thread_Block_Sync_Positive_Basic - uint8_t_coopGrpTest': 'coopGrp sync fails'
-    Unit_hipHostMalloc_AllocateMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
-    Unit_hipHostMalloc_AllocateUseMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
-    Unit_hipMemFaultStackAllocation_Check_KernelTest: 'Kernel tests fail on PoCL'
-    Unit_hipMemcpyDtoDAsync_Positive_Basic_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
-    fp16_half2_math: ''
-    fp16_math: ''
 
-'^k3$': # SpacemiT K3 RISC-V CPU, PoCL
+'^k3$': # SpacemiT K3 RISC-V CPU, PoCL; measured, no failures beyond ANY
   ALL:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
-    Unit_hipGraphAddMemcpyNode_HostToHost_GraphsTest1: 'All HIP graph API and stream capture tests'
-    Unit_hipMemFaultStackAllocation_Check_KernelTest: 'Kernel tests fail on PoCL'
-    Unit_hipMemcpyDtoDAsync_Positive_Basic_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
 'meatloaf': # Intel UHD 730 + Arc A770 (i915), Level Zero and OpenCL
   ALL:
   LEVEL0_GPU:
@@ -689,15 +691,4 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     Unit_hipMemcpyHtoD_Positive_Synchronization_Behavior_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'Failed'
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
-  OPENCL_POCL:
-'salami': # Mali-G52 (ARM64), OpenCL
-  ALL:
-  LEVEL0_GPU:
-  OPENCL_CPU:
-  OPENCL_GPU:
-    TestBallot: 'Failed'
-    TestFixGraphExecKernelNodeSetParams: 'All HIP graph API and stream capture tests'
-    'cuda-FDTD3d': 'Failed'
-    'cuda-asyncAPI': ''
-    unroll: ''
   OPENCL_POCL:
