@@ -1,3 +1,7 @@
+if(CHIP_SET_RPATH)
+  set(CMAKE_INSTALL_RPATH "${CHIP_RPATH_ORIGIN}/../../../lib")
+endif()
+
 # usage: add_cuda_sample_args(NAME test-name SUBDIR test-dir SOURCES source1 source2 ARGS command-arg1 arg2 arg3)
 function(add_cuda_sample_args)
   set(options)
