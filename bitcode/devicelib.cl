@@ -424,7 +424,7 @@ EXPORT float __chip_norm_f32(int dim, const float *a) {
 }
 
 EXPORT double __chip_norm_f64(int dim, const double *a) {
-  float r = 0;
+  double r = 0;
   while (dim--) {
     r += a[0] * a[0];
     ++a;
@@ -440,7 +440,7 @@ EXPORT float __chip_rnorm_f32(int dim, const float *a) {
     ++a;
   }
 
-  return sqrt(r);
+  return rsqrt(r);
 }
 
 EXPORT double __chip_rnorm_f64(int dim, const double *a) {
@@ -450,7 +450,7 @@ EXPORT double __chip_rnorm_f64(int dim, const double *a) {
     ++a;
   }
 
-  return sqrt(r);
+  return rsqrt(r);
 }
 
 EXPORT void __chip_sincospi_f32(float x, float *sptr, float *cptr) {
