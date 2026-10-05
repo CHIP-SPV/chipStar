@@ -265,5 +265,5 @@ int main(int argc, char *argv[]) {
     std::cout << spirvText << std::endl;
   }
 
-  return hasDoubles;
+  return 0;
 }
