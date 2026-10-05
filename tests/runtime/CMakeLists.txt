@@ -97,6 +97,7 @@ set(RUNTIME_TESTS_MANUAL
   TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
+  TestFix315PlatformOutOfRange.hip # run under env -u CHIP_DEVICE_TYPE, registered below
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
@@ -306,6 +307,16 @@ target_compile_options(TestSnakeMiscompileO2 PRIVATE -O2)
 set_tests_properties(TestFixStdCmathFloatLibcalls PROPERTIES
   ENVIRONMENT "CHIP_LOGLEVEL=warn"
   FAIL_REGULAR_EXPRESSION "FAIL;Missing definition for")
+
+# CHIP_DEVICE_TYPE must be unset: combined with CHIP_PLATFORM it aborts before main.
+set_source_files_properties(TestFix315PlatformOutOfRange.hip PROPERTIES LANGUAGE CXX)
+add_executable(TestFix315PlatformOutOfRange TestFix315PlatformOutOfRange.hip)
+target_link_libraries(TestFix315PlatformOutOfRange CHIP deviceInternal)
+add_test(NAME TestFix315PlatformOutOfRange
+  COMMAND env -u CHIP_DEVICE_TYPE CHIP_PLATFORM=99
+    $<TARGET_FILE:TestFix315PlatformOutOfRange>)
+set_tests_properties(TestFix315PlatformOutOfRange PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
 
 ######################################
 # Extra ctest invocations of already-registered executables.
