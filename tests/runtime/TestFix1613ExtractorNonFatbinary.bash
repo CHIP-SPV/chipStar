@@ -8,8 +8,9 @@ OUT="@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.d"
 rm -rf "${OUT}"; mkdir -p "${OUT}"; cd "${OUT}" || exit 1
 cp "$(type -P true)" ./plain || exit 1
 head -c 64 ./plain > ./truncated
+printf '\003\002\043\007' > ./magic # SPIR-V magic number and nothing else
 
-for IN in plain truncated; do
+for IN in plain truncated magic; do
   "${EXTRACTOR}" ./${IN} > ${IN}.log 2>&1; RC=$?
   echo "${IN}: exit=${RC}"
   if [ "${RC}" -ne 1 ] || ! grep -q "Failed to extract SPIR-V" ${IN}.log; then
