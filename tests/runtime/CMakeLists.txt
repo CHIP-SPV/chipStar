@@ -336,7 +336,7 @@ add_custom_command(
     ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddOne.hip
     -o ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddOne.hip
-    hipcc.bin CHIP devicelib_bc
+    hipcc.bin CHIP devicelib_bc ${HIP_DEVICE_TOOLCHAIN_STAMP}
 )
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
@@ -344,7 +344,7 @@ add_custom_command(
     ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddTwo.hip
     -o ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/inputs/TemplatedKernelAddTwo.hip
-    hipcc.bin CHIP devicelib_bc
+    hipcc.bin CHIP devicelib_bc ${HIP_DEVICE_TOOLCHAIN_STAMP}
 )
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
@@ -352,7 +352,7 @@ add_custom_command(
     ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplateKernelModules.hip
     -o ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplateKernelModules.hip
-    hipcc.bin CHIP devicelib_bc
+    hipcc.bin CHIP devicelib_bc ${HIP_DEVICE_TOOLCHAIN_STAMP}
 )
 add_custom_target(TestTemplateKernelModules ALL
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc

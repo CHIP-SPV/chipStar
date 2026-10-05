@@ -276,16 +276,16 @@ EXPORT ulong __chip_bitinsert_u64(ulong src0, ulong src1, ulong raw_offset,
 EXPORT unsigned int __chip_funnelshift_l(unsigned int lo, unsigned int hi,
                                          unsigned int shift) {
   unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
-  unsigned int shifted = concat << (shift & 31);
+  unsigned long shifted = concat << (shift & 31);
   return shifted >> 32;
 }
 
 EXPORT unsigned int __chip_funnelshift_lc(unsigned int lo, unsigned int hi,
                                           unsigned int shift) {
   unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
-  unsigned int shifted = concat << (shift & 31);
   unsigned int clamped_shift = shift < 32 ? shift : 32;
-  return shifted >> (32 - clamped_shift);
+  unsigned long shifted = concat << clamped_shift;
+  return shifted >> 32;
 }
 
 EXPORT unsigned int __chip_funnelshift_r(unsigned int lo, unsigned int hi,
@@ -298,9 +298,8 @@ EXPORT unsigned int __chip_funnelshift_r(unsigned int lo, unsigned int hi,
 EXPORT unsigned int __chip_funnelshift_rc(unsigned int lo, unsigned int hi,
                                           unsigned int shift) {
   unsigned /* long */ long concat = ((unsigned /* long */ long)hi << 32) | lo;
-  unsigned int shifted = concat >> (shift & 31);
   unsigned int clamped_shift = shift < 32 ? shift : 32;
-  return shifted << (32 - clamped_shift);
+  return concat >> clamped_shift;
 }
 
 EXPORT float __chip_saturate_f32(float x) {
@@ -915,19 +914,15 @@ __SHFL(ulong);
 __SHFL(float);
 __SHFL(double);
 
-// CUDA semantics for __shfl_xor with a width < warpSize: the source lane
-// is laneId ^ laneMask. If that XOR result lands outside the caller's
-// width-segment (i.e. it would reference a later/earlier group), the
-// caller keeps its own value. For width == warpSize this reduces to a
-// plain butterfly shuffle. laneMask is applied to the absolute lane id
-// (not masked to the segment) so that high bits correctly send the
-// access out of the segment.
+// CUDA rule: lanes may read earlier width-segments, but a source lane in a
+// later segment returns the caller's own value. laneMask is not masked to the
+// segment, so its high bits can select another segment.
 #define __SHFL_XOR(T)                                                          \
   EXPORT OVLD T __shfl_xor(T var, int laneMask, int wSize) {                   \
     int laneId = get_sub_group_local_id();                                     \
     int segmentBase = (laneId / wSize) * wSize;                                \
     int srcLane = laneId ^ laneMask;                                           \
-    if (srcLane < segmentBase || srcLane >= segmentBase + wSize)              \
+    if (srcLane < 0 || srcLane >= segmentBase + wSize)                         \
       srcLane = laneId;                                                        \
     return sub_group_shuffle(var, srcLane);                                    \
   }
@@ -1056,7 +1051,7 @@ __SHFL_XOR_SYNC(double);
 EXPORT OVLD ulong __chip_ballot(int predicate);
 
 EXPORT OVLD int __chip_all(int predicate) {
-  return __chip_ballot(predicate) == ((ulong)1 << DEFAULT_WARP_SIZE) - 1;
+  return __chip_ballot(!predicate) == 0;
 }
 
 EXPORT OVLD int __chip_any(int predicate) {
