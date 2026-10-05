@@ -95,6 +95,7 @@ int main() {
   checkOption("-O2");
   checkOption("-O3");
   checkOption("-DFOO=123", AssertFooMacro);
+  checkOption("-ferror-limit=200");
   // TODO: Does not work with current hipcc probably due to lack of shell
   //       escaping.
   // checkOption("-DGREETING=\"Hello, World!\"", Greet);
