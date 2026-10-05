@@ -120,7 +120,8 @@ static bool processOptions(chipstar::Program &Program, int NumOptions,
         Match(OptionIn, "-fno-eliminate-unused-debug-types") ||
         Match(OptionIn, "-fno-eliminate-unused-debug-symbols") ||
         Match(OptionIn, "-ffast-math") ||
-        Match(OptionIn, "-munsafe-fp-atomics")) {
+        Match(OptionIn, "-munsafe-fp-atomics") ||
+        Match(OptionIn, "-ferror-limit=[0-9]+")) {
       logDebug("hiprtc: accept option '{}'", std::string(OptionIn));
       OptionsOut.Options.emplace_back(OptionIn);
       continue;
