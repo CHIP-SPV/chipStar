@@ -284,13 +284,19 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg,
     // Scan through the SPIR-V binary to find its size
     // Each instruction's length is encoded in its first word
     size_t pos = 5;         // Start after header
-    while (pos < 1000000) { // Reasonable upper limit to prevent infinite loop
+    while (pos < 1000000 && // Reasonable upper limit to prevent infinite loop
+           InBounds(static_cast<const char *>(magicResult.ptr),
+                    (pos + 1) * sizeof(uint32_t))) {
       uint16_t wordCount = words[pos] >> 16;
       if (wordCount == 0)
         break;
       pos += wordCount;
     }
     size = pos * sizeof(uint32_t);
+    if (!InBounds(static_cast<const char *>(magicResult.ptr), size)) {
+      ErrorMsg = "Truncated SPIR-V module";
+      return std::string_view();
+    }
     return std::string_view(static_cast<const char *>(magicResult.ptr), size);
   }
 
