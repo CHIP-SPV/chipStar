@@ -118,3 +118,7 @@ add_test(NAME "TestFix1586IntArgMath"
 add_hip_test(TestFix1750FunnelShift.cpp)
 set_tests_properties(TestFix1750FunnelShift PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
+
+add_hip_test(TestFix1782NormRnorm.cpp)
+set_tests_properties(TestFix1782NormRnorm PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
