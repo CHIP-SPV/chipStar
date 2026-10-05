@@ -1578,10 +1578,12 @@ void *chipstar::Context::allocate(size_t Size, size_t Alignment,
 
   assert(ChipDev->AllocTracker &&
          "chipstar::AllocationTracker was not created!");
-  if (!ChipDev->AllocTracker->reserveMem(Size))
+  bool Charged =
+      MemType != hipMemoryTypeHost || ChipDev->hostAllocUsesGlobalMem();
+  if (Charged && !ChipDev->AllocTracker->reserveMem(Size))
     return nullptr;
   AllocatedPtr = allocateImpl(Size, Alignment, MemType);
-  if (AllocatedPtr == nullptr)
+  if (AllocatedPtr == nullptr && Charged)
     ChipDev->AllocTracker->releaseMemReservation(Size);
 
   ChipDev->AllocTracker->recordAllocation(
@@ -1634,14 +1636,16 @@ hipError_t chipstar::Context::free(void *Ptr) {
     return hipErrorInvalidValue;
 
   // Save the fields we need before eraseRecord() deletes AllocInfo.
-  bool HasDevPtr = AllocInfo->DevPtr != nullptr;
+  bool Charged = AllocInfo->DevPtr &&
+                 (AllocInfo->MemoryType != hipMemoryTypeHost ||
+                  ChipDev->hostAllocUsesGlobalMem());
   size_t AllocSize = AllocInfo->Size;
   bool IsHostNonMapped = (AllocInfo->MemoryType == hipMemoryTypeHost &&
                           AllocInfo->HostPtr &&
                           AllocInfo->HostPtr != AllocInfo->DevPtr);
   void *HostPtrToFree = AllocInfo->HostPtr;
 
-  if (HasDevPtr)
+  if (Charged)
     ChipDev->AllocTracker->releaseMemReservation(AllocSize);
 
   // Erase the record BEFORE freeing the underlying memory.  Freeing first

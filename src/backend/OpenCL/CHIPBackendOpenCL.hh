@@ -377,6 +377,7 @@ public:
                                   CHIPContextOpenCL *ChipContext, int Idx);
   cl::Device *ClDevice;
   cl::Context *ClContext;
+  bool HostAllocUsesGlobalMem_ = true;
   cl::Device *get() { return ClDevice; }
   virtual void populateDevicePropertiesImpl() override;
   virtual void resetImpl() override;
@@ -384,6 +385,9 @@ public:
     return hasUnifiedVirtualAddressing() ||
            static_cast<CHIPContextOpenCL *>(Ctx_)->getAllocStrategy() ==
                AllocationStrategy::BufferDevAddr;
+  }
+  bool hostAllocUsesGlobalMem() const override {
+    return HostAllocUsesGlobalMem_;
   }
   virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags,
                                        int Priority) override;

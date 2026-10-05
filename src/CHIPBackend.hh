@@ -1772,6 +1772,11 @@ public:
     return hasUnifiedVirtualAddressing();
   }
 
+  /// Whether host allocations come out of the memory in totalGlobalMem.
+  virtual bool hostAllocUsesGlobalMem() const {
+    return getAttr(hipDeviceAttributeIntegrated);
+  }
+
 protected:
   /**
    * @brief The backend hook for reset().

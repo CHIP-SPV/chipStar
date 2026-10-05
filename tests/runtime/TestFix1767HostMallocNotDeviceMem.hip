@@ -1,15 +1,14 @@
 // Reproduces #1767: hipHostMalloc was charged against totalGlobalMem, so on a
 // discrete GPU pinned host memory lowered hipMemGetInfo's free memory and made
 // hipMalloc of memory the device still had fail with hipErrorOutOfMemory.
+#include "CHIPBackend.hh"
 #include <hip/hip_runtime_api.h>
 #include <cstdio>
 
 int main() {
-  int Integrated = 0;
-  if (hipDeviceGetAttribute(&Integrated, hipDeviceAttributeIntegrated, 0) !=
-      hipSuccess)
+  if (hipFree(nullptr) != hipSuccess)
     return 1;
-  if (Integrated)
+  if (Backend->getActiveDevice()->hostAllocUsesGlobalMem())
     return CHIP_SKIP_TEST; // Host allocations do use device memory there.
 
   size_t Free0, Free1, Total;
