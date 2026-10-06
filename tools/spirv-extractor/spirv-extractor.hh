@@ -66,74 +66,53 @@ static inline T _copyAs(const void *BaseAddr, size_t ByteOffset = 0) {
   return Res;
 }
 
-// Helper function to find the .hip_fatbin section in an ELF file
-std::pair<const void *, size_t> findHipFatbinSection(const void *data,
-                                                     size_t size) {
-  const Elf64_Ehdr *ehdr = static_cast<const Elf64_Ehdr *>(data);
-
-  // Verify ELF magic
-  if (size < sizeof(Elf64_Ehdr) ||
-      memcmp(ehdr->e_ident, ELFMAG, SELFMAG) != 0) {
-    return {nullptr, 0};
-  }
-
-  // Get section headers
-  const Elf64_Shdr *shdr = reinterpret_cast<const Elf64_Shdr *>(
-      static_cast<const char *>(data) + ehdr->e_shoff);
-
-  // Get section names string table
-  const char *strtab =
-      static_cast<const char *>(data) + shdr[ehdr->e_shstrndx].sh_offset;
-
-  // Find .hip_fatbin section
-  for (size_t i = 0; i < ehdr->e_shnum; i++) {
-    const char *name = strtab + shdr[i].sh_name;
-    if (strcmp(name, ".hip_fatbin") == 0) {
-      return {static_cast<const char *>(data) + shdr[i].sh_offset,
-              shdr[i].sh_size};
-    }
-  }
-
-  return {nullptr, 0};
-}
-
 /// Every read is bounded by \p Size, the number of bytes readable at \p Bundle.
 MagicResult seekToMagic(const void *Bundle, size_t Size) {
   // True when [Off, Off+N) lies inside the buffer.
   auto InBounds = [&](size_t Off, size_t N) {
     return Off <= Size && N <= Size - Off;
   };
-  // First check if this is an ELF file
-  const Elf64_Ehdr *ehdr = static_cast<const Elf64_Ehdr *>(Bundle);
+  // First check if this is an ELF file. Header fields are copied out one at a
+  // time: the input need not be aligned for them, and Size may be SIZE_MAX.
+  bool IsElf =
+      InBounds(0, sizeof(Elf64_Ehdr)) && memcmp(Bundle, ELFMAG, SELFMAG) == 0;
+  auto ehdr16 = [&](size_t F) { return _copyAs<uint16_t>(Bundle, F); };
+  uint64_t shoff =
+      IsElf ? _copyAs<uint64_t>(Bundle, offsetof(Elf64_Ehdr, e_shoff)) : 0;
+  size_t shnum = IsElf ? ehdr16(offsetof(Elf64_Ehdr, e_shnum)) : 0;
+  // Offset of field F of section header I.
+  auto shdr = [&](size_t I, size_t F) {
+    return shoff + I * sizeof(Elf64_Shdr) + F;
+  };
+  auto shdr64 = [&](size_t I, size_t F) {
+    return _copyAs<uint64_t>(Bundle, shdr(I, F));
+  };
 
   // Check if this looks like an ELF file with an in-bounds section table
-  if (InBounds(0, sizeof(Elf64_Ehdr)) &&
-      memcmp(ehdr->e_ident, ELFMAG, SELFMAG) == 0 &&
-      InBounds(ehdr->e_shoff, ehdr->e_shnum * sizeof(Elf64_Shdr)) &&
-      ehdr->e_shstrndx < ehdr->e_shnum) {
-    // Get section headers
-    const Elf64_Shdr *shdr = reinterpret_cast<const Elf64_Shdr *>(
-        static_cast<const char *>(Bundle) + ehdr->e_shoff);
-
+  if (IsElf && InBounds(shoff, shnum * sizeof(Elf64_Shdr)) &&
+      ehdr16(offsetof(Elf64_Ehdr, e_shstrndx)) < shnum) {
     // Get section names string table; an out-of-bounds one names nothing
-    const Elf64_Shdr &strhdr = shdr[ehdr->e_shstrndx];
-    size_t strsize =
-        InBounds(strhdr.sh_offset, strhdr.sh_size) ? strhdr.sh_size : 0;
+    size_t shstrndx = ehdr16(offsetof(Elf64_Ehdr, e_shstrndx));
+    size_t stroff = shdr64(shstrndx, offsetof(Elf64_Shdr, sh_offset));
+    size_t strsize = shdr64(shstrndx, offsetof(Elf64_Shdr, sh_size));
+    if (!InBounds(stroff, strsize))
+      strsize = 0;
     const char *strtab =
-        static_cast<const char *>(Bundle) + (strsize ? strhdr.sh_offset : 0);
+        static_cast<const char *>(Bundle) + (strsize ? stroff : 0);
 
     // Find .hip_fatbin section
-    for (size_t i = 0; i < ehdr->e_shnum; i++) {
-      if (shdr[i].sh_name > strsize ||
-          strsize - shdr[i].sh_name < sizeof(".hip_fatbin"))
+    for (size_t i = 0; i < shnum; i++) {
+      size_t nameoff =
+          _copyAs<uint32_t>(Bundle, shdr(i, offsetof(Elf64_Shdr, sh_name)));
+      if (nameoff > strsize || strsize - nameoff < sizeof(".hip_fatbin"))
         continue;
-      const char *name = strtab + shdr[i].sh_name;
+      const char *name = strtab + nameoff;
       if (memcmp(name, ".hip_fatbin", sizeof(".hip_fatbin")) == 0) {
-        if (!InBounds(shdr[i].sh_offset, shdr[i].sh_size))
+        size_t offset = shdr64(i, offsetof(Elf64_Shdr, sh_offset));
+        size_t size = shdr64(i, offsetof(Elf64_Shdr, sh_size));
+        if (!InBounds(offset, size))
           break;
-        const char *data =
-            static_cast<const char *>(Bundle) + shdr[i].sh_offset;
-        size_t size = shdr[i].sh_size;
+        const char *data = static_cast<const char *>(Bundle) + offset;
 
         // Search for magic identifiers in the section
         for (size_t j = 0; j + sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1 <= size;
@@ -214,25 +193,25 @@ std::vector<const void *> collectOffloadBundles(const void *Binary,
 
   if (InBounds(0, sizeof(Elf64_Ehdr)) &&
       memcmp(Base, ELFMAG, SELFMAG) == 0) {
-    const Elf64_Ehdr *Ehdr = reinterpret_cast<const Elf64_Ehdr *>(Base);
-    size_t ShdrBytes = static_cast<size_t>(Ehdr->e_shnum) * sizeof(Elf64_Shdr);
-    if (!InBounds(Ehdr->e_shoff, ShdrBytes) ||
-        Ehdr->e_shstrndx >= Ehdr->e_shnum)
+    const auto Ehdr = _copyAs<Elf64_Ehdr>(Base);
+    size_t ShdrBytes = static_cast<size_t>(Ehdr.e_shnum) * sizeof(Elf64_Shdr);
+    if (!InBounds(Ehdr.e_shoff, ShdrBytes) || Ehdr.e_shstrndx >= Ehdr.e_shnum)
       return Bundles;
-    const Elf64_Shdr *Shdr =
-        reinterpret_cast<const Elf64_Shdr *>(Base + Ehdr->e_shoff);
-    size_t StrOff = Shdr[Ehdr->e_shstrndx].sh_offset;
-    size_t StrSize = Shdr[Ehdr->e_shstrndx].sh_size;
+    auto Shdr = [&](size_t I) {
+      return _copyAs<Elf64_Shdr>(Base, Ehdr.e_shoff + I * sizeof(Elf64_Shdr));
+    };
+    size_t StrOff = Shdr(Ehdr.e_shstrndx).sh_offset;
+    size_t StrSize = Shdr(Ehdr.e_shstrndx).sh_size;
     if (!InBounds(StrOff, StrSize))
       return Bundles;
-    for (size_t I = 0; I < Ehdr->e_shnum; I++) {
-      size_t NameOff = Shdr[I].sh_name;
+    for (size_t I = 0; I < Ehdr.e_shnum; I++) {
+      size_t NameOff = Shdr(I).sh_name;
       if (NameOff >= StrSize)
         continue;
       // The string table is bounded, so this comparison cannot run past it.
       if (strncmp(Base + StrOff + NameOff, ".hip_fatbin", StrSize - NameOff) ==
           0) {
-        Scan(Shdr[I].sh_offset, Shdr[I].sh_size);
+        Scan(Shdr(I).sh_offset, Shdr(I).sh_size);
         return Bundles;
       }
     }
@@ -279,7 +258,6 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg,
     // Get the size by reading the SPIR-V header
     // SPIR-V header is 5 words (20 bytes): Magic, Version, Generator, Bound,
     // Reserved
-    const uint32_t *words = static_cast<const uint32_t *>(magicResult.ptr);
     size_t size = 0;
     // Scan through the SPIR-V binary to find its size
     // Each instruction's length is encoded in its first word
@@ -287,7 +265,8 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg,
     while (pos < 1000000 && // Reasonable upper limit to prevent infinite loop
            InBounds(static_cast<const char *>(magicResult.ptr),
                     (pos + 1) * sizeof(uint32_t))) {
-      uint16_t wordCount = words[pos] >> 16;
+      uint16_t wordCount =
+          _copyAs<uint32_t>(magicResult.ptr, pos * sizeof(uint32_t)) >> 16;
       if (wordCount == 0)
         break;
       pos += wordCount;
