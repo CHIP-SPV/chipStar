@@ -7,6 +7,15 @@
 
 extern char **environ;
 
+// Copy of Module in Buf, which is aligned for the uint32_t reads SPIR-V
+// consumers do; Module itself can start at any byte offset.
+static std::string_view alignedCopy(std::string_view Module,
+                                    std::vector<uint32_t> &Buf) {
+  Buf.resize((Module.size() + sizeof(uint32_t) - 1) / sizeof(uint32_t));
+  std::memcpy(Buf.data(), Module.data(), Module.size());
+  return {reinterpret_cast<const char *>(Buf.data()), Module.size()};
+}
+
 // Run the wrapped test and return an exit status ctest can act on.
 //
 // The child is spawned from an argv vector rather than a command string, so an
@@ -155,6 +164,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  std::vector<uint32_t> spirvWords;
+  spirvBinary = alignedCopy(spirvBinary, spirvWords);
   auto spirvText = disassembleSPIRV(spirvBinary);
   bool hasDoubles = usesDoubles(spirvText);
 
@@ -180,7 +191,8 @@ int main(int argc, char *argv[]) {
                   << BundleErr << std::endl;
         continue;
       }
-      if (usesDoubles(disassembleSPIRV(Module))) {
+      std::vector<uint32_t> ModuleWords;
+      if (usesDoubles(disassembleSPIRV(alignedCopy(Module, ModuleWords)))) {
         hasDoubles = true;
         break;
       }
