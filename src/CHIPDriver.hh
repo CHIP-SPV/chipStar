@@ -252,11 +252,26 @@ private:
   bool DeviceTypeSet_ = false;
   bool DeviceIdxSet_ = false;
 
+  std::optional<CHIPError> DeferredError_;
+
 public:
-  EnvVars() {
-    parseEnvironmentVariables();
-    validateDeviceSelectionOptions();
+  // DeferErrors: keep a parse error for throwDeferredError() instead of throwing.
+  explicit EnvVars(bool DeferErrors = false) {
+    try {
+      parseEnvironmentVariables();
+      validateDeviceSelectionOptions();
+    } catch (CHIPError &E) {
+      if (!DeferErrors)
+        throw;
+      DeferredError_ = E;
+      return;
+    }
     logDebugSettings();
+  }
+
+  void throwDeferredError() const {
+    if (DeferredError_)
+      throw *DeferredError_;
   }
 
   int getPlatformIdx() const { return PlatformIdx_; }
