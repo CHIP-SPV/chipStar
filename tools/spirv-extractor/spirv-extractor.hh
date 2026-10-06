@@ -66,37 +66,6 @@ static inline T _copyAs(const void *BaseAddr, size_t ByteOffset = 0) {
   return Res;
 }
 
-// Helper function to find the .hip_fatbin section in an ELF file
-std::pair<const void *, size_t> findHipFatbinSection(const void *data,
-                                                     size_t size) {
-  const Elf64_Ehdr *ehdr = static_cast<const Elf64_Ehdr *>(data);
-
-  // Verify ELF magic
-  if (size < sizeof(Elf64_Ehdr) ||
-      memcmp(ehdr->e_ident, ELFMAG, SELFMAG) != 0) {
-    return {nullptr, 0};
-  }
-
-  // Get section headers
-  const Elf64_Shdr *shdr = reinterpret_cast<const Elf64_Shdr *>(
-      static_cast<const char *>(data) + ehdr->e_shoff);
-
-  // Get section names string table
-  const char *strtab =
-      static_cast<const char *>(data) + shdr[ehdr->e_shstrndx].sh_offset;
-
-  // Find .hip_fatbin section
-  for (size_t i = 0; i < ehdr->e_shnum; i++) {
-    const char *name = strtab + shdr[i].sh_name;
-    if (strcmp(name, ".hip_fatbin") == 0) {
-      return {static_cast<const char *>(data) + shdr[i].sh_offset,
-              shdr[i].sh_size};
-    }
-  }
-
-  return {nullptr, 0};
-}
-
 /// Every read is bounded by \p Size, the number of bytes readable at \p Bundle.
 MagicResult seekToMagic(const void *Bundle, size_t Size) {
   // True when [Off, Off+N) lies inside the buffer.
