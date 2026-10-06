@@ -18,6 +18,9 @@ on:
     branches: [main]
   pull_request:
     types: [closed]
+  # A producer still queued at close ships after the close-time reap; sweep every closed PR.
+  schedule:
+    - cron: '23 */6 * * *'
 
 permissions:
   contents: read
@@ -39,7 +42,11 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const prs = new Set();
-            if (context.payload.pull_request) {
+            if (context.eventName === 'schedule') {
+              const closed = await github.paginate(github.rest.pulls.list,
+                {owner, repo, state: 'closed', per_page: 100});
+              for (const pr of closed) prs.add(String(pr.number));
+            } else if (context.payload.pull_request) {
               prs.add(String(context.payload.pull_request.number));
             } else {
               const pushed = new Set((context.payload.commits || []).map(c => c.id));
