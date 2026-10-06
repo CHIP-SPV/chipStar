@@ -26,6 +26,9 @@
 
 // Definition of thread_local static member (required when not using 'inline')
 thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefaultQueue;
+// A vector allocates in push(), where configureCall can catch bad_alloc.
+thread_local std::stack<chipstar::ExecItem *, std::vector<chipstar::ExecItem *>>
+    ChipExecStack;
 
 // Global counter for threads that have called HIP APIs
 std::atomic<int> GlobalActiveThreads{0};
@@ -1843,9 +1846,14 @@ hipError_t chipstar::Backend::configureCall(dim3 Grid, dim3 Block,
            "shared={}, q={}",
            Grid.x, Grid.y, Grid.z, Block.x, Block.y, Block.z, SharedMem,
            (void *)ChipQueue);
-  chipstar::ExecItem *ExecItem =
-      ::Backend->createExecItem(Grid, Block, SharedMem, ChipQueue);
-  ChipExecStack.push(ExecItem);
+  try {
+    std::unique_ptr<chipstar::ExecItem> ExecItem(
+        ::Backend->createExecItem(Grid, Block, SharedMem, ChipQueue));
+    ChipExecStack.push(ExecItem.get());
+    ExecItem.release(); // Owned by the launch stack from here on.
+  } catch (const std::bad_alloc &) {
+    return hipErrorOutOfMemory;
+  }
 
   return hipSuccess;
 }

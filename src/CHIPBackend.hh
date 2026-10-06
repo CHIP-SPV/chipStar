@@ -2666,6 +2666,10 @@ public:
 
 } // namespace chipstar
 
-inline thread_local std::stack<chipstar::ExecItem *> ChipExecStack;
+// Not inline: any TU defining it could supply the thread_local initializer,
+// and CHIPBindings.cc's also builds a deque, which allocates.
+extern thread_local std::stack<chipstar::ExecItem *,
+                               std::vector<chipstar::ExecItem *>>
+    ChipExecStack;
 
 #endif
