@@ -84,7 +84,7 @@ static double measureLaunchNs(int numIdleStreams, int warmup, int iters) {
 
 // Maximum ratio of any measurement to the 0-stream baseline before the
 // test fails.  The fixed implementation shows ~1x flat; the broken one
-// shows 6-45x at 8+ idle streams.  With the p10 measurement above, a ratio
+// shows 6-45x at 8+ idle streams.  With the best-of-SWEEPS p10 above, a ratio
 // near 1x is expected even on runners with a tiny sub-2us baseline (e.g.
 // rusticl); under a fully CPU-saturated host the worst observed ratio was
 // ~2.8x.  4x keeps comfortable margin against residual jitter while still
@@ -99,11 +99,15 @@ int main(int argc, char **argv) {
   const int N        = sizeof(counts) / sizeof(counts[0]);
   const int WARMUP   = 20;
   const int ITERS    = 100;
+  // Keep each point's minimum p10 over several sweeps: a transient slow window
+  // inflates one sweep, an O(N) regression inflates every sweep.
+  const int SWEEPS   = 5;
 
   if (!csv) {
-    printf("hipLaunchKernel overhead benchmark  (%d samples per point)\n", ITERS);
+    printf("hipLaunchKernel overhead benchmark  (%d samples x %d sweeps per point)\n",
+           ITERS, SWEEPS);
     printf("Null-stream launch + sync while N idle blocking streams exist\n\n");
-    printf("  Idle streams | p10 ns/launch\n");
+    printf("  Idle streams | p10 ns/launch (best of %d sweeps)\n", SWEEPS);
     printf("  -------------|------------------\n");
   } else {
     printf("idle_streams,p10_ns_per_launch\n");
@@ -112,6 +116,9 @@ int main(int argc, char **argv) {
   double results[N];
   for (int i = 0; i < N; ++i)
     results[i] = measureLaunchNs(counts[i], WARMUP, ITERS);
+  for (int s = 1; s < SWEEPS; ++s)
+    for (int i = 0; i < N; ++i)
+      results[i] = std::min(results[i], measureLaunchNs(counts[i], WARMUP, ITERS));
 
   double base = results[0];
   for (int i = 0; i < N; ++i) {
