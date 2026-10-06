@@ -332,6 +332,19 @@ add_test(NAME TestFix1795InvalidEnvNoAbort_BadPlatform
 set_tests_properties(TestFix1795InvalidEnvNoAbort_TypeAndPlatform
   TestFix1795InvalidEnvNoAbort_BadPlatform PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
+# CHIP_BE naming a backend this build lacks.
+if(NOT LevelZero_LIBRARY)
+  set(MISSING_BE level0)
+elseif(NOT OpenCL_LIBRARY)
+  set(MISSING_BE opencl)
+endif()
+if(MISSING_BE)
+  add_test(NAME TestFix1795InvalidEnvNoAbort_MissingBackend
+    COMMAND env -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE CHIP_BE=${MISSING_BE}
+      $<TARGET_FILE:TestFix1795InvalidEnvNoAbort>)
+  set_tests_properties(TestFix1795InvalidEnvNoAbort_MissingBackend PROPERTIES
+    PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
+endif()
 
 ######################################
 # Extra ctest invocations of already-registered executables.
