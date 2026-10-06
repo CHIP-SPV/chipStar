@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
   if (!csv) {
     printf("hipLaunchKernel overhead benchmark  (%d samples x %d sweeps per point)\n",
            ITERS, SWEEPS);
-    printf("Null-stream launch + sync while N idle blocking streams exist\n\n");
+    printf("Null-stream launch (synced each iteration) while N idle blocking streams exist\n\n");
     printf("  Idle streams | p10 ns/launch (best of %d sweeps)\n", SWEEPS);
     printf("  -------------|------------------\n");
   } else {
