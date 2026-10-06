@@ -86,6 +86,10 @@ class SPVFuncInfo {
   /// Set to true if any argument is SPVTypeKind::PODByRef.
   bool HasByRefArgs_ = false;
 
+  /// Set if the kernel selects a generic pointer at run time between
+  /// workgroup memory and anything else.
+  bool HasMixedWorkgroupGenericPtr_ = false;
+
 public:
   /// A structure for argument info passed by the visitor methods.
   struct Arg : SPVArgTypeInfo {
@@ -125,6 +129,9 @@ public:
 
   /// Return true is any argument is passed via intermediate buffer.
   bool hasByRefArgs() const noexcept { return HasByRefArgs_; }
+  bool hasMixedWorkgroupGenericPtr() const noexcept {
+    return HasMixedWorkgroupGenericPtr_;
+  }
 
 private:
   void visitClientArgsImpl(void **ArgList, ClientArgVisitor Fn) const;
