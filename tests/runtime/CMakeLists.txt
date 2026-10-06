@@ -106,6 +106,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1600ExtractorArgvBoundaries.hip # compiled by TestFix1600ExtractorArgvBoundaries.bash, not a test
   TestFix1693StringTableOffset.hip # needs program-scope globals, registered below
   TestFix1703ByteOffsetTable.hip # needs program-scope globals, registered below
+  TestFix1842StaleArgSetStatus.hip # guarded on OpenCL_LIBRARY, registered below
 
   TestFixVolatileLoadLowering.hip # compiled by TestFixVolatileLoadLoweringSPIRV.bash, not a test
   TestFixKokkosUnorderedMapInsert.hip # reference idiom only, see the comment below
@@ -554,4 +555,8 @@ if(UNIX AND NOT APPLE)
   set_tests_properties(TestFix1543SwitchModeEventLeak PROPERTIES
     SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
     TIMEOUT 120)
+endif()
+
+if(OpenCL_LIBRARY) # Includes the OpenCL backend header
+  add_hip_runtime_test(TestFix1842StaleArgSetStatus.hip)
 endif()
