@@ -122,3 +122,7 @@ set_tests_properties(TestFix1750FunnelShift PROPERTIES
 add_hip_test(TestFix1814LargeArgMath.cpp)
 set_tests_properties(TestFix1814LargeArgMath PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
+
+add_hip_test(TestFix1840FrexpMath.cpp)
+set_tests_properties(TestFix1840FrexpMath PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
