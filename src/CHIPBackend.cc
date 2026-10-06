@@ -2390,6 +2390,10 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
                           hipErrorInvalidConfiguration);
   }
 
+  if (ExItem->getBlock().x == 0 || ExItem->getBlock().y == 0 ||
+      ExItem->getBlock().z == 0)
+    CHIPERR_LOG_AND_THROW("Zero block dimension", hipErrorInvalidConfiguration);
+
   auto TotalThreadsPerBlock =
       ExItem->getBlock().x * ExItem->getBlock().y * ExItem->getBlock().z;
 
