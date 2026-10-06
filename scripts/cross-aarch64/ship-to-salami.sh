@@ -129,6 +129,8 @@ print(f"tests kept={kept} dropped(toolchain-invoking)={dropped} of which runtime
 PY
 
 # 3. ship, plus the source tree the surviving tests reference (test inputs)
+# Keep only the 20 newest stage trees (~0.9 GB each), counting this one; skip any a test holds locked.
+ssh "$HOST" "find '$(dirname "$PREFIX")' -mindepth 1 -maxdepth 1 -type d ! -name '$SHA' -printf '%T@ %p\0' | sort -rnz | tail -zn +20 | cut -zd' ' -f2- | xargs -0r -I{} flock -n -E 0 {} rm -rf {}"
 ssh "$HOST" "mkdir -p '$PREFIX'"
 rsync -a --delete "$STAGE/" "$HOST:$PREFIX/"
 rsync -a --delete --exclude='.git' "$(dirname "$BUILD")/src-$SHA/" "$HOST:$PREFIX/src/"
