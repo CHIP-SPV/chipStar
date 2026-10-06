@@ -49,6 +49,7 @@
 #include "SPVRegister.hh"
 #include "Utils.hh"
 #include "common.hh"
+#include "hip/hip_ext.h"
 #include "hip/hip_interop.h"
 #include "hip/spirv_hip_runtime.h"
 #include "hip/spirv_spt.h"
@@ -6281,6 +6282,38 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   RETURN(hipLaunchKernelInternal(HostFunction, GridDim, BlockDim, Args,
                                  SharedMem, Stream));
   CHIP_CATCH
+}
+
+hipError_t hipExtLaunchKernel(const void *HostFunction, dim3 GridDim,
+                              dim3 BlockDim, void **Args, size_t SharedMem,
+                              hipStream_t Stream, hipEvent_t StartEvent,
+                              hipEvent_t StopEvent, int Flags) {
+  CHIP_TRY
+  LOCK(ApiMtx);
+  CHIPInitialize();
+  NULLCHECK(HostFunction, Args);
+  hipError_t Result = hipSuccess;
+  if (StartEvent)
+    Result = hipEventRecordInternal(StartEvent, Stream);
+  if (Result == hipSuccess)
+    Result = hipLaunchKernelInternal(HostFunction, GridDim, BlockDim, Args,
+                                     SharedMem, Stream);
+  if (Result == hipSuccess && StopEvent)
+    Result = hipEventRecordInternal(StopEvent, Stream);
+  RETURN(Result);
+  CHIP_CATCH
+}
+
+hipError_t hipHccModuleLaunchKernel(
+    hipFunction_t Kernel, uint32_t GlobalWorkSizeX, uint32_t GlobalWorkSizeY,
+    uint32_t GlobalWorkSizeZ, uint32_t LocalWorkSizeX, uint32_t LocalWorkSizeY,
+    uint32_t LocalWorkSizeZ, size_t SharedMemBytes, hipStream_t Stream,
+    void **KernelParams, void **Extra, hipEvent_t StartEvent,
+    hipEvent_t StopEvent) {
+  return hipExtModuleLaunchKernel(
+      Kernel, GlobalWorkSizeX, GlobalWorkSizeY, GlobalWorkSizeZ,
+      LocalWorkSizeX, LocalWorkSizeY, LocalWorkSizeZ, SharedMemBytes, Stream,
+      KernelParams, Extra, StartEvent, StopEvent, 0);
 }
 
 static unsigned getNumTextureDimensions(const hipResourceDesc *ResDesc) {
