@@ -72,6 +72,10 @@ add_hip_test(TestAtomicIncDecMod.cpp)
 set_tests_properties(TestAtomicIncDecMod PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
 
+add_hip_test(TestFix1827Bf16HneNaN.cpp)
+set_tests_properties(TestFix1827Bf16HneNaN PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
+
 add_hip_test(TestAtomicFPMinMaxBuiltins.cpp)
 set_tests_properties(TestAtomicFPMinMaxBuiltins PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
