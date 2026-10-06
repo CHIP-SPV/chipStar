@@ -192,16 +192,8 @@ public:
   BackendType(const std::string &StrIn) {
     if (StrIn == "opencl") {
       Type_ = BackendType::OpenCL;
-#ifndef HAVE_OPENCL
-      assert(!"Invalid chipStar Backend Selected. This chipStar "
-              "was not compiled with OpenCL backend");
-#endif
     } else if (StrIn == "level0") {
       Type_ = BackendType::Level0;
-#ifndef HAVE_LEVEL0
-      assert(!"Invalid chipStar Backend Selected. This chipStar "
-              "was not compiled with Level Zero backend");
-#endif
     } else if (StrIn == "" || StrIn == "default") {
       // Empty string or "default": auto-select the best available backend.
       Type_ = BackendType::Default;
