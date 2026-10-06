@@ -437,7 +437,9 @@ public:
     }
     if (Flags & hipEventInterprocess) {
       Flags = Flags & (~hipEventInterprocess);
+#ifndef CHIP_USE_NATIVE_VULKAN_SPIRV
       logWarn("hipEventInterprocess is not supported on chipStar");
+#endif
       Interprocess_ = true;
     }
     if (Flags & hipEventReleaseToDevice) {
@@ -884,6 +886,14 @@ public:
    *
    */
   virtual void hostSignal() = 0;
+
+  /// Fills Handle for hipIpcOpenEventHandle in another process.
+  virtual void getIpcHandle(hipIpcEventHandle_t *Handle) {
+    CHIPERR_LOG_AND_THROW("IPC events are not supported by this backend",
+                          hipErrorNotSupported);
+  }
+  /// True for an event opened from another process's IPC handle.
+  virtual bool isIpcOpened() { return false; }
 
   void markDeleted(bool State = true) {
 #ifndef NDEBUG
@@ -2200,6 +2210,13 @@ public:
                      chipstar::Queue *ChipQ) = 0;
 
   virtual chipstar::EventMonitor *createEventMonitor_() = 0;
+
+  /// The event another process exported as Handle.
+  virtual chipstar::Event *openIpcEvent(chipstar::Context *ChipCtx,
+                                        const hipIpcEventHandle_t &Handle) {
+    CHIPERR_LOG_AND_THROW("IPC events are not supported by this backend",
+                          hipErrorNotSupported);
+  }
 
   /* event interop */
   virtual hipEvent_t getHipEvent(void *NativeEvent) = 0;
