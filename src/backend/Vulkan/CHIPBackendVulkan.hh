@@ -114,6 +114,15 @@ class CHIPEventVulkan : public chipstar::Event {
   /// Device timestamp in nanoseconds, or UINT64_MAX while pending.
   uint64_t Timestamp_ = UINT64_MAX;
 
+  /// IPC: a shareable timeline semaphore, signaled to IpcValue_ by each
+  /// record, and a shared page holding the latest recorded value.
+  VkSemaphore IpcSem_ = VK_NULL_HANDLE;
+  uint64_t *IpcTarget_ = nullptr;
+  uint64_t IpcValue_ = 0;
+  int IpcSemFd_ = -1;
+  int IpcShmFd_ = -1;
+  bool IpcOpened_ = false;
+
 public:
   CHIPEventVulkan(chipstar::Context *Ctx,
                   chipstar::EventFlags Flags = chipstar::EventFlags());
@@ -123,6 +132,15 @@ public:
   virtual bool wait() override;
   virtual float getElapsedTime(chipstar::Event *Other) override;
   virtual void hostSignal() override;
+  virtual void getIpcHandle(hipIpcEventHandle_t *Handle) override;
+  virtual bool isIpcOpened() override { return IpcOpened_; }
+  /// Makes this the event another process exported with SemFd and ShmFd.
+  void openIpc(int SemFd, int ShmFd);
+  VkSemaphore getIpcSemaphore() const { return IpcSem_; }
+  uint64_t nextIpcValue() { return ++IpcValue_; }
+  void publishIpcValue(uint64_t V) {
+    __atomic_store_n(IpcTarget_, V, __ATOMIC_RELEASE);
+  }
 
   VkFence getFence() const { return Fence_; }
   void setFence(VkFence F) { Fence_ = F; }
@@ -353,6 +371,13 @@ class CHIPDeviceVulkan : public chipstar::Device {
 
   bool HasShaderInt8_ = false;
   bool HasShaderInt64_ = false;
+
+  /// Timeline semaphores export and import as opaque fds (IPC events).
+  bool HasIpcSemaphore_ = false;
+  /// deviceUUID then driverUUID; opaque fds only import where both match.
+  uint8_t IpcUUID_[2 * VK_UUID_SIZE] = {};
+  PFN_vkGetSemaphoreFdKHR GetSemaphoreFd_ = nullptr;
+  PFN_vkImportSemaphoreFdKHR ImportSemaphoreFd_ = nullptr;
   uint32_t TimestampValidBits_ = 64;
 
   // Only through create(), so Device::init() calls virtuals on a whole object.
@@ -405,6 +430,15 @@ public:
   int32_t acquireTimestampSlot();
   void releaseTimestampSlot(int32_t Slot);
   uint32_t getTimestampValidBits() const { return TimestampValidBits_; }
+
+  bool hasIpcSemaphore() const { return HasIpcSemaphore_; }
+  const uint8_t *getIpcUUID() const { return IpcUUID_; }
+  PFN_vkGetSemaphoreFdKHR getSemaphoreFdFn() const { return GetSemaphoreFd_; }
+  PFN_vkImportSemaphoreFdKHR importSemaphoreFdFn() const {
+    return ImportSemaphoreFd_;
+  }
+  /// A timeline semaphore, exportable as an opaque fd if Export.
+  VkSemaphore createIpcSemaphore(bool Export);
 
   CHIPContextVulkan *getContext() override {
     return static_cast<CHIPContextVulkan *>(this->Device::getContext());
@@ -560,6 +594,9 @@ public:
   createCallbackData(hipStreamCallback_t Callback, void *UserData,
                      chipstar::Queue *ChipQ) override;
   virtual chipstar::EventMonitor *createEventMonitor_() override;
+  virtual chipstar::Event *
+  openIpcEvent(chipstar::Context *ChipCtx,
+               const hipIpcEventHandle_t &Handle) override;
   virtual hipEvent_t getHipEvent(void *NativeEvent) override;
   virtual void *getNativeEvent(hipEvent_t HipEvent) override;
 

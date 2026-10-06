@@ -41,6 +41,9 @@
 #include <chrono>
 #include <cstring>
 #include <unordered_set>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 namespace {
 // Throws Err with Msg unless R is VK_SUCCESS.
@@ -129,12 +132,176 @@ CHIPEventVulkan::~CHIPEventVulkan() {
         Dev->releaseTimestampSlot(TimestampSlot_);
         TimestampSlot_ = -1;
       }
+      if (IpcSem_ != VK_NULL_HANDLE)
+        vkDestroySemaphore(Dev->getLogicalDevice(), IpcSem_, nullptr);
     }
   }
+  if (IpcTarget_)
+    munmap(IpcTarget_, sizeof(uint64_t));
+  if (IpcSemFd_ >= 0)
+    close(IpcSemFd_);
+  if (IpcShmFd_ >= 0)
+    close(IpcShmFd_);
+}
+
+namespace {
+// What hipIpcGetEventHandle stores in hipIpcEventHandle_t::reserved.
+struct IpcEventHandleVulkan {
+  uint32_t Magic;
+  int32_t Pid;
+  int32_t SemFd;
+  int32_t ShmFd;
+  uint8_t UUID[2 * VK_UUID_SIZE];
+};
+static_assert(sizeof(IpcEventHandleVulkan) <= HIP_IPC_HANDLE_SIZE);
+constexpr uint32_t IpcEventMagic = 0x43565049; // "IPVC"
+} // namespace
+
+void CHIPEventVulkan::getIpcHandle(hipIpcEventHandle_t *Handle) {
+  auto *Dev = static_cast<CHIPContextVulkan *>(ChipContext_)->getVulkanDevice();
+  if (!Dev->hasIpcSemaphore())
+    CHIPERR_LOG_AND_THROW("Vulkan device cannot export timeline semaphores",
+                          hipErrorNotSupported);
+  // Each step keeps its result only on success, so a retry resumes.
+  if (IpcSemFd_ < 0) {
+    // Records made before now are not signaled on the new semaphore.
+    if (EventStatus_ == EVENT_STATUS_RECORDING)
+      wait();
+    if (IpcShmFd_ < 0) {
+      int Fd = memfd_create("chipstar-ipc-event", MFD_CLOEXEC);
+      if (Fd >= 0 && ftruncate(Fd, sizeof(uint64_t)) != 0) {
+        close(Fd);
+        Fd = -1;
+      }
+      if (Fd < 0)
+        CHIPERR_LOG_AND_THROW("memfd_create failed", hipErrorOutOfMemory);
+      IpcShmFd_ = Fd;
+    }
+    if (!IpcTarget_) {
+      void *P = mmap(nullptr, sizeof(uint64_t), PROT_READ | PROT_WRITE,
+                     MAP_SHARED, IpcShmFd_, 0);
+      if (P == MAP_FAILED)
+        CHIPERR_LOG_AND_THROW("mmap failed", hipErrorOutOfMemory);
+      IpcTarget_ = static_cast<uint64_t *>(P);
+    }
+    if (IpcSem_ == VK_NULL_HANDLE)
+      IpcSem_ = Dev->createIpcSemaphore(true);
+    VkSemaphoreGetFdInfoKHR FdInfo{};
+    FdInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR;
+    FdInfo.semaphore = IpcSem_;
+    FdInfo.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
+    int Fd = -1;
+    checkVk(Dev->getSemaphoreFdFn()(Dev->getLogicalDevice(), &FdInfo, &Fd),
+            "vkGetSemaphoreFdKHR failed", hipErrorOutOfMemory);
+    IpcSemFd_ = Fd;
+  }
+  IpcEventHandleVulkan H{IpcEventMagic, static_cast<int32_t>(getpid()),
+                         IpcSemFd_, IpcShmFd_, {}};
+  std::memcpy(H.UUID, Dev->getIpcUUID(), sizeof(H.UUID));
+  std::memset(Handle->reserved, 0, sizeof(Handle->reserved));
+  std::memcpy(Handle->reserved, &H, sizeof(H));
+}
+
+void CHIPEventVulkan::openIpc(int SemFd, int ShmFd) {
+  auto *Dev = static_cast<CHIPContextVulkan *>(ChipContext_)->getVulkanDevice();
+  Flags_ = chipstar::EventFlags(hipEventDisableTiming | hipEventInterprocess);
+  IpcOpened_ = true;
+  Dev->releaseFence(Fence_);
+  Fence_ = VK_NULL_HANDLE;
+  void *P = mmap(nullptr, sizeof(uint64_t), PROT_READ, MAP_SHARED, ShmFd, 0);
+  close(ShmFd);
+  if (P == MAP_FAILED) {
+    close(SemFd);
+    CHIPERR_LOG_AND_THROW("mmap of the IPC event page failed",
+                          hipErrorMapFailed);
+  }
+  IpcTarget_ = static_cast<uint64_t *>(P);
+  IpcSem_ = Dev->createIpcSemaphore(false);
+  VkImportSemaphoreFdInfoKHR Import{};
+  Import.sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR;
+  Import.semaphore = IpcSem_;
+  Import.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
+  Import.fd = SemFd;
+  VkResult R = Dev->importSemaphoreFdFn()(Dev->getLogicalDevice(), &Import);
+  if (R != VK_SUCCESS)
+    close(SemFd); // A failed import leaves the fd with the caller.
+  checkVk(R, "vkImportSemaphoreFdKHR failed", hipErrorMapFailed);
+  EventStatus_ = EVENT_STATUS_RECORDING;
+}
+
+VkSemaphore CHIPDeviceVulkan::createIpcSemaphore(bool Export) {
+  VkExportSemaphoreCreateInfo ExportInfo{};
+  ExportInfo.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO;
+  ExportInfo.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
+  VkSemaphoreTypeCreateInfo TypeInfo{};
+  TypeInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+  TypeInfo.pNext = Export ? &ExportInfo : nullptr;
+  TypeInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+  VkSemaphoreCreateInfo CI{};
+  CI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  CI.pNext = &TypeInfo;
+  VkSemaphore Sem = VK_NULL_HANDLE;
+  checkVk(vkCreateSemaphore(LogicalDevice_, &CI, nullptr, &Sem),
+          "vkCreateSemaphore (IPC) failed", hipErrorOutOfMemory);
+  return Sem;
+}
+
+chipstar::Event *
+CHIPBackendVulkan::openIpcEvent(chipstar::Context *ChipCtx,
+                                const hipIpcEventHandle_t &Handle) {
+  IpcEventHandleVulkan H;
+  std::memcpy(&H, Handle.reserved, sizeof(H));
+  if (H.Magic != IpcEventMagic)
+    CHIPERR_LOG_AND_THROW("Invalid IPC event handle", hipErrorInvalidValue);
+  if (H.Pid == getpid())
+    CHIPERR_LOG_AND_THROW("IPC event handle opened in its own process",
+                          hipErrorInvalidContext);
+  auto *Dev = static_cast<CHIPContextVulkan *>(ChipCtx)->getVulkanDevice();
+  if (!Dev->hasIpcSemaphore())
+    CHIPERR_LOG_AND_THROW("Vulkan device cannot import timeline semaphores",
+                          hipErrorNotSupported);
+  if (std::memcmp(H.UUID, Dev->getIpcUUID(), sizeof(H.UUID)) != 0)
+    CHIPERR_LOG_AND_THROW("IPC event handle is from another device or driver",
+                          hipErrorInvalidValue);
+
+  // Copies the exporter's fds into this process.
+  int PidFd = static_cast<int>(syscall(SYS_pidfd_open, H.Pid, 0));
+  if (PidFd < 0)
+    CHIPERR_LOG_AND_THROW("pidfd_open of the exporting process failed",
+                          hipErrorMapFailed);
+  int SemFd = static_cast<int>(syscall(SYS_pidfd_getfd, PidFd, H.SemFd, 0));
+  int ShmFd = static_cast<int>(syscall(SYS_pidfd_getfd, PidFd, H.ShmFd, 0));
+  close(PidFd);
+  if (SemFd < 0 || ShmFd < 0) {
+    if (SemFd >= 0)
+      close(SemFd);
+    if (ShmFd >= 0)
+      close(ShmFd);
+    CHIPERR_LOG_AND_THROW("pidfd_getfd failed (needs ptrace access to the "
+                          "exporting process)",
+                          hipErrorMapFailed);
+  }
+  std::unique_ptr<CHIPEventVulkan> Event(new CHIPEventVulkan(ChipCtx));
+  Event->openIpc(SemFd, ShmFd);
+  return Event.release();
 }
 
 bool CHIPEventVulkan::updateFinishStatus(bool ThrowErrorIfNotReady) {
   isDeletedSanityCheck();
+
+  if (IpcOpened_) {
+    auto *Dev =
+        static_cast<CHIPContextVulkan *>(ChipContext_)->getVulkanDevice();
+    uint64_t Value = 0;
+    checkVk(vkGetSemaphoreCounterValue(Dev->getLogicalDevice(), IpcSem_,
+                                       &Value),
+            "vkGetSemaphoreCounterValue (IPC) failed", hipErrorTbd);
+    bool Done = Value >= __atomic_load_n(IpcTarget_, __ATOMIC_ACQUIRE);
+    EventStatus_ = Done ? EVENT_STATUS_RECORDED : EVENT_STATUS_RECORDING;
+    if (!Done && ThrowErrorIfNotReady)
+      CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
+    return Done;
+  }
 
   // Only a RECORDING event can become RECORDED.
   if (EventStatus_ != EVENT_STATUS_RECORDING)
@@ -170,6 +337,22 @@ bool CHIPEventVulkan::updateFinishStatus(bool ThrowErrorIfNotReady) {
 
 bool CHIPEventVulkan::wait() {
   isDeletedSanityCheck();
+
+  if (IpcOpened_) {
+    auto *Dev =
+        static_cast<CHIPContextVulkan *>(ChipContext_)->getVulkanDevice();
+    uint64_t Target = __atomic_load_n(IpcTarget_, __ATOMIC_ACQUIRE);
+    VkSemaphoreWaitInfo WI{};
+    WI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+    WI.semaphoreCount = 1;
+    WI.pSemaphores = &IpcSem_;
+    WI.pValues = &Target;
+    checkVk(vkWaitSemaphores(Dev->getLogicalDevice(), &WI, UINT64_MAX),
+            "vkWaitSemaphores (IPC) failed", hipErrorTbd);
+    LOCK(EventMtx);
+    EventStatus_ = EVENT_STATUS_RECORDED;
+    return true;
+  }
 
   if (EventStatus_ == EVENT_STATUS_RECORDED)
     return true;
@@ -1495,10 +1678,17 @@ CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
   Dev->FloatControls_.sType =
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES;
   Dev->SubgroupProperties_.pNext = &Dev->FloatControls_;
+  VkPhysicalDeviceIDProperties IDProps{};
+  IDProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+  Dev->FloatControls_.pNext = &IDProps;
   VkPhysicalDeviceProperties2 Props2{};
   Props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
   Props2.pNext = &Dev->SubgroupProperties_;
   vkGetPhysicalDeviceProperties2(PhysDev, &Props2);
+  Dev->SubgroupProperties_.pNext = nullptr;
+  Dev->FloatControls_.pNext = nullptr;
+  std::memcpy(Dev->IpcUUID_, IDProps.deviceUUID, VK_UUID_SIZE);
+  std::memcpy(Dev->IpcUUID_ + VK_UUID_SIZE, IDProps.driverUUID, VK_UUID_SIZE);
 
   VkPhysicalDeviceShaderFloat16Int8Features F16I8Features{};
   F16I8Features.sType =
@@ -1633,6 +1823,28 @@ CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
     *Tail = &AtomicFloat2;
     Tail = &AtomicFloat2.pNext;
   }
+  // IPC events: timeline semaphores shared as opaque fds.
+  {
+    VkSemaphoreTypeCreateInfo TypeInfo{};
+    TypeInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+    TypeInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+    VkPhysicalDeviceExternalSemaphoreInfo ExtInfo{};
+    ExtInfo.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_SEMAPHORE_INFO;
+    ExtInfo.pNext = &TypeInfo;
+    ExtInfo.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
+    VkExternalSemaphoreProperties ExtProps{};
+    ExtProps.sType = VK_STRUCTURE_TYPE_EXTERNAL_SEMAPHORE_PROPERTIES;
+    vkGetPhysicalDeviceExternalSemaphoreProperties(PhysDev, &ExtInfo,
+                                                   &ExtProps);
+    const VkExternalSemaphoreFeatureFlags Need =
+        VK_EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT |
+        VK_EXTERNAL_SEMAPHORE_FEATURE_IMPORTABLE_BIT;
+    Dev->HasIpcSemaphore_ =
+        HasExt(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) &&
+        (ExtProps.externalSemaphoreFeatures & Need) == Need;
+    if (Dev->HasIpcSemaphore_)
+      DevExts.push_back(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
+  }
   // For __builtin_readcyclecounter, which reads the subgroup clock.
   if (HasExt(VK_KHR_SHADER_CLOCK_EXTENSION_NAME) && Clock.shaderSubgroupClock) {
     DevExts.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
@@ -1657,6 +1869,14 @@ CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
   }
 
   vkGetDeviceQueue(Dev->LogicalDevice_, QFamIdx, 0, &Dev->ComputeQueue_);
+
+  if (Dev->HasIpcSemaphore_) {
+    Dev->GetSemaphoreFd_ = reinterpret_cast<PFN_vkGetSemaphoreFdKHR>(
+        vkGetDeviceProcAddr(Dev->LogicalDevice_, "vkGetSemaphoreFdKHR"));
+    Dev->ImportSemaphoreFd_ = reinterpret_cast<PFN_vkImportSemaphoreFdKHR>(
+        vkGetDeviceProcAddr(Dev->LogicalDevice_, "vkImportSemaphoreFdKHR"));
+    Dev->HasIpcSemaphore_ = Dev->GetSemaphoreFd_ && Dev->ImportSemaphoreFd_;
+  }
 
   VmaAllocatorCreateInfo AInfo{};
   AInfo.physicalDevice = PhysDev;
@@ -2045,6 +2265,9 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
   if (EvVk == nullptr)
     CHIPERR_LOG_AND_THROW("CHIPQueueVulkan::recordEvent: null event",
                           hipErrorInvalidValue);
+  if (EvVk->isIpcOpened())
+    CHIPERR_LOG_AND_THROW("Recording an opened IPC event is not supported",
+                          hipErrorNotSupported);
   auto CmdLock = lockCmdRecord();
 
   // Re-recording: the previous recording's fence and slot must be free.
@@ -2092,6 +2315,14 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
     SignalTimelineVal = ++TimelineValue_;
     noteRingSubmit(Cb, SignalTimelineVal);
   }
+  // An exported IPC event also signals its own semaphore.
+  VkSemaphore SignalSems[2] = {TimelineSemaphore_, EvVk->getIpcSemaphore()};
+  uint64_t SignalVals[2] = {SignalTimelineVal, 0};
+  uint32_t NumSignals = 1;
+  if (SignalSems[1] != VK_NULL_HANDLE) {
+    SignalVals[1] = EvVk->nextIpcValue();
+    NumSignals = 2;
+  }
 
   // Waits for the previous value, which may be a pending stream callback's.
   VkPipelineStageFlags WaitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
@@ -2100,8 +2331,8 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
   TsSubmit.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
   TsSubmit.waitSemaphoreValueCount = NumWaits;
   TsSubmit.pWaitSemaphoreValues = &WaitTimelineVal;
-  TsSubmit.signalSemaphoreValueCount = 1;
-  TsSubmit.pSignalSemaphoreValues = &SignalTimelineVal;
+  TsSubmit.signalSemaphoreValueCount = NumSignals;
+  TsSubmit.pSignalSemaphoreValues = SignalVals;
 
   VkSubmitInfo Submit{};
   Submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2111,8 +2342,8 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
   Submit.pWaitDstStageMask = &WaitStage;
   Submit.commandBufferCount = 1;
   Submit.pCommandBuffers = &Cb;
-  Submit.signalSemaphoreCount = 1;
-  Submit.pSignalSemaphores = &TimelineSemaphore_;
+  Submit.signalSemaphoreCount = NumSignals;
+  Submit.pSignalSemaphores = SignalSems;
 
   VkFence SignalFence = EvVk->getFence();
   if (SignalFence == VK_NULL_HANDLE) {
@@ -2127,6 +2358,8 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
                           SignalFence),
             "CHIPQueueVulkan::recordEvent: vkQueueSubmit failed", hipErrorTbd);
   }
+  if (NumSignals == 2)
+    EvVk->publishIpcValue(SignalVals[1]);
 
   IsEmptyQueue_.store(false);
   EvVk->setRecording();
