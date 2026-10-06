@@ -1772,6 +1772,9 @@ public:
     return hasUnifiedVirtualAddressing();
   }
 
+  /// False if generic pointers can only point to global memory.
+  virtual bool hasGenericAddressSpace() { return true; }
+
 protected:
   /**
    * @brief The backend hook for reset().

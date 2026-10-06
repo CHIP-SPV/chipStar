@@ -2412,6 +2412,16 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
                           hipErrorInvalidValue);
   }
 
+  // Without a generic address space such a pointer is compiled as a global
+  // one (rusticl), so the shared memory branch would access the wrong memory.
+  if (ExItem->getKernel()->getFuncInfo()->hasMixedWorkgroupGenericPtr() &&
+      !getDevice()->hasGenericAddressSpace())
+    CHIPERR_LOG_AND_THROW(
+        "Kernel " + ExItem->getKernel()->getName() +
+            " selects a pointer between __shared__ and other memory at run "
+            "time, which needs generic address space support the device lacks.",
+        hipErrorInvalidDeviceFunction);
+
   std::shared_ptr<chipstar::Event> RegisteredVarInEvent =
       RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::PRE_KERNEL);
   std::shared_ptr<chipstar::Event> LaunchEvent = launchImpl(ExItem);
