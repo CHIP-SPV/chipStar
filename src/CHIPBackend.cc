@@ -2411,6 +2411,8 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
                           hipErrorInvalidValue);
   }
 
+  // Before PRE_KERNEL unmaps host memory that argument values may live in.
+  ExItem->setupAllArgs();
   std::shared_ptr<chipstar::Event> RegisteredVarInEvent =
       RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::PRE_KERNEL);
   std::shared_ptr<chipstar::Event> LaunchEvent = launchImpl(ExItem);
@@ -2448,7 +2450,6 @@ void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
       ::Backend->createExecItem(NumBlocks, DimBlocks, SharedMemBytes, this));
   ExItem->setKernel(ChipKernel);
   ExItem->setArgs(Args);
-  ExItem->setupAllArgs();
   launch(ExItem.get());
 }
 
