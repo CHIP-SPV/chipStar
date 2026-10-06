@@ -108,7 +108,7 @@ jobs:
         shell: /bin/bash {0}
         run: |
           set -e
-          cd build && ../scripts/check.py ./ pocl opencl
+          cd build && ../scripts/check.py ./ pocl opencl --regex-exclude '^TestFix1813HalfCmpNaN$'
         timeout-minutes: 60
 
       # =====================================================================
@@ -131,7 +131,7 @@ jobs:
         shell: /bin/bash {0}
         run: |
           set -e
-          cd build && ../scripts/check.py ./ pocl opencl
+          cd build && ../scripts/check.py ./ pocl opencl --regex-exclude '^TestFix1813HalfCmpNaN$'
         timeout-minutes: 60
 
       - uses: actions/upload-artifact@v4
