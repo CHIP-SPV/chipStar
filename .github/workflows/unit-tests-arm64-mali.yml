@@ -131,6 +131,11 @@ jobs:
               -E '^(TestHipccAcceptCFiles|TestRDCWithSingleHipccCmd|TestRDCWithMultipleHipccCmds|TestWholeProgramCompilation|TestSeparateCompilation|TestBFloat16RDC|TestPrintfStaticString|TestStaticLibRDC|TestStaticLibRDCOffloadArch|hipSubwordAtomics-subword-atomics|hipVolatileAccesses-volatile-accesses|TestSpirvDuplicatePhiHip)$'
         timeout-minutes: 10
 
+      # Every run rebuilds these from scratch, so nothing needs them after this job.
+      - name: Remove build trees
+        if: '!cancelled()'
+        run: rm -rf "${CROSS_WORK:?}"/{src,native,cross}-${{ steps.tree.outputs.tree }}-${{ matrix.variant }}
+
   test-mali:
     name: run on Mali (${{ matrix.variant }})
     needs: cross-compile
