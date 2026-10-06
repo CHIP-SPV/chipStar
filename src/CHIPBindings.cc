@@ -3884,6 +3884,12 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT)
     RETURN(hipSuccess);
 
+  // An opened IPC event has no local work to depend on.
+  if (ChipEvent->isIpcOpened()) {
+    ChipEvent->wait();
+    RETURN(hipSuccess);
+  }
+
   // Instead of depending on the user event directly (which might get reset),
   // extract its dependencies and depend on those instead. This way:
   // 1. User event can be reset freely without creating circular dependencies
@@ -6892,14 +6898,24 @@ hipError_t hipIpcOpenEventHandle(hipEvent_t *Event,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(Event);
+  chipstar::Event *ChipEvent =
+      Backend->openIpcEvent(Backend->getActiveContext(), Handle);
+  ChipEvent->setUserEvent(true);
+  *Event = ChipEvent;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 hipError_t hipIpcGetEventHandle(hipIpcEventHandle_t *Handle, hipEvent_t Event) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(Handle, Event);
+  auto *ChipEvent = static_cast<chipstar::Event *>(Event);
+  if (!ChipEvent->getFlags().isInterprocess())
+    RETURN(hipErrorInvalidConfiguration);
+  ChipEvent->getIpcHandle(Handle);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
