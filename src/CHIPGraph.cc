@@ -175,6 +175,22 @@ void CHIPGraphNodeKernel::setParams(const hipKernelNodeParams &Params) {
   std::vector<void *> ArgList;
   copyKernelArgs(ArgList, ArgData, Params.kernelParams,
                  *ChipKernel->getFuncInfo());
+
+  std::unique_ptr<chipstar::ExecItem> ExecItem(Backend->createExecItem(
+      Params.gridDim, Params.blockDim, Params.sharedMemBytes, nullptr));
+  ExecItem->setKernel(ChipKernel);
+  // Give this graph node a private kernel handle so that another node
+  // launching the same kernel does not clobber this node's argument
+  // bindings when both are queued before execution (issue #782).
+  ExecItem->useIndependentKernelHandle();
+  // Swapping the vectors below keeps this buffer.
+  ExecItem->setArgs(ArgList.data());
+  // setupAllArgs() binds implicit device-global address arguments, so the
+  // module's device variables must be allocated first. The normal launch path
+  // does this, but a graph node is built before any launch.
+  Dev->prepareDeviceVariables(HostPtr(Params.func));
+  ExecItem->setupAllArgs();
+
   ArgData_.swap(ArgData);
   ArgList_.swap(ArgList);
 
@@ -186,19 +202,7 @@ void CHIPGraphNodeKernel::setParams(const hipKernelNodeParams &Params) {
   Params_.kernelParams = ArgList_.data();
 
   delete ExecItem_;
-  ExecItem_ = Backend->createExecItem(Params_.gridDim, Params_.blockDim,
-                                      Params_.sharedMemBytes, nullptr);
-  ExecItem_->setKernel(ChipKernel);
-  // Give this graph node a private kernel handle so that another node
-  // launching the same kernel does not clobber this node's argument
-  // bindings when both are queued before execution (issue #782).
-  ExecItem_->useIndependentKernelHandle();
-  ExecItem_->setArgs(Params_.kernelParams);
-  // setupAllArgs() binds implicit device-global address arguments, so the
-  // module's device variables must be allocated first. The normal launch path
-  // does this, but a graph node is built before any launch.
-  Dev->prepareDeviceVariables(HostPtr(Params_.func));
-  ExecItem_->setupAllArgs();
+  ExecItem_ = ExecItem.release();
 }
 
 static std::string dotEscape(const std::string &Str) {
