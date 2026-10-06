@@ -95,7 +95,6 @@ endfunction()
 set(RUNTIME_TESTS_MANUAL
   TestBufferDevAddr.hip           # guarded on OpenCL_LIBRARY
   TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
-  TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
@@ -259,10 +258,6 @@ add_shell_test(TestFixVolatileLoadLoweringSPIRV.bash)
 # stores, which let an A380 run unfixed code while every SPIR-V level check
 # passed. Uses ocloc, which is an offline compiler and needs no GPU.
 add_shell_test(TestFixVolatileLoadLoweringISA.bash)
-
-add_shell_test(../run_testenvvars.sh)
-set_tests_properties(run_testenvvars PROPERTIES
-  TIMEOUT 60)
 
 ######################################
 # Per-test properties, for tests registered above.
