@@ -2411,11 +2411,25 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
                           hipErrorInvalidValue);
   }
 
-  // Before PRE_KERNEL unmaps host memory that argument values may live in.
-  ExItem->setupAllArgs();
-  std::shared_ptr<chipstar::Event> RegisteredVarInEvent =
-      RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::PRE_KERNEL);
-  std::shared_ptr<chipstar::Event> LaunchEvent = launchImpl(ExItem);
+  std::shared_ptr<chipstar::Event> RegisteredVarInEvent;
+  std::shared_ptr<chipstar::Event> LaunchEvent;
+  try {
+    // Before PRE_KERNEL unmaps host memory that argument values may live in.
+    ExItem->setupAllArgs();
+    RegisteredVarInEvent =
+        RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::PRE_KERNEL);
+    LaunchEvent = launchImpl(ExItem);
+  } catch (...) {
+    // The caller frees ExItem; its spill buffer may still have work queued.
+    if (auto SpillBuf = ExItem->getArgSpillBuffer()) {
+      try {
+        keepAliveUntilDone(SpillBuf);
+      } catch (...) {
+        SpillBuf->Leak = SpillBuf; // Never free it under queued work.
+      }
+    }
+    throw;
+  }
   std::shared_ptr<chipstar::Event> RegisteredVarOutEvent =
       RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::POST_KERNEL);
 }

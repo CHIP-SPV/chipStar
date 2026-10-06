@@ -1961,6 +1961,12 @@ hipError_t CHIPQueueLevel0::getBackendHandles(uintptr_t *NativeInfo,
   return hipSuccess;
 }
 
+void CHIPQueueLevel0::keepAliveUntilDone(std::shared_ptr<void> Obj) {
+  auto Marker = std::static_pointer_cast<CHIPEventLevel0>(enqueueMarker());
+  LOCK(Marker->EventMtx); // The event monitor runs actions under it.
+  Marker->addAction([Obj]() {});
+}
+
 std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
 
   std::shared_ptr<chipstar::Event> MarkerEvent =
