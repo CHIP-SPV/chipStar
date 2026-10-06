@@ -368,7 +368,8 @@ add_custom_command(
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/TestTemplateKernelModules.hip
     hipcc.bin CHIP devicelib_bc ${HIP_DEVICE_TOOLCHAIN_STAMP}
 )
-add_custom_target(TestTemplateKernelModules ALL
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
     ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules.o
     ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddOne.o
@@ -380,6 +381,8 @@ add_custom_target(TestTemplateKernelModules ALL
     ${CMAKE_CURRENT_BINARY_DIR}/TemplatedKernelAddTwo.o
   COMMENT "Linking TestTemplateKernelModules (multi-TU)"
 )
+add_custom_target(TestTemplateKernelModulesBuild ALL
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules)
 add_test(NAME TestTemplateKernelModules
   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/TestTemplateKernelModules)
 set_tests_properties(TestTemplateKernelModules PROPERTIES
