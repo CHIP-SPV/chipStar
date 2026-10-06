@@ -512,7 +512,7 @@ __device__ inline bool __hgeu(const __hip_bfloat16 a, const __hip_bfloat16 b) {
  * \brief Compare two bfloat162 values - not equal
  */
 __device__ inline bool __hne(const __hip_bfloat16 a, const __hip_bfloat16 b) {
-  return __bfloat162float(a) != __bfloat162float(b);
+  return __bfloat162float(a) < __bfloat162float(b) || __bfloat162float(a) > __bfloat162float(b);
 }
 
 /**
