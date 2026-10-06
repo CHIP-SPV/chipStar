@@ -8,6 +8,10 @@ if(NOT APPLE)
     hipDeviceLinkWrite.cpp)
 
   target_link_libraries(hipTestDeviceLink deviceRDCInternal)
+  # WORKAROUND(CHIP-SPV/chipStar#1836, llvm/llvm-project#160347): ld's
+  # --dependency-file records clang's deleted -fgpu-rdc temporaries, so every
+  # build relinks. Remove when the llvm/llvm-project#160347 fix lands.
+  set(CMAKE_LINK_DEPENDS_USE_LINKER OFF)
 
   add_test(NAME hipTestDeviceLink
     COMMAND ${SKIP_DOUBLE_TESTS} "${CMAKE_CURRENT_BINARY_DIR}/hipTestDeviceLink")
