@@ -2600,9 +2600,8 @@ hipError_t hipStreamBeginCapture(hipStream_t stream,
   if (ChipQueue == Backend->getActiveDevice()->getLegacyDefaultQueue())
     RETURN(hipErrorInvalidValue);
 
-  // Check if the stream is already capturing
-  if (ChipQueue->getCaptureStatus() ==
-      hipStreamCaptureStatus::hipStreamCaptureStatusActive)
+  // An invalidated capture has to be ended before a new one can begin.
+  if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone)
     RETURN(hipErrorIllegalState);
 
   ChipQueue->beginCapture(mode);
@@ -2626,21 +2625,24 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
   if (!ChipQueue)
     RETURN(hipErrorInvalidValue);
 
-  if (ChipQueue->getCaptureStatus() !=
-      hipStreamCaptureStatus::hipStreamCaptureStatusActive)
+  if (ChipQueue->getCaptureStatus() == hipStreamCaptureStatusNone)
     RETURN(hipErrorIllegalState);
 
   if (ChipQueue == Backend->getActiveDevice()->getLegacyDefaultQueue())
-    RETURN(hipErrorInvalidValue);
-
-  if (ChipQueue->getCaptureStatus() !=
-      hipStreamCaptureStatus::hipStreamCaptureStatusActive)
     RETURN(hipErrorInvalidValue);
 
   // A stream that entered the capture through hipStreamWaitEvent cannot end
   // it; only the stream hipStreamBeginCapture was called on can.
   if (!ChipQueue->isCaptureOrigin())
     RETURN(hipErrorStreamCaptureUnmatched);
+
+  // An invalidated capture ends without a graph.
+  if (ChipQueue->getCaptureStatus() == hipStreamCaptureStatusInvalidated) {
+    delete ChipQueue->getCaptureGraph();
+    ChipQueue->endCapture();
+    *pGraph = nullptr;
+    RETURN(hipErrorStreamCaptureInvalidated);
+  }
 
   CHIPGraph *Graph = ChipQueue->getCaptureGraph();
   if (!Graph)
@@ -3778,8 +3780,11 @@ hipError_t hipStreamDestroy(hipStream_t Stream) {
 
   // Leave any capture so that neither the capture's origin stream nor the
   // events recorded here keep a pointer to the destroyed queue.
-  if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone)
+  if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
+    if (ChipQueue->isCaptureOrigin())
+      delete ChipQueue->getCaptureGraph();
     ChipQueue->endCapture();
+  }
 
   chipstar::Device *Dev = Backend->getActiveDevice();
 
@@ -3865,6 +3870,8 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   // wait as an event wait node instead.
   if (Flags != hipEventWaitExternal && ChipEvent->getCaptureQueue()) {
     auto *EventQueue = ChipEvent->getCaptureQueue();
+    if (ChipQueue->getCaptureStatus() == hipStreamCaptureStatusInvalidated)
+      return hipErrorStreamCaptureInvalidated;
     if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusActive) {
       if (ChipQueue->isDefaultLegacyQueue())
         return hipErrorStreamCaptureImplicit;
