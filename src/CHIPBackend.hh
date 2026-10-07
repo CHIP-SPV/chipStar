@@ -1141,8 +1141,6 @@ protected:
   std::string HostFName_;
   /// Pointer to the host function
   const void *HostFPtr_ = nullptr;
-  /// Pointer to the device function
-  const void *DevFPtr_;
 
   SPVFuncInfo *FuncInfo_;
 
@@ -1168,12 +1166,6 @@ public:
    * @return const void*
    */
   const void *getHostPtr();
-  /**
-   * @brief Get the associated funciton pointer on the device
-   *
-   * @return const void*
-   */
-  const void *getDevPtr();
 
   /**
    * @brief Get the Name object
@@ -1187,12 +1179,6 @@ public:
    * @return const void*
    */
   void setHostPtr(const void *HostFPtr);
-  /**
-   * @brief Get the associated funciton pointer on the device
-   *
-   * @return const void*
-   */
-  void setDevPtr(const void *DevFPtr);
 
   /**
    * @brief Get the associated kernel information (max threads and so on)

@@ -963,11 +963,10 @@ CHIPKernelLevel0 *CHIPKernelLevel0::clone() {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelCreate);
   auto *Cloned = new CHIPKernelLevel0(ClonedHandle, Device, getName(),
                                       getFuncInfo(), Module);
-  // Preserve the host/device function pointer associations so that the clone
+  // Preserve the host function pointer association so that the clone
   // still resolves to the same HIP kernel (needed by graph-node execution,
   // e.g. prepareDeviceVariables()).
   Cloned->setHostPtr(getHostPtr());
-  Cloned->setDevPtr(getDevPtr());
   return Cloned;
 }
 // End CHIPKernelLevelZero
