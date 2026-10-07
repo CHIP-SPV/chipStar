@@ -62,7 +62,8 @@ void CHIPGraphNode::DFS(std::vector<CHIPGraphNode *> CurrPath,
   return;
 }
 
-CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
+CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) : Source_(&OriginalGraph) {
+  std::map<CHIPGraphNode *, CHIPGraphNode *> Clones;
   /**
    * Create another Graph using the copy constructor.
    * This other graph will contain vectors/sets for dependencies/edges.
@@ -80,15 +81,16 @@ CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
     CHIPGraphNode *CloneNode = OriginalNode->clone();
     CloneNode->Owner_ = this;
     Nodes_.push_back(CloneNode);
-    CloneMap_[OriginalNode] = CloneNode;
+    Clones[OriginalNode] = CloneNode;
+    CloneMap_[OriginalNode->getId()] = CloneNode;
     logDebug("Adding to CloneMap: Original {} {} -> Clone {} {}",
              OriginalNode->Msg, (void *)OriginalNode, CloneNode->Msg,
              (void *)CloneNode);
   }
 
   for (CHIPGraphNode *Node : Nodes_) {
-    Node->updateDependencies(CloneMap_);
-    Node->updateDependants(CloneMap_);
+    Node->updateDependencies(Clones);
+    Node->updateDependants(Clones);
   }
 }
 
@@ -352,6 +354,7 @@ void CHIPGraph::removeNode(CHIPGraphNode *Node) {
   } else {
     Nodes_.erase(Found);
   }
+  CloneMap_.erase(Node->getId());
   // Scan the remaining nodes: removeDependency() leaves the reverse edge.
   for (auto *Other : Nodes_) {
     auto &Deps = Other->Dependencies_;
