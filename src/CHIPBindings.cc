@@ -6252,6 +6252,11 @@ static inline hipError_t hipLaunchKernelInternal(const void *HostFunction,
                                                  dim3 GridDim, dim3 BlockDim,
                                                  void **Args, size_t SharedMem,
                                                  hipStream_t Stream) {
+  if (!Args) {
+    auto *K = Backend->getActiveDevice()->findKernel(HostPtr(HostFunction));
+    if (K && K->getFuncInfo()->getNumClientArgs())
+      return hipErrorInvalidValue;
+  }
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeKernel>(
           HostFunction, GridDim, BlockDim, Args, SharedMem)) {
@@ -6277,7 +6282,7 @@ hipError_t hipLaunchKernel(const void *HostFunction, dim3 GridDim,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(HostFunction, Args);
+  NULLCHECK(HostFunction);
   RETURN(hipLaunchKernelInternal(HostFunction, GridDim, BlockDim, Args,
                                  SharedMem, Stream));
   CHIP_CATCH
@@ -7372,7 +7377,7 @@ hipError_t hipLaunchKernel_spt(const void *function_address, dim3 numBlocks,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(function_address, args);
+  NULLCHECK(function_address);
   auto Queue = stream ? stream : hipStreamPerThread;
   RETURN(hipLaunchKernelInternal(function_address, numBlocks, dimBlocks, args,
                                  sharedMemBytes, Queue));
