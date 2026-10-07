@@ -286,6 +286,7 @@ option(CHIP_ENABLE_UNCOMPILABLE_TESTS "Enable tests which are known to not compi
 option(CHIP_BUILD_TESTS "Enable build_tests target" ON)
 option(CHIP_BUILD_SAMPLES "Build samples" ON)
 option(CHIP_USE_EXTERNAL_HIP_TESTS "Use Catch2 tests from the hip-tests submodule" ON)
+option(CHIP_FETCH_BOOST "Download the Boost headers hip-tests needs instead of using a system Boost" ON)
 option(CHIP_USE_INTEL_USM "When enabled, cl_intel_unified_shared_memory extension, when available, will be used for HIP allocations in the OpenCL backend" ON)
 option(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS "Enable device-side features that emit program-scope \
 CrossWorkgroup globals: dynamic memory allocation (malloc/free, via __chipspv_device_heap) and \
@@ -1207,7 +1208,21 @@ if(CHIP_BUILD_TESTS)
     add_compile_definitions(CHIP_VOLATILE_LOWERING_ATOMIC)
   endif()
   if(CHIP_USE_EXTERNAL_HIP_TESTS)
+    if(CHIP_FETCH_BOOST)
+      # Headers only; offline builds set FETCHCONTENT_SOURCE_DIR_BOOST to an unpacked copy.
+      include(FetchContent)
+      FetchContent_Declare(boost
+        URL https://github.com/boostorg/boost/releases/download/boost-1.92.0/boost-1.92.0-b2-nodocs.tar.xz
+        URL_HASH SHA256=ea7b982002cc9dfbe59b0b217b206f470dc75f3de0bb2973d844118934d82411)
+      FetchContent_MakeAvailable(boost)
+      set(Boost_INCLUDE_DIR ${boost_SOURCE_DIR})
+      set(Boost_NO_BOOST_CMAKE ON)
+    endif()
     add_subdirectory(hip-tests/catch catch)
+    # hip-tests drops MathsTest with only a STATUS line when it finds no Boost.
+    if(NOT TARGET MathsTest)
+      message(FATAL_ERROR "hip-tests found no Boost, so MathsTest would not be built; enable CHIP_FETCH_BOOST")
+    endif()
   else()
     add_subdirectory(HIP/tests/catch catch)
   endif()
