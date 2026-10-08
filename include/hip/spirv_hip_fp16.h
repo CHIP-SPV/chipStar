@@ -333,14 +333,14 @@ THE SOFTWARE.
                 __HOST_DEVICE__
                 bool operator<=(const __half& x, const __half& y)
                 {
-                    return !(y < x);
+                    return x.data <= y.data;
                 }
                 friend
                 inline
                 __HOST_DEVICE__
                 bool operator>=(const __half& x, const __half& y)
                 {
-                    return !(x < y);
+                    return x.data >= y.data;
                 }
             #endif // !defined(__HIP_NO_HALF_OPERATORS__)
         };
@@ -504,7 +504,8 @@ THE SOFTWARE.
                 __HOST_DEVICE__
                 bool operator!=(const __half2& xx, const __half2& yy)
                 {
-                    return !(xx == yy);
+                    auto r = xx.data != yy.data;
+                    return r.x != 0 && r.y != 0;
                 }
                 friend
                 inline
@@ -526,14 +527,16 @@ THE SOFTWARE.
                 __HOST_DEVICE__
                 bool operator<=(const __half2& xx, const __half2& yy)
                 {
-                    return !(yy < xx);
+                    auto r = xx.data <= yy.data;
+                    return r.x != 0 && r.y != 0;
                 }
                 friend
                 inline
                 __HOST_DEVICE__
                 bool operator>=(const __half2& xx, const __half2& yy)
                 {
-                    return !(xx < yy);
+                    auto r = xx.data >= yy.data;
+                    return r.x != 0 && r.y != 0;
                 }
             #endif // !defined(__HIP_NO_HALF_OPERATORS__)
         };
