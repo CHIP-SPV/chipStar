@@ -126,6 +126,7 @@ static bool processOptions(chipstar::Program &Program, int NumOptions,
     if (Match(OptionIn, "-D.*") || Match(OptionIn, "--?std=[cC][+][+][0-9]*") ||
         Match(OptionIn, "-I.*") || Match(OptionIn, "-g") ||
         Match(OptionIn, "-fno-eliminate-unused-debug-types") ||
+        Match(OptionIn, "-ffp-contract=(on|off|fast|fast-honor-pragmas)") ||
         Match(OptionIn, "-fno-eliminate-unused-debug-symbols") ||
         Match(OptionIn, "-ffast-math") ||
         Match(OptionIn, "-munsafe-fp-atomics")) {
