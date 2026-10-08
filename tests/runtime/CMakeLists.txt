@@ -127,6 +127,8 @@ list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
 foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
   add_hip_runtime_test(${RUNTIME_TEST_SOURCE})
 endforeach()
+# The fold to sitofp i1 that #1891 miscompiles only happens with optimization.
+target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
 
 # The staleness probe needs several work-groups to make progress against each
 # other and skips on a device that cannot run it, for instance where Mesa
