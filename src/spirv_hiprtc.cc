@@ -555,6 +555,9 @@ computeHiprtcCacheKey(const chipstar::Program &Program, int NumOptions,
   // SPIR-V (frontend codegen, optimizations); without this, a warm cache would
   // silently serve SPIR-V compiled by the old toolchain after an upgrade.
   combined += "\n---compiler---\n";
+  // Bump when libCHIP changes the output for an existing key (e.g. an
+  // option that used to be ignored is now accepted).
+  combined += "hiprtc-cache-gen-1\n";
 #ifdef CHIP_LLVM_VERSION_STRING
   combined += CHIP_LLVM_VERSION_STRING;
 #endif
