@@ -30,4 +30,10 @@ set_tests_properties(TestFix1396ModuleCacheDir PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL"
   TIMEOUT 60)
 
+add_hip_test(TestFix1898Rank1VectorCompare.hip)
+set_tests_properties(TestFix1898Rank1VectorCompare PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS"
+  FAIL_REGULAR_EXPRESSION "FAIL"
+  TIMEOUT 60)
+
 add_hip_test(test_shutdown_crossqueue_dep.cpp)
