@@ -252,6 +252,34 @@ public:
 };
 #endif
 
+// WORKAROUND(CHIP-SPV/chipStar#1891, KhronosGroup/SPIRV-LLVM-Translator#3918): translator lowers sitofp i1 true to +1.0. Remove when the fix is in the translator release branch chipStar builds.
+// WORKAROUND(CHIP-SPV/chipStar#1891, llvm/llvm-project#209232): the in-tree
+// backend does the same. Remove when the fix is in the LLVM release chipStar
+// builds. Delete the pass only once CanarySitofpI1Translator and
+// CanarySitofpI1Backend both fire for every supported LLVM version.
+// Rewrites sitofp i1 %c into select %c, -1.0, 0.0.
+class HipLowerSitofpI1Pass : public PassInfoMixin<HipLowerSitofpI1Pass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    bool Changed = false;
+    for (Instruction &I : make_early_inc_range(instructions(F))) {
+      auto *Cast = dyn_cast<SIToFPInst>(&I);
+      if (!Cast || !Cast->getSrcTy()->isIntOrIntVectorTy(1))
+        continue;
+      Type *Ty = Cast->getType();
+      auto *Sel = SelectInst::Create(Cast->getOperand(0),
+                                     ConstantFP::get(Ty, -1.0),
+                                     ConstantFP::get(Ty, 0.0), "", Cast);
+      Sel->takeName(Cast);
+      Cast->replaceAllUsesWith(Sel);
+      Cast->eraseFromParent();
+      Changed = true;
+    }
+    return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  }
+  static bool isRequired() { return true; }
+};
+
 // WORKAROUND(CHIP-SPV/chipStar#1703, no upstream report): the SPIR-V backend
 // indexes an initializer's byte offset into the global's own type. Remove
 // when it offsets by bytes.
@@ -499,6 +527,11 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // Runs last so nothing downstream reintroduces the canonicalized shape.
   addPassWithVerification(MPM, HipCanonicalizeGEPPass(),
                           "HipCanonicalizeGEPPass");
+
+  // WORKAROUND(CHIP-SPV/chipStar#1891, KhronosGroup/SPIRV-LLVM-Translator#3918, llvm/llvm-project#209232): see the pass.
+  addPassWithVerification(
+      MPM, createModuleToFunctionPassAdaptor(HipLowerSitofpI1Pass()),
+      "HipLowerSitofpI1Pass");
 
   // WORKAROUND(CHIP-SPV/chipStar#1680, KhronosGroup/SPIRV-LLVM-Translator#3866): llvm-spirv emits one OpPhi entry per LLVM phi entry, duplicating predecessors. Remove when the pinned llvm_release branch includes #3866.
   // Last CFG change before SPIR-V emission, so nothing merges the forwarding blocks back.
