@@ -65,6 +65,12 @@ THE SOFTWARE.
 #endif
 #include <hip/host_defines.h>
 #else
+#define HIP_ENABLE_IF std::enable_if
+#define HIP_IS_INTEGRAL std::is_integral
+#define HIP_IS_SIGNED std::is_signed
+#define HIP_IS_CONVERTIBLE std::is_convertible
+#define HIP_IS_SAME std::is_same
+#define HIP_IS_ARITHMETIC std::is_arithmetic
 namespace std {
 using ::size_t;
 
@@ -108,22 +114,6 @@ template <> struct is_integral<unsigned long> : public true_type {};
 template <> struct is_integral<long long> : public true_type {};
 template <> struct is_integral<unsigned long long> : public true_type {};
 
-template <class _Tp> struct is_signed : public false_type {};
-template <> struct HIP_IS_SIGNED<signed char> : public true_type {};
-template <> struct HIP_IS_SIGNED<short> : public true_type {};
-template <> struct HIP_IS_SIGNED<int> : public true_type {};
-template <> struct HIP_IS_SIGNED<long> : public true_type {};
-template <> struct HIP_IS_SIGNED<long long> : public true_type {};
-template <> struct HIP_IS_SIGNED<float> : public true_type {};
-template <> struct HIP_IS_SIGNED<double> : public true_type {};
-
-template <class _Tp, class _Up> struct is_convertible : public false_type {};
-template <class _Tp> struct HIP_IS_CONVERTIBLE<_Tp, _Tp> : public true_type {};
-template <> struct HIP_IS_CONVERTIBLE<int, float> : public true_type {};
-template <> struct HIP_IS_CONVERTIBLE<int, double> : public true_type {};
-template <> struct HIP_IS_CONVERTIBLE<float, double> : public true_type {};
-template <> struct HIP_IS_CONVERTIBLE<double, float> : public true_type {};
-
 template <class _Tp> struct is_arithmetic : public false_type {};
 template <> struct is_arithmetic<bool> : public true_type {};
 template <> struct is_arithmetic<char> : public true_type {};
@@ -147,12 +137,12 @@ template <> struct is_floating_point<double> : public true_type {};
 template <> struct is_floating_point<long double> : public true_type {};
 
 template <typename __T, typename __U> struct is_same : public false_type {};
-template <typename __T> struct HIP_IS_SAME<__T, __T> : public true_type {};
+template <typename __T> struct is_same<__T, __T> : public true_type {};
 
 template <typename _Tp, bool = is_arithmetic<_Tp>::value>
 struct is_signed : public false_type {};
 template <typename _Tp>
-struct HIP_IS_SIGNED<_Tp, true> : public true_or_false_type<_Tp(-1) < _Tp(0)> {};
+struct is_signed<_Tp, true> : public true_or_false_type<_Tp(-1) < _Tp(0)> {};
 
 template <class _T1, class _T2>
 struct is_convertible
