@@ -524,8 +524,8 @@ static std::string hipccToolchainStamp() {
 /// alias to the same cache entry, leaving some lowered-name lookups unmapped
 /// on cache hit.
 static std::string
-computeHiprtcCacheKey(const chipstar::Program &Program, int NumOptions,
-                      const char *const *Options,
+computeHiprtcCacheKey(const chipstar::Program &Program,
+                      const CompileOptions &Options,
                       const std::optional<std::string> &PreprocessedSource =
                           std::nullopt) {
   std::string combined;
@@ -539,11 +539,8 @@ computeHiprtcCacheKey(const chipstar::Program &Program, int NumOptions,
     combined += name + ":" + content + "\n";
   }
   combined += "\n---options---\n";
-  for (int i = 0; i < NumOptions; i++) {
-    if (Options[i])
-      combined += Options[i];
-    combined += "\n";
-  }
+  // The compile command itself, with fixed paths in place of the temp dir.
+  combined += createCompileCommand(Options, "wd", "program.hip", "program.o");
   combined += "\n---name-expressions---\n";
   // Map values are empty at hash time (filled in only after compilation), so
   // only keys (the expressions) contribute. std::map iteration is sorted.
@@ -803,8 +800,7 @@ hiprtcResult hiprtcCompileProgram(hiprtcProgram Prog, int NumOptions,
     // disabled above because we have no trustworthy key.
     std::string cacheKey;
     if (CacheUsable) {
-      cacheKey = computeHiprtcCacheKey(Program, NumOptions, Options,
-                                       Preprocessed);
+      cacheKey = computeHiprtcCacheKey(Program, ProcessedOptions, Preprocessed);
       auto t0 = std::chrono::steady_clock::now();
       if (loadHiprtcCache(Program, cacheKey)) {
         auto t1 = std::chrono::steady_clock::now();
