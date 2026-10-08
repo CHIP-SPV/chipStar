@@ -88,8 +88,8 @@ chipStar_script_install_llvm22:
     - echo "Running on $(hostname) with setuid shell runner"
     - cp -r ${WRK_DIR}/chipStar  ${WRK_DIR}/chipStar_llvm22
     - cd ${WRK_DIR}/chipStar_llvm22
-    - module use /soft/modulefiles
-    - module load cmake chipStar/.llvm22/20260926-22-next-eval/release
+    - module use /soft/modulefiles/chipStar/.chipStar-clang
+    - module load cmake llvm22/20260926-22-next-eval/release
     - sed -i '/name="chipstar",/a\        cmake_flags=["-DCHIP_LZ_API_QUERY_QUEUE_EMPTY=ON"],' ./install_chipstar.py
     - ./install_chipstar.py --all --jobs ${BUILD_JOBS} --install-dir ${WRK_DIR}/install/ --staging-dir $PWD/stage
 
@@ -105,7 +105,7 @@ chipStar_aurora_script_test:
     - echo "Running on $(hostname) with setuid shell runner"
     - mkdir ${WRK_DIR}/script_llvm21
     - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm21
-    - NO_FRESH_CHIPSTAR_PULL=true temp=${WRK_DIR}/script_llvm21 MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm21/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release chipStar/.llvm21/20260905-21-next-eval/release
+    - NO_FRESH_CHIPSTAR_PULL=true temp=${WRK_DIR}/script_llvm21 MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm21/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release llvm21/20260905-21-next-eval/release
     - cd ${WRK_DIR}/modulefiles/chipStar
     - echo 'module_version("llvm21", "default")' > .modulerc.lua
 
@@ -148,8 +148,8 @@ chipStar_script_test_llvm22:
   needs: [chipStar_script_install_llvm22]
   script:
     - cd ${WRK_DIR}/chipStar_llvm22/build
-    - module use /soft/modulefiles
-    - module load cmake chipStar/.llvm22/20260311-22/release
+    - module use /soft/modulefiles/chipStar/.chipStar-clang
+    - module load cmake llvm22/20260926-22-next-eval/release
     - CHIP_BE=level0 make build_tests -j
     - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
 
