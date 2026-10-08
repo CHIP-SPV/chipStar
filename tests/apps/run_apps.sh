@@ -36,10 +36,10 @@ RUNS=4
 GENESIS_DIR=${GENESIS_CI_PROJECT_DIR:-/home/bertoni/projects/p01.chipStar/GENESIS-Share-CI}
 
 # seconds; the minimum of the timed runs must be <= baseline * (1 + PERF_MARGIN)
-BASELINE_zerork=77
-BASELINE_opensn=31
-BASELINE_homusic=81
-PERF_MARGIN=0.06
+BASELINE_zerork=75
+BASELINE_opensn=28
+BASELINE_homusic=78
+PERF_MARGIN=0.03
 
 OPENSN_COMMIT=d0644cd9c633c6ae5e7110d3f8721641e5ef2982
 OPENSN_LAPACK_TARBALL=/lus/flare/projects/chipStar_test/chipStar/dependencies/f2cblaslapack-3.8.0.q2.tar.gz
