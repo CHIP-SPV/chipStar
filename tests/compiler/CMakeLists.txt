@@ -95,6 +95,12 @@ add_hipcc_test(TestHipRuntimeHeaderInclude.cpp
   TEST_NAME hip-runtime-header-cpp-mode
   HIPCC_OPTIONS -x c++ -fsyntax-only)
 
+# The __HIPCC_RTC__ branch of the vector types header must compile (#1899).
+add_test(NAME TestFix1899VectorTypesRtc
+  COMMAND ${CMAKE_CXX_COMPILER} -x c++ -std=c++17 -fsyntax-only
+    -D__HIPCC_RTC__ -D__device__= -D__host__= -I${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1899VectorTypesRtc.cpp)
+
 # A shared memory clone must not keep memory(argmem: none) (#1679).
 add_shell_test(TestFix1679DynMemCloneMemoryAttr.bash)
 
