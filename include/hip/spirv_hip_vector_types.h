@@ -660,7 +660,10 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
   template <typename V>
   __HOST_DEVICE__ inline constexpr bool _hip_any_zero(const V &x,
                                                       int n) noexcept {
-    return (n == -1) ? true : ((x[n] == 0) ? false : _hip_any_zero(x, n - 1));
+    for (; n >= 0; --n)
+      if (x[n] == 0)
+        return false;
+    return true;
   }
   
   template <typename T, unsigned int n>
