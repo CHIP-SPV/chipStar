@@ -92,6 +92,7 @@ int main() {
 
   checkOption("--std=c++11");
   checkOption("-O1");
+  checkOption("-ffp-contract=off");
   checkOption("-O2");
   checkOption("-O3");
   checkOption("-DFOO=123", AssertFooMacro);
