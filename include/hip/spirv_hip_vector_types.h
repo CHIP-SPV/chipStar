@@ -669,6 +669,13 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
              const HIP_vector_type<T, n> &y) noexcept {
     return _hip_any_zero(x.data == y.data, n - 1);
   }
+  // Rank-1 storage is a scalar, which _hip_any_zero cannot subscript.
+  template <typename T>
+  __HOST_DEVICE__ inline constexpr bool
+  operator==(const HIP_vector_type<T, 1> &x,
+             const HIP_vector_type<T, 1> &y) noexcept {
+    return x.data == y.data;
+  }
   template <typename T, unsigned int n, typename U>
   __HOST_DEVICE__ inline constexpr bool operator==(const HIP_vector_type<T, n> &x,
                                                    U y) noexcept {
