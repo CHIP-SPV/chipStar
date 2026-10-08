@@ -415,7 +415,13 @@ extern "C++" inline __device__ void __sincosf(float x, float *sptr,
 
 // extern "C++" __device__ float native_sin(float x); // OpenCL (already
 // declared)
-extern "C++" inline __device__ float __sinf(float x) { return native_sin(x); }
+extern "C++" inline __device__ float __sinf(float x) {
+#ifdef CHIP_FAST_MATH
+  return native_sin(x);
+#else
+  return sin(x);
+#endif
+}
 
 extern "C++" __device__ float native_tan(float x); // OpenCL
 extern "C++" __device__ float tan(float x);        // OpenCL
