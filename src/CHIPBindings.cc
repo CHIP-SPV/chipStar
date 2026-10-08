@@ -6031,7 +6031,48 @@ hipError_t hipFuncGetAttribute(int *value, hipFunction_attribute attrib,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(value);
+  ERROR_IF(!hfunc, hipErrorInvalidResourceHandle);
+
+  hipFuncAttributes Attr;
+  hipError_t Res = static_cast<chipstar::Kernel *>(hfunc)->getAttributes(&Attr);
+  if (Res != hipSuccess)
+    RETURN(Res);
+  switch (attrib) {
+  case HIP_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK:
+    *value = Attr.maxThreadsPerBlock;
+    break;
+  case HIP_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES:
+    *value = Attr.sharedSizeBytes;
+    break;
+  case HIP_FUNC_ATTRIBUTE_CONST_SIZE_BYTES:
+    *value = Attr.constSizeBytes;
+    break;
+  case HIP_FUNC_ATTRIBUTE_LOCAL_SIZE_BYTES:
+    *value = Attr.localSizeBytes;
+    break;
+  case HIP_FUNC_ATTRIBUTE_NUM_REGS:
+    *value = Attr.numRegs;
+    break;
+  case HIP_FUNC_ATTRIBUTE_PTX_VERSION:
+    *value = Attr.ptxVersion;
+    break;
+  case HIP_FUNC_ATTRIBUTE_BINARY_VERSION:
+    *value = Attr.binaryVersion;
+    break;
+  case HIP_FUNC_ATTRIBUTE_CACHE_MODE_CA:
+    *value = Attr.cacheModeCA;
+    break;
+  case HIP_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES:
+    *value = Attr.maxDynamicSharedSizeBytes;
+    break;
+  case HIP_FUNC_ATTRIBUTE_PREFERRED_SHARED_MEMORY_CARVEOUT:
+    *value = Attr.preferredShmemCarveout;
+    break;
+  default:
+    RETURN(hipErrorInvalidValue);
+  }
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
