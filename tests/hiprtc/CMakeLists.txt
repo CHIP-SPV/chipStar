@@ -126,6 +126,17 @@ add_test(NAME TestFix1660HiprtcCacheToolchain
 # The mtime bump changes every concurrent hipRTC cache key, so run alone.
 set_tests_properties(TestFix1660HiprtcCacheToolchain PROPERTIES RUN_SERIAL TRUE)
 
+add_executable(TestFix1660HiprtcCacheOptions EXCLUDE_FROM_ALL
+  TestFix1660HiprtcCacheOptions.cc)
+target_link_libraries(TestFix1660HiprtcCacheOptions host)
+target_include_directories(TestFix1660HiprtcCacheOptions
+  PUBLIC ${CMAKE_BINARY_DIR}/include)
+add_dependencies(build_tests TestFix1660HiprtcCacheOptions)
+add_test(NAME TestFix1660HiprtcCacheOptions
+  COMMAND ${CMAKE_COMMAND}
+    -DTEST_EXECUTABLE=$<TARGET_FILE:TestFix1660HiprtcCacheOptions>
+    -P ${CMAKE_SOURCE_DIR}/tests/run_test_with_fresh_cache.cmake)
+
 add_executable(TestFix1665HiprtcCacheEnv EXCLUDE_FROM_ALL
   TestFix1665HiprtcCacheEnv.cc)
 target_link_libraries(TestFix1665HiprtcCacheEnv host)
