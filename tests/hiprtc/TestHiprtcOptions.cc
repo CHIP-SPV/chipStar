@@ -102,5 +102,10 @@ int main() {
   checkIgnored("--nonexistent-flag");
   checkIgnored("non_option");
 
+  // Separated form: {"-D", "FOO=123"}.
+  auto Split = HiprtcAssertCreateProgram(AssertFooMacro);
+  HiprtcAssertCompileProgram(Split, {"-D", "FOO=123"});
+  HIPRTC_CHECK(hiprtcDestroyProgram(&Split));
+
   return 0;
 }
