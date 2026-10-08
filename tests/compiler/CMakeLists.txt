@@ -101,6 +101,11 @@ add_test(NAME TestFix1899VectorTypesRtc
     -D__HIPCC_RTC__ -D__device__= -D__host__= -I${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1899VectorTypesRtc.cpp)
 
+# The HIP headers must compile as C++11 (#1909).
+add_hipcc_test(TestFix1909VectorTypesCxx11.cpp
+  TEST_NAME TestFix1909VectorTypesCxx11
+  HIPCC_OPTIONS -x c++ -std=c++11 -fsyntax-only)
+
 # A shared memory clone must not keep memory(argmem: none) (#1679).
 add_shell_test(TestFix1679DynMemCloneMemoryAttr.bash)
 
