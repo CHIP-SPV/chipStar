@@ -657,9 +657,13 @@ struct HIP_vector_type : public HIP_vector_base<T, rank> {
     return HIP_vector_type<T, n>{x} /= y;
   }
   
+  // C++11 constexpr functions cannot contain loops.
   template <typename V>
-  __HOST_DEVICE__ inline constexpr bool _hip_any_zero(const V &x,
-                                                      int n) noexcept {
+  __HOST_DEVICE__ inline
+  #if __cplusplus >= 201402L
+  constexpr
+  #endif
+  bool _hip_any_zero(const V &x, int n) noexcept {
     for (; n >= 0; --n)
       if (x[n] == 0)
         return false;
