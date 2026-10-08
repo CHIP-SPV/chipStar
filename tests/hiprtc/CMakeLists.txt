@@ -44,6 +44,8 @@ set_tests_properties(TestProjectionBasisKernel PROPERTIES
   PASS_REGULAR_EXPRESSION
     "All projection basis HIPRTC tests PASSED|HIP_SKIP_THIS_TEST")
 
+add_hip_test(TestFix1887HipFuncGetAttribute.cc)
+
 add_executable(TestFix1335HiprtcCacheForcedInclude EXCLUDE_FROM_ALL
   TestFix1335HiprtcCacheForcedInclude.cc)
 # Plain C++, no deviceInternal: no fat binary, so no backend init and no GPU.
