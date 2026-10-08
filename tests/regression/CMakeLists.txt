@@ -12,6 +12,14 @@ set_tests_properties(TestFixUmul64hi PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS"
   TIMEOUT 60)
 
+add_hip_test(TestFix1903VectorCompareRecursion.hip)
+# -O0 keeps the comparison out of line, as with plain hipcc.
+target_compile_options(TestFix1903VectorCompareRecursion PRIVATE -O0)
+set_tests_properties(TestFix1903VectorCompareRecursion PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS"
+  FAIL_REGULAR_EXPRESSION "FAIL"
+  TIMEOUT 60)
+
 add_hip_test(TestFix1391UmulWithOverflow.hip)
 # Reproduce #1391: llvm.umul.with.overflow reaching SPIR-V as OpUMulExtended,
 # which IGC rejects with an undefined reference to _Z20__spirv_UMulExtendedll,
