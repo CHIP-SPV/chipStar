@@ -30,10 +30,7 @@ variables:
   BUILD_JOBS: "20"
   # app driver
   RUN_APPS: "${WRK_DIR}/chipStar/tests/apps/run_apps.sh
-             -w ${WRK_DIR} -M ${WRK_DIR}/modulefiles -m chipStar/llvm21 -j ${BUILD_JOBS}"
-  # same driver, llvm23 module, own work dir so the clones do not collide
-  RUN_APPS_LLVM23: "${WRK_DIR}/chipStar/tests/apps/run_apps.sh
-                    -w ${WRK_DIR}/apps_llvm23 -M ${WRK_DIR}/modulefiles -m chipStar/llvm23 -j ${BUILD_JOBS}"
+             -w ${WRK_DIR} -M ${WRK_DIR}/modulefiles -m chipStar/llvm23 -j ${BUILD_JOBS}"
 
 stages:
     - .pre
@@ -110,11 +107,11 @@ chipStar_aurora_script_test:
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
-    - mkdir ${WRK_DIR}/script_llvm21
-    - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm21
-    - NO_FRESH_CHIPSTAR_PULL=true temp=${WRK_DIR}/script_llvm21 MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm21/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release llvm21/20260905-21-next-eval/release
+    - mkdir ${WRK_DIR}/script_llvm_23
+    - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm_23
+    - NO_FRESH_CHIPSTAR_PULL=true temp=${WRK_DIR}/script_llvm_23 MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm23/ /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release llvm23/20260926-23-next-eval/release
     - cd ${WRK_DIR}/modulefiles/chipStar
-    - echo 'module_version("llvm21", "default")' > .modulerc.lua
+    - echo 'module_version("llvm23", "default")' > .modulerc.lua
 
 chipStar_aurora_script_test_llvm22:
   stage: build
@@ -129,20 +126,6 @@ chipStar_aurora_script_test_llvm22:
     - mkdir ${WRK_DIR}/script_llvm_22
     - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm_22
     - NO_FRESH_CHIPSTAR_PULL=true llvm_version=22 temp=${WRK_DIR}/script_llvm_22/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm22/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm22 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
-
-chipStar_aurora_script_test_llvm23:
-  stage: build
-  extends: .aurora-shell-runner
-  # wave 2
-  needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
-  variables:
-    MAKEFLAGS: "-j${BUILD_JOBS}"
-  script:
-    - hostname
-    - echo "Running on $(hostname) with setuid shell runner"
-    - mkdir ${WRK_DIR}/script_llvm_23
-    - cp -r ${WRK_DIR}/chipStar ${WRK_DIR}/script_llvm_23
-    - NO_FRESH_CHIPSTAR_PULL=true llvm_version=23 temp=${WRK_DIR}/script_llvm_23/ MODULE_INSTALL_DIR=${WRK_DIR}/modulefiles CHIPSTAR_INSTALL_DIR=${WRK_DIR}/latest_llvm23/ LLVM_INSTALL_DIR=${WRK_DIR}/llvm23 /lus/flare/projects/Aurora_deployment/bertoni/projects/p02.chipStar/chip-star-patch.sh release
 
 #
 # Unit tests
@@ -168,7 +151,7 @@ chipStar_aurora_script_test_run:
   script:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
-    - cd ${WRK_DIR}/script_llvm21/chipStar/build
+    - cd ${WRK_DIR}/script_llvm_23/chipStar/build
     - module load cmake
     - CHIP_BE=level0 make build_tests -j
     - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
@@ -182,19 +165,6 @@ chipStar_aurora_script_test_llvm22_run:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
     - cd ${WRK_DIR}/script_llvm_22/chipStar/build
-    - module load cmake
-    - CHIP_BE=level0 make build_tests -j
-    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
-
-chipStar_aurora_script_test_llvm23_run:
-  stage: test
-  resource_group: aurora_slot_1
-  extends: .aurora-batch-runner
-  needs: [chipStar_aurora_script_test_llvm23]
-  script:
-    - hostname
-    - echo "Running on $(hostname) with setuid shell runner"
-    - cd ${WRK_DIR}/script_llvm_23/chipStar/build
     - module load cmake
     - CHIP_BE=level0 make build_tests -j
     - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
@@ -220,22 +190,6 @@ opensn_build:
   needs: [chipStar_aurora_script_test, chipStar_script_install_llvm22]
   script:
    - ${RUN_APPS} --phases build opensn
-
-zeroRK_build_llvm23:
-  stage: app_build
-  extends: .aurora-shell-runner
-  needs: [chipStar_aurora_script_test_llvm23]
-  variables:
-    MAKEFLAGS: "-j${BUILD_JOBS}"
-  script:
-   - ${RUN_APPS_LLVM23} --phases build zerork
-
-opensn_build_llvm23:
-  stage: app_build
-  extends: .aurora-shell-runner
-  needs: [chipStar_aurora_script_test_llvm23]
-  script:
-   - ${RUN_APPS_LLVM23} --phases build opensn
 
 #
 # Application runs
@@ -268,36 +222,6 @@ opensn_run:
     CHIP_MODULE_CACHE_DIR: "${WRK_DIR}/module_cache"
   script:
    - ${RUN_APPS} --phases run opensn
-
-hoMusic_llvm23:
-  stage: app_run
-  resource_group: aurora_slot_1
-  extends: .aurora-batch-runner
-  needs: [chipStar_aurora_script_test_llvm23, chipStar_aurora_script_test_llvm23_run]
-  variables:
-    MAKEFLAGS: "-j${BUILD_JOBS}"
-    # its own build dir, env file and run dirs; the llvm21 job uses the bare id
-    HOMUSIC_RUN_ID: "${CI_PIPELINE_ID}-llvm23"
-  script:
-    - ${RUN_APPS_LLVM23} --phases build,run homusic
-
-zeroRK_run_llvm23:
-  stage: app_run
-  resource_group: aurora_slot_2
-  extends: .aurora-batch-runner
-  needs: [zeroRK_build_llvm23, chipStar_aurora_script_test_llvm23_run]
-  script:
-  - ${RUN_APPS_LLVM23} --phases run zerork
-
-opensn_run_llvm23:
-  stage: app_run
-  resource_group: aurora_slot_3
-  extends: .aurora-batch-runner
-  needs: [opensn_build_llvm23, chipStar_aurora_script_test_llvm23_run]
-  variables:
-    CHIP_MODULE_CACHE_DIR: "${WRK_DIR}/module_cache_llvm23"
-  script:
-   - ${RUN_APPS_LLVM23} --phases run opensn
 
 #
 # Performance analysis
@@ -337,27 +261,6 @@ opensn_performance:
   needs: [opensn_run]
   variables:
     APP: opensn
-
-hoMusic_performance_llvm23:
-  extends: .app_report
-  needs: [hoMusic_llvm23]
-  variables:
-    APP: homusic
-    APP_DRIVER: "${RUN_APPS_LLVM23}"
-
-zeroRK_performance_llvm23:
-  extends: .app_report
-  needs: [zeroRK_run_llvm23]
-  variables:
-    APP: zerork
-    APP_DRIVER: "${RUN_APPS_LLVM23}"
-
-opensn_performance_llvm23:
-  extends: .app_report
-  needs: [opensn_run_llvm23]
-  variables:
-    APP: opensn
-    APP_DRIVER: "${RUN_APPS_LLVM23}"
 
 cleanup:
   stage: cleanup
