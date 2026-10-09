@@ -100,6 +100,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix315PlatformOutOfRange.hip # run under env -u CHIP_DEVICE_TYPE, registered below
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
+  TestFix1918SyncReportsFailedCommand.hip # guarded on OpenCL_LIBRARY
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
   TestFix1601ExtractorMultiTUDoubles.hip # multi-TU, compiled by its .bash, not a test
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
@@ -161,6 +162,7 @@ if(NOT APPLE)
 endif()
 if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
+  add_hip_runtime_test(TestFix1918SyncReportsFailedCommand.hip MODES stream device blocking)
 endif()
 # String literals are initialized program-scope globals, which rusticl/Mesa
 # rejects ("Initializer for CrossWorkgroup variable not yet supported").

@@ -2050,6 +2050,11 @@ bool CHIPQueueOpenCL::query() {
 std::pair<std::vector<cl_event>, chipstar::LockGuardVector>
 CHIPQueueOpenCL::addDependenciesQueueSync(
     std::shared_ptr<chipstar::Event> TargetEvent) {
+  {
+    std::lock_guard<std::mutex> Lock(UncheckedEventsMtx_);
+    collectFinishedEvents();
+    UncheckedEvents_.push_back(TargetEvent);
+  }
 
   auto Ctx = static_cast<CHIPContextOpenCL *>(ChipContext_);
   auto BackendOcl = static_cast<CHIPBackendOpenCL *>(Backend);
@@ -2274,6 +2279,13 @@ void CHIPQueueOpenCL::finish() {
     clStatus = ClProfilingQueue_.finish();
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFinish);
   }
+
+  // clFinish succeeds even when a command terminated abnormally.
+  {
+    std::lock_guard<std::mutex> Lock(UncheckedEventsMtx_);
+    collectFinishedEvents();
+    UncheckedEvents_.clear();
+  }
   
   // After finish() completes, queue is empty again
   IsEmptyQueue_.store(true);
@@ -2281,6 +2293,36 @@ void CHIPQueueOpenCL::finish() {
 
   // Control returns to the host, which may now dereference managed memory.
   static_cast<CHIPContextOpenCL *>(ChipContext_)->mapManagedForHost();
+}
+
+// Caller holds UncheckedEventsMtx_.
+void CHIPQueueOpenCL::collectFinishedEvents() {
+  while (!UncheckedEvents_.empty()) {
+    cl_event E =
+        static_cast<CHIPEventOpenCL *>(UncheckedEvents_.front().get())->ClEvent;
+    cl_int Status = CL_COMPLETE;
+    if (E) {
+      cl_int Rc = clGetEventInfo(E, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                                 sizeof(Status), &Status, nullptr);
+      if (Rc != CL_SUCCESS)
+        Status = Rc;
+    }
+    if (Status > CL_COMPLETE)
+      return; // Checked again on the next call.
+    if (Status < 0 && CommandError_ == CL_COMPLETE)
+      CommandError_ = Status;
+    UncheckedEvents_.pop_front();
+  }
+}
+
+hipError_t CHIPQueueOpenCL::takeCommandError() {
+  std::lock_guard<std::mutex> Lock(UncheckedEventsMtx_);
+  cl_int Status = std::exchange(CommandError_, CL_COMPLETE);
+  if (Status == CL_COMPLETE)
+    return hipSuccess;
+  logError("A command of stream {} terminated abnormally: {}", (void *)this,
+           resultToString(Status));
+  return hipErrorLaunchFailure;
 }
 
 void CHIPQueueOpenCL::enqueueIdleMarkers(std::vector<cl_event> &Markers) {
