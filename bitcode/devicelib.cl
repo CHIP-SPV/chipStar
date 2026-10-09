@@ -530,19 +530,23 @@ EXPORT ulong __chip_group_ballot(int predicate) {
   return work_group_reduce_add(predicate ? 1 : 0);
 }
 
-// local_fence
-EXPORT void __chip_threadfence_block() { mem_fence(CLK_LOCAL_MEM_FENCE); }
+// CUDA fences order all memory spaces, so each covers local and global.
+EXPORT void __chip_threadfence_block() {
+  atomic_work_item_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE,
+                         memory_order_seq_cst,
+                         memory_scope_work_group);
+}
 
 // global_fence — device-scoped to ensure cross-workgroup visibility
 EXPORT void __chip_threadfence() {
-  atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE,
+  atomic_work_item_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE,
                          memory_order_seq_cst,
                          memory_scope_device);
 }
 
 // system_fence — all-SVM-devices scope
 EXPORT void __chip_threadfence_system() {
-  atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE,
+  atomic_work_item_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE,
                          memory_order_seq_cst,
                          memory_scope_all_svm_devices);
 }
