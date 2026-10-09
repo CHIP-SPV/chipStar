@@ -13,6 +13,11 @@ workflow:
     name: 'PR-$GITHUB_PR_NUMBER'
     rules:
       - if: $CI_PIPELINE_SOURCE == "trigger"   # triggered from GitHub via /run-aurora-ci
+      - if: $CI_PIPELINE_SOURCE == "web"
+        variables:
+          GITHUB_PR_NUMBER: ""
+          GITHUB_SHA: ""
+
 
 variables:
   PROJ: "chipStar_test"
@@ -67,8 +72,10 @@ setup:
       if [ -n "${GITHUB_PR_NUMBER}" ]; then
          git fetch origin pull/${GITHUB_PR_NUMBER}/head
          git checkout FETCH_HEAD
+      elif [ -n "${GITHUB_SHA}" ]; then
+          git checkout ${GITHUB_SHA}
       else
-         git checkout ${GITHUB_SHA}
+         git checkout origin/main
       fi
     - git submodule update --init --recursive
     - git fetch origin main
