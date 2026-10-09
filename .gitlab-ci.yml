@@ -197,7 +197,7 @@ opensn_build:
 
 hoMusic:
   stage: app_run
-  resource_group: aurora_slot_1
+  resource_group: aurora_slot_4
   extends: .aurora-batch-runner
   needs: [chipStar_aurora_script_test, chipStar_aurora_script_test_run]
   variables:
