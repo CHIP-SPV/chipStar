@@ -1083,9 +1083,8 @@ EXPORT OVLD int __chip_all_sync(unsigned mask, int predicate) {
 EXPORT OVLD unsigned __chip_lane_id() { return get_sub_group_local_id(); }
 
 EXPORT OVLD void __chip_syncwarp() {
-  // CUDA docs speaks only about "memory". It's not specifying that it would
-  // only flush local memory.
-  return sub_group_barrier(CLK_GLOBAL_MEM_FENCE);
+  // CUDA's __syncwarp orders both shared and global memory.
+  return sub_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
 // Targets of the c_to_opencl.def entries whose OpenCL counterpart is not a
