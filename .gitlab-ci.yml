@@ -202,6 +202,7 @@ hoMusic:
   needs: [chipStar_aurora_script_test, chipStar_aurora_script_test_run]
   variables:
     MAKEFLAGS: "-j${BUILD_JOBS}"
+    ANL_AURORA_SCHEDULER_PARAMETERS: "-q ${QUEUE} -l select=1,walltime=0:35:00,filesystems=flare:home -A ${PROJ}"
   script:
     - ${RUN_APPS} --phases build,run homusic
 
