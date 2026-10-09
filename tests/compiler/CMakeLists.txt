@@ -309,6 +309,8 @@ endforeach()
 add_shell_test(TestPrefetchLowering.bash)
 # __ballot_sync must call a __chip_ballot_sync of matching type (#1723).
 add_shell_test(TestFix1723BallotSyncType.bash)
+# __syncwarp must fence __shared__ memory (#1911).
+add_shell_test(TestFix1911SyncwarpLocalFence.bash)
 
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
