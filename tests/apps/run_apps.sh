@@ -38,7 +38,7 @@ GENESIS_DIR=${GENESIS_CI_PROJECT_DIR:-/home/bertoni/projects/p01.chipStar/GENESI
 # seconds; the minimum of the timed runs must be <= baseline * (1 + PERF_MARGIN)
 BASELINE_zerork=75
 BASELINE_opensn=28
-BASELINE_homusic=78
+BASELINE_homusic=76
 PERF_MARGIN=0.03
 
 OPENSN_COMMIT=d0644cd9c633c6ae5e7110d3f8721641e5ef2982
