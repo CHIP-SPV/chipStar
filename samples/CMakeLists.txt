@@ -28,6 +28,9 @@ option(SAVE_TEMPS "Save temporary compilation products" OFF)
 option(VERBOSE "Verbose compilation" OFF)
 
 set(CHIP_SAMPLE_BINDIR bin/chip_spv_samples)
+if(CHIP_SET_RPATH)
+  set(CMAKE_INSTALL_RPATH "${CHIP_RPATH_ORIGIN}/../../lib")
+endif()
 
 if(SAVE_TEMPS)
   add_compile_options("--save-temps")
