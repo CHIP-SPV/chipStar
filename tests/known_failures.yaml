@@ -463,6 +463,7 @@ ANY:
     Unit_hipStreamAddCallback_WithCreatedStream: 'Timeout'
     Unit_hipMultiThreadStreams1_AsyncSame: 'Timeout'
     hipTestDeviceSymbol: 'Timeout'
+    hipKernelLaunchIsNonBlocking: 'long kernel; on the rusticl W6400 the GPU reset it triggers aborts concurrent tests'
     Unit_hipFreeImplicitSyncDev_MemoryTest2: 'Timeout'
     Unit_hipMemset3DSync_MemoryTest2: 'Timeout'
     Unit_Copy_Coherency_synchronizationTests: 'Timeout'
