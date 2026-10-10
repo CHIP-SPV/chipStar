@@ -1810,6 +1810,11 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   logTrace("Launching Kernel {}", Kernel->getName());
 
   ChipOclExecItem->setupAllArgs();
+  // A queueless graph node uploads its spill buffer here, blocking.
+  if (!ChipOclExecItem->getQueue())
+    if (auto SpillBuf = ChipOclExecItem->getArgSpillBuffer())
+      memCopy(SpillBuf->getDeviceBuffer(), SpillBuf->getHostBuffer(),
+              SpillBuf->getSize(), hipMemcpyHostToDevice);
 
   dim3 GridDim = ChipOclExecItem->getGrid();
   dim3 BlockDim = ChipOclExecItem->getBlock();
@@ -2646,8 +2651,8 @@ void CHIPExecItemOpenCL::setupAllArgs() {
   int Err = 0;
 
   if (FuncInfo->hasByRefArgs()) {
-    ArgSpillBuffer_ =
-        std::make_shared<chipstar::ArgSpillBuffer>(ChipQueue_->getContext());
+    ArgSpillBuffer_ = std::make_shared<chipstar::ArgSpillBuffer>(
+        ChipQueue_ ? ChipQueue_->getContext() : ::Backend->getActiveContext());
     ArgSpillBuffer_->computeAndReserveSpace(*FuncInfo);
   }
 
@@ -2750,7 +2755,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
   };
   FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);
 
-  if (FuncInfo->hasByRefArgs())
+  if (ChipQueue_ && FuncInfo->hasByRefArgs())
     ChipQueue_->memCopyAsync(ArgSpillBuffer_->getDeviceBuffer(),
                              ArgSpillBuffer_->getHostBuffer(),
                              ArgSpillBuffer_->getSize(), hipMemcpyHostToDevice);
