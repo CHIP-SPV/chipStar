@@ -658,7 +658,6 @@ chipstar::Kernel::Kernel(std::string HostFName, SPVFuncInfo *FuncInfo)
 chipstar::Kernel::~Kernel() {};
 std::string chipstar::Kernel::getName() { return HostFName_; }
 const void *chipstar::Kernel::getHostPtr() { return HostFPtr_; }
-const void *chipstar::Kernel::getDevPtr() { return DevFPtr_; }
 
 SPVFuncInfo *chipstar::Kernel::getFuncInfo() { return FuncInfo_; }
 
@@ -668,7 +667,6 @@ void chipstar::Kernel::setName(std::string HostFName) {
 void chipstar::Kernel::setHostPtr(const void *HostFPtr) {
   HostFPtr_ = HostFPtr;
 }
-void chipstar::Kernel::setDevPtr(const void *DevFPtr) { DevFPtr_ = DevFPtr; }
 
 // chipstar::ArgSpillBuffer
 //*****************************************************************************
