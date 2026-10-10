@@ -80,6 +80,10 @@ add_hip_test(TestAtomicFPMinMaxBuiltins.cpp)
 set_tests_properties(TestAtomicFPMinMaxBuiltins PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
 
+add_hip_test(TestFix1813HalfCmpNaN.cpp)
+set_tests_properties(TestFix1813HalfCmpNaN PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
+
 add_hip_test(TestStdLlroundFloat.cpp)
 set_tests_properties(TestStdLlroundFloat PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
