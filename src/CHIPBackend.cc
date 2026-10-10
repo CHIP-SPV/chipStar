@@ -38,8 +38,8 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K,
   assert(K);
   // FIXME: Should construct backend specific exec item or make the exec
   //        item a backend agnostic class.
-  chipstar::ExecItem *EI =
-      ::Backend->createExecItem(GridDim, BlockDim, SharedMemSize, Q);
+  std::unique_ptr<chipstar::ExecItem> EI(
+      ::Backend->createExecItem(GridDim, BlockDim, SharedMemSize, Q));
   EI->setKernel(K);
 
   EI->setArgs(Args);
@@ -51,8 +51,7 @@ static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K,
                           "which has a null queue",
                           hipErrorTbd);
 
-  ChipQueue->launch(EI);
-  delete EI;
+  ChipQueue->launch(EI.get());
 }
 
 /// Launch geometry for a grid-stride init kernel writing up to Bytes bytes.
@@ -2417,9 +2416,25 @@ void chipstar::Queue::launch(chipstar::ExecItem *ExItem) {
                           hipErrorInvalidValue);
   }
 
-  std::shared_ptr<chipstar::Event> RegisteredVarInEvent =
-      RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::PRE_KERNEL);
-  std::shared_ptr<chipstar::Event> LaunchEvent = launchImpl(ExItem);
+  std::shared_ptr<chipstar::Event> RegisteredVarInEvent;
+  std::shared_ptr<chipstar::Event> LaunchEvent;
+  try {
+    // Before PRE_KERNEL unmaps host memory that argument values may live in.
+    ExItem->setupAllArgs();
+    RegisteredVarInEvent =
+        RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::PRE_KERNEL);
+    LaunchEvent = launchImpl(ExItem);
+  } catch (...) {
+    // The caller frees ExItem; its spill buffer may still have work queued.
+    if (auto SpillBuf = ExItem->getArgSpillBuffer()) {
+      try {
+        keepAliveUntilDone(SpillBuf);
+      } catch (...) {
+        SpillBuf->Leak = SpillBuf; // Never free it under queued work.
+      }
+    }
+    throw;
+  }
   std::shared_ptr<chipstar::Event> RegisteredVarOutEvent =
       RegisteredVarCopy(ExItem, MANAGED_MEM_STATE::POST_KERNEL);
 }
@@ -2450,13 +2465,11 @@ void chipstar::Queue::launchKernel(chipstar::Kernel *ChipKernel, dim3 NumBlocks,
                                    size_t SharedMemBytes) {
   LOCK(
       ::Backend->BackendMtx); // Prevent the breakup of RegisteredVarCopy in&out
-  chipstar::ExecItem *ExItem =
-      ::Backend->createExecItem(NumBlocks, DimBlocks, SharedMemBytes, this);
+  std::unique_ptr<chipstar::ExecItem> ExItem(
+      ::Backend->createExecItem(NumBlocks, DimBlocks, SharedMemBytes, this));
   ExItem->setKernel(ChipKernel);
   ExItem->setArgs(Args);
-  ExItem->setupAllArgs();
-  launch(ExItem);
-  delete ExItem;
+  launch(ExItem.get());
 }
 
 ///////// End Enqueue Operations //////////

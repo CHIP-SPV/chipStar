@@ -507,6 +507,7 @@ public:
 
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
+  virtual void keepAliveUntilDone(std::shared_ptr<void> Obj) override;
 
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;

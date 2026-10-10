@@ -1867,6 +1867,24 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   return LaunchEvent;
 }
 
+void CHIPQueueOpenCL::keepAliveUntilDone(std::shared_ptr<void> Obj) {
+  std::shared_ptr<chipstar::Event> Marker = enqueueMarker();
+  auto *CBData = new KernelEventCallbackData;
+  CBData->AllocKeepAlives =
+      std::make_unique<std::vector<std::shared_ptr<void>>>(1, std::move(Obj));
+  clStatus = clSetEventCallback(
+      std::static_pointer_cast<CHIPEventOpenCL>(Marker)->getNativeRef(),
+      CL_COMPLETE, kernelEventCallback, CBData);
+  if (clStatus != CL_SUCCESS) {
+    delete CBData;
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
+  }
+  // Commands, and so the callback, need not progress until a flush.
+  for (cl::CommandQueue *Q : {&ClRegularQueue_, &ClProfilingQueue_})
+    if (Q->get())
+      ::clFlush(Q->get());
+}
+
 CHIPQueueOpenCL::CHIPQueueOpenCL(chipstar::Device *ChipDevice, int Priority,
                                  cl_command_queue QueueForInterop)
     : chipstar::Queue(ChipDevice, chipstar::QueueFlags{}, Priority) {
