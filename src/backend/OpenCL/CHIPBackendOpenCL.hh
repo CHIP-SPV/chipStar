@@ -280,6 +280,9 @@ private:
 
 public:
   MemoryManager MemManager_;
+  /// Keeps USM frees out of kernel enqueues; shared so late deleters can lock.
+  std::shared_ptr<std::recursive_mutex> UsmFreeMtx =
+      std::make_shared<std::recursive_mutex>();
   bool allDevicesSupportFineGrainSVMorUSM();
   CHIPContextOpenCL(cl::Context CtxIn, cl::Device Dev, cl::Platform Plat);
   virtual ~CHIPContextOpenCL() {
