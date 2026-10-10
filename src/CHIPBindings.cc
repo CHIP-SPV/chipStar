@@ -1255,7 +1255,9 @@ hipError_t hipGraphDestroy(hipGraph_t graph) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  delete graph;
+  if (!graph)
+    RETURN(hipErrorInvalidValue);
+  GRAPH(graph)->release();
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1453,45 +1455,9 @@ hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
   if (!node)
     RETURN(hipErrorInvalidValue);
 
-  /**
-   * have to resort to these shenanigans to call the proper derived destructor
-   */
-  auto NodeType = NODE(node)->getType();
-  switch (NodeType) {
-  case hipGraphNodeTypeKernel:
-    delete static_cast<CHIPGraphNodeKernel *>(node);
-    break;
-  case hipGraphNodeTypeMemcpy:
-    delete static_cast<CHIPGraphNodeMemcpy *>(node);
-    break;
-  case hipGraphNodeTypeMemset:
-    delete static_cast<CHIPGraphNodeMemset *>(node);
-    break;
-  case hipGraphNodeTypeHost:
-    delete static_cast<CHIPGraphNodeHost *>(node);
-    break;
-  case hipGraphNodeTypeGraph:
-    delete static_cast<CHIPGraphNodeGraph *>(node);
-    break;
-  case hipGraphNodeTypeEmpty:
-    delete static_cast<CHIPGraphNodeEmpty *>(node);
-    break;
-  case hipGraphNodeTypeWaitEvent:
-    delete static_cast<CHIPGraphNodeWaitEvent *>(node);
-    break;
-  case hipGraphNodeTypeEventRecord:
-    delete static_cast<CHIPGraphNodeEventRecord *>(node);
-    break;
-  case hipGraphNodeTypeMemcpyFromSymbol:
-    delete static_cast<CHIPGraphNodeMemcpyFromSymbol *>(node);
-    break;
-  case hipGraphNodeTypeMemcpyToSymbol:
-    delete static_cast<CHIPGraphNodeMemcpyToSymbol *>(node);
-    break;
-  default:
-    CHIPERR_LOG_AND_THROW("Unknown graph node type", hipErrorTbd);
-    break;
-  }
+  if (auto *Owner = NODE(node)->getOwner())
+    Owner->removeNode(NODE(node));
+  delete NODE(node);
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1598,7 +1564,7 @@ hipError_t hipGraphExecDestroy(hipGraphExec_t graphExec) {
   CHIPInitialize();
   if (!graphExec)
     RETURN(hipErrorInvalidValue);
-  delete graphExec;
+  delete EXEC(graphExec);
   RETURN(hipSuccess);
   CHIP_CATCH
 }

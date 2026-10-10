@@ -57,25 +57,29 @@ protected:
   std::vector<CHIPGraphNode *> Dependendants_;
   // nodes on which this node depends
   std::vector<CHIPGraphNode *> Dependencies_;
-  /**
-   * @brief Destroy the CHIPGraphNode object
-   * Hidden virtual destructor. Should only be called through derived classes.
-   */
-  virtual ~CHIPGraphNode() {
-    Dependendants_.clear();
-    Dependencies_.clear();
+  // the graph that owns this node
+  CHIPGraph *Owner_ = nullptr;
+  friend class CHIPGraph;
+  // Shared with the node's clones; unlike an address, never reused.
+  uint64_t Id_;
+
+  CHIPGraphNode(hipGraphNodeType Type) : Type_(Type), Id_(nextId()) {}
+  static uint64_t nextId() {
+    static std::atomic<uint64_t> Next{0};
+    return Next++;
   }
 
-  CHIPGraphNode(hipGraphNodeType Type) : Type_(Type) {}
-
 public:
+  virtual ~CHIPGraphNode() {}
   std::string Msg; // TODO Graphs cleanup
   CHIPGraphNode(const CHIPGraphNode &Other)
       : Type_(Other.Type_), Enabled_(Other.Enabled_),
         Dependendants_(Other.Dependendants_),
-        Dependencies_(Other.Dependencies_), Msg(Other.Msg) {}
+        Dependencies_(Other.Dependencies_), Id_(Other.Id_), Msg(Other.Msg) {}
 
   hipGraphNodeType getType() { return Type_; }
+  uint64_t getId() const { return Id_; }
+  CHIPGraph *getOwner() const { return Owner_; }
   bool isEnabled() const { return Enabled_; }
   void setEnabled(bool Enabled) { Enabled_ = Enabled; }
   virtual CHIPGraphNode *clone() const = 0;
@@ -612,12 +616,26 @@ public:
 class CHIPGraph : public ihipGraph {
 protected:
   std::vector<CHIPGraphNode *> Nodes_;
-  // Map the pointers Original -> Clone
-  std::map<CHIPGraphNode *, CHIPGraphNode *> CloneMap_;
+  // Map the node IDs Original -> Clone
+  std::map<uint64_t, CHIPGraphNode *> CloneMap_;
+  // The graph this one was copied from; CloneMap_ keys are its nodes.
+  const CHIPGraph *Source_ = nullptr;
+  // The hipGraph_t handle and each CHIPGraphExec built from this graph.
+  int RefCount_ = 1;
 
 public:
   CHIPGraph(const CHIPGraph &OriginalGraph);
   CHIPGraph() {}
+  CHIPGraph &operator=(const CHIPGraph &) = delete;
+  ~CHIPGraph() {
+    for (auto *Node : Nodes_)
+      delete Node;
+  }
+  void retain() { ++RefCount_; }
+  void release() {
+    if (--RefCount_ == 0)
+      delete this;
+  }
   void addNode(CHIPGraphNode *TheNode);
   void removeNode(CHIPGraphNode *TheNode);
   /**
@@ -630,19 +648,17 @@ public:
    * corresponds to the original node
    */
   CHIPGraphNode *nodeLookup(CHIPGraphNode *OriginalNode) {
-    if (!CloneMap_.count(OriginalNode)) {
+    if (OriginalNode->getOwner() != Source_)
       return nullptr;
-    }
-    return CloneMap_[OriginalNode];
+    auto Found = CloneMap_.find(OriginalNode->getId());
+    return Found == CloneMap_.end() ? nullptr : Found->second;
   }
   std::vector<CHIPGraphNode *> getLeafNodes();
   std::vector<CHIPGraphNode *> getRootNodes();
   CHIPGraphNode *getClonedNodeFromOriginal(CHIPGraphNode *OriginalNode) {
-    if (!CloneMap_.count(OriginalNode)) {
-      CHIPERR_LOG_AND_THROW("Failed to find the node in clone", hipErrorTbd);
-    } else {
-      return CloneMap_[OriginalNode];
-    }
+    if (auto *Clone = nodeLookup(OriginalNode))
+      return Clone;
+    CHIPERR_LOG_AND_THROW("Failed to find the node in clone", hipErrorTbd);
   }
 
   std::vector<CHIPGraphNode *> &getNodes() { return Nodes_; }
@@ -721,9 +737,14 @@ public:
       : OriginalGraph_(Graph), /* Copy the pointer to the original graph */
         CompiledGraph_(CHIPGraph(*Graph)) /* invoke the copy constructor to make
                                              a clone of the graph */
-  {}
+  {
+    // launch() schedules the original graph's nodes.
+    OriginalGraph_->retain();
+  }
+  CHIPGraphExec(const CHIPGraphExec &) = delete;
+  CHIPGraphExec &operator=(const CHIPGraphExec &) = delete;
 
-  ~CHIPGraphExec() {}
+  ~CHIPGraphExec() { OriginalGraph_->release(); }
 
   void launch(chipstar::Queue *Queue);
 
