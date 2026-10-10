@@ -35,6 +35,9 @@
 
 #include "common.hh"
 #include "spirv.hh"
+#ifdef HAVE_VULKAN
+#include "SPVReflection.hh"
+#endif
 #include "logging.hh"
 #include "Utils.hh"
 #include "CHIPDriver.hh"
@@ -1149,6 +1152,10 @@ bool postprocessSPIRV(std::vector<uint32_t> &Input) {
 }
 
 bool analyzeSPIRV(InstWord *Stream, size_t NumWords, SPVModuleInfo &Output) {
+#ifdef HAVE_VULKAN
+  if (tryAnalyzeVulkanReflection(Stream, NumWords, Output))
+    return true;
+#endif
   SPIRVmodule Mod;
   if (!Mod.analyzeSPIRV(Stream, NumWords))
     return false;

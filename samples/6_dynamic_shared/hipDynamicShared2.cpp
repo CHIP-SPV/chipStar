@@ -23,8 +23,8 @@ THE SOFTWARE.
 #include <cassert>
 #include <iostream>
 
-#define LEN 16 * 1024
-#define SIZE LEN * 4
+#define MAXLEN 16 * 1024
+#define BLOCK 64
 
 #define HIPCHECK(code)                                                         \
   do {                                                                         \
@@ -36,34 +36,49 @@ THE SOFTWARE.
     }                                                                          \
   } while (0)
 
-__global__ void vectorAdd(float *Ad, float *Bd) {
+__global__ void vectorAdd(float *Ad, float *Bd, int Len) {
   HIP_DYNAMIC_SHARED(float, sBd);
   int tx = threadIdx.x;
-  for (int i = 0; i < LEN / 64; i++) {
-    sBd[tx + i * 64] = Ad[tx + i * 64] + 1.0f;
-    Bd[tx + i * 64] = sBd[tx + i * 64];
-  }
+  for (int i = tx; i < Len; i += BLOCK)
+    sBd[i] = Ad[i] + 1.0f;
+  __syncthreads();
+  // Read elements other threads wrote.
+  for (int i = tx; i < Len; i += BLOCK)
+    Bd[i] = sBd[Len - 1 - i];
 }
 
 int main() {
   size_t errors = 0;
   hipError_t hiperr = hipSuccess;
+  int MaxShared = 0;
+  HIPCHECK(hipDeviceGetAttribute(&MaxShared,
+                                 hipDeviceAttributeMaxSharedMemoryPerBlock, 0));
+  // Largest multiple of BLOCK floats the device allows, up to MAXLEN.
+  int Len = MaxShared / sizeof(float) / BLOCK * BLOCK;
+  if (Len > MAXLEN)
+    Len = MAXLEN;
+  if (Len == 0) {
+    std::cerr << "FAILED: no room for " << BLOCK << " floats of shared memory\n";
+    return 1;
+  }
+  size_t SIZE = Len * sizeof(float);
   float *A, *B, *Ad, *Bd;
-  A = new float[LEN];
-  B = new float[LEN];
-  for (int i = 0; i < LEN; i++) {
-    A[i] = 1.0f;
-    B[i] = 1.0f;
+  A = new float[Len];
+  B = new float[Len];
+  for (int i = 0; i < Len; i++) {
+    A[i] = i;
+    B[i] = 0.0f;
   }
   HIPCHECK(hipMalloc((void **)&Ad, SIZE));
   HIPCHECK(hipMalloc((void **)&Bd, SIZE));
   HIPCHECK(hipMemcpy(Ad, A, SIZE, hipMemcpyHostToDevice));
   HIPCHECK(hipMemcpy(Bd, B, SIZE, hipMemcpyHostToDevice));
-  hipLaunchKernelGGL(vectorAdd, dim3(1, 1, 1), dim3(64, 1, 1), SIZE, 0, Ad, Bd);
+  hipLaunchKernelGGL(vectorAdd, dim3(1, 1, 1), dim3(BLOCK, 1, 1), SIZE, 0, Ad,
+                     Bd, Len);
   HIPCHECK(hipGetLastError());
   HIPCHECK(hipMemcpy(B, Bd, SIZE, hipMemcpyDeviceToHost));
-  for (int i = 0; i < LEN; i++) {
-    if (B[i] < 1.0f || B[i] > 3.0f)
+  for (int i = 0; i < Len; i++) {
+    if (B[i] != A[Len - 1 - i] + 1.0f)
       ++errors;
   }
   HIPCHECK(hipFree(Ad));

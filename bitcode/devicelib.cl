@@ -1036,6 +1036,11 @@ __SHFL_XOR_SYNC(double);
 // The definition is linked at runtime from one of the ballot*.cl files.
 EXPORT OVLD ulong __chip_ballot(int predicate);
 
+#ifdef CHIP_USE_NATIVE_VULKAN_SPIRV
+// Sub-group votes the Vulkan compiler lowers; sub-groups need not be 32 wide.
+EXPORT OVLD int __chip_all(int predicate);
+EXPORT OVLD int __chip_any(int predicate);
+#else
 EXPORT OVLD int __chip_all(int predicate) {
   return __chip_ballot(!predicate) == 0;
 }
@@ -1043,6 +1048,7 @@ EXPORT OVLD int __chip_all(int predicate) {
 EXPORT OVLD int __chip_any(int predicate) {
   return __chip_ballot(predicate) != 0;
 }
+#endif
 
 EXPORT OVLD ulong __chip_ballot_sync(unsigned mask, int predicate) {
   if (mask == 0) {
@@ -1082,11 +1088,15 @@ EXPORT OVLD int __chip_all_sync(unsigned mask, int predicate) {
 
 EXPORT OVLD unsigned __chip_lane_id() { return get_sub_group_local_id(); }
 
+#ifdef CHIP_USE_NATIVE_VULKAN_SPIRV
+EXPORT OVLD void __chip_syncwarp();
+#else
 EXPORT OVLD void __chip_syncwarp() {
   // CUDA docs speaks only about "memory". It's not specifying that it would
   // only flush local memory.
   return sub_group_barrier(CLK_GLOBAL_MEM_FENCE);
 }
+#endif
 
 // Targets of the c_to_opencl.def entries whose OpenCL counterpart is not a
 // plain builtin.
@@ -1582,6 +1592,40 @@ EXPORT NOINLINE ulong __chip_float2ull_rz(float x) {
     return (ulong)max(0.0f, trunc(x));
 }
 
+#ifdef CHIP_USE_NATIVE_VULKAN_SPIRV
+// From the bits: NVIDIA folds the float-half-float round trip that libclc's
+// convert_half_rt* compares against. Away rounds an inexact |x| up.
+static _Float16 vk_cvt_f16(float x, bool Away) {
+  uint a = as_uint(x) & 0x7fffffff;
+  if (a > 0x7f800000)
+    return (_Float16)x;
+  int e = (int)(a >> 23) - 112; // the half biased exponent
+  uint m = (a & 0x7fffff) | (a >= 0x800000 ? 0x800000 : 0), t, lost;
+  if (a == 0x7f800000) {
+    t = 0x7c00;
+    lost = 0;
+  } else if (e >= 31) {
+    t = 0x7bff;
+    lost = 1;
+  } else if (e >= 1) {
+    t = ((uint)e << 10) | ((a >> 13) & 0x3ff);
+    lost = a & 0x1fff;
+  } else {
+    int sh = min(a >= 0x800000 ? 14 - e : 31, 31);
+    t = m >> sh;
+    lost = m & ((1u << sh) - 1);
+  }
+  return as_half((ushort)(((as_uint(x) >> 16) & 0x8000) |
+                          (t + (Away && lost ? 1 : 0))));
+}
+EXPORT _Float16 __ocml_cvtrtn_f16_f32(float x) {
+  return vk_cvt_f16(x, as_uint(x) >> 31);
+}
+EXPORT _Float16 __ocml_cvtrtp_f16_f32(float x) {
+  return vk_cvt_f16(x, !(as_uint(x) >> 31));
+}
+EXPORT _Float16 __ocml_cvtrtz_f16_f32(float x) { return vk_cvt_f16(x, false); }
+#else
 // Convert float to half with round-to-nearest mode
 EXPORT _Float16 __ocml_cvtrtn_f16_f32(float x) {
     _Float16 result;
@@ -1602,6 +1646,8 @@ EXPORT _Float16 __ocml_cvtrtz_f16_f32(float x) {
     vstore_half_rtz(x, 0, (void*)&result);
     return result;
 }
+
+#endif
 
 // Device memory allocation functions
 extern void* __chip_malloc(unsigned int size);

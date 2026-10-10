@@ -48,12 +48,19 @@ set(BITCODE_C_COMPILE_FLAGS
 
 # non-OCML sources
 set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture" "malloc") # "printf_support"
+# Vulkan links libclc for the OpenCL builtins; device malloc and textures are
+# unsupported there.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  set(NON_OCML_SOURCES "devicelib" "vulkan_math")
+  set(vulkan_math_DEPS "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_c_to_opencl.def")
+  list(APPEND BITCODE_CL_COMPILE_FLAGS -DCHIP_USE_NATIVE_VULKAN_SPIRV)
+endif()
 
 # Compiles SOURCE treated as OpenCL to LLVM bitcode.
 function(add_opencl_bitcode TARGET SOURCE OUTPUT)
   add_custom_command(
     OUTPUT "${OUTPUT}"
-    DEPENDS "${SOURCE}"
+    DEPENDS "${SOURCE}" ${ARGN}
     COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
     --target=${TARGET} -o "${OUTPUT}" -c "${SOURCE}"
     COMMENT "Building ${SOURCE}"
@@ -64,7 +71,7 @@ foreach(SOURCE IN LISTS NON_OCML_SOURCES)
   add_opencl_bitcode(
     ${OFFLOAD_TRIPLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}.cl"
-    "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
+    "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc" ${${SOURCE}_DEPS})
   list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/${SOURCE}.bc")
 endforeach()
 
@@ -97,6 +104,21 @@ set(OCML_LIB_PATHS
   ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/oclc/oclc_daz_opt_off.lib.bc
   ${CMAKE_BINARY_DIR}/bitcode/ROCm-Device-Libs/oclc/oclc_isa_version_803.lib.bc
 )
+# OCML assumes AMDGPU intrinsic accuracy (llvm.log2 etc.) that Vulkan lacks;
+# libclc's generic builtins take its place.
+set(DEVICELIB_LINK_FLAGS)
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  set(LIBCLC_VULKAN
+    "${CLANG_ROOT_PATH}/share/clc/spirv64-unknown-vulkan/libclc.bc")
+  if(NOT EXISTS "${LIBCLC_VULKAN}")
+    message(FATAL_ERROR "CHIP_USE_NATIVE_VULKAN_SPIRV needs libclc built for "
+      "spirv64-unknown-vulkan and installed at ${LIBCLC_VULKAN}")
+  endif()
+  set(OCML_LIBS)
+  set(OCML_LIB_PATHS "${LIBCLC_VULKAN}")
+  # libclc's triple is spirv64-unknown-vulkan; the first module's wins.
+  set(DEVICELIB_LINK_FLAGS --suppress-warnings)
+endif()
 
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
@@ -112,13 +134,26 @@ list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
 list(TRANSFORM OCML_LIBS REPLACE "(.+)" "$<TARGET_PROPERTY:\\1,OUTPUT_NAME>"
   OUTPUT_VARIABLE OCML_LIB_OUTPUTS)
 
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/vulkan_c_to_opencl.bc"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_c_to_opencl.c"
+            "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_c_to_opencl.def"
+    COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS}
+    -o "${CMAKE_CURRENT_BINARY_DIR}/BC/vulkan_c_to_opencl.bc"
+    -c "${CMAKE_CURRENT_SOURCE_DIR}/vulkan_c_to_opencl.c"
+    COMMENT "Building vulkan_c_to_opencl.bc"
+    VERBATIM)
+  list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/vulkan_c_to_opencl.bc")
+endif()
+
 # devicelib
 add_custom_command(
   OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
-  DEPENDS ${DEPEND_LIST} ${OCML_LIBS} ${OCML_LIB_OUTPUTS}
+  DEPENDS ${DEPEND_LIST} ${OCML_LIBS} ${OCML_LIB_OUTPUTS} ${LIBCLC_VULKAN}
   COMMAND ${CMAKE_COMMAND} -E make_directory
   "${CMAKE_BINARY_DIR}/${BC_DESTINATION}"
-  COMMAND "${LLVM_LINK}"
+  COMMAND "${LLVM_LINK}" ${DEVICELIB_LINK_FLAGS}
   -o "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
   ${DEPEND_LIST} 
   ${OCML_LIB_PATHS}

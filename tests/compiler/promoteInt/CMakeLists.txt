@@ -21,6 +21,13 @@
 #
 #=============================================================================
 
+# hipPromoteInt-* tests use the legacy SPIRV-LLVM-Translator (`llvm-spirv`
+# external binary) which is not built or installed by the in-tree
+# native-Vulkan toolchain. Skip these under CHIP_USE_NATIVE_VULKAN_SPIRV.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  return()
+endif()
+
 # Create directory for test outputs
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_outputs)
 

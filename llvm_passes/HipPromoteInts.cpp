@@ -404,7 +404,8 @@ static Value *processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
 
       
   // Process incoming values
-  PHINode *NewPhi = PHINode::Create(PromotedType, Phi->getNumIncomingValues(), "", Phi);
+  PHINode *NewPhi = PHINode::Create(PromotedType, Phi->getNumIncomingValues(),
+                                    "", Phi->getIterator());
   unsigned PendingCount = 0;
   for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
       Value *OriginalValue = Phi->getIncomingValue(i);
@@ -808,9 +809,9 @@ static Value *processCallInst(CallInst *OldCall, Type *NonStdType, Type *Promote
     NewArgs.push_back(NewArg);
   }
 
-  CallInst *NewCall = CallInst::Create(OldCall->getFunctionType(),
-                                       OldCall->getCalledOperand(), NewArgs,
-                                       OldCall->getName(), OldCall);
+  CallInst *NewCall =
+      CallInst::Create(OldCall->getFunctionType(), OldCall->getCalledOperand(),
+                       NewArgs, OldCall->getName(), OldCall->getIterator());
   NewCall->setCallingConv(OldCall->getCallingConv());
   NewCall->setAttributes(OldCall->getAttributes());
 
@@ -837,7 +838,7 @@ static Value *processStoreInst(StoreInst *Store, Type *NonStdType, Type *Promote
       LLVMContext &Ctx = Store->getContext();
       Type *PromTy = Type::getIntNTy(Ctx, NewBW);
       unsigned AS = OrigPtr->getType()->getPointerAddressSpace();
-      PointerType *NewPtrTy = PointerType::get(PromTy, AS);
+      PointerType *NewPtrTy = PointerType::get(PromTy->getContext(), AS);
       // Bitcast the pointer to the promoted pointer type
       Value *CastPtr = Builder.CreateBitCast(OrigPtr, NewPtrTy, Store->getName() + ".promote_ptr");
       // Obtain the promoted value (zero/sign extension handled by getPromotedValue)
@@ -911,8 +912,8 @@ static Value *processLoadInst(LoadInst *Load, Type *NonStdType, Type *PromotedTy
       unsigned NewBW = HipPromoteIntsPass::getPromotedBitWidth(BW);
       Type *NewIntTy = Type::getIntNTy(Ctx, NewBW);
       // Bitcast the pointer to point to the promoted integer type
-      PointerType *NewPtrTy = PointerType::get(NewIntTy, 
-                                  Ptr->getType()->getPointerAddressSpace());
+      PointerType *NewPtrTy = PointerType::get(
+          NewIntTy->getContext(), Ptr->getType()->getPointerAddressSpace());
       Value *CastPtr = Builder.CreateBitCast(Ptr, NewPtrTy, Load->getName() + ".promote_ptr");
       // Create the promoted load
       LoadInst *NewLoad = Builder.CreateLoad(NewIntTy, CastPtr, Load->getName() + ".promote");

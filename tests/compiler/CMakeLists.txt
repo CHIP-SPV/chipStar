@@ -75,7 +75,20 @@ function(add_hipcc_test_run MAIN_SOURCE)
 endfunction()
 
 # add_shell_test(<script-file>)
+# These inspect the OpenCL-path *-lower.bc, which the native Vulkan build
+# does not produce, or OpenCL-path texture diagnostics (Vulkan has no textures).
+set(NATIVE_VULKAN_NA_SCRIPTS TestFix1677PrintfCallConv.bash
+  TestFix1662DynMemUserCallsUser.bash TestFix1670DynMemCallArgs.bash
+  TestFix1673DynMemCallConv.bash TestFix1680DuplicatePhiPreds.bash
+  TestSpirvDuplicatePhiHip.bash TestFix1634ZeroLengthCopy.bash
+  TestDeadVTableVirtualBase.bash TestFix582VarInitWorkItems.bash
+  TestPrefetchLowering.bash
+  TestTextureUnsupportedMixedDim.bash)
+
 function(add_shell_test SCRIPT)
+  if(CHIP_USE_NATIVE_VULKAN_SPIRV AND SCRIPT IN_LIST NATIVE_VULKAN_NA_SCRIPTS)
+    return()
+  endif()
   get_filename_component(TEST_NAME ${SCRIPT} NAME_WLE)
   configure_file(${SCRIPT} ${SCRIPT} @ONLY)
   add_test(NAME ${TEST_NAME}
@@ -243,6 +256,12 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Fails the day the backend stops forcing ContractionOff. Read its header.
   add_shell_test(CanaryFPContractionOff.bash)
 endif()
+# Fail the day the SPIR-V backend fixes the bug behind a native Vulkan
+# workaround (#1738, #1742). Read their headers before acting.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(CanaryVulkanStructurizerMergeDominance.bash)
+  add_shell_test(CanaryVulkanBitcastFewerElements.bash)
+endif()
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.
 add_shell_test(CanaryPointerVectorsRejected.bash)
@@ -269,7 +288,10 @@ add_hipcc_test(TestSwitchCase.hip HIPCC_OPTIONS -O1 -c)
 # already runs the device link that translates to SPIR-V, which is where the
 # unfixed compiler failed. The dispatch is executed by
 # tests/runtime/TestDeviceVirtualDispatch.hip on devices that can run it.
-add_hipcc_test(TestDeviceVirtualFunctions.hip HIPCC_OPTIONS -c)
+# Vulkan compute has no function pointers.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_hipcc_test(TestDeviceVirtualFunctions.hip HIPCC_OPTIONS -c)
+endif()
 # Dead vtables of an explicit instantiation must not survive into the device
 # module (#1382). Inspects the lowered device bitcode.
 add_shell_test(TestDeadVTableVirtualBase.bash)
@@ -284,7 +306,7 @@ add_hipcc_test(TestFastMath.hip HIPCC_OPTIONS -fsyntax-only -ffast-math)
 add_hipcc_test(TestDim3Cast.hip HIPCC_OPTIONS -fsyntax-only)
 # TestPlacement uses device-side new[]/delete[], which require device malloc
 # (the device heap program-scope global). Skip when that feature is disabled.
-if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   add_hipcc_test(TestPlacement.hip)
 endif()
 
@@ -317,9 +339,13 @@ add_subdirectory(promoteInt)
 add_subdirectory(irVerification)
 
 # Add the 8 and 16 bit atomic lowering pass tests
-add_subdirectory(subwordAtomics)
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_subdirectory(subwordAtomics)
+endif()
 
 # Add the untranslatable math intrinsic (llround / llrint / ldexp) pass tests
-add_subdirectory(mathIntrinsics)
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_subdirectory(mathIntrinsics)
+endif()
 # Add the volatile global access lowering pass tests
 add_subdirectory(volatileAccesses)

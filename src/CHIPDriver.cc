@@ -132,6 +132,15 @@ static void createBackendObject() {
                           "was not compiled with Level0 backend",
                           hipErrorInitializationError);
 #endif
+  } else if (ChipEnvVars.getBackend().getType() == BackendType::Vulkan) {
+#ifdef HAVE_VULKAN
+    logDebug("CHIPBE=VULKAN... Initializing Vulkan Backend");
+    Backend = new CHIPBackendVulkan();
+#else
+    CHIPERR_LOG_AND_THROW("Invalid chipStar Backend Selected. This chipStar "
+                          "was not compiled with Vulkan backend",
+                          hipErrorInitializationError);
+#endif
   } else if (ChipEnvVars.getBackend().getType() == BackendType::Default) {
 #ifdef HAVE_OPENCL
     if (!Backend) {
@@ -143,6 +152,12 @@ static void createBackendObject() {
     if (!Backend) {
       logDebug("CHIPBE=default... trying Level0 Backend");
       Backend = new CHIPBackendLevel0();
+    }
+#endif
+#ifdef HAVE_VULKAN
+    if (!Backend) {
+      logDebug("CHIPBE=default... trying Vulkan Backend");
+      Backend = new CHIPBackendVulkan();
     }
 #endif
     if (!Backend) {
@@ -176,6 +191,17 @@ void CHIPInitializeCallOnce() {
       return;
     } catch (...) {
       logDebug("Level0 backend failed to initialize");
+      if (Backend) delete Backend, Backend = nullptr;
+    }
+#endif
+#ifdef HAVE_VULKAN
+    try {
+      logDebug("CHIPBE=default... trying Vulkan Backend");
+      Backend = new CHIPBackendVulkan();
+      Backend->initialize();
+      return;
+    } catch (...) {
+      logDebug("Vulkan backend failed to initialize");
       if (Backend) delete Backend, Backend = nullptr;
     }
 #endif

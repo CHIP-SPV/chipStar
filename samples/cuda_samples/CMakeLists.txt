@@ -92,7 +92,10 @@ add_cuda_sample(cuda-mergesort  6_Advanced/mergeSort bitonic.cu  main.cpp  merge
 add_cuda_sample(cuda-scalarprod  6_Advanced/scalarProd scalarProd_cpu.cpp  scalarProd.cu)
 add_cuda_sample(cuda-scan  6_Advanced/scan scan.cu  main.cpp scan_gold.cpp)
 add_cuda_sample(cuda-sortnet  6_Advanced/sortingNetworks bitonicSort.cu  main.cpp  oddEvenMergeSort.cu  sortingNetworks_validate.cpp)
-add_cuda_sample(cuda-FDTD3d  6_Advanced/FDTD3d FDTD3dReference.cpp FDTD3dGPU.cu FDTD3d.cpp)
+# SPIRVLegalizePointerCast aborts ("Unsupported ptrcast user") on its kernel (chipStar#1740).
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_cuda_sample(cuda-FDTD3d  6_Advanced/FDTD3d FDTD3dReference.cpp FDTD3dGPU.cu FDTD3d.cpp)
+endif()
 add_cuda_sample(cuda-sobolqrng  4_Finance/SobolQRNG sobol.cpp  sobol_gold.cpp  sobol_gpu.cu  sobol_primitives.cpp)
 add_cuda_sample(cuda-reduction  6_Advanced/reduction reduction.cpp  reduction_kernel.cu)
 add_cuda_sample(cuda-fastwalsh  6_Advanced/fastWalshTransform fastWalshTransform.cu  fastWalshTransform_gold.cpp)

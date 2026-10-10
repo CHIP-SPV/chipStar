@@ -3884,6 +3884,12 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
   if (ChipEvent->getEventStatus() == EVENT_STATUS_INIT)
     RETURN(hipSuccess);
 
+  // An opened IPC event has no local work to depend on.
+  if (ChipEvent->isIpcOpened()) {
+    ChipEvent->wait();
+    RETURN(hipSuccess);
+  }
+
   // Instead of depending on the user event directly (which might get reset),
   // extract its dependencies and depend on those instead. This way:
   // 1. User event can be reset freely without creating circular dependencies
@@ -4096,8 +4102,8 @@ hipError_t hipEventRecord(hipEvent_t Event, hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  // TODO: Why does this check fail for OpenCL but not for Level0
-  NULLCHECK(Event);
+  if (!Event)
+    RETURN(hipErrorInvalidResourceHandle);
   RETURN(hipEventRecordInternal(Event, Stream));
   CHIP_CATCH
 }
@@ -4141,7 +4147,8 @@ hipError_t hipEventElapsedTime(float *Ms, hipEvent_t Start, hipEvent_t Stop) {
   CHIPInitialize();
   if (!Ms)
     CHIPERR_LOG_AND_THROW("Ms pointer is null", hipErrorInvalidValue);
-  NULLCHECK(Start, Stop);
+  if (!Start || !Stop)
+    RETURN(hipErrorInvalidHandle);
   chipstar::Event *ChipEventStart = static_cast<chipstar::Event *>(Start);
   chipstar::Event *ChipEventStop = static_cast<chipstar::Event *>(Stop);
 
@@ -6932,14 +6939,24 @@ hipError_t hipIpcOpenEventHandle(hipEvent_t *Event,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(Event);
+  chipstar::Event *ChipEvent =
+      Backend->openIpcEvent(Backend->getActiveContext(), Handle);
+  ChipEvent->setUserEvent(true);
+  *Event = ChipEvent;
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 hipError_t hipIpcGetEventHandle(hipIpcEventHandle_t *Handle, hipEvent_t Event) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  UNIMPLEMENTED(hipErrorNotSupported);
+  NULLCHECK(Handle, Event);
+  auto *ChipEvent = static_cast<chipstar::Event *>(Event);
+  if (!ChipEvent->getFlags().isInterprocess())
+    RETURN(hipErrorInvalidConfiguration);
+  ChipEvent->getIpcHandle(Handle);
+  RETURN(hipSuccess);
   CHIP_CATCH
 }
 
@@ -7337,7 +7354,8 @@ hipError_t hipEventRecord_spt(hipEvent_t Event, hipStream_t Stream) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  NULLCHECK(Event);
+  if (!Event)
+    RETURN(hipErrorInvalidResourceHandle);
   auto Queue = Stream ? Stream : hipStreamPerThread;
   RETURN(hipEventRecordInternal(Event, Queue));
   CHIP_CATCH
