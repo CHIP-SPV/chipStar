@@ -15,7 +15,7 @@
 #ifndef LLVM_PASSES_HIP_LOWER_OVERFLOW_INTRINSICS_H
 #define LLVM_PASSES_HIP_LOWER_OVERFLOW_INTRINSICS_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
@@ -24,7 +24,7 @@ using namespace llvm;
 #endif
 
 class HipLowerOverflowIntrinsicsPass
-    : public PassInfoMixin<HipLowerOverflowIntrinsicsPass> {
+    : public HipRequiredPassInfoMixin<HipLowerOverflowIntrinsicsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

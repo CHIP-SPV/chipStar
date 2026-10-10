@@ -12,11 +12,12 @@
 #ifndef LLVM_PASSES_HIP_STRIP_DEBUG_INFO_H
 #define LLVM_PASSES_HIP_STRIP_DEBUG_INFO_H
 
-#include "llvm/IR/PassManager.h"
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipStripDebugInfoPass : public PassInfoMixin<HipStripDebugInfoPass> {
+class HipStripDebugInfoPass
+    : public HipRequiredPassInfoMixin<HipStripDebugInfoPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }

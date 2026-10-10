@@ -15,11 +15,11 @@
 #ifndef LLVM_PASSES_HIP_LOWER_MEMSET_H
 #define LLVM_PASSES_HIP_LOWER_MEMSET_H
 
-#include <llvm/IR/PassManager.h>
+#include "PassInfoMixinCompat.h"
 
 using namespace llvm;
 
-class HipLowerMemsetPass : public PassInfoMixin<HipLowerMemsetPass> {
+class HipLowerMemsetPass : public HipRequiredPassInfoMixin<HipLowerMemsetPass> {
 public:
   PreservedAnalyses run(Function &M, FunctionAnalysisManager &AM);
   static bool isRequired() { return true; }
