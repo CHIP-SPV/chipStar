@@ -18,8 +18,12 @@ on:
     branches: [main]
   pull_request:
     types: [closed]
+  # A producer still queued at close ships after the close-time reap; sweep every closed PR.
+  schedule:
+    - cron: '23 */6 * * *'
 
 permissions:
+  actions: write
   contents: read
   pull-requests: read
 
@@ -39,8 +43,37 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const prs = new Set();
-            if (context.payload.pull_request) {
-              prs.add(String(context.payload.pull_request.number));
+            if (context.eventName === 'schedule') {
+              const closed = await github.paginate(github.rest.pulls.list,
+                {owner, repo, state: 'closed', per_page: 100});
+              for (const pr of closed) prs.add(String(pr.number));
+            } else if (context.payload.pull_request) {
+              const number = context.payload.pull_request.number;
+              prs.add(String(number));
+              // Cancel and drain this PR's runs so no producer ships a tree after the reap.
+              const shas = new Set((await github.paginate(github.rest.pulls.listCommits,
+                {owner, repo, pull_number: number, per_page: 100})).map(c => c.sha));
+              const mine = [];
+              for (const status of ['queued', 'in_progress', 'waiting', 'pending', 'requested']) {
+                const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo,
+                  {owner, repo, status, per_page: 100});
+                for (const r of runs) {
+                  if (r.id === context.runId || r.event === 'push' || r.event === 'schedule') continue;
+                  if (r.pull_requests.some(p => p.number === number) || shas.has(r.head_sha)) mine.push(r.id);
+                }
+              }
+              for (const run_id of mine) {
+                await github.rest.actions.cancelWorkflowRun({owner, repo, run_id}).catch(e => core.warning(`cancel ${run_id}: ${e.message}`));
+              }
+              const deadline = Date.now() + 10 * 60 * 1000;
+              let live = mine;
+              while (live.length && Date.now() < deadline) {
+                await new Promise(r => setTimeout(r, 15000));
+                const st = await Promise.all(live.map(run_id =>
+                  github.rest.actions.getWorkflowRun({owner, repo, run_id}).then(r => r.data.status)));
+                live = live.filter((_, i) => st[i] !== 'completed');
+              }
+              core.info(`cancelled ${mine.length} runs, ${live.length} still live: ${live.join(' ')}`);
             } else {
               const pushed = new Set((context.payload.commits || []).map(c => c.id));
               if (context.sha) pushed.add(context.sha);
