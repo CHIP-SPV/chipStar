@@ -227,6 +227,9 @@ if(CHIP_SKIP_TESTS_WITH_DOUBLES)
     SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST: Kernel uses doubles")
 endif()
 
+# spirv-extractor must diagnose, not crash on, an input with no SPIR-V (#1613).
+add_shell_test(TestFix1613ExtractorNonFatbinary.bash)
+
 # spirv-extractor --check-for-doubles wraps every test when
 # CHIP_SKIP_TESTS_WITH_DOUBLES=ON; it must propagate the wrapped exit status.
 add_shell_test(TestFix1592ExtractorExitStatus.bash)
