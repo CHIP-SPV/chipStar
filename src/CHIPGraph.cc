@@ -364,19 +364,13 @@ void CHIPGraphExec::launch(chipstar::Queue *Queue) {
     }
     logDebug("Executing nodes: {}", NodesInThisLevel);
     for (auto Node : Nodes) {
-      // The schedule is built from the original nodes, but what runs is the
-      // node's copy in the compiled graph: it holds the parameters set through
-      // hipGraphExec*NodeSetParams and the hipGraphNodeSetEnabled switch, and
-      // edits to the original node after instantiation do not reach it. A
-      // node the original graph gained after instantiation has no copy and
-      // runs as it is. A disabled node behaves like an empty node.
-      auto *ExecNode = CompiledGraph_.nodeLookup(Node);
-      if (ExecNode && !ExecNode->isEnabled()) {
+      // A disabled node behaves like an empty node.
+      if (!Node->isEnabled()) {
         logDebug("Skipping disabled {}", Node->Msg);
         continue;
       }
       logDebug("Executing {}", Node->Msg);
-      (ExecNode ? ExecNode : Node)->execute(Queue);
+      Node->execute(Queue);
       Queue->finish();
     }
 
@@ -493,8 +487,8 @@ void CHIPGraphExec::compile() {
   ExecQueues_ = {};
   pruneGraph_();
   logDebug("{} CHIPGraphExec::compile()", (void *)this);
-  std::vector<CHIPGraphNode *> Nodes = OriginalGraph_->getNodes();
-  auto RootNodesVec = OriginalGraph_->getRootNodes();
+  std::vector<CHIPGraphNode *> Nodes = CompiledGraph_.getNodes();
+  auto RootNodesVec = CompiledGraph_.getRootNodes();
   std::set<CHIPGraphNode *> RootNodes(RootNodesVec.begin(), RootNodesVec.end());
   ExecQueues_.push(RootNodes);
   //  Remove root nodes from the set of nodes
