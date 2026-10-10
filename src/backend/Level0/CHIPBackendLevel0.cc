@@ -961,8 +961,13 @@ CHIPKernelLevel0 *CHIPKernelLevel0::clone() {
     KernelDesc.flags |= ZE_KERNEL_FLAG_FORCE_RESIDENCY;
   zeStatus = zeKernelCreate(Module->get(), &KernelDesc, &ClonedHandle);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeKernelCreate);
+  // Destroys the handle if constructing the clone throws.
+  std::unique_ptr<std::remove_pointer_t<ze_kernel_handle_t>,
+                  decltype(&zeKernelDestroy)>
+      HandleGuard(ClonedHandle, zeKernelDestroy);
   auto *Cloned = new CHIPKernelLevel0(ClonedHandle, Device, getName(),
                                       getFuncInfo(), Module);
+  HandleGuard.release();
   // Preserve the host/device function pointer associations so that the clone
   // still resolves to the same HIP kernel (needed by graph-node execution,
   // e.g. prepareDeviceVariables()).
