@@ -75,7 +75,6 @@ CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
    * 3. Remap the cloned graph.
    *
    */
-  std::cout << "\n\n";
   for (CHIPGraphNode *OriginalNode : OriginalGraph.Nodes_) {
     CHIPGraphNode *CloneNode = OriginalNode->clone();
     Nodes_.push_back(CloneNode);
