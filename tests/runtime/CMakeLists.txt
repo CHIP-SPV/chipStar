@@ -98,6 +98,7 @@ set(RUNTIME_TESTS_MANUAL
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
   TestFix315PlatformOutOfRange.hip # run under env -u CHIP_DEVICE_TYPE, registered below
+  TestFix1795InvalidEnvNoAbort.hip # run with an invalid CHIP_* environment, registered below
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
@@ -319,6 +320,33 @@ add_test(NAME TestFix315PlatformOutOfRange
     $<TARGET_FILE:TestFix315PlatformOutOfRange>)
 set_tests_properties(TestFix315PlatformOutOfRange PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
+
+# Reproducer for https://github.com/CHIP-SPV/chipStar/issues/1795
+set_source_files_properties(TestFix1795InvalidEnvNoAbort.hip PROPERTIES LANGUAGE CXX)
+add_executable(TestFix1795InvalidEnvNoAbort TestFix1795InvalidEnvNoAbort.hip)
+target_link_libraries(TestFix1795InvalidEnvNoAbort CHIP deviceInternal)
+add_test(NAME TestFix1795InvalidEnvNoAbort_TypeAndPlatform
+  COMMAND env CHIP_DEVICE_TYPE=gpu CHIP_PLATFORM=0
+    $<TARGET_FILE:TestFix1795InvalidEnvNoAbort>)
+add_test(NAME TestFix1795InvalidEnvNoAbort_BadPlatform
+  COMMAND env -u CHIP_DEVICE_TYPE CHIP_PLATFORM=abc
+    $<TARGET_FILE:TestFix1795InvalidEnvNoAbort>)
+set_tests_properties(TestFix1795InvalidEnvNoAbort_TypeAndPlatform
+  TestFix1795InvalidEnvNoAbort_BadPlatform PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
+# CHIP_BE naming a backend this build lacks.
+if(NOT LevelZero_LIBRARY)
+  set(MISSING_BE level0)
+elseif(NOT OpenCL_LIBRARY)
+  set(MISSING_BE opencl)
+endif()
+if(MISSING_BE)
+  add_test(NAME TestFix1795InvalidEnvNoAbort_MissingBackend
+    COMMAND env -u CHIP_DEVICE_TYPE -u CHIP_PLATFORM -u CHIP_DEVICE CHIP_BE=${MISSING_BE}
+      $<TARGET_FILE:TestFix1795InvalidEnvNoAbort>)
+  set_tests_properties(TestFix1795InvalidEnvNoAbort_MissingBackend PROPERTIES
+    PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
+endif()
 
 ######################################
 # Extra ctest invocations of already-registered executables.

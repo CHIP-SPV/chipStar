@@ -51,7 +51,8 @@ bool UsingDefaultBackend;
 chipstar::Backend *Backend = nullptr;
 std::atomic_ulong CHIPNumRegisteredFatBinaries;
 
-EnvVars ChipEnvVars;
+// Static initializer: an invalid environment must not abort before main.
+EnvVars ChipEnvVars(/*DeferErrors=*/true);
 
 // Opt-in: allow a single allocation larger than the device's reported
 // maxMemAllocSize (e.g. the 4 GiB cap on Intel Arc / Data Center GPUs) to
@@ -154,6 +155,7 @@ static void createBackendObject() {
 
 void CHIPInitializeCallOnce() {
   logDebug("CHIPDriver Initialize");
+  ChipEnvVars.throwDeferredError();
 
   if (ChipEnvVars.getBackend().getType() == BackendType::Default) {
     // Default mode: try each compiled backend until one initializes.
