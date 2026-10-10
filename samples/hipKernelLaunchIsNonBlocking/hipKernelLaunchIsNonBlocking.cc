@@ -84,7 +84,7 @@ int main() {
 
   size_t sharedMem = 0;
   hipEvent_t start, stop;
-  int count = 10000;
+  int count = 1000;
 
   CHECK(hipEventCreate(&start));
   CHECK(hipEventCreate(&stop));
@@ -107,14 +107,14 @@ int main() {
   hipError_t notReady = hipEventElapsedTime(&t, start, stop);
   std::cout << "Kernel time: " << t << "s\n";
 
+  // Leave no kernel in flight at exit.
+  CHECK(hipEventSynchronize(stop));
+
   if (notReady == hipErrorNotReady) {
     std::cout << "PASSED!" << std::endl;
   } else {
     std::cout << "FAILED!" << std::endl;
   }
 
-  // Can't guarantee the test completes within test time limit. The
-  // kernel may take very long time and backends may have to wait its
-  // completion before they can release their resources.
-  std::quick_exit(!(notReady == hipErrorNotReady));
+  return !(notReady == hipErrorNotReady);
 }
