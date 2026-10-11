@@ -931,9 +931,10 @@ bool preprocessSPIRV(const char *Bytes, size_t NumBytes,
 
   Dst.insert(Dst.end(), WordsBegin, WordsPtr); // Copy the header.
 
-  // Matches chipStar device library and SPIR-V translator symbols.
+  // Matches chipStar device library, SPIR-V translator and driver provided
+  // sub_group_* builtin symbols.
   auto CompilerMagicSymbol =
-      std::regex(R"RE((__spirv_|__chip_|_Z\d*__chip_).*)RE");
+      std::regex(R"RE((__spirv_|__chip_|_Z\d*__chip_|_Z\d+sub_group_).*)RE");
   std::set<std::string_view> EntryPoints;
   std::unordered_set<InstWord> BuiltIns;
   std::unordered_map<InstWord, std::string_view> MissingDefs;
