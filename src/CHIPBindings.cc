@@ -37,6 +37,7 @@
  */
 #ifndef CHIP_BINDINGS_H
 #define CHIP_BINDINGS_H
+#include <cstring>
 #include <cstddef> // for size_t
 #include <errno.h>
 #include <fstream>
@@ -6250,7 +6251,14 @@ hipError_t hipMemcpyFromSymbol(void *Dst, const void *Symbol, size_t SizeBytes,
 static inline hipError_t hipModuleLoadDataInternal(hipModule_t *ModuleHandle,
                                                    const void *Image) {
   std::string ErrorMsg;
-  // Image is expected to be a Clang offload bundle.
+  // Image is expected to be a Clang offload bundle. Its size is unknown, so a
+  // raw SPIR-V image (no bundle to bound the scan) is refused up front.
+  uint32_t FirstWord;
+  std::memcpy(&FirstWord, Image, sizeof(FirstWord));
+  if (FirstWord == 0x07230203) {
+    logDebug("raw SPIR-V image is not a Clang offload bundle");
+    return hipErrorInvalidImage;
+  }
   std::string_view ModuleCode = extractSPIRVModule(Image, ErrorMsg);
   if (ModuleCode.empty()) {
     logDebug("{}", ErrorMsg);
