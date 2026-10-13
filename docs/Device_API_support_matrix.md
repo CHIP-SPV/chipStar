@@ -7,7 +7,7 @@
 | Feature                       | HIP API # of funcs  | # of impl in chipStar |  chipStar notes |
 |-------------------------------|---------------------|-----------------------|---------------------------|
 | Coordinate Built-Ins          |        12           |       12              | |
-| Warp Size variable            |      supported      |     supported         | implemented, but requires support from driver side to respect warpSize (= cl_intel_required_subgroup_size extension) |
+| Warp Size variable            |      supported      |     supported         | not constexpr, as in HIP 7: the width of the subgroup the kernel runs at (`get_max_sub_group_size()`) |
 | Timer functions               |        2            |        2              | currently only fallback implementations of clock, clock64 are available |
 | Atomic functions              |      ~30            |      ~30               | all supported; the implementation is efficient only if cl_ext_float_atomics is present & supported by backend & HW|
 | Vector Types                  |       48            |       48              | |

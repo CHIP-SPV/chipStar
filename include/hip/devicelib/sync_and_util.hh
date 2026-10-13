@@ -41,7 +41,13 @@
 // ones.
 #include <cstring>
 
-__device__ constexpr int warpSize = CHIP_DEFAULT_WARP_SIZE;
+extern "C++" __device__ unsigned __chip_warp_size(); // Custom
+// Not constexpr, as in CUDA and HIP 7: the subgroup width the kernel runs at.
+__device__ const struct {
+  __device__ __attribute__((always_inline)) operator int() const noexcept {
+    return __chip_warp_size();
+  }
+} warpSize{};
 
 extern "C++" __device__  uint64_t __chip_ballot(int predicate); // Custom
 extern "C++" inline __device__ uint64_t __ballot(int predicate) {
