@@ -53,4 +53,20 @@ if(DEFAULT_WARP_SIZE EQUAL 32)
     TIMEOUT 60)
 endif()
 
+# Fails once IGC shuffles as_int(float) correctly on an Intel GPU without
+# 8-wide sub-groups; read its header.
+if(OpenCL_LIBRARY)
+  add_executable(CanaryIGCShuffleIntViewOfFloat EXCLUDE_FROM_ALL
+    CanaryIGCShuffleIntViewOfFloat.cpp)
+  target_compile_definitions(CanaryIGCShuffleIntViewOfFloat PRIVATE
+    CL_TARGET_OPENCL_VERSION=300)
+  target_link_libraries(CanaryIGCShuffleIntViewOfFloat ${OpenCL_LIBRARY})
+  add_dependencies(build_tests CanaryIGCShuffleIntViewOfFloat)
+  add_test(NAME CanaryIGCShuffleIntViewOfFloat
+    COMMAND CanaryIGCShuffleIntViewOfFloat)
+  set_tests_properties(CanaryIGCShuffleIntViewOfFloat PROPERTIES
+    PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL"
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST" TIMEOUT 120)
+endif()
+
 add_hip_test(test_shutdown_crossqueue_dep.cpp)
