@@ -61,6 +61,8 @@ if(OpenCL_LIBRARY)
   target_compile_definitions(CanaryIGCShuffleIntViewOfFloat PRIVATE
     CL_TARGET_OPENCL_VERSION=300)
   target_link_libraries(CanaryIGCShuffleIntViewOfFloat ${OpenCL_LIBRARY})
+  set_target_properties(CanaryIGCShuffleIntViewOfFloat PROPERTIES
+    BUILD_RPATH ${OpenCL_DIR})
   add_dependencies(build_tests CanaryIGCShuffleIntViewOfFloat)
   add_test(NAME CanaryIGCShuffleIntViewOfFloat
     COMMAND CanaryIGCShuffleIntViewOfFloat)
