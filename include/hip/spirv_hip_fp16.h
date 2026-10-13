@@ -1788,7 +1788,7 @@ THE SOFTWARE.
         // value-preserving.
         #define __CHIP_DEF_HALF_SHFL(OP_, SEL_T_)                              \
           __device__ inline __half OP_(__half var, SEL_T_ selector,           \
-                                       int width = CHIP_DEFAULT_WARP_SIZE) {  \
+                                       int width = warpSize) {                \
             unsigned short bits;                                               \
             __builtin_memcpy(&bits, &var, sizeof(bits));                      \
             int shuffled = OP_(static_cast<int>(bits), selector, width);      \
@@ -1798,7 +1798,7 @@ THE SOFTWARE.
             return result;                                                    \
           }                                                                   \
           __device__ inline __half2 OP_(__half2 var, SEL_T_ selector,         \
-                                        int width = CHIP_DEFAULT_WARP_SIZE) { \
+                                        int width = warpSize) {               \
             int bits;                                                         \
             __builtin_memcpy(&bits, &var, sizeof(bits));                     \
             int shuffled = OP_(bits, selector, width);                       \
@@ -1815,7 +1815,7 @@ THE SOFTWARE.
         #define __CHIP_DEF_HALF_SHFL_SYNC(OP_, SEL_T_)                         \
           __device__ inline __half OP_(unsigned mask, __half var,             \
                                        SEL_T_ selector,                       \
-                                       int width = CHIP_DEFAULT_WARP_SIZE) {  \
+                                       int width = warpSize) {                \
             unsigned short bits;                                               \
             __builtin_memcpy(&bits, &var, sizeof(bits));                      \
             int shuffled = OP_(mask, static_cast<int>(bits), selector, width);\
@@ -1826,7 +1826,7 @@ THE SOFTWARE.
           }                                                                   \
           __device__ inline __half2 OP_(unsigned mask, __half2 var,           \
                                         SEL_T_ selector,                      \
-                                        int width = CHIP_DEFAULT_WARP_SIZE) { \
+                                        int width = warpSize) {               \
             int bits;                                                         \
             __builtin_memcpy(&bits, &var, sizeof(bits));                     \
             int shuffled = OP_(mask, bits, selector, width);                 \

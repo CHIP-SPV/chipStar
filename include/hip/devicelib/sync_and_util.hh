@@ -181,13 +181,13 @@ extern "C++" {
 
 #define DECL_SHFL_OPS(TYPE_)                                                   \
   extern __device__ TYPE_ __shfl(TYPE_ var, int srcLane,                       \
-                                 int warpsize = CHIP_DEFAULT_WARP_SIZE);       \
+                                 int warpsize = warpSize);                     \
   extern __device__ TYPE_ __shfl_xor(TYPE_ var, int laneMask,                  \
-                                     int warpsize = CHIP_DEFAULT_WARP_SIZE);   \
+                                     int warpsize = warpSize);                 \
   extern __device__ TYPE_ __shfl_up(TYPE_ var, unsigned int delta,             \
-                                    int warpsize = CHIP_DEFAULT_WARP_SIZE);    \
+                                    int warpsize = warpSize);                  \
   extern __device__ TYPE_ __shfl_down(TYPE_ var, unsigned int delta,           \
-                                      int warpsize = CHIP_DEFAULT_WARP_SIZE)
+                                      int warpsize = warpSize)
 
 DECL_SHFL_OPS(int);
 DECL_SHFL_OPS(unsigned int);
@@ -199,12 +199,12 @@ DECL_SHFL_OPS(double);
 // Shuffle declarations for cases where sizeof(long long) == sizeof(int64_t).
 #define DECL_LONGLONG_SHFL(OP_, LANE_SEL_TYPE_)                                \
   inline __device__ long long OP_(long long var, LANE_SEL_TYPE_ selector,      \
-                                  int warpsize = CHIP_DEFAULT_WARP_SIZE) {     \
+                                  int warpsize = warpSize) {                   \
     return OP_(static_cast<long>(var), selector, warpsize);                    \
   }                                                                            \
   inline __device__ unsigned long long OP_(                                    \
       unsigned long long var, LANE_SEL_TYPE_ selector,                         \
-      int warpsize = CHIP_DEFAULT_WARP_SIZE) {                                 \
+      int warpsize = warpSize) {                                               \
     return OP_(static_cast<unsigned long>(var), selector, warpsize);           \
   }
 
@@ -216,13 +216,13 @@ DECL_LONGLONG_SHFL(__shfl_down, unsigned int);
 
 #define DECL_SHFL_SYNC_OPS(TYPE_)                                              \
   extern __device__ TYPE_ __shfl_sync(unsigned mask, TYPE_ var, int srcLane,   \
-                                      int warpsize = CHIP_DEFAULT_WARP_SIZE);  \
+                                      int warpsize = warpSize);                \
   extern __device__ TYPE_ __shfl_xor_sync(unsigned mask, TYPE_ var, int laneMask, \
-                                          int warpsize = CHIP_DEFAULT_WARP_SIZE); \
+                                          int warpsize = warpSize);            \
   extern __device__ TYPE_ __shfl_up_sync(unsigned mask, TYPE_ var, unsigned int delta, \
-                                         int warpsize = CHIP_DEFAULT_WARP_SIZE); \
+                                         int warpsize = warpSize);             \
   extern __device__ TYPE_ __shfl_down_sync(unsigned mask, TYPE_ var, unsigned int delta, \
-                                           int warpsize = CHIP_DEFAULT_WARP_SIZE)
+                                           int warpsize = warpSize)
 
 DECL_SHFL_SYNC_OPS(int);
 DECL_SHFL_SYNC_OPS(unsigned int);
@@ -233,12 +233,12 @@ DECL_SHFL_SYNC_OPS(double);
 
 #define DECL_LONGLONG_SHFL_SYNC(OP_, LANE_SEL_TYPE_)                           \
   inline __device__ long long OP_(unsigned mask, long long var, LANE_SEL_TYPE_ selector, \
-                                  int warpsize = CHIP_DEFAULT_WARP_SIZE) {     \
+                                  int warpsize = warpSize) {                   \
     return OP_(mask, static_cast<long>(var), selector, warpsize);              \
   }                                                                            \
   inline __device__ unsigned long long OP_(unsigned mask, unsigned long long var, \
                                            LANE_SEL_TYPE_ selector,            \
-                                           int warpsize = CHIP_DEFAULT_WARP_SIZE) { \
+                                           int warpsize = warpSize) {          \
     return OP_(mask, static_cast<unsigned long>(var), selector, warpsize);     \
   }
 
