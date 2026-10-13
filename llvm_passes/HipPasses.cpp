@@ -280,6 +280,58 @@ public:
   static bool isRequired() { return true; }
 };
 
+// WORKAROUND(CHIP-SPV/chipStar#1896, intel/intel-graphics-compiler (not yet reported)): IGC aliases int views of a float in SIMD32 shuffles. Remove when IGC fixes emitSimdShuffle.
+// Rewrites sub_group_shuffle{,_xor}(bitcast float %f to i32) as the float
+// shuffle of %f.
+class HipFloatShufflePass : public PassInfoMixin<HipFloatShufflePass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    SmallVector<CallInst *, 8> Calls;
+    for (Instruction &I : instructions(F))
+      if (auto *CI = dyn_cast<CallInst>(&I); CI && CI->getCalledFunction())
+        if (StringRef N = CI->getCalledFunction()->getName();
+            N == "_Z17sub_group_shuffleij" || N == "_Z17sub_group_shufflejj" ||
+            N == "_Z21sub_group_shuffle_xorij" ||
+            N == "_Z21sub_group_shuffle_xorjj")
+          if (auto *Cast = dyn_cast<BitCastInst>(CI->getArgOperand(0));
+              Cast && Cast->getSrcTy()->isFloatTy())
+            Calls.push_back(CI);
+
+    for (CallInst *CI : Calls) {
+      auto *Cast = cast<BitCastInst>(CI->getArgOperand(0));
+      Function *Callee = CI->getCalledFunction();
+      Type *FloatTy = Cast->getSrcTy();
+      std::string FloatName = (Callee->getName().drop_back(2) + "fj").str();
+      Function *FloatFn = F.getParent()->getFunction(FloatName);
+      if (!FloatFn) {
+        FloatFn = Function::Create(
+            FunctionType::get(
+                FloatTy, {FloatTy, CI->getArgOperand(1)->getType()}, false),
+            Callee->getLinkage(), FloatName, F.getParent());
+        FloatFn->copyAttributesFrom(Callee);
+      }
+      auto *FloatCI = CallInst::Create(
+          FloatFn, {Cast->getOperand(0), CI->getArgOperand(1)}, "", CI);
+      FloatCI->setCallingConv(CI->getCallingConv());
+      FloatCI->setAttributes(CI->getAttributes());
+      FloatCI->takeName(CI);
+      for (User *U : make_early_inc_range(CI->users()))
+        if (auto *Back = dyn_cast<BitCastInst>(U);
+            Back && Back->getDestTy() == FloatTy) {
+          Back->replaceAllUsesWith(FloatCI);
+          Back->eraseFromParent();
+        }
+      if (!CI->use_empty())
+        CI->replaceAllUsesWith(new BitCastInst(FloatCI, CI->getType(), "", CI));
+      CI->eraseFromParent();
+      if (Cast->use_empty())
+        Cast->eraseFromParent();
+    }
+    return Calls.empty() ? PreservedAnalyses::all() : PreservedAnalyses::none();
+  }
+  static bool isRequired() { return true; }
+};
+
 // WORKAROUND(CHIP-SPV/chipStar#1703, no upstream report): the SPIR-V backend
 // indexes an initializer's byte offset into the global's own type. Remove
 // when it offsets by bytes.
@@ -532,6 +584,11 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(
       MPM, createModuleToFunctionPassAdaptor(HipLowerSitofpI1Pass()),
       "HipLowerSitofpI1Pass");
+
+  // WORKAROUND(CHIP-SPV/chipStar#1896, intel/intel-graphics-compiler (not yet reported)): see the pass.
+  addPassWithVerification(
+      MPM, createModuleToFunctionPassAdaptor(HipFloatShufflePass()),
+      "HipFloatShufflePass");
 
   // WORKAROUND(CHIP-SPV/chipStar#1680, KhronosGroup/SPIRV-LLVM-Translator#3866): llvm-spirv emits one OpPhi entry per LLVM phi entry, duplicating predecessors. Remove when the pinned llvm_release branch includes #3866.
   // Last CFG change before SPIR-V emission, so nothing merges the forwarding blocks back.
