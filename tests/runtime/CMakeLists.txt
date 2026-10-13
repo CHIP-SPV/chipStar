@@ -129,6 +129,10 @@ foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
 endforeach()
 # The fold to sitofp i1 that #1891 miscompiles only happens with optimization.
 target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
+# Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
+# Lazy JIT lets the test skip before PoCL compiles its indirect call.
+set_tests_properties(TestFixRuntimeWarpSize PROPERTIES
+  ENVIRONMENT "IGC_ForceOCLSIMDWidth=16;CHIP_LAZY_JIT=1")
 
 # The staleness probe needs several work-groups to make progress against each
 # other and skips on a device that cannot run it, for instance where Mesa
