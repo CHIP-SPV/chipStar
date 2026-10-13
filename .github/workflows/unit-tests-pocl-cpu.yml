@@ -203,7 +203,8 @@ jobs:
           - backend: pocl
             pocl-version: "7.2"
             llvm-version: 21
-            extra_exclude: ""
+            # This PoCL lacks cl_khr_fp16 (GCC 11 has no _Float16).
+            extra_exclude: "|^TestFix1813HalfCmpNaN$"
       fail-fast: false
     steps:
       - name: Install spirv-tools & headers

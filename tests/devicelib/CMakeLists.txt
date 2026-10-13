@@ -134,3 +134,7 @@ set_tests_properties(TestFix1750FunnelShift PROPERTIES
 add_hip_test(TestFix1782NormRnorm.cpp)
 set_tests_properties(TestFix1782NormRnorm PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
+
+add_hip_test(TestFix1828HalfOperators.cpp)
+set_tests_properties(TestFix1828HalfOperators PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
