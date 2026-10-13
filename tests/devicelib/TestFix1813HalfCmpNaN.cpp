@@ -48,6 +48,10 @@ int main() {
       hipMemcpy(B, HB, sizeof(HB), hipMemcpyHostToDevice) != hipSuccess)
     return 1;
   hipLaunchKernelGGL(run, dim3(1), dim3(1), 0, 0, A, B, Out);
+  if (hipGetLastError() == hipErrorSharedObjectInitFailed) {
+    printf("HIP_SKIP_THIS_TEST: device cannot build half kernels\n");
+    return 0;
+  }
   if (hipMemcpy(Got, Out, sizeof(Got), hipMemcpyDeviceToHost) != hipSuccess)
     return 1;
 
