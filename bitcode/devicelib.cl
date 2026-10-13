@@ -1082,6 +1082,8 @@ EXPORT OVLD int __chip_all_sync(unsigned mask, int predicate) {
 
 EXPORT OVLD unsigned __chip_lane_id() { return get_sub_group_local_id(); }
 
+EXPORT OVLD unsigned __chip_warp_size() { return get_max_sub_group_size(); }
+
 EXPORT OVLD void __chip_syncwarp() {
   // CUDA's __syncwarp orders both shared and global memory.
   return sub_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
