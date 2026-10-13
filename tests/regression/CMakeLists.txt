@@ -44,4 +44,13 @@ set_tests_properties(TestFix1898Rank1VectorCompare PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL"
   TIMEOUT 60)
 
+# The expected values assume 32-lane warps.
+if(DEFAULT_WARP_SIZE EQUAL 32)
+  add_hip_test(TestFix1896ShflFloatAsInt.hip)
+  set_tests_properties(TestFix1896ShflFloatAsInt PROPERTIES
+    PASS_REGULAR_EXPRESSION "PASS"
+    FAIL_REGULAR_EXPRESSION "FAIL"
+    TIMEOUT 60)
+endif()
+
 add_hip_test(test_shutdown_crossqueue_dep.cpp)
