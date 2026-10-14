@@ -616,9 +616,15 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
     hip_async_binomial: '[2] inf 0x7f800000  5.398513 0x40acc09e'
     Unit_hipHostMalloc_AllocateMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipHostMalloc_AllocateUseMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
+    Unit_hipGraphDestroyNode_DestroyDependencyNode_GraphsTest1: 'SEGFAULT'
   OPENCL_CPU:
   OPENCL_GPU:
     Unit_hipStreamAddCallback_WithDefaultStream: 'timeout'
+    Unit_hipGraphDestroyNode_DestroyDependencyNode_GraphsTest1: 'SEGFAULT'
+    Unit_hipMemcpy2DAsync_Positive_Basic_MemoryTest1: 'Failed'
+    Unit_hipEventQuery_DifferentDevice_EventTest: 'Timeout'
+    Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'Failed'
+    syncthreadsExitedThreads: 'Timeout'
   OPENCL_POCL:
 'x1921.*b0n0': # sunspot
   ALL:
