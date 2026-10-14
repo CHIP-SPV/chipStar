@@ -74,7 +74,10 @@ else:
     # Let chipStar auto-detect available devices
     device_type_stripped = "gpu"
     env_vars = f"CHIP_BE={args.backend}"
-    
+    if args.backend == "opencl":
+        # Aurora's oneapi module sets level_zero:gpu, which hides SYCL's OpenCL adapter.
+        env_vars += " ONEAPI_DEVICE_SELECTOR=opencl:gpu"
+
 # setup module load line
 modules = ""
 if args.modules == "on":
