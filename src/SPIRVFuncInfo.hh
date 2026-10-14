@@ -70,6 +70,10 @@ struct SPVArgTypeInfo {
   /// For Kind==DeviceGlobal: the name of the device global whose address this
   /// implicit argument carries. Empty otherwise.
   std::string DevGlobalName;
+  /// Byte offset of a push-constant POD argument, from Vulkan reflection.
+  int PushConstOffset = -1;
+  /// Descriptor binding of a storage-buffer argument, from Vulkan reflection.
+  int Binding = -1;
 
   bool isWorkgroupPtr() const {
     return Kind == SPVTypeKind::Pointer &&
@@ -105,6 +109,9 @@ public:
 
   using ClientArgVisitor = std::function<void(const ClientArg &)>;
   using KernelArgVisitor = std::function<void(const KernelArg &)>;
+
+  /// Descriptor binding of the Vulkan "<kernel>.args" argument buffer.
+  int ArgsBinding = -1;
 
   SPVFuncInfo() = default;
   SPVFuncInfo(const std::vector<SPVArgTypeInfo> &Info) : ArgTypeInfo_(Info) {}

@@ -125,6 +125,7 @@
 #include <llvm/IR/Metadata.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Passes/PassBuilder.h>
+#include <llvm/TargetParser/Triple.h>
 #include "PassPluginCompat.h"
 
 #define PASS_NAME "hip-lower-volatile-accesses"
@@ -283,37 +284,43 @@ bool lowerVolatileAccesses(Function &F) {
   }
 
   SyncScope::ID DeviceScope = Ctx.getOrInsertSyncScopeID("device");
+  // Volatile atomic semantics need the Vulkan memory model; GLSL450 has none.
+  const bool DropVolatile =
+      Triple(F.getParent()->getTargetTriple()).getEnvironmentName() ==
+      "shadervulkan";
   for (Instruction *I : WorkList) {
     if (auto *LI = dyn_cast<LoadInst>(I)) {
+      LI->setVolatile(LI->isVolatile() && !DropVolatile);
       Type *Ty = LI->getType();
-      if (!Ty->isPointerTy()) {
+      if (Ty->isIntegerTy()) {
         LI->setAtomic(AtomicOrdering::Monotonic, DeviceScope);
         continue;
       }
       // An atomic may not have a pointer result type: the OpenCL SPIR-V
       // environment requires OpAtomicLoad's Result Type to be an integer or
-      // float scalar, and spirv-val rejects the pointer form. Load the
-      // same-width integer instead and convert back, which leaves every user
-      // of the original value untouched.
+      // float scalar, and spirv-val rejects the pointer form. A float one needs
+      // shaderBufferFloat32Atomics on Vulkan. Load the same-width integer
+      // instead and convert back, which leaves every user of the original
+      // value untouched.
       IRBuilder<> B(LI);
       Type *IntTy = B.getIntNTy(DL.getTypeStoreSizeInBits(Ty).getFixedValue());
       LoadInst *NewLI = B.CreateAlignedLoad(IntTy, LI->getPointerOperand(),
                                             LI->getAlign(), LI->isVolatile());
       NewLI->setAtomic(AtomicOrdering::Monotonic, DeviceScope);
-      Value *AsPtr = B.CreateIntToPtr(NewLI, Ty);
-      LI->replaceAllUsesWith(AsPtr);
+      LI->replaceAllUsesWith(B.CreateBitOrPointerCast(NewLI, Ty));
       LI->eraseFromParent();
     } else {
       auto *SI = cast<StoreInst>(I);
+      SI->setVolatile(SI->isVolatile() && !DropVolatile);
       Value *V = SI->getValueOperand();
-      if (!V->getType()->isPointerTy()) {
+      if (V->getType()->isIntegerTy()) {
         SI->setAtomic(AtomicOrdering::Monotonic, DeviceScope);
         continue;
       }
       IRBuilder<> B(SI);
       Type *IntTy = B.getIntNTy(
           DL.getTypeStoreSizeInBits(V->getType()).getFixedValue());
-      StoreInst *NewSI = B.CreateAlignedStore(B.CreatePtrToInt(V, IntTy),
+      StoreInst *NewSI = B.CreateAlignedStore(B.CreateBitOrPointerCast(V, IntTy),
                                               SI->getPointerOperand(),
                                               SI->getAlign(), SI->isVolatile());
       NewSI->setAtomic(AtomicOrdering::Monotonic, DeviceScope);

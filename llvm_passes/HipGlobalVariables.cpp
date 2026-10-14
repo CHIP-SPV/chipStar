@@ -42,11 +42,13 @@
 #include "../src/common.hh"
 
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "PassPluginCompat.h"
 
@@ -202,16 +204,22 @@ static WorkItemIds emitWorkItemIds(Module &M, IRBuilder<> &B) {
           emitWorkItemCall(M, B, "_Z15get_global_sizej")};
 }
 
+/// The widest integer the init loop can copy a Size byte variable in.
+static IntegerType *getInitElemType(LLVMContext &C, uint64_t Size,
+                                    uint64_t Alignment) {
+  if (Size % 8 == 0 && Alignment >= 8)
+    return Type::getInt64Ty(C);
+  if (Size % 4 == 0 && Alignment >= 4)
+    return Type::getInt32Ty(C);
+  return Type::getInt8Ty(C);
+}
+
 /// Emit `for (i = gid; i < N; i += gsize) Dst[i] = Src ? Src[i] : 0;`.
 static void emitGridStrideInitLoop(IRBuilder<> &Builder, const WorkItemIds &Ids,
-                                   Value *Dst, Value *Src, uint64_t Size,
-                                   uint64_t Alignment) {
-  uint64_t ElemSize = 1;
-  if (Size % 8 == 0 && Alignment >= 8)
-    ElemSize = 8;
-  else if (Size % 4 == 0 && Alignment >= 4)
-    ElemSize = 4;
-  Type *ElemTy = Builder.getIntNTy(ElemSize * 8);
+                                   Value *Dst, GlobalVariable *Src,
+                                   uint64_t Size, uint64_t Alignment) {
+  Type *ElemTy = getInitElemType(Builder.getContext(), Size, Alignment);
+  uint64_t ElemSize = ElemTy->getIntegerBitWidth() / 8;
 
   BasicBlock *Pre = Builder.GetInsertBlock();
   Function *F = Pre->getParent();
@@ -232,9 +240,13 @@ static void emitGridStrideInitLoop(IRBuilder<> &Builder, const WorkItemIds &Ids,
 
   B.SetInsertPoint(Body);
   Value *Val = Constant::getNullValue(ElemTy);
-  if (Src)
-    Val = B.CreateAlignedLoad(ElemTy, B.CreateGEP(ElemTy, Src, Idx),
-                              Align(ElemSize));
+  if (Src) {
+    Type *ArrTy = ArrayType::get(ElemTy, Size / ElemSize);
+    Value *P = Src->getValueType() == ArrTy
+                   ? B.CreateInBoundsGEP(ArrTy, Src, {B.getInt64(0), Idx})
+                   : B.CreateGEP(ElemTy, Src, Idx);
+    Val = B.CreateAlignedLoad(ElemTy, P, Align(ElemSize));
+  }
   B.CreateAlignedStore(Val, B.CreateGEP(ElemTy, Dst, Idx), Align(ElemSize));
   Idx->addIncoming(B.CreateAdd(Idx, Ids.Gsz, "gvinit.next"), Body);
   B.CreateBr(Check);
@@ -312,9 +324,24 @@ static Value *expandConstant(Constant *C, GVarMapT &GVarMap,
 }
 
 /// Create initializer value for emitGlobalVarInitShadowKernel that can be
-/// used as the source (a pointer) of the initializing copy.
-static Value *createCopyableValue(Module &M, Constant *Initializer,
-                                  MaybeAlign Alignment) {
+/// used as the source (a pointer) of the initializing copy: an array of the
+/// elements the init loop copies.
+static GlobalVariable *createCopyableValue(Module &M, Constant *Initializer,
+                                           uint64_t Size,
+                                           MaybeAlign Alignment) {
+  Type *ElemTy = getInitElemType(M.getContext(), Size,
+                                 Alignment.valueOrOne().value());
+  uint64_t ElemSize = ElemTy->getIntegerBitWidth() / 8;
+  // Vulkan reads the source as typed elements; other targets keep the bytes.
+  if (Triple(M.getTargetTriple()).getEnvironmentName() == "shadervulkan") {
+    SmallVector<Constant *> Elems;
+    for (uint64_t I = 0; I < Size / ElemSize; ++I)
+      Elems.push_back(ConstantFoldLoadFromConst(
+          Initializer, ElemTy, APInt(64, I * ElemSize), M.getDataLayout()));
+    if (!is_contained(Elems, nullptr))
+      Initializer =
+          ConstantArray::get(ArrayType::get(ElemTy, Elems.size()), Elems);
+  }
   // Name does not really matter but having <ChipVarPrefix> prefix in it we can
   // distinguish chipStar emitted values from source code originated ones and
   // handle them correctly.
@@ -393,8 +420,9 @@ static void emitGlobalVarInitBody(Module &M, IRBuilder<> &Builder,
     auto Size =
         M.getDataLayout().getTypeStoreSize(OriginalGVar->getValueType());
     Constant *Init = OriginalGVar->getInitializer();
-    Value *InitSrc =
-        Init->isNullValue() ? nullptr : createCopyableValue(M, Init, Alignment);
+    GlobalVariable *InitSrc =
+        Init->isNullValue() ? nullptr
+                            : createCopyableValue(M, Init, Size, Alignment);
     emitGridStrideInitLoop(Builder, Ids, Ptr, InitSrc, Size,
                            Alignment.valueOrOne().value());
     return;
@@ -680,7 +708,6 @@ bool emitNonSymbolInitializerKernel(const std::vector<GlobalVariable *> GVs,
   return true;
 }
 
-#ifndef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
 // ===========================================================================
 // rusticl/radeonsi path: lower device globals to implicit kernel arguments.
 //
@@ -870,6 +897,8 @@ static bool lowerGlobalsToKernelArgs(Module &M, GVarMapT &GVarMap) {
     std::vector<std::string> Names;
     for (unsigned j = 0; j < Used.size(); ++j) {
       replaceGlobalLoadsWith(*NF, Used[j], NF->getArg(Base + j));
+      NF->getArg(Base + j)->setName(ChipDevGlobalArgPrefix +
+                                    originalNameOf(Used[j]));
       Names.push_back(originalNameOf(Used[j]));
     }
     emitGVarArgAnnotation(M, NF->getName(), Names);
@@ -887,7 +916,15 @@ static bool lowerGlobalsToKernelArgs(Module &M, GVarMapT &GVarMap) {
   }
   return true;
 }
-#endif // !CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
+
+// Vulkan has no program-scope storage buffers.
+static bool globalsAsKernelArgs(const Module &M) {
+#ifdef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
+  return Triple(M.getTargetTriple()).getEnvironmentName() == "shadervulkan";
+#else
+  return true;
+#endif
+}
 
 static bool lowerGlobalVariables(Module &M) {
   bool Changed = false;
@@ -918,26 +955,24 @@ static bool lowerGlobalVariables(Module &M) {
           InitVars.push_back(std::make_pair(Kv.second, Kv.first));
       }
     }
-#ifdef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
-    // Program-scope-globals path (default): initialize all variables from a
-    // single combined shadow kernel launched once, instead of one
-    // single-work-item init kernel launch per variable (#582).
-    emitCombinedGlobalVarInitKernel(M, InitVars, GVarMap);
-#else
-    // Globals-as-kernel-args (rusticl) path: keep per-variable init kernels;
-    // lowerGlobalsToKernelArgs() reworks each to take the storage address as
-    // an argument.
-    for (auto &Pair : InitVars)
-      emitGlobalVarInitShadowKernel(M, Pair.first, Pair.second, GVarMap);
-#endif
+    if (!globalsAsKernelArgs(M))
+      // Program-scope-globals path (default): initialize all variables from a
+      // single combined shadow kernel launched once, instead of one
+      // single-work-item init kernel launch per variable (#582).
+      emitCombinedGlobalVarInitKernel(M, InitVars, GVarMap);
+    else
+      // Globals-as-kernel-args (rusticl) path: keep per-variable init kernels;
+      // lowerGlobalsToKernelArgs() reworks each to take the storage address as
+      // an argument.
+      for (auto &Pair : InitVars)
+        emitGlobalVarInitShadowKernel(M, Pair.first, Pair.second, GVarMap);
     replaceGlobalVariableUses(GVarMap);
     eraseMappedGlobalVariables(GVarMap);
     Changed |= true;
-#ifndef CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS
     // rusticl path: convert the lowered address-holder globals to implicit
     // kernel arguments (the globals themselves are removed here).
-    lowerGlobalsToKernelArgs(M, GVarMap);
-#endif
+    if (globalsAsKernelArgs(M))
+      lowerGlobalsToKernelArgs(M, GVarMap);
   }
 
   // Keep the reset kernel last: JIT caches key on the module's function order.

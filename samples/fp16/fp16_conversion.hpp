@@ -133,9 +133,12 @@ static int compare_calculated(half h1, half h2) {
   if (h_1.u == h_2.u)
     return 0;
 
-  // compare nans equal if sign equals
+  // A NaN's sign is unspecified, so any two NaNs match; an infinity must match
+  // exactly.
   if (h_1.Exponent == 0x1f || h_2.Exponent == 0x1f) {
-    return (h_1.Sign == h_2.Sign) ? 0 : INT32_MAX;
+    bool Nan1 = h_1.Exponent == 0x1f && h_1.Mantissa != 0;
+    bool Nan2 = h_2.Exponent == 0x1f && h_2.Mantissa != 0;
+    return (Nan1 && Nan2) ? 0 : INT32_MAX;
   }
 
   if (h_1.Sign != h_2.Sign)
