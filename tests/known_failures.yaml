@@ -645,12 +645,13 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     'Unit_Device_Complex_hipCfma_Device_Sanity_Positive - hipFloatComplex_ComplexTest': 'SEGFAULT in PoCL pocl_svm_memcpy_common, null dereference reached from hipMemcpy (#1594)'
     'Unit_Device_Complex_hipCfma_Device_Sanity_Positive - hipDoubleComplex_ComplexTest': 'SEGFAULT in PoCL pocl_svm_memcpy_common, null dereference reached from hipMemcpy (#1594)'
 
-'^k3$': # SpacemiT K3 RISC-V CPU, PoCL; measured, no failures beyond ANY
+'^k3$': # SpacemiT K3 RISC-V CPU, PoCL
   ALL:
   LEVEL0_GPU:
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
+    cuda-FDTD3d: 'Overlapping llvm.memmove lowered to OpCopyMemorySized on the native SPIR-V backend (#1958)'
 'meatloaf': # Intel UHD 730 + Arc A770 (i915), Level Zero and OpenCL
   ALL:
   LEVEL0_GPU:
