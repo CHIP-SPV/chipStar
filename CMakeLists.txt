@@ -811,10 +811,12 @@ if(APPLE)
     # for the spirv64 target. Provide a stub override for device compilation.
     set(HIP_SYSROOT_OPTIONS
       "--sysroot=${CMAKE_OSX_SYSROOT}"
-      "-Xarch_device;-I${CMAKE_SOURCE_DIR}/include/hip/devicelib/macOS")
+      "-Xarch_device;-I$<INSTALL_PREFIX>/include/hip/devicelib/macOS")
     set(HIP_SYSROOT_LINK_OPTIONS "--sysroot=${CMAKE_OSX_SYSROOT}")
   endif()
 endif()
+string(REPLACE "$<INSTALL_PREFIX>" "${CMAKE_SOURCE_DIR}"
+  HIP_SYSROOT_OPTIONS_BUILD_ "${HIP_SYSROOT_OPTIONS}")
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HIP_ENABLE_SPIRV}
@@ -829,7 +831,7 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_}
   --hip-path=${CMAKE_BINARY_DIR}
   ${HOST_ARCH}
-  ${HIP_SYSROOT_OPTIONS}
+  ${HIP_SYSROOT_OPTIONS_BUILD_}
   ${CHIP_BUILD_SYSROOT_OPTIONS_}
   ${HIP_FIXUPS_HEADER_BUILD}
   -I${CMAKE_SOURCE_DIR}/include
