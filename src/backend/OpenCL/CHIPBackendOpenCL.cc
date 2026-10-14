@@ -1376,8 +1376,12 @@ Borrowed<cl::Kernel> CHIPKernelOpenCL::borrowUniqueKernelHandle() {
   LOCK(KernelPoolMutex_); // For KernelPool_.
 
   auto ReturnToPool = [&](cl::Kernel *k) -> void {
-    LOCK(KernelPoolMutex_);
-    KernelPool_.emplace(k);
+    try {
+      LOCK(KernelPoolMutex_);
+      KernelPool_.emplace(k);
+    } catch (...) {
+      delete k; // Runs in a deleter: drop the handle rather than throw.
+    }
   };
 
   if (KernelPool_.size()) {
