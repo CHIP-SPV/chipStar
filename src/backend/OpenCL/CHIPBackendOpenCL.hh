@@ -55,6 +55,7 @@
 #pragma GCC diagnostic pop
 
 #include <atomic>
+#include <deque>
 #include <mutex>
 #include <unordered_map>
 #include "../../CHIPBackend.hh"
@@ -474,6 +475,13 @@ class CHIPQueueOpenCL : public chipstar::Queue {
   cl_event QueryMarker_ = nullptr;
   std::mutex QueryMarkerMtx_;
 
+  /// Commands whose execution status has not been read yet, oldest first.
+  std::deque<std::shared_ptr<chipstar::Event>> UncheckedEvents_;
+  /// First abnormal termination status not yet taken by takeCommandError().
+  cl_int CommandError_ = CL_COMPLETE;
+  std::mutex UncheckedEventsMtx_;
+  void collectFinishedEvents();
+
   /// Set once the stream's cl_command_queue has been handed to the
   /// application by getBackendHandles(). Commands the application enqueues on
   /// it never reach noteWorkEnqueued(), so a marker held across calls could
@@ -539,6 +547,7 @@ public:
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
   virtual void finish() override;
+  virtual hipError_t takeCommandError() override;
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                    hipMemcpyKind Kind) override;

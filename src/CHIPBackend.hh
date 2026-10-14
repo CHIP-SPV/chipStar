@@ -2544,6 +2544,10 @@ public:
 
   virtual void finish() = 0;
 
+  /// Returns, and clears, the error of the first command on this queue that
+  /// terminated abnormally.
+  virtual hipError_t takeCommandError() { return hipSuccess; }
+
   /**
    * @brief Wait for this queue to finish, assuming EventsMtx is already held
    * Default implementation just calls finish()
