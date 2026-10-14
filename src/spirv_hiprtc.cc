@@ -129,7 +129,8 @@ static bool processOptions(chipstar::Program &Program, int NumOptions,
         Match(OptionIn, "-ffp-contract=(on|off|fast|fast-honor-pragmas)") ||
         Match(OptionIn, "-fno-eliminate-unused-debug-symbols") ||
         Match(OptionIn, "-ffast-math") ||
-        Match(OptionIn, "-munsafe-fp-atomics")) {
+        Match(OptionIn, "-munsafe-fp-atomics") ||
+        Match(OptionIn, "-ferror-limit=[0-9]+")) {
       logDebug("hiprtc: accept option '{}'", std::string(OptionIn));
       OptionsOut.Options.emplace_back(OptionIn);
       continue;
