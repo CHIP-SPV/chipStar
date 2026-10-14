@@ -1830,10 +1830,14 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   auto [SyncQueuesEventHandles, EventLocks] =
       addDependenciesQueueSync(LaunchEvent);
 
-  clStatus = clEnqueueNDRangeKernel(
-      get()->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
-      SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
-      std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
+  {
+    // With indirect access the driver submits every live USM allocation.
+    std::lock_guard<std::recursive_mutex> Lock(*OclContext->UsmFreeMtx);
+    clStatus = clEnqueueNDRangeKernel(
+        get()->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
+        SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
+        std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
+  }
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueNDRangeKernel);
 
   std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
