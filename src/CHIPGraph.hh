@@ -328,10 +328,10 @@ class CHIPGraphNodeMemcpy : public CHIPGraphNode {
 private:
   hipMemcpy3DParms Params_;
 
-  void *Dst_;
-  const void *Src_;
-  size_t Count_;
-  hipMemcpyKind Kind_;
+  void *Dst_ = nullptr;
+  const void *Src_ = nullptr;
+  size_t Count_ = 0;
+  hipMemcpyKind Kind_ = hipMemcpyDefault;
 
 public:
   CHIPGraphNodeMemcpy(const CHIPGraphNodeMemcpy &Other)
