@@ -1,0 +1,82 @@
+name: Unit tests (RISC-V PoCL)
+
+# k3: SpacemiT K3 (8x X100 rv64gcv), OpenCL via a source-built PoCL on the CPU.
+# Both SPIR-V producers come from the same LLVM 23 toolchain. Sequential lanes
+# rather than a matrix: there is one runner and both lanes build in build/.
+
+on:
+  pull_request:
+    paths-ignore: "docs/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: chipStar unit tests (RISC-V, LLVM 23, native + translator)
+    runs-on: [self-hosted, riscv64, k3]
+    env:
+      PATH: /home/bianbu/.local/bin:/usr/local/bin:/usr/bin:/bin
+      LLVM_DIR: /home/bianbu/install/llvm-23
+      POCL_DIR: /home/bianbu/install/pocl
+      # Device code is compiled through the pass plugin and device library
+      # --hip-path points at, which ccache does not see on the command line.
+      CCACHE_EXTRAFILES: ${{ github.workspace }}/build/lib/libLLVMHipSpvPasses.so:${{ github.workspace }}/build/lib/hip-device-lib/hipspv-spirv64v1.3-unknown-chipstar.bc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: 'recursive'
+
+      - name: Build chipStar (native SPIR-V backend)
+        run: |
+          set -e
+          rm -rf build
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config \
+            -DOpenCL_LIBRARY=$POCL_DIR/lib/libOpenCL.so \
+            -DOpenCL_INCLUDE_DIR=/home/bianbu/space/OpenCL-Headers
+          ninja -C build -j$(nproc)
+          ninja -C build -j$(nproc) build_tests
+          ccache -s
+        timeout-minutes: 150
+
+      - name: Test native, pocl opencl
+        run: cd build && ../scripts/check.py ./ pocl opencl
+        timeout-minutes: 90
+
+      - name: Build chipStar (llvm-spirv translator)
+        if: ${{ !cancelled() }}
+        run: |
+          set -e
+          rm -rf build
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config \
+            -DOpenCL_LIBRARY=$POCL_DIR/lib/libOpenCL.so \
+            -DOpenCL_INCLUDE_DIR=/home/bianbu/space/OpenCL-Headers
+          ninja -C build -j$(nproc)
+          ninja -C build -j$(nproc) build_tests
+          ccache -s
+        timeout-minutes: 150
+
+      - name: Test translator, pocl opencl
+        if: ${{ !cancelled() }}
+        run: cd build && ../scripts/check.py ./ pocl opencl
+        timeout-minutes: 90
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-riscv-pocl
+          path: |
+            build/checkpy_*.txt
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
