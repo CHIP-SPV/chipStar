@@ -97,30 +97,46 @@ std::pair<const void *, size_t> findHipFatbinSection(const void *data,
   return {nullptr, 0};
 }
 
-MagicResult seekToMagic(const void *Bundle) {
+/// Every read is bounded by \p Size, the number of bytes readable at \p Bundle.
+MagicResult seekToMagic(const void *Bundle, size_t Size) {
+  // True when [Off, Off+N) lies inside the buffer.
+  auto InBounds = [&](size_t Off, size_t N) {
+    return Off <= Size && N <= Size - Off;
+  };
   // First check if this is an ELF file
   const Elf64_Ehdr *ehdr = static_cast<const Elf64_Ehdr *>(Bundle);
 
-  // Check if this looks like an ELF file (at least has the magic bytes)
-  if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG) == 0) {
+  // Check if this looks like an ELF file with an in-bounds section table
+  if (InBounds(0, sizeof(Elf64_Ehdr)) &&
+      memcmp(ehdr->e_ident, ELFMAG, SELFMAG) == 0 &&
+      InBounds(ehdr->e_shoff, ehdr->e_shnum * sizeof(Elf64_Shdr)) &&
+      ehdr->e_shstrndx < ehdr->e_shnum) {
     // Get section headers
     const Elf64_Shdr *shdr = reinterpret_cast<const Elf64_Shdr *>(
         static_cast<const char *>(Bundle) + ehdr->e_shoff);
 
-    // Get section names string table
+    // Get section names string table; an out-of-bounds one names nothing
+    const Elf64_Shdr &strhdr = shdr[ehdr->e_shstrndx];
+    size_t strsize =
+        InBounds(strhdr.sh_offset, strhdr.sh_size) ? strhdr.sh_size : 0;
     const char *strtab =
-        static_cast<const char *>(Bundle) + shdr[ehdr->e_shstrndx].sh_offset;
+        static_cast<const char *>(Bundle) + (strsize ? strhdr.sh_offset : 0);
 
     // Find .hip_fatbin section
     for (size_t i = 0; i < ehdr->e_shnum; i++) {
+      if (shdr[i].sh_name > strsize ||
+          strsize - shdr[i].sh_name < sizeof(".hip_fatbin"))
+        continue;
       const char *name = strtab + shdr[i].sh_name;
-      if (strcmp(name, ".hip_fatbin") == 0) {
+      if (memcmp(name, ".hip_fatbin", sizeof(".hip_fatbin")) == 0) {
+        if (!InBounds(shdr[i].sh_offset, shdr[i].sh_size))
+          break;
         const char *data =
             static_cast<const char *>(Bundle) + shdr[i].sh_offset;
         size_t size = shdr[i].sh_size;
 
         // Search for magic identifiers in the section
-        for (size_t j = 0; j < size - sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) + 1;
+        for (size_t j = 0; j + sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1 <= size;
              ++j) {
           if (std::memcmp(data + j, CLANG_OFFLOAD_BUNDLER_MAGIC,
                           sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1) == 0) {
@@ -129,7 +145,7 @@ MagicResult seekToMagic(const void *Bundle) {
           }
         }
 
-        for (size_t j = 0; j < size - sizeof(uint32_t); ++j) {
+        for (size_t j = 0; j + sizeof(uint32_t) <= size; ++j) {
           uint32_t potential_magic;
           std::memcpy(&potential_magic, data + j, sizeof(uint32_t));
           if (potential_magic == SPIRV_MAGIC) {
@@ -144,10 +160,10 @@ MagicResult seekToMagic(const void *Bundle) {
 
   // Not an ELF file or no .hip_fatbin section found, try scanning the raw data
   const char *data = static_cast<const char *>(Bundle);
-  constexpr size_t MAX_SCAN_SIZE = 1024 * 1024; // 1MB scan limit for safety
+  const size_t ScanSize = std::min<size_t>(Size, 1024 * 1024);
 
-  for (size_t i = 0;
-       i < MAX_SCAN_SIZE - sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) + 1; ++i) {
+  for (size_t i = 0; i + sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1 <= ScanSize;
+       ++i) {
     if (std::memcmp(data + i, CLANG_OFFLOAD_BUNDLER_MAGIC,
                     sizeof(CLANG_OFFLOAD_BUNDLER_MAGIC) - 1) == 0) {
       return {const_cast<void *>(static_cast<const void *>(data + i)),
@@ -155,7 +171,7 @@ MagicResult seekToMagic(const void *Bundle) {
     }
   }
 
-  for (size_t i = 0; i < MAX_SCAN_SIZE - sizeof(uint32_t); ++i) {
+  for (size_t i = 0; i + sizeof(uint32_t) <= ScanSize; ++i) {
     uint32_t potential_magic;
     std::memcpy(&potential_magic, data + i, sizeof(uint32_t));
     if (potential_magic == SPIRV_MAGIC) {
@@ -251,7 +267,7 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg,
   };
 
   // Use seekToMagic to find the start of the bundle or SPIR-V
-  auto magicResult = seekToMagic(Bundle);
+  auto magicResult = seekToMagic(Bundle, BundleSize);
   if (!magicResult.ptr) {
     ErrorMsg = "Could not find CLANG_OFFLOAD_BUNDLER_MAGIC or SPIR-V magic "
                "number in the binary";
@@ -268,13 +284,19 @@ std::string_view extractSPIRVModule(const void *Bundle, std::string &ErrorMsg,
     // Scan through the SPIR-V binary to find its size
     // Each instruction's length is encoded in its first word
     size_t pos = 5;         // Start after header
-    while (pos < 1000000) { // Reasonable upper limit to prevent infinite loop
+    while (pos < 1000000 && // Reasonable upper limit to prevent infinite loop
+           InBounds(static_cast<const char *>(magicResult.ptr),
+                    (pos + 1) * sizeof(uint32_t))) {
       uint16_t wordCount = words[pos] >> 16;
       if (wordCount == 0)
         break;
       pos += wordCount;
     }
     size = pos * sizeof(uint32_t);
+    if (!InBounds(static_cast<const char *>(magicResult.ptr), size)) {
+      ErrorMsg = "Truncated SPIR-V module";
+      return std::string_view();
+    }
     return std::string_view(static_cast<const char *>(magicResult.ptr), size);
   }
 
