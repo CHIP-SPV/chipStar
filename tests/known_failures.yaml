@@ -413,7 +413,6 @@ ANY:
     hipConstantTestDeviceSymbol: ''
     hipDynamicShared2: ''
     unroll: ''
-    Unit_hipMemsetAsync_VerifyExecutionWithKernel: 'Failed'
     Unit_hipDeviceSynchronize_Functional: 'Failed'
     Unit_hipTextureObj1DCheckRGBAModes - array: 'Timeout'
     Unit_hipTextureObj1DCheckRGBAModes - buffer: 'Timeout'
