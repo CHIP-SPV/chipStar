@@ -1587,9 +1587,7 @@ struct HipStreamCallbackData {
   hipError_t clStatus;
   void *UserData;
   hipStreamCallback_t Callback;
-  cl_command_queue ClQueue;           // Queue to enqueue marker on
-  cl_event *MarkerEventPtr;           // Pointer to store marker event
-  std::atomic<bool> *MarkerReadyPtr;  // Signal when marker is enqueued
+  cl_event CallbackDone; // User event later commands in the stream wait on.
 };
 
 void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
@@ -1597,23 +1595,15 @@ void CL_CALLBACK pfn_notify(cl_event Event, cl_int CommandExecStatus,
   HipStreamCallbackData *Cbo = (HipStreamCallbackData *)(UserData);
   if (Cbo == nullptr)
     return;
-  if (Cbo->Callback == nullptr)
-    return;
-  
-  // Execute the user's callback
-  Cbo->Callback(Cbo->Stream, Cbo->clStatus, Cbo->UserData);
-  
-  // Workaround for Intel Data Center GPU Max OpenCL driver bug:
-  // User events (clSetUserEventStatus) don't properly wake up waiting barriers
-  // on in-order queues. Instead, enqueue a marker directly from the callback.
-  cl_int err = clEnqueueMarkerWithWaitList(Cbo->ClQueue, 0, nullptr, 
-                                            Cbo->MarkerEventPtr);
-  if (err != CL_SUCCESS) {
-    logError("pfn_notify: clEnqueueMarkerWithWaitList failed: {}", err);
-  }
-  Cbo->MarkerReadyPtr->store(true);
-  
-  delete Cbo;
+  // Own thread: drivers may run this inline in clSetEventCallback's caller.
+  std::thread([Cbo]() {
+    Cbo->Callback(Cbo->Stream, Cbo->clStatus, Cbo->UserData);
+    cl_int Err = clSetUserEventStatus(Cbo->CallbackDone, CL_COMPLETE);
+    if (Err != CL_SUCCESS)
+      logError("pfn_notify: clSetUserEventStatus failed: {}", Err);
+    clReleaseEvent(Cbo->CallbackDone);
+    delete Cbo;
+  }).detach();
 }
 
 void CHIPQueueOpenCL::MemMap(const chipstar::AllocationInfo *AllocInfo,
@@ -1702,27 +1692,26 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
                                   void *UserData) {
   logTrace("CHIPQueueOpenCL::addCallback()");
 
-  // Enqueue a barrier used to ensure the callback is not called too early,
-  // otherwise it would be (at worst) executed in this host thread when
-  // setting it, blocking the execution, while the clients might expect
-  // parallel execution.
+  // Completes once all previously enqueued work has; the callback fires on it.
   std::shared_ptr<chipstar::Event> HoldbackBarrierCompletedEv =
       enqueueBarrier(std::vector<std::shared_ptr<chipstar::Event>>{});
 
-  // Workaround for Intel Data Center GPU Max OpenCL driver bug:
-  // User events don't properly wake up waiting barriers. Instead of using
-  // a user event, we have the callback thread enqueue a marker, then we
-  // wait for that marker here and use it to sequence subsequent commands.
-  
-  cl_event callbackMarker = nullptr;
-  std::atomic<bool> markerReady{false};
-  
+  cl_int Err;
+  cl_event CallbackDone = clCreateUserEvent(
+      static_cast<CHIPContextOpenCL *>(ChipContext_)->get()->get(), &Err);
+  clStatus = Err;
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateUserEvent);
+  std::shared_ptr<chipstar::Event> CallbackDoneEv =
+      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
+          ChipContext_, chipstar::EventFlags(), "callbackDone");
+  std::static_pointer_cast<CHIPEventOpenCL>(CallbackDoneEv)->ClEvent =
+      CallbackDone;
+  enqueueBarrier(
+      std::vector<std::shared_ptr<chipstar::Event>>{CallbackDoneEv});
+
+  clRetainEvent(CallbackDone);
   HipStreamCallbackData *Cb = new HipStreamCallbackData{
-      this, hipSuccess, UserData, Callback, 
-      this->get()->get(),  // ClQueue
-      &callbackMarker,     // MarkerEventPtr
-      &markerReady         // MarkerReadyPtr
-  };
+      this, hipSuccess, UserData, Callback, CallbackDone};
 
   // Set callback on the holdback barrier
   clStatus = clSetEventCallback(
@@ -1743,35 +1732,6 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
     clStatus = clFlush(ClProfilingQueue_.get());
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clFlush);
   }
-
-  // Wait for the callback thread to enqueue its marker
-  // This is blocking but necessary to get the marker event handle
-  while (!markerReady.load()) {
-    std::this_thread::sleep_for(std::chrono::microseconds(100));
-  }
-  
-  // Create a chipstar event wrapper for the marker
-  std::shared_ptr<chipstar::Event> CallbackMarkerEvent =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          ChipContext_, chipstar::EventFlags(), "callbackMarker");
-  
-  // Replace the event's internal cl_event with our marker
-  auto ChipMarkerEventOcl =
-      std::static_pointer_cast<CHIPEventOpenCL>(CallbackMarkerEvent);
-  if (ChipMarkerEventOcl->ClEvent) {
-    clReleaseEvent(ChipMarkerEventOcl->ClEvent);
-  }
-  clRetainEvent(callbackMarker);
-  ChipMarkerEventOcl->ClEvent = callbackMarker;
-  
-  // Now enqueue a barrier waiting on the marker
-  std::vector<std::shared_ptr<chipstar::Event>> WaitForEvents{CallbackMarkerEvent};
-  enqueueBarrier(WaitForEvents);
-  
-  // Release our reference to the marker (barrier has its own)
-  clReleaseEvent(callbackMarker);
-
-  return;
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueOpenCL::enqueueMarkerImpl() {
