@@ -613,7 +613,6 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
     'Perf_hipPerfMem.*': 'memory performance benchmarks (timing-sensitive) not gated on Aurora'
     'Perf_hipPerfDispatchSpeed.*': 'dispatch-speed perf benchmark not gated on Aurora'
   LEVEL0_GPU:
-    hip_async_binomial: '[2] inf 0x7f800000  5.398513 0x40acc09e'
     Unit_hipHostMalloc_AllocateMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipHostMalloc_AllocateUseMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipGraphDestroyNode_DestroyDependencyNode_GraphsTest1: 'SEGFAULT'
