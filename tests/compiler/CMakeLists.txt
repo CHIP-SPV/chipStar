@@ -125,6 +125,7 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Fails the day the backend stops taking an initializer's byte offset as an
   # array index. Read its header before acting.
   add_shell_test(CanaryByteOffsetInitializer.bash)
+  add_shell_test(TestFix1958MemmoveOverlap.bash)
 endif()
 
 add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
