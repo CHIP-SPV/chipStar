@@ -933,9 +933,9 @@ static void dumpProgramLog(CHIPDeviceOpenCL &ChipDev, cl::Program Prog) {
 static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
                              const void *IL, size_t Length,
                              const std::string &Options) {
-  cl_int Err;
+  cl_int clStatus;
   auto start = std::chrono::high_resolution_clock::now();
-  cl::Program Prog(clCreateProgramWithIL(Ctx.get(), IL, Length, &Err));
+  cl::Program Prog(clCreateProgramWithIL(Ctx.get(), IL, Length, &clStatus));
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -945,8 +945,8 @@ static cl::Program compileIL(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
   cl_device_id DevId = ChipDev.get()->get();
   auto Start = std::chrono::high_resolution_clock::now();
   logInfo("JIT flags: {}", Options);
-  Err = clCompileProgram(Prog.get(), 1, &DevId, Options.c_str(), 0, nullptr,
-                         nullptr, nullptr, nullptr);
+  clStatus = clCompileProgram(Prog.get(), 1, &DevId, Options.c_str(), 0,
+                              nullptr, nullptr, nullptr, nullptr);
   auto End = std::chrono::high_resolution_clock::now();
   auto Duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(End - Start);
@@ -1275,7 +1275,7 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
 
   std::vector<cl::Kernel> Kernels;
   auto kernelCreationStart = std::chrono::high_resolution_clock::now();
-  Err = Program_.createKernels(&Kernels);
+  clStatus = Program_.createKernels(&Kernels);
   auto kernelCreationEnd = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double, std::micro> kernelCreationDuration =
       kernelCreationEnd - kernelCreationStart;
@@ -1404,9 +1404,8 @@ CHIPKernelOpenCL::CHIPKernelOpenCL(cl::Kernel ClKernel, CHIPDeviceOpenCL *Dev,
                                    CHIPModuleOpenCL *Parent)
     : Kernel(HostFName, FuncInfo), Module(Parent), Device(Dev) {
 
-  int Err = 0;
   // TODO attributes
-  cl_uint NumArgs = ClKernel.getInfo<CL_KERNEL_NUM_ARGS>(&Err);
+  cl_uint NumArgs = ClKernel.getInfo<CL_KERNEL_NUM_ARGS>(&clStatus);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetKernelInfo);
   assert(FuncInfo_->getNumKernelArgs() == NumArgs);
 
@@ -2319,12 +2318,12 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
           static_cast<const unsigned char *>(Pattern);
       for (size_t i = 0; i < Size; i++)
         DstBytes[i] = PatBytes[i % PatternSize];
-      int Retval = clEnqueueMarker(
+      clStatus = clEnqueueMarker(
           get()->get(),
           std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueMarker);
     } else {
-      int Retval = ::clEnqueueFillBuffer(
+      clStatus = ::clEnqueueFillBuffer(
           get()->get(), DstBuf, Pattern, PatternSize, DstOffset, Size,
           SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
           std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
@@ -2333,7 +2332,7 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   } else {
     logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
     Ctx->unmapManagedForDevice(get()->get());
-    int Retval = ::clEnqueueSVMMemFill(
+    clStatus = ::clEnqueueSVMMemFill(
         get()->get(), Dst, Pattern, PatternSize, Size,
         SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
@@ -2643,7 +2642,6 @@ void CHIPExecItemOpenCL::setupAllArgs() {
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)getKernel();
   CHIPContextOpenCL *Ctx = Kernel->getContext();
   SPVFuncInfo *FuncInfo = Kernel->getFuncInfo();
-  int Err = 0;
 
   if (FuncInfo->hasByRefArgs()) {
     ArgSpillBuffer_ =
@@ -2663,7 +2661,8 @@ void CHIPExecItemOpenCL::setupAllArgs() {
           *reinterpret_cast<const CHIPTextureOpenCL *const *>(Arg.Data);
       cl_mem Image = TexObj->getImage();
       logTrace("set image arg {} for tex {}\n", Arg.Index, (void *)TexObj);
-      Err = ::clSetKernelArg(KernelHandle, Arg.Index, sizeof(cl_mem), &Image);
+      clStatus =
+          ::clSetKernelArg(KernelHandle, Arg.Index, sizeof(cl_mem), &Image);
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArg);
       break;
     }
@@ -2672,15 +2671,15 @@ void CHIPExecItemOpenCL::setupAllArgs() {
           *reinterpret_cast<const CHIPTextureOpenCL *const *>(Arg.Data);
       cl_sampler Sampler = TexObj->getSampler();
       logTrace("set sampler arg {} for tex {}\n", Arg.Index, (void *)TexObj);
-      Err = ::clSetKernelArg(KernelHandle, Arg.Index, sizeof(cl_sampler),
-                             &Sampler);
+      clStatus = ::clSetKernelArg(KernelHandle, Arg.Index, sizeof(cl_sampler),
+                                  &Sampler);
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArg);
       break;
     }
     case SPVTypeKind::POD: {
       logTrace("clSetKernelArg {} SIZE {} to {}\n", Arg.Index, Arg.Size,
                Arg.Data);
-      Err = ::clSetKernelArg(KernelHandle, Arg.Index, Arg.Size, Arg.Data);
+      clStatus = ::clSetKernelArg(KernelHandle, Arg.Index, Arg.Size, Arg.Data);
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArg);
       break;
     }
@@ -2689,15 +2688,16 @@ void CHIPExecItemOpenCL::setupAllArgs() {
 
       if (Arg.isWorkgroupPtr()) {
         logTrace("setLocalMemSize to {}\n", SharedMem_);
-        Err = ::clSetKernelArg(KernelHandle, Arg.Index, SharedMem_, nullptr);
+        clStatus =
+            ::clSetKernelArg(KernelHandle, Arg.Index, SharedMem_, nullptr);
         break;
       }
 
       auto *DevPtr = *reinterpret_cast<const void *const *>(Arg.Data);
       if (Ctx->getAllocStrategy() == AllocationStrategy::BufferDevAddr) {
-        Err = Ctx->clSetKernelArgDevicePointerEXT(KernelHandle, Arg.Index,
-                                                  DevPtr);
-        if (Err != CL_SUCCESS) {
+        clStatus = Ctx->clSetKernelArgDevicePointerEXT(KernelHandle, Arg.Index,
+                                                       DevPtr);
+        if (clStatus != CL_SUCCESS) {
           // ROCm seems to allow passing invalid pointers to kernels if they are
           // not derefenced (see test_device_adjacent_difference of rocPRIM).
           // If the setting of the arg fails, let's assume this might be such a
@@ -2705,24 +2705,25 @@ void CHIPExecItemOpenCL::setupAllArgs() {
           logWarn("clSetKernelArgDevicePointerEXT {} SIZE {} to {} (value {}) "
                   "returned error, setting the arg to nullptr\n",
                   Arg.Index, Arg.Size, Arg.Data, DevPtr);
-          Err = Ctx->clSetKernelArgDevicePointerEXT(KernelHandle, Arg.Index,
-                                                    nullptr);
+          clStatus = Ctx->clSetKernelArgDevicePointerEXT(KernelHandle,
+                                                         Arg.Index, nullptr);
         }
       } else {
         logTrace("clSetKernelArgSVMPointer {} SIZE {} to {} (value {})\n",
                  Arg.Index, Arg.Size, Arg.Data, DevPtr);
-        Err = ::clSetKernelArgSVMPointer(
+        clStatus = ::clSetKernelArgSVMPointer(
             KernelHandle, Arg.Index,
             // Unlike clSetKernelArg() which takes address to the argument,
             // this function takes the argument value directly.
             DevPtr);
-        if (Err != CL_SUCCESS) {
+        if (clStatus != CL_SUCCESS) {
           // Perhaps an invalid pointer - pass nullptr in its place.
           logWarn(
               "clSetKernelArgSVMPointer {} SIZE {} to {} (value {}) returned "
               "error, setting the arg to nullptr\n",
               Arg.Index, Arg.Size, Arg.Data, DevPtr);
-          Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, nullptr);
+          clStatus =
+              ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, nullptr);
         }
       }
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
@@ -2731,7 +2732,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
     case SPVTypeKind::PODByRef: {
       auto *SpillSlot = ArgSpillBuffer_->allocate(Arg);
       assert(SpillSlot);
-      Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, SpillSlot);
+      clStatus = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, SpillSlot);
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
       break;
     }
@@ -2742,7 +2743,7 @@ void CHIPExecItemOpenCL::setupAllArgs() {
       void *DevPtr = chipstar::getDeviceGlobalArgAddr(Kernel, Arg);
       logTrace("clSetKernelArgSVMPointer {} for device global '{}' -> {}",
                Arg.Index, Arg.DevGlobalName, DevPtr);
-      Err = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, DevPtr);
+      clStatus = ::clSetKernelArgSVMPointer(KernelHandle, Arg.Index, DevPtr);
       CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetKernelArgSVMPointer);
       break;
     }
