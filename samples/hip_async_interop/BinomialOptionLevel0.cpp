@@ -170,7 +170,7 @@ void* runLevel0Kernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHan
   Err = zeEventCreate(EventPool, &EventDesc, &RetEvent);
   assert(Err == ZE_RESULT_SUCCESS);
 
-  ze_group_count_t LaunchArgs = { Blocks*Threads, 1, 1 };
+  ze_group_count_t LaunchArgs = { Blocks, 1, 1 };
   // Append launch kernel
   Err = zeCommandListAppendLaunchKernel(CommandList, Kernel, &LaunchArgs, RetEvent, 1, &DepEv);
   assert(Err == ZE_RESULT_SUCCESS);
