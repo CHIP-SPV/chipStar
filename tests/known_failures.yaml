@@ -6,7 +6,6 @@ ANY:
     hipDeviceMalloc: 'Failed'
     TestUndefKernelArg: 'Intermittend L0 segfault'
     hipStreamSemantics: 'timing dependent, flaky when ctest -j'
-    hip_async_binomial: 'SEGFAULT'
     'Unit_hipDeviceGetSharedMemConfig_Positive_Basic.*': 'chipstar::Device::setSharedMemConfig is not implemented'
     'Unit_hipDeviceGetSharedMemConfig_Positive_Default.*': 'chipstar::Device::setSharedMemConfig is not implemented'
     'Unit_hipDeviceReset_Positive_Basic.*': 'hipGetDeviceFlags is not implemented'
