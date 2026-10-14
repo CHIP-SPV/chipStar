@@ -3841,6 +3841,18 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
     }
   }
 
+  // The null stream waits for all other blocking streams on the device.
+  if (ChipQueue->isDefaultLegacyQueue()) {
+    auto Dev = Backend->getActiveDevice();
+    LOCK(Dev->QueueAddRemoveMtx);
+    for (auto Q : Dev->getQueuesNoLock())
+      if (Q->getQueueFlags().isBlocking() && !Q->isEmptyQueue())
+        Q->finish();
+    auto *PT = chipstar::Device::PerThreadDefaultQueue.get();
+    if (PT && PT->getDevice() == Dev && !PT->isEmptyQueue())
+      PT->finish();
+  }
+
   ChipQueue->finish();
   return hipSuccess;
 }
