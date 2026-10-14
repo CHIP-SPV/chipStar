@@ -258,7 +258,8 @@ public:
 // builds. Delete the pass only once CanarySitofpI1Translator and
 // CanarySitofpI1Backend both fire for every supported LLVM version.
 // Rewrites sitofp i1 %c into select %c, -1.0, 0.0.
-class HipLowerSitofpI1Pass : public PassInfoMixin<HipLowerSitofpI1Pass> {
+class HipLowerSitofpI1Pass
+    : public HipRequiredPassInfoMixin<HipLowerSitofpI1Pass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
     bool Changed = false;
@@ -269,7 +270,8 @@ public:
       Type *Ty = Cast->getType();
       auto *Sel = SelectInst::Create(Cast->getOperand(0),
                                      ConstantFP::get(Ty, -1.0),
-                                     ConstantFP::get(Ty, 0.0), "", Cast);
+                                     ConstantFP::get(Ty, 0.0), "",
+                                     Cast->getIterator());
       Sel->takeName(Cast);
       Cast->replaceAllUsesWith(Sel);
       Cast->eraseFromParent();
@@ -283,7 +285,8 @@ public:
 // WORKAROUND(CHIP-SPV/chipStar#1896, intel/intel-graphics-compiler (not yet reported)): IGC aliases int views of a float in SIMD32 shuffles. Remove when IGC fixes emitSimdShuffle.
 // Rewrites sub_group_shuffle{,_xor}(bitcast float %f to i32) as the float
 // shuffle of %f.
-class HipFloatShufflePass : public PassInfoMixin<HipFloatShufflePass> {
+class HipFloatShufflePass
+    : public HipRequiredPassInfoMixin<HipFloatShufflePass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
     SmallVector<CallInst *, 8> Calls;
@@ -311,7 +314,8 @@ public:
         FloatFn->copyAttributesFrom(Callee);
       }
       auto *FloatCI = CallInst::Create(
-          FloatFn, {Cast->getOperand(0), CI->getArgOperand(1)}, "", CI);
+          FloatFn, {Cast->getOperand(0), CI->getArgOperand(1)}, "",
+          CI->getIterator());
       FloatCI->setCallingConv(CI->getCallingConv());
       FloatCI->setAttributes(CI->getAttributes());
       FloatCI->takeName(CI);
@@ -322,7 +326,8 @@ public:
           Back->eraseFromParent();
         }
       if (!CI->use_empty())
-        CI->replaceAllUsesWith(new BitCastInst(FloatCI, CI->getType(), "", CI));
+        CI->replaceAllUsesWith(
+            new BitCastInst(FloatCI, CI->getType(), "", CI->getIterator()));
       CI->eraseFromParent();
       if (Cast->use_empty())
         Cast->eraseFromParent();
