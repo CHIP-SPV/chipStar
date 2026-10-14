@@ -32,7 +32,8 @@ if grep -E 'llvm\.(memcpy|memmove)\.[^(]*\(.*, i64 0, i1' lowered.ll; then
   echo "FAIL: a constant zero length copy reached SPIR-V emission"
   exit 1
 fi
-KEPT=$(grep -cE 'call void @llvm\.(memcpy|memmove)\.' lowered.ll || true)
+# The in-tree backend lane expands the memmove into a loop (#1958).
+KEPT=$(grep -cE 'call void @llvm\.(memcpy|memmove)\.|^memmove_done:' lowered.ll || true)
 if [ "${KEPT}" -ne 2 ]; then
   echo "FAIL: expected the 2 copies that must be kept, found ${KEPT}"
   grep -E 'llvm\.(memcpy|memmove)\.' lowered.ll || true

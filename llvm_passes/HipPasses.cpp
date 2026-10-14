@@ -59,6 +59,7 @@
 #include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 #include "llvm/Transforms/IPO/Internalize.h"
+#include "llvm/Transforms/Utils/LowerMemIntrinsics.h"
 
 #include <string>
 #include <utility>
@@ -247,6 +248,46 @@ public:
           return PreservedAnalyses::all();
     M.getOrInsertNamedMetadata("opencl.enable.FP_CONTRACT");
     return PreservedAnalyses::all();
+  }
+  static bool isRequired() { return true; }
+};
+
+// WORKAROUND(CHIP-SPV/chipStar#1958, llvm/llvm-project (not yet reported)): the
+// in-tree backend emits llvm.memmove as OpCopyMemorySized, which consumers read
+// as memcpy. Remove when the SPIR-V backend lowers memmove itself.
+class HipLowerMemmovePass
+    : public HipRequiredPassInfoMixin<HipLowerMemmovePass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    SmallVector<MemMoveInst *, 4> MemMoves;
+    for (Instruction &I : instructions(F))
+      if (auto *MemMove = dyn_cast<MemMoveInst>(&I))
+        MemMoves.push_back(MemMove);
+    const TargetTransformInfo &TTI = AM.getResult<TargetIRAnalysis>(F);
+    bool Changed = false;
+    for (MemMoveInst *MemMove : MemMoves) {
+      unsigned DstAS = MemMove->getDestAddressSpace();
+      unsigned SrcAS = MemMove->getSourceAddressSpace();
+      // Compare mixed address spaces as generic; constant memory cannot overlap.
+      if (DstAS != SrcAS && DstAS != 2 && SrcAS != 2) {
+        IRBuilder<> B(MemMove);
+        Type *Generic = B.getPtrTy(4);
+        auto *Copy = cast<MemMoveInst>(B.CreateMemMove(
+            B.CreateAddrSpaceCast(MemMove->getRawDest(), Generic),
+            MemMove->getDestAlign(),
+            B.CreateAddrSpaceCast(MemMove->getRawSource(), Generic),
+            MemMove->getSourceAlign(), MemMove->getLength(),
+            MemMove->isVolatile()));
+        MemMove->eraseFromParent();
+        MemMove = Copy;
+        Changed = true;
+      }
+      if (expandMemMoveAsLoop(MemMove, TTI)) {
+        MemMove->eraseFromParent();
+        Changed = true;
+      }
+    }
+    return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
   }
   static bool isRequired() { return true; }
 };
@@ -579,6 +620,10 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 #ifdef CHIP_LLVM_USE_INTERGRATED_SPIRV
   // After every pass that creates or removes FP operations or calls.
   addPassWithVerification(MPM, HipFPContractPass(), "HipFPContractPass");
+  // WORKAROUND(CHIP-SPV/chipStar#1958, llvm/llvm-project (not yet reported)): see the pass.
+  addPassWithVerification(
+      MPM, createModuleToFunctionPassAdaptor(HipLowerMemmovePass()),
+      "HipLowerMemmovePass");
 #endif
 
   // Steers SPIR-V emission away from an access chain form IGC miscompiles.
