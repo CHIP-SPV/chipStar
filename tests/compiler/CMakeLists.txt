@@ -263,6 +263,11 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Fails once the backend carries llvm/llvm-project#209232; read its header.
   add_shell_test(CanarySitofpI1Backend.bash)
 endif()
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv64" AND NOT CMAKE_CROSSCOMPILING
+    AND LLVM_VERSION_MAJOR GREATER_EQUAL 23 AND CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  # Fails once clang-linker-wrapper uses the host ABI (#1952); read its header.
+  add_shell_test(CanaryLinkerWrapperSoftFloat.bash)
+endif()
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
 

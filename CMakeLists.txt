@@ -323,9 +323,14 @@ option(OCML_BASIC_ROUNDED_OPERATIONS "Use OCML implementations for devicelib fun
 option(CHIP_MALI_GPU_WORKAROUNDS "Apply work-arounds for avoiding SPIR-V \
 consumption issues in ARM Mali GPU driver." OFF)
 
+# WORKAROUND(CHIP-SPV/chipStar#1952, no upstream report yet): clang-linker-wrapper builds the host wrapper object without the host ABI (soft-float on riscv64). Remove when clang-linker-wrapper propagates the host ABI.
+set(NEW_OFFLOAD_DRIVER_DEFAULT ON)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv64")
+  set(NEW_OFFLOAD_DRIVER_DEFAULT OFF)
+endif()
 cmake_dependent_option(
   USE_NEW_OFFLOAD_DRIVER "Use Clang's new offload driver."
-  ON HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
+  ${NEW_OFFLOAD_DRIVER_DEFAULT} HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
 
 if(CHIP_EXT_FLOAT_ATOMICS)
   message(DEPRECATION "-DCHIP_EXT_FLOAT_ATOMICS is no longer effective.")
