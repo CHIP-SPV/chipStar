@@ -160,7 +160,7 @@ set(RTDEVLIB_SOURCES_v1_2
 
 # Sources requiring SPIR-V 1.3 at most.
 set(RTDEVLIB_SOURCES_v1_3
-  ballot_native)
+  ballot_native shflShift_native shflShift_generic)
 
 # Set rtdevlib compile triples. Versioned chipstar triples encode each
 # source's SPIR-V version requirement; on LLVM 23+ they are needed for the
@@ -201,7 +201,7 @@ add_custom_target("rtdevlib-bitcodes" DEPENDS ${RTDEVLIB_BITCODES})
 # std::array<unsigned char, N> <ARRAY_NAME>.
 function(embed_spirv_in_cpp
     ARRAY_NAME BC_SOURCE OUTPUT_SOURCE OUTPUT_HEADER MAX_SPIRV_VERSION)
-  set(SPIRV_EXTENSIONS "+SPV_EXT_shader_atomic_float_add")
+  set(SPIRV_EXTENSIONS "+SPV_EXT_shader_atomic_float_add,+SPV_INTEL_subgroups")
   get_filename_component(SOURCE_BASENAME "${BC_SOURCE}" NAME_WLE)
   # Name of the intermediate SPIR-V binary. The name of the C array will be
   # based on this filepath (with punctuation replaced with "_").

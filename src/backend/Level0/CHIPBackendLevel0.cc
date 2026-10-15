@@ -3467,6 +3467,14 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
   } else {
     logInfo("No rtdevlib imports, skipping device library sources");
   }
+  if (spirvNeedsShuffleShift(SPIRVBin)) {
+    bool Fast = ChipEnvVars.getFastShuffle();
+    ILSizes.push_back(Fast ? chipstar::shflShift_native.size()
+                           : chipstar::shflShift_generic.size());
+    ILInputs.push_back(Fast ? chipstar::shflShift_native.data()
+                            : chipstar::shflShift_generic.data());
+    BuildFlags.push_back("");
+  }
 
   ze_module_program_exp_desc_t ProgramDesc = {
       ZE_STRUCTURE_TYPE_MODULE_PROGRAM_EXP_DESC,

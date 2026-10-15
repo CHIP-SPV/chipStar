@@ -973,11 +973,26 @@ struct RtDevLibModule {
 /// key and the link have to agree, and duplicating the capability checks would
 /// let them drift apart silently.
 static std::vector<RtDevLibModule>
-selectRuntimeObjects(CHIPDeviceOpenCL &ChipDev) {
+selectRuntimeObjects(CHIPDeviceOpenCL &ChipDev, std::string_view Bin) {
   std::vector<RtDevLibModule> Modules;
   auto Add = [&](auto &Source, const char *Name) -> void {
     Modules.push_back({Name, Source.data(), Source.size()});
   };
+
+  // Linked on its own when nothing else is needed: rusticl cannot link the
+  // atomics modules.
+  if (spirvNeedsShuffleShift(Bin)) {
+    std::string Exts = ChipDev.get()->getInfo<CL_DEVICE_EXTENSIONS>();
+    if (ChipEnvVars.getFastShuffle() &&
+        (ChipDev.get()->getInfo<CL_DEVICE_TYPE>() & CL_DEVICE_TYPE_GPU) &&
+        Exts.find("cl_intel_subgroups") != std::string::npos &&
+        Exts.find("cl_khr_subgroup_non_uniform_vote") != std::string::npos)
+      Add(chipstar::shflShift_native, "shflShift_native");
+    else
+      Add(chipstar::shflShift_generic, "shflShift_generic");
+  }
+  if (!spirvNeedsRtdevlib(Bin))
+    return Modules;
 
   if (ChipDev.hasFP32AtomicAdd())
     Add(chipstar::atomicAddFloat_native, "atomicAddFloat_native");
@@ -1002,6 +1017,7 @@ selectRuntimeObjects(CHIPDeviceOpenCL &ChipDev) {
 }
 
 static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
+                                 const std::vector<RtDevLibModule> &Modules,
                                  const std::string &Options,
                                  std::vector<cl::Program> &Objects) {
 
@@ -1010,7 +1026,7 @@ static void appendRuntimeObjects(cl::Context Ctx, CHIPDeviceOpenCL &ChipDev,
 
   // TODO: Reuse already compiled modules.
 
-  for (const auto &Module : selectRuntimeObjects(ChipDev)) {
+  for (const auto &Module : Modules) {
     if (ChipEnvVars.getDumpSpirv()) {
       auto Str = std::string_view(reinterpret_cast<const char *>(Module.Data),
                                   Module.Size);
@@ -1215,12 +1231,13 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   // Everything the driver will be given has to be known before the lookup, so
   // that the key covers it.
   std::string buildOptions = computeBuildOptions();
-  bool NeedsRtDevLib = spirvNeedsRtdevlib(SrcBin);
+  bool NeedsRtDevLib =
+      spirvNeedsRtdevlib(SrcBin) || spirvNeedsShuffleShift(SrcBin);
   std::string RtDevLibOptions;
   std::vector<RtDevLibModule> RtDevLibModules;
   if (NeedsRtDevLib) {
     RtDevLibOptions = computeRtDevLibOptions(buildOptions);
-    RtDevLibModules = selectRuntimeObjects(*ChipDevOcl);
+    RtDevLibModules = selectRuntimeObjects(*ChipDevOcl, SrcBin);
   }
   std::string Flags = computeLinkFlags(*ChipDevOcl);
 
@@ -1239,8 +1256,8 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
                     SrcBin.size(), buildOptions);
       std::vector<cl::Program> ClObjects;
       ClObjects.push_back(ClMainObj);
-      appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, RtDevLibOptions,
-                           ClObjects);
+      appendRuntimeObjects(*ChipCtxOcl->get(), *ChipDevOcl, RtDevLibModules,
+                           RtDevLibOptions, ClObjects);
 
       logInfo("Linking {} program objects", ClObjects.size());
       Program_ =
