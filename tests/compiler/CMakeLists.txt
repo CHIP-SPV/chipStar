@@ -263,6 +263,10 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Fails once the backend carries llvm/llvm-project#209232; read its header.
   add_shell_test(CanarySitofpI1Backend.bash)
 endif()
+# Fails once IGC stops gathering a constant-offset shuffle; read its header.
+add_shell_test(CanaryIgcShuffleRotateGather.bash)
+set_tests_properties(CanaryIgcShuffleRotateGather PROPERTIES
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
