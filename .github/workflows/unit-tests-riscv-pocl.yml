@@ -3,7 +3,7 @@ run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 # k3: SpacemiT K3 (8x X100 rv64gcv), OpenCL via a source-built PoCL on the CPU.
 # Both SPIR-V producers come from the same LLVM 23 toolchain. Sequential lanes
-# rather than a matrix: there is one runner and both lanes build in build/.
+# rather than a matrix: there is one runner.
 
 on:
   pull_request:
@@ -29,9 +29,8 @@ jobs:
       PATH: /home/bianbu/.local/bin:/usr/local/bin:/usr/bin:/bin
       LLVM_DIR: /home/bianbu/install/llvm-23
       POCL_DIR: /home/bianbu/install/pocl
-      # Device code is compiled through the pass plugin and device library
-      # --hip-path points at, which ccache does not see on the command line.
-      CCACHE_EXTRAFILES: ${{ github.workspace }}/build/lib/libLLVMHipSpvPasses.so:${{ github.workspace }}/build/lib/hip-device-lib/hipspv-spirv64v1.3-unknown-chipstar.bc
+      # Build dirs persist across jobs so ninja rebuilds only what changed.
+      BUILD_ROOT: /home/bianbu/ci-build
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,43 +40,54 @@ jobs:
       - name: Build chipStar (native SPIR-V backend)
         run: |
           set -e
-          rm -rf build
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+          B=$BUILD_ROOT/native
+          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
+          # Device code is compiled through the pass plugin and device library
+          # --hip-path points at, which ccache does not see on the command line.
+          export CCACHE_EXTRAFILES=$B/lib/libLLVMHipSpvPasses.so:$B/lib/hip-device-lib/hipspv-spirv64v1.3-unknown-chipstar.bc
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
             -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
             -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
             -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config \
             -DOpenCL_LIBRARY=$POCL_DIR/lib/libOpenCL.so \
             -DOpenCL_INCLUDE_DIR=/home/bianbu/space/OpenCL-Headers
-          ninja -C build -j$(nproc)
-          ninja -C build -j$(nproc) build_tests
+          ninja -C $B -j$(nproc)
+          ninja -C $B -j$(nproc) build_tests
           ccache -s
         timeout-minutes: 150
 
       - name: Test native, pocl opencl
-        run: cd build && ../scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+        run: cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 90
 
       - name: Build chipStar (llvm-spirv translator)
+        id: translator-build
         if: ${{ !cancelled() }}
         run: |
           set -e
-          rm -rf build
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+          B=$BUILD_ROOT/translator
+          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
+          # Device code is compiled through the pass plugin and device library
+          # --hip-path points at, which ccache does not see on the command line.
+          export CCACHE_EXTRAFILES=$B/lib/libLLVMHipSpvPasses.so:$B/lib/hip-device-lib/hipspv-spirv64v1.3-unknown-chipstar.bc
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
             -DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
             -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
             -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config \
             -DOpenCL_LIBRARY=$POCL_DIR/lib/libOpenCL.so \
             -DOpenCL_INCLUDE_DIR=/home/bianbu/space/OpenCL-Headers
-          ninja -C build -j$(nproc)
-          ninja -C build -j$(nproc) build_tests
+          ninja -C $B -j$(nproc)
+          ninja -C $B -j$(nproc) build_tests
           ccache -s
         timeout-minutes: 150
 
       - name: Test translator, pocl opencl
-        if: ${{ !cancelled() }}
-        run: cd build && ../scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+        if: ${{ !cancelled() && steps.translator-build.outcome == 'success' }}
+        run: cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 90
 
       - uses: actions/upload-artifact@v4
@@ -85,8 +95,8 @@ jobs:
         with:
           name: test-logs-riscv-pocl
           path: |
-            build/checkpy_*.txt
-            build/Testing/Temporary/LastTest.log
+            /home/bianbu/ci-build/*/checkpy_*.txt
+            /home/bianbu/ci-build/*/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
 
   math-tests-status:
