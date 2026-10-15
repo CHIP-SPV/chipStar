@@ -912,6 +912,23 @@ workaroundLlvmSpirvIssue2008(const SPIRVinst &Insn,
   return FilterAction::Keep;
 }
 
+bool spirvNeedsShuffleShift(std::string_view Binary) {
+  auto *Words = reinterpret_cast<const InstWord *>(Binary.data());
+  size_t NumWords = Binary.size() / sizeof(InstWord);
+  if (NumWords < 5 || !parseHeader(Words, NumWords))
+    return false;
+  for (size_t I = 0, Size; I < NumWords; I += Size) {
+    SPIRVinst Insn(Words + I);
+    if (!(Size = Insn.size()))
+      return false;
+    if (Insn.isDecoration(spv::DecorationLinkageAttributes) &&
+        parseLinkageAttributeType(Insn) == spv::LinkageTypeImport &&
+        startsWith(parseLinkageAttributeName(Insn), "__chip_sg_shift_"))
+      return true;
+  }
+  return false;
+}
+
 // TODO/FIXME: 'const char *Bytes' --> 'const uint32_t *Words' as this function
 // expects the Bytes to be aligned to 32-bits.
 bool preprocessSPIRV(const char *Bytes, size_t NumBytes,

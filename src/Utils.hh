@@ -110,6 +110,9 @@ inline bool spirvNeedsRtdevlib(std::string_view Binary) {
          Binary.find("__chip_ballot") != std::string_view::npos;
 }
 
+/// Return true if the SPIR-V binary imports the HipShuffleShiftPass functions.
+bool spirvNeedsShuffleShift(std::string_view Binary);
+
 /// A class for forming a iterator range which can be used in
 /// 'for (auto E : C) ...' expressions.
 template <typename IteratorT> class IteratorRange {

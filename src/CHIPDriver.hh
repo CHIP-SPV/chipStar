@@ -238,6 +238,7 @@ private:
   bool SaveTemps_ = false;
   bool SkipUninit_ = false;
   bool LazyJit_ = true;
+  bool FastShuffle_ = true;
   std::string JitFlags_ = "";
   std::string JitFlagsOverride_ = "";
   unsigned long L0EventTimeout_ = 0;
@@ -271,6 +272,7 @@ public:
   const std::string &getJitFlagsOverride() const { return JitFlagsOverride_; }
   bool hasJitOverride() const { return !JitFlagsOverride_.empty(); }
   bool getLazyJit() const { return LazyJit_; }
+  bool getFastShuffle() const { return FastShuffle_; }
   unsigned long getL0EventTimeout() const {
     if (L0EventTimeout_ == 0)
       return UINT64_MAX;
@@ -317,6 +319,8 @@ private:
                                                         : SkipUninit_;
     LazyJit_ =
         readEnvVar("CHIP_LAZY_JIT", value) ? parseBoolean(value) : LazyJit_;
+    FastShuffle_ = readEnvVar("CHIP_FAST_SHUFFLE", value) ? parseBoolean(value)
+                                                          : FastShuffle_;
     JitFlags_ = readEnvVar("CHIP_JIT_FLAGS", value, false) ? value : JitFlags_;
     JitFlagsOverride_ = readEnvVar("CHIP_JIT_FLAGS_OVERRIDE", value, false)
                             ? value
@@ -413,6 +417,7 @@ private:
     logInfo("CHIP_L0_EVENT_TIMEOUT={}", L0EventTimeout_);
     logInfo("CHIP_SKIP_UNINIT={}", SkipUninit_ ? "on" : "off");
     logInfo("CHIP_LAZY_JIT={}", LazyJit_ ? "on" : "off");
+    logInfo("CHIP_FAST_SHUFFLE={}", FastShuffle_ ? "on" : "off");
     logInfo("CHIP_OCL_DISABLE_QUEUE_PROFILING={}",
             OCLDisableQueueProfiling_ ? "on" : "off");
     logInfo("CHIP_OCL_USE_ALLOC_STRATEGY={}", OclUseAllocStrategy_.has_value()
