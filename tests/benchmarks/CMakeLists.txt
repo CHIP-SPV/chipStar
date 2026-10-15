@@ -38,6 +38,14 @@ target_include_directories(hostRegisterMemcpyOverhead
   PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
 add_test(NAME hostRegisterMemcpyOverhead COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/hostRegisterMemcpyOverhead)
 
+set_source_files_properties(shflRotate.hip PROPERTIES LANGUAGE CXX)
+add_executable(shflRotate shflRotate.hip)
+set_target_properties(shflRotate PROPERTIES CXX_STANDARD_REQUIRED ON)
+target_link_libraries(shflRotate CHIP deviceInternal)
+target_include_directories(shflRotate
+  PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+add_test(NAME shflRotate COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/shflRotate)
+
 # These are timing benchmarks: they measure per-op latency and per-launch
 # overhead in nanoseconds. check.py runs the suite with `ctest -j N`, so without
 # this every benchmark would contend for the single GPU with whatever other
@@ -50,6 +58,7 @@ set_tests_properties(
   manyMallocMemcopies
   hostRegisterOverhead
   hostRegisterMemcpyOverhead
+  shflRotate
   PROPERTIES RUN_SERIAL ON)
 
 # manyMallocMemcopies opts out where its measurement cannot speak about
