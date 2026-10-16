@@ -270,6 +270,10 @@ set_tests_properties(CanaryIgcShuffleRotateGather PROPERTIES
 add_shell_test(TestFix1987RecursiveGenericPtr.bash)
 set_tests_properties(TestFix1987RecursiveGenericPtr PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+# Fails once IGC builds recursion through a generic pointer; read its header.
+add_shell_test(CanaryIgcRecursiveGenericPtr.bash)
+set_tests_properties(CanaryIgcRecursiveGenericPtr PROPERTIES
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
