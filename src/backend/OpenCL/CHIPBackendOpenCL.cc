@@ -806,6 +806,8 @@ void CHIPEventOpenCL::recordEventCopy(
   this->Msg = "recordEventCopy: " + Other->Msg;
   this->HostTimeStamp =
       std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  // A re-recorded event stands for its latest marker only.
+  this->releaseDependencies();
   this->addDependency(Other);
 }
 
