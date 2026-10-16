@@ -267,6 +267,9 @@ endif()
 add_shell_test(CanaryIgcShuffleRotateGather.bash)
 set_tests_properties(CanaryIgcShuffleRotateGather PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+add_shell_test(TestFix1987RecursiveGenericPtr.bash)
+set_tests_properties(TestFix1987RecursiveGenericPtr PROPERTIES
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
 
