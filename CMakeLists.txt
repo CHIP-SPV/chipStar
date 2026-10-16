@@ -823,6 +823,11 @@ set(HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_
   ${HOST_ARCH}
   ${HIP_SYSROOT_OPTIONS}
   ${HIP_FIXUPS_HEADER_INSTALL})
+# Clang adds <hip-path>/include after /usr/include on the host pass; under /usr
+# an -isystem would break libstdc++'s #include_next.
+if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+  list(APPEND HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_ -isystem$<INSTALL_PREFIX>/include)
+endif()
 
 set(HIP_OFFLOAD_COMPILE_OPTIONS_BUILD_
   ${HIP_ENABLE_SPIRV}
