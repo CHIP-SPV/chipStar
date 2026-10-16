@@ -67,6 +67,7 @@ chipStar has so far been tested using the following applications:
 - [libCEED](https://github.com/CEED/libCEED)
 - [GAMESS](https://www.msg.chem.iastate.edu/gamess/) Source code is not public.
 - [HeCBench](https://github.com/zjin-lcf/HeCBench) CUDA Benchmarks. 
+- [OpenMM](https://github.com/openmm/openmm) HIP platform.
 
 ## Getting Started
 
