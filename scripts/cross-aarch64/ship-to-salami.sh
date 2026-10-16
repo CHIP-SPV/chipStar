@@ -51,9 +51,9 @@ grep -rl "$SRC_PREFIX" "$STAGE" --include=CTestTestfile.cmake \
 # 2. keep only tests that run a prebuilt binary through the doubles wrapper
 #    (or a bare binary under tests/ or samples/). Everything else is a
 #    toolchain invocation and is dropped from the target's test set.
-python3 - "$STAGE" "$PREFIX" "$READELF" <<'PY'
+python3 - "$STAGE" "$PREFIX" "$READELF" "$BUILD/build.ninja" "$BUILDER_PREFIX" "$SRC_PREFIX" <<'PY'
 import re, subprocess, sys, pathlib
-stage, prefix, readelf = sys.argv[1], sys.argv[2], sys.argv[3]
+stage, prefix, readelf, ninja, builder_prefix, src_prefix = sys.argv[1:7]
 keep_re = re.compile(
     r'^add_test\(\[=\[([^\]]+)\]=\] "(?:%s/bin/spirv-extractor" "--check-for-doubles" ")?%s/(?:tests|samples)/[^"]+"' % (re.escape(prefix), re.escape(prefix)))
 # The FIRST argument under the target prefix is the test executable. The
@@ -126,6 +126,29 @@ for f in pathlib.Path(stage).rglob('CTestTestfile.cmake'):
         i += 1
     f.write_text('\n'.join(out) + '\n')
 print(f"tests kept={kept} dropped(toolchain-invoking)={dropped} of which runtime-compiling={dropped_rtc}")
+
+# Catch2 lists come from running each aarch64 binary at POST_BUILD, which the
+# x86 builder cannot do; replay those discovery commands on the target.
+script = ['set -e']
+catch_kept = catch_rtc = 0
+for d, cmd in re.findall(r'cd (\S+) && \S+/cmake (-D TEST_TARGET=[^&\n]*CatchAddTests\.cmake)',
+                         open(ninja).read()):
+    cmd = cmd.replace(builder_prefix, prefix).replace(src_prefix, prefix + '/src')
+    exe = re.search(r'TEST_EXECUTABLE=(\S+)', cmd).group(1)
+    staged = pathlib.Path(stage) / pathlib.Path(exe).relative_to(prefix)
+    if not staged.exists():
+        continue
+    if imports_hiprtc(staged):
+        catch_rtc += 1
+        continue
+    out = re.search(r'CTEST_FILE=(\S+)', cmd).group(1)
+    script += ['cd ' + d.replace(builder_prefix, prefix), 'cmake ' + cmd,
+               f'grep -q "^add_test" {out} || {{ echo "no Catch2 tests found in {exe}"; exit 1; }}']
+    catch_kept += 1
+if not catch_kept:
+    sys.exit('ship-to-salami: no Catch2 discovery commands found in ' + ninja)
+(pathlib.Path(stage) / 'catch-discover.sh').write_text('\n'.join(script) + '\n')
+print(f"catch2 binaries kept={catch_kept} dropped(runtime-compiling)={catch_rtc}")
 PY
 
 # 3. ship, plus the source tree the surviving tests reference (test inputs)
@@ -133,5 +156,6 @@ ssh "$HOST" "mkdir -p '$PREFIX'"
 rsync -a --delete "$STAGE/" "$HOST:$PREFIX/"
 rsync -a --delete --exclude='.git' "$(dirname "$BUILD")/src-$SHA/" "$HOST:$PREFIX/src/"
 rm -rf "$STAGE"
+ssh "$HOST" "cd '$PREFIX' && LD_LIBRARY_PATH=\$PWD sh catch-discover.sh"
 ssh "$HOST" "cd '$PREFIX' && LD_LIBRARY_PATH=\$PWD ./hipInfo 2>/dev/null | grep -m1 'Name:'"
 echo "SHIP-OK $HOST:$PREFIX"
