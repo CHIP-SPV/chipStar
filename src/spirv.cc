@@ -27,6 +27,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -561,6 +562,12 @@ class SPIRVmodule {
   // DeviceGlobal arguments (rusticl globals-as-kernel-args lowering).
   std::map<std::string_view, std::vector<std::string>> GVarArgAnnotations_;
 
+  /// Callers of each function, the generic OpSelect/OpPhi results in each
+  /// function, and every value of generic pointer type, in order.
+  std::map<InstWord, std::set<InstWord>> Callers_;
+  std::map<InstWord, std::vector<InstWord>> PtrChoices_;
+  std::vector<InstWord> GenericPtrs_;
+
   // This flag indicates if the module is known not to have indirect
   // global buffer accesses (IGBA) in any kernel. This is told by a
   // magic variable created by HipIGBADetectorPass. Defaults to false
@@ -617,6 +624,7 @@ public:
     if (!valid())
       return false;
 
+    auto MixedFunctions = getMixedWorkgroupGenericPtrFunctions();
     for (auto i : EntryPoints_) {
       InstWord EntryPointID = i.first;
       std::string_view KernelName = i.second;
@@ -648,6 +656,8 @@ public:
         }
       }
 
+      FnInfo->HasMixedWorkgroupGenericPtr_ = MixedFunctions.count(EntryPointID);
+
       ModuleInfo.FuncInfoMap.emplace(std::make_pair(i.second, FnInfo));
     }
     KernelInfoMap_.clear();
@@ -669,6 +679,106 @@ private:
   const SPIRVinst *getInstruction(InstWord ID) const {
     auto It = IdToInstMap_.find(ID);
     return It != IdToInstMap_.end() ? It->second.get() : nullptr;
+  }
+
+  /// Storage class of the pointer-typed value 'ID', or ~0u if it is not one.
+  InstWord getPointerSC(InstWord ID) const {
+    auto *Inst = getInstruction(ID);
+    if (!Inst || !Inst->hasResultType())
+      return ~0u;
+    auto *Type = getInstruction(Inst->getResultTypeID());
+    return Type && Type->isa<spv::OpTypePointer>() ? Type->getWord(2) : ~0u;
+  }
+
+  /// Origins of generic pointer 'Inst' of its own (bit 0: Workgroup memory,
+  /// bit 1: other or unknown) in 'Own', and the values it takes others from.
+  std::vector<InstWord> getOriginSources(const SPIRVinst &Inst,
+                                         unsigned &Own) const {
+    Own = 0;
+    switch (Inst.getOpcode()) {
+    case spv::OpConstantNull:
+    case spv::OpUndef:
+      return {};
+    case spv::OpPtrCastToGeneric:
+      Own = getPointerSC(Inst.getWord(3)) == spv::StorageClassWorkgroup ? 1 : 2;
+      return {};
+    case spv::OpBitcast:
+    case spv::OpCopyObject:
+    case spv::OpAccessChain:
+    case spv::OpInBoundsAccessChain:
+    case spv::OpPtrAccessChain:
+    case spv::OpInBoundsPtrAccessChain:
+      return {Inst.getWord(3)};
+    case spv::OpSelect: {
+      auto *Cond = getInstruction(Inst.getWord(3));
+      if (Cond && Cond->isa<spv::OpConstantTrue>())
+        return {Inst.getWord(4)};
+      if (Cond && (Cond->isa<spv::OpConstantFalse>() ||
+                   Cond->isa<spv::OpConstantNull>()))
+        return {Inst.getWord(5)};
+      return {Inst.getWord(4), Inst.getWord(5)};
+    }
+    case spv::OpPhi: {
+      std::vector<InstWord> Sources;
+      for (size_t I = 3; I < Inst.size(); I += 2)
+        Sources.push_back(Inst.getWord(I));
+      return Sources;
+    }
+    default:
+      Own = 2;
+      return {};
+    }
+  }
+
+  /// Origin bits (see getOriginSources) of every generic pointer value.
+  std::unordered_map<InstWord, unsigned> getGenericOrigins() const {
+    std::unordered_map<InstWord, unsigned> Origins;
+    std::unordered_map<InstWord, std::vector<InstWord>> Users;
+    for (InstWord ID : GenericPtrs_)
+      Origins[ID] = 0;
+    std::vector<InstWord> Work;
+    for (InstWord ID : GenericPtrs_) {
+      unsigned Own;
+      for (InstWord Source : getOriginSources(*getInstruction(ID), Own))
+        if (Origins.count(Source))
+          Users[Source].push_back(ID);
+        else
+          Own |= 2;
+      Origins[ID] |= Own;
+      Work.push_back(ID);
+    }
+    // Bits only grow, so each value is queued at most three times.
+    while (!Work.empty()) {
+      InstWord ID = Work.back();
+      Work.pop_back();
+      for (InstWord User : Users[ID])
+        if ((Origins[User] | Origins[ID]) != Origins[User]) {
+          Origins[User] |= Origins[ID];
+          Work.push_back(User);
+        }
+    }
+    return Origins;
+  }
+
+  /// Functions that, themselves or through calls, select a generic pointer at
+  /// run time between workgroup memory and anything else.
+  std::set<InstWord> getMixedWorkgroupGenericPtrFunctions() const {
+    auto Origins = getGenericOrigins();
+    std::set<InstWord> Marked;
+    std::vector<InstWord> Work;
+    for (auto &[F, Choices] : PtrChoices_)
+      for (InstWord ID : Choices)
+        if (Origins.at(ID) == 3 && Marked.insert(F).second)
+          Work.push_back(F);
+    while (!Work.empty()) {
+      InstWord F = Work.back();
+      Work.pop_back();
+      if (auto It = Callers_.find(F); It != Callers_.end())
+        for (InstWord Caller : It->second)
+          if (Marked.insert(Caller).second)
+            Work.push_back(Caller);
+    }
+    return Marked;
   }
 
   /// Collect the constituent words (the literal in word 3 of each OpConstant
@@ -731,6 +841,7 @@ private:
     const InstWord *StreamIntPtr = Stream;
     size_t PointerSize = 0;
     InstWord CurrentKernelID = 0;
+    InstWord CurrentFunctionID = 0;
     SPVFuncInfo *CurrentKernelInfo = nullptr;
     while (NumWords > 0) {
       SPIRVinst TempInst(StreamIntPtr);
@@ -784,6 +895,17 @@ private:
         auto Retty = TypeMap_.find(Inst->getFunctionRetType());
         assert(Retty != TypeMap_.end());
         assert(TypeMap_[Inst->getFunctionRetType()]->size() == 0);
+      }
+
+      if (Inst->isa<spv::OpFunction>())
+        CurrentFunctionID = Inst->getResultID();
+      if (Inst->isa<spv::OpFunctionCall>())
+        Callers_[Inst->getWord(3)].insert(CurrentFunctionID);
+      if (Inst->hasResultID() &&
+          getPointerSC(Inst->getResultID()) == spv::StorageClassGeneric) {
+        GenericPtrs_.push_back(Inst->getResultID());
+        if (Inst->isa<spv::OpSelect>() || Inst->isa<spv::OpPhi>())
+          PtrChoices_[CurrentFunctionID].push_back(Inst->getResultID());
       }
 
       if (Inst->isa<spv::OpFunctionParameter>() && CurrentKernelInfo)

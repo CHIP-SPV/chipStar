@@ -385,6 +385,15 @@ public:
            static_cast<CHIPContextOpenCL *>(Ctx_)->getAllocStrategy() ==
                AllocationStrategy::BufferDevAddr;
   }
+  // An OpenCL 3.0 query; 2.x devices cannot answer it and always have one.
+  bool hasGenericAddressSpace() override {
+    cl_bool Supported = CL_TRUE;
+    return clGetDeviceInfo(ClDevice->get(),
+                           0x1069 /* CL_DEVICE_GENERIC_ADDRESS_SPACE_SUPPORT */,
+                           sizeof(Supported), &Supported,
+                           nullptr) != CL_SUCCESS ||
+           Supported;
+  }
   virtual chipstar::Queue *createQueue(chipstar::QueueFlags Flags,
                                        int Priority) override;
   virtual chipstar::Queue *createQueue(const uintptr_t *NativeHandles,
