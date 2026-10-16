@@ -3234,6 +3234,7 @@ std::string resultToString(ze_result_t zeStatus) {
 /// on stderr truncates it for any parent that reads the stream back as a C
 /// string, which is how gtest death tests match the child's abort message.
 static std::string dumpBuildLog(ze_module_build_log_handle_t &&Log) {
+  ze_result_t zeStatus; // Shadows the global: callers check it after this.
   std::string LogStr;
   size_t LogSize;
   zeStatus = zeModuleBuildLogGetString(Log, &LogSize, nullptr);
@@ -3559,14 +3560,22 @@ void CHIPModuleLevel0::compile(chipstar::Device *ChipDev) {
       ze_module_desc_t LibModuleDesc = {
           ZE_STRUCTURE_TYPE_MODULE_DESC, nullptr, ZE_MODULE_FORMAT_IL_SPIRV,
           ILSizes[i], ILInputs[i], BuildFlags[i], nullptr};
-      ze_module_handle_t LibModule =
-          compileIL(ChipCtxLz->get(), LzDev->get(), LibModuleDesc, LzDev);
+      ze_module_handle_t LibModule = nullptr;
+      std::exception_ptr Err; // Rethrown after the cleanup below.
+      try {
+        LibModule =
+            compileIL(ChipCtxLz->get(), LzDev->get(), LibModuleDesc, LzDev);
+      } catch (CHIPError &) {
+        Err = std::current_exception();
+      }
       if (!LibModule) {
         // Clean up on failure
         zeModuleDestroy(MainModule);
         for (auto LibMod : DeviceLibModules) {
           zeModuleDestroy(LibMod);
         }
+        if (Err)
+          std::rethrow_exception(Err);
         CHIPERR_LOG_AND_THROW(
             "Failed to create device library module in fallback",
             hipErrorSharedObjectInitFailed);
