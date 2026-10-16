@@ -6668,11 +6668,11 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
   LOCK(ApiMtx);
   CHIPInitialize();
   NULLCHECK(HostFunction);
+  std::unique_ptr<chipstar::ExecItem> ExecItem(ChipExecStack.top());
+  ChipExecStack.pop();
 
   logTrace("hipLaunchByPtr");
   Backend->getActiveDevice()->prepareDeviceVariables(HostPtr(HostFunction));
-  chipstar::ExecItem *ExecItem = ChipExecStack.top();
-  ChipExecStack.pop();
 
   auto ChipQueue = ExecItem->getQueue();
   if (!ChipQueue) {
@@ -6685,9 +6685,8 @@ hipError_t hipLaunchByPtr(const void *HostFunction) {
   auto *ChipKernel = ChipDev->findKernel(HostPtr(HostFunction));
   ExecItem->setKernel(ChipKernel);
 
-  ChipQueue->launch(ExecItem);
+  ChipQueue->launch(ExecItem.get());
   handleAbortRequest(*ChipQueue, *ChipKernel->getModule());
-  delete ExecItem;
 
   return hipSuccess;
   CHIP_CATCH

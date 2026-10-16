@@ -538,6 +538,7 @@ public:
   launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
+  virtual void keepAliveUntilDone(std::shared_ptr<void> Obj) override;
   virtual void finish() override;
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
