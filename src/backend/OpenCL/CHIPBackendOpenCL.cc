@@ -806,6 +806,8 @@ void CHIPEventOpenCL::recordEventCopy(
   this->Msg = "recordEventCopy: " + Other->Msg;
   this->HostTimeStamp =
       std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  // A re-recorded event stands for its latest marker only.
+  this->releaseDependencies();
   this->addDependency(Other);
 }
 
@@ -3172,6 +3174,8 @@ void *CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
   CHIPEventOpenCL *E = (CHIPEventOpenCL *)HipEvent;
   if (!E->isRecordingOrRecorded())
     return nullptr;
+  // The caller owns the returned reference (docs/Using.md).
+  clRetainEvent(E->ClEvent);
   return (void *)E->ClEvent;
 }
 
