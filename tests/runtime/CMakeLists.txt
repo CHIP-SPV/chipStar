@@ -94,6 +94,7 @@ endfunction()
 # here and registered by hand below instead.
 set(RUNTIME_TESTS_MANUAL
   TestBufferDevAddr.hip           # guarded on OpenCL_LIBRARY
+  TestFix1997DisableTimingNoProfiling.hip # guarded on OpenCL_LIBRARY
   TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
@@ -333,6 +334,10 @@ add_test(NAME TestDefaultBackend_NoBE
     ${CMAKE_CURRENT_BINARY_DIR}/TestDefaultBackend)
 set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
+
+if(OpenCL_LIBRARY) # Includes the OpenCL backend header
+  add_hip_runtime_test(TestFix1997DisableTimingNoProfiling.hip)
+endif()
 
 # Regression test for https://github.com/CHIP-SPV/chipStar/issues/1199
 # hipGetBackendNativeHandles must return "opencl" or "level0" in NativeHandles[0],
