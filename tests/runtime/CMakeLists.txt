@@ -113,6 +113,7 @@ set(RUNTIME_TESTS_MANUAL
   TestModuleCacheInvalidation.hip # run several times through a driver script
   TestStreamWaitEventOrdering.cpp # not registered as a test
   TestTemplateKernelModules.hip   # multi-TU, linked from hand-built objects
+  TestFix1984NativeEventRetain.hip # guarded on OpenCL_LIBRARY
 )
 
 file(GLOB RUNTIME_TEST_SOURCES CONFIGURE_DEPENDS
@@ -171,6 +172,9 @@ endif()
 if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
   add_hip_runtime_test(TestFix1693StringTableOffset.hip)
   add_hip_runtime_test(TestFix1703ByteOffsetTable.hip)
+endif()
+if(OpenCL_LIBRARY)
+  add_hip_runtime_test(TestFix1984NativeEventRetain.hip)
 endif()
 
 add_shell_test(TestAssert.bash)
