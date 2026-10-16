@@ -38,6 +38,12 @@ int main(int argc, char *argv[]) {
   assert(Err == hipSuccess);
   abort_kernel<<<dim3(1), dim3(1)>>>(OutD);
   // Control should not reach here.
+  Err = hipGetLastError();
+  if (Err != hipSuccess) {
+    printf("Error: kernel launch failed: %s\n", hipGetErrorName(Err));
+    fflush(stdout); // Teardown may still abort and drop buffered output.
+    return 1;
+  }
   printf("Error: abort() was ignored!\n");
   return 0;
 }
