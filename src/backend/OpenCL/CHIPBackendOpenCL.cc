@@ -3172,6 +3172,8 @@ void *CHIPBackendOpenCL::getNativeEvent(hipEvent_t HipEvent) {
   CHIPEventOpenCL *E = (CHIPEventOpenCL *)HipEvent;
   if (!E->isRecordingOrRecorded())
     return nullptr;
+  // The caller owns the returned reference (docs/Using.md).
+  clRetainEvent(E->ClEvent);
   return (void *)E->ClEvent;
 }
 
