@@ -115,7 +115,6 @@ inline __device__ void __builtin_amdgcn_s_waitcnt(int mask) {
 
 extern "C" __device__  int __chip_group_all(int predicate); // Custom
 extern "C" __device__  int __chip_group_any(int predicate); // Custom
-extern "C" __device__  ulong __chip_group_ballot(int predicate); // Custom
 
 extern "C++" inline __device__ void __syncthreads() { __chip_syncthreads(); }
 
@@ -129,9 +128,19 @@ extern "C++" inline __device__ int __syncthreads_or(int predicate) {
   return __chip_group_any(!!predicate);
 }
 
+extern "C" __device__ size_t _Z19get_local_linear_idv();
+
+// Not work_group_reduce_add: IGC reserves 4 KB of shared memory for it.
 extern "C++" inline __device__ int __syncthreads_count(int predicate) {
+  __shared__ int Count;
   __chip_syncthreads();
-  return __chip_group_ballot(!!predicate);
+  if (_Z19get_local_linear_idv() == 0)
+    Count = 0;
+  __chip_syncthreads();
+  if (predicate)
+    atomicAdd(&Count, 1);
+  __chip_syncthreads();
+  return Count;
 }
 
 extern "C++" inline __device__ void __threadfence_block() {
