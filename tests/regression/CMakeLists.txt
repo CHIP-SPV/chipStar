@@ -20,6 +20,13 @@ set_tests_properties(TestFix1903VectorCompareRecursion PROPERTIES
   FAIL_REGULAR_EXPRESSION "FAIL"
   TIMEOUT 60)
 
+add_hip_test(TestFix1988ModuleBuildStatus.hip)
+set_tests_properties(TestFix1988ModuleBuildStatus PROPERTIES
+  ENVIRONMENT "CHIP_JIT_FLAGS_OVERRIDE=-vc-codegen -bogus"
+  PASS_REGULAR_EXPRESSION "PASS"
+  FAIL_REGULAR_EXPRESSION "FAIL:"
+  TIMEOUT 60)
+
 add_hip_test(TestFix1391UmulWithOverflow.hip)
 # Reproduce #1391: llvm.umul.with.overflow reaching SPIR-V as OpUMulExtended,
 # which IGC rejects with an undefined reference to _Z20__spirv_UMulExtendedll,
