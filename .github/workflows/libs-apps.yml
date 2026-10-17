@@ -61,10 +61,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: ci
+          persist-credentials: false
       - uses: actions/checkout@v4
         with:
           ref: ${{ steps.target.outputs.sha }}
           path: src
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       # The job owns the machine; the script's load-based default would shrink by the previous job's load.
