@@ -38,12 +38,12 @@ run() {
   setYML "$in" zerork_cfd_plugin_input "$zrk"
   setYML "$in" n_reactors "$7"
   setYML "$in" constant_volume "$3"
-  setYML "$in" always_solve_temperature "$6"
   setYML "$in" reactor_history_file_prefix "$out/$name"
   setYML "$zrk" mechanism_parsing_log "$out/$name.cklog"
   setYML "$zrk" reactor_timing_log "$out/$name.log"
   setYML "$zrk" preconditioner_threshold 3.20e-5
   setYML "$zrk" gpu "$2"
+  setYML "$zrk" always_solve_temperature "$6"
   setYML "$zrk" dense 1
   setYML "$zrk" iterative 1
   setYML "$zrk" integrator "$4"
