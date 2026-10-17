@@ -129,14 +129,12 @@ build_opensn() {
 }
 
 run_apps() {
-  local lu out=$ZRK/build_aurora/inst_dir/share/zerork/examples/cfd_plugin_tester/outputs_gpu_lu
   note "SKIP  $1 zeroRK box_reactor (zerork_correctness_box_reactor.sh needs Aurora's PBS and MPI launcher)"
-  for lu in 1 0; do
-    rm -rf "$out$lu"
-    gpu_step "$1 zeroRK hydrogen lu$lu" "$LOGS/$1/zerork-hydrogen-lu$lu.log" bash -c 'cd "$0" && bash "$1" "$2"' \
-      "$ZRK" "$SRC/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh" "$lu"
-    cp -r "$out$lu" "$LOGS/$1/" 2>/dev/null
-  done
+  rm -rf "$LOGS/$1/zerork-out"
+  gpu_step "$1 zeroRK GPU paths" "$LOGS/$1/zerork-paths.log" bash -c 'cd "$0" && bash "$1" "$2"' \
+    "$ZRK" "$SRC/tests/apps/ZeroRK/zerork_gpu_paths.sh" "$WRK/apps/zerork-out"
+  [ $GPU_DEAD -eq 0 ] && grep -hsE '^(PASS|FAIL) ' "$LOGS/$1/zerork-paths.log" | sed "s/^/      $1 /" | tee -a "$SUMMARY"
+  cp -r "$WRK/apps/zerork-out" "$LOGS/$1/" 2>/dev/null
   rm -rf "$WRK/apps/opensn-run" && mkdir "$WRK/apps/opensn-run" && cp "$SRC"/tests/apps/OpenSn/* "$WRK/apps/opensn-run"
   gpu_step "$1 OpenSn strong_scaling" "$LOGS/$1/opensn.log" bash -c \
     'cd "$0" && source "$1" && CHIP_LOGLEVEL=off mpiexec -n 1 "$2" -i strong_scaling.py' "$WRK/apps/opensn-run" \
