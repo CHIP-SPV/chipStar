@@ -9,9 +9,10 @@ set -o pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 SRC=$HERE WRK="" JOBS="" BACKENDS="level0 opencl" PHASES=build,libs,apps
+INTEL_GPUS=$(grep -l 0x8086 /sys/bus/pci/devices/*/vendor | xargs -n1 dirname |
+  while read -r d; do grep -q '^0x03' "$d/class" && echo "${d##*/}"; done | sort)
 # First Intel display device off bus 00, where the integrated GPU sits.
-GPU_PCI=${GPU_PCI:-$(grep -l 0x8086 /sys/bus/pci/devices/*/vendor | xargs -n1 dirname |
-  while read -r d; do grep -q '^0x03' "$d/class" && echo "${d##*/}"; done | grep -v '^0000:00:' | head -1)}
+GPU_PCI=${GPU_PCI:-$(grep -v '^0000:00:' <<< "$INTEL_GPUS" | head -1)}
 DEPS_CACHE=${DEPS_CACHE:-$HOME/.cache/chipstar-libs-apps}
 OPENSN_COMMIT=d0644cd9c633c6ae5e7110d3f8721641e5ef2982
 while getopts "s:w:j:b:p:" o; do
@@ -27,6 +28,13 @@ LOGS=$WRK/logs SUMMARY=$WRK/summary.txt FAILED=0 GPU_DEAD=0
   '{ j = int(n - $1 - 1); if (m / 3 < j) j = int(m / 3); print (j < 1 ? 1 : j) }' /proc/loadavg)}"
 RENDER=/dev/dri/$(basename "$(ls -d /sys/bus/pci/devices/"$GPU_PCI"/drm/renderD*)")
 DRV=$(basename "$(readlink /sys/bus/pci/devices/"$GPU_PCI"/driver)")
+# Level Zero and the Intel OpenCL platform both hide every GPU but this one, indexed in PCI order.
+ZE_IDX=$(($(grep -nx "$GPU_PCI" <<< "$INTEL_GPUS" | cut -d: -f1) - 1))
+[ "$ZE_IDX" -ge 0 ] || { echo "$GPU_PCI is not an Intel display device"; exit 2; }
+export ZE_ENABLE_PCI_ID_DEVICE_ORDER=1 ZE_AFFINITY_MASK=$ZE_IDX CHIP_LOGLEVEL=err
+unset CHIP_PLATFORM CHIP_DEVICE CHIP_DEVICE_TYPE
+# Arc A-series GPUs have no FP64 hardware; the apps and most libraries need double.
+export OverrideDefaultFP64Settings=1 IGC_EnableDPEmulation=1
 source "$HERE/scripts/module-env.sh"
 module load oneapi/2025.0.4 llvm/23.0 || exit 1
 # zeroRK and OpenSn bundle projects that declare a CMake minimum below 3.5.
@@ -65,16 +73,6 @@ gpu_step() {
   fi
   wait $pid
   result "$name" $? "$log"; STEP=""
-}
-
-backend_env() {
-  export CHIP_BE=$1 CHIP_LOGLEVEL=err NEOReadDebugKeys=1 FilterBdfPath=$GPU_PCI
-  unset CHIP_PLATFORM CHIP_DEVICE CHIP_DEVICE_TYPE
-  [ "$1" = opencl ] || return 0
-  # FilterBdfPath leaves only this GPU on the Intel graphics platform.
-  gpu_step "opencl platform probe" "$LOGS/opencl/clinfo.txt" clinfo -l
-  CHIP_PLATFORM=$(grep -s '^Platform' "$LOGS/opencl/clinfo.txt" | grep -n 'Intel(R) OpenCL Graphics' | cut -d: -f1)
-  export CHIP_PLATFORM=$((CHIP_PLATFORM - 1))
 }
 
 # Same .ci/exclude.txt and .ci/ctest-labels.txt convention as libraries-presubmit.yml.
@@ -161,17 +159,8 @@ CURSOR=$(journalctl -k -b -n0 --show-cursor -q --no-pager | sed -n 's/^-- cursor
 [ -z "$BACKENDS" ] || { n=$(journalctl -k -b -q --no-pager | grep -ciE "$DRV $GPU_PCI.*wedged"; echo "${PIPESTATUS[0]}"); [ "$(echo $n)" = "0 0" ]; } ||
   { note "FAIL  $GPU_PCI was declared wedged earlier in this boot, or the kernel journal is unreadable"; exit 1; }
 [ -z "$BACKENDS" ] || command -v fuser > /dev/null || { note "FAIL  fuser not found, cannot see other GPU users"; exit 1; }
-# Arc A-series GPUs have no FP64 hardware; the apps and most libraries need double, so emulate it there.
-if [ -n "$BACKENDS" ]; then
-  gpu_step "fp64 probe" "$LOGS/clinfo-raw.txt" env NEOReadDebugKeys=1 FilterBdfPath="$GPU_PCI" clinfo --raw
-  t=$(sed -n 's/^\[\([A-Z]*\)\/\*\] *CL_PLATFORM_NAME *Intel(R) OpenCL Graphics$/\1/p' "$LOGS/clinfo-raw.txt" | head -1)
-  grep -q "^\[$t/0\] *CL_DEVICE_DOUBLE_FP_CONFIG" "$LOGS/clinfo-raw.txt" || {
-    export OverrideDefaultFP64Settings=1 IGC_EnableDPEmulation=1
-    note "NOTE  $GPU_PCI has no FP64 hardware, double runs under NEO's FP64 emulation"
-  }
-fi
 for be in $BACKENDS; do
-  mkdir -p "$LOGS/$be" && backend_env "$be"
+  mkdir -p "$LOGS/$be" && export CHIP_BE=$be
   wants libs && run_libs "$be"
   wants apps && run_apps "$be"
 done
