@@ -100,6 +100,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1962PooledResidencyEviction.hip # guarded on LevelZero_LIBRARY
   TestFix315PlatformOutOfRange.hip # run under env -u CHIP_DEVICE_TYPE, registered below
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
+  TestFix2008ClSetEventCallbackErrorMap.hip # run under an interposer
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
   TestFix1601ExtractorMultiTUDoubles.hip # multi-TU, compiled by its .bash, not a test
@@ -529,6 +530,29 @@ if(UNIX AND NOT APPLE)
     PASS_REGULAR_EXPRESSION "PASS"
     SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST"
     TIMEOUT 300)
+endif()
+
+# An unmapped clSetEventCallback error aborts instead of raising a HIP error
+# (#2008); an interposer fails the first call.
+if(UNIX AND NOT APPLE)
+  set_source_files_properties(TestFix2008ClSetEventCallbackErrorMap.hip
+    PROPERTIES LANGUAGE CXX)
+  add_executable(TestFix2008ClSetEventCallbackErrorMap
+    TestFix2008ClSetEventCallbackErrorMap.hip)
+  target_link_libraries(TestFix2008ClSetEventCallbackErrorMap CHIP deviceInternal)
+  target_include_directories(TestFix2008ClSetEventCallbackErrorMap
+    PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+
+  add_library(ClSetEventCallbackErrorInterposer MODULE
+    ClSetEventCallbackErrorInterposer.cpp)
+  target_link_libraries(ClSetEventCallbackErrorInterposer ${CMAKE_DL_LIBS})
+
+  add_test(NAME TestFix2008ClSetEventCallbackErrorMap
+    COMMAND TestFix2008ClSetEventCallbackErrorMap)
+  set_tests_properties(TestFix2008ClSetEventCallbackErrorMap PROPERTIES
+    ENVIRONMENT "LD_PRELOAD=$<TARGET_FILE:ClSetEventCallbackErrorInterposer>"
+    PASS_REGULAR_EXPRESSION "PASS"
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 endif()
 
 # A failed device-side assertion must report its message on stderr, where ROCm
