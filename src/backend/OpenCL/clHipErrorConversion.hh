@@ -444,6 +444,13 @@ const std::unordered_map<void *, cl_hip_error_map_t> CL_HIP_ERROR_MAPS = {
       {CL_INVALID_VALUE, hipErrorInvalidValue},
       {CL_INVALID_OPERATION, hipErrorInvalidValue}}},
 
+    {(void *)&clSetEventCallback,
+     {{CL_SUCCESS, hipSuccess},
+      {CL_INVALID_EVENT, hipErrorInvalidResourceHandle},
+      {CL_INVALID_VALUE, hipErrorInvalidValue},
+      {CL_OUT_OF_RESOURCES, hipErrorOutOfMemory},
+      {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
+
     {(void *)&clEnqueueBarrierWithWaitList,
      {{CL_SUCCESS, hipSuccess},
       {CL_INVALID_COMMAND_QUEUE, hipErrorInvalidResourceHandle},
