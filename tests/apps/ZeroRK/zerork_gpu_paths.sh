@@ -49,6 +49,7 @@ run() {
   setYML "$zrk" integrator "$4"
   setYML "$zrk" analytic "$5"
   setYML "$zrk" n_reactors_max "$8"
+  rm -f "$out/$name"_*.hist "$out/$name.log" "$out/$name.stdout"
   ZERORK_REACTOR_USE_LU=$9 "$exe" "$in" > "$out/$name.stdout" 2>&1
 }
 
@@ -62,13 +63,20 @@ compare() {
     END { exit bad }'
 }
 
+# Every timing log row must show all reactors on the GPU (zeroRK retries failed GPU reactors on the CPU);
+# with $2 = 1 also n_gpu_notemp > 0. Columns: 3 n_cpu, 5 n_gpu, 6 n_gpu_notemp.
+onGpu() {
+  awk -v nt="$2" '/^#/ { next } { n++; if ($3 != 0 || $5 <= 0 || (nt && $6 <= 0)) { print "row " $1 ": n_cpu " $3 ", n_gpu " $5 ", n_gpu_notemp " $6; bad = 1 } }
+    END { exit (bad || !n) }' "$1"
+}
+
 # n_reactors must stay >= the plugin's n_reactors_min (256) or the GPU is skipped silently.
-for cv in 1 0; do [ -s "$out/ref_cv${cv}_000.hist" ] || run ref_cv$cv 0 $cv 1 1 1 32 2048 0; done
+for cv in 1 0; do [ -s "$out/ref_cv${cv}_000.hist" ] || run ref_cv$cv 0 $cv 1 1 1 32 2048 0 || rm -f "$out/ref_cv${cv}_000.hist"; done
 rc=0
 # name  constant_volume integrator analytic always_solve_temperature n_reactors_max ZERORK_REACTOR_USE_LU
 while read -r name cv integ analytic ast nmax lu; do
-  run "$name" 1 "$cv" "$integ" "$analytic" "$ast" 2048 "$nmax" "$lu"
-  if diff=$(compare "$out/ref_cv${cv}_000.hist" "$out/${name}_000.hist"); then echo "PASS  zeroRK $name"
+  if run "$name" 1 "$cv" "$integ" "$analytic" "$ast" 2048 "$nmax" "$lu" &&
+    diff=$(onGpu "$out/$name.log" $((1 - ast)) && compare "$out/ref_cv${cv}_000.hist" "$out/${name}_000.hist"); then echo "PASS  zeroRK $name"
   else echo "FAIL  zeroRK $name ($out/$name.stdout)"; echo "$diff" | head -5; rc=1; fi
 done << 'CASES'
 cvode_analytic_cv      1 0 1 1 2048 1
