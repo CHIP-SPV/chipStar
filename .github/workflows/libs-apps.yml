@@ -20,21 +20,21 @@ on:
   issue_comment:
     types: [created]
 
-permissions:
-  contents: read
-  statuses: write
-  pull-requests: write
+permissions: {}
 
 jobs:
-  libs-apps:
+  # Runs on GitHub's hosted runners: the job below executes the tested tree's code, so it never holds the write token.
+  resolve:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.issue.pull_request && startsWith(github.event.comment.body, '/check-apps') &&
        contains(fromJSON('["colleeneb", "pvelesko"]'), github.event.comment.user.login))
-    runs-on: [self-hosted, intel-dgpu]
-    timeout-minutes: 1440
-    concurrency:
-      group: libs-apps
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      pull-requests: write
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
     env:
       PR: ${{ github.event.issue.number || inputs.pr }}
       REF: ${{ inputs.ref }}
@@ -57,6 +57,16 @@ jobs:
               await github.rest.reactions.createForIssueComment({
                 ...context.repo, comment_id: context.payload.comment.id, content: 'rocket',
               });
+
+  run:
+    needs: resolve
+    runs-on: [self-hosted, intel-dgpu]
+    timeout-minutes: 1440
+    permissions:
+      contents: read
+    concurrency:
+      group: libs-apps
+    steps:
       # The script comes from the default or dispatched branch, so it can test PRs older than it.
       - uses: actions/checkout@v4
         with:
@@ -64,7 +74,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
-          ref: ${{ steps.target.outputs.sha }}
+          ref: ${{ needs.resolve.outputs.sha }}
           path: src
           persist-credentials: false
           fetch-depth: 0
@@ -81,14 +91,23 @@ jobs:
           path: |
             ${{ runner.temp }}/libs-apps/summary.txt
             ${{ runner.temp }}/libs-apps/logs
-      - name: Report check-apps
-        if: always() && env.PR && steps.target.outputs.sha
-        uses: actions/github-script@v7
+
+  report:
+    needs: [resolve, run]
+    if: always() && needs.resolve.outputs.sha != '' && (github.event.issue.number || inputs.pr)
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          RESULT: ${{ needs.run.result }}
+          SHA: ${{ needs.resolve.outputs.sha }}
         with:
           script: |
-            const ok = '${{ job.status }}' === 'success';
+            const ok = process.env.RESULT === 'success';
             await github.rest.repos.createCommitStatus({
-              ...context.repo, sha: '${{ steps.target.outputs.sha }}', state: ok ? 'success' : 'failure',
+              ...context.repo, sha: process.env.SHA, state: ok ? 'success' : 'failure',
               context: 'check-apps', description: ok ? 'libraries and apps pass' : 'see summary.txt in the run artifacts',
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             });
