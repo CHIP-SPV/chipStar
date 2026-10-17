@@ -94,8 +94,8 @@ run_libs() {
 # Built trees are cached per runner by app commit; the libraries they load come from this run's PREFIX.
 lock() { mkdir -p "$DEPS_CACHE" && exec 9> "$DEPS_CACHE/lock" && flock 9; }
 
-# zeroRK's scripts/build_aurora.sh without its module loads and unbounded make -j. Its CMakeLists hardcodes
-# rocPRIM and rocThrust include dirs of one machine; the earlier -I makes this install's headers win.
+# zeroRK's scripts/build_aurora.sh without its module loads and unbounded make -j.
+# The -I does not beat zero-rk's hardcoded rocPRIM and rocThrust include dirs, see https://github.com/CHIP-SPV/chipStar/issues/2006
 build_zerork() {
   lock || return 1
   [ -e "$ZRK/.built" ] && { echo "reusing $ZRK"; return 0; }
