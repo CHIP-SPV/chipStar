@@ -57,7 +57,7 @@ $j"
 
 # gpu_step NAME LOG CMD...; CMD gets its own session so a fault kills all of it.
 gpu_step() {
-  local name=$1 log=$2 pid="" f; shift 2
+  local name=$1 log=$2 pid="" f rc; shift 2
   [ $GPU_DEAD -eq 0 ] || { note "SKIP  $name"; return; }
   while f=$(gpu_faults) && [ "$f" -eq 0 ] && fuser "$RENDER" > /dev/null 2>&1; do echo "[gpu] $RENDER busy, waiting"; sleep 60; done
   if [ "$f" -eq 0 ]; then
@@ -71,8 +71,9 @@ gpu_step() {
     note "STOP  GPU reset, wedge or journal error at $name $(grep -so 'Start *[0-9]*: [^ ]*' "$log" | tail -1), see logs/fault"
     result "$name" 137 "$log"; STEP=""; return
   fi
-  wait $pid
-  result "$name" $? "$log"; STEP=""
+  wait $pid; rc=$?
+  pkill -KILL -s $pid 2>/dev/null
+  result "$name" $rc "$log"; STEP=""
 }
 
 # Same .ci/exclude.txt and .ci/ctest-labels.txt convention as libraries-presubmit.yml.
@@ -131,12 +132,12 @@ build_opensn() {
 run_apps() {
   note "SKIP  $1 zeroRK box_reactor (zerork_correctness_box_reactor.sh needs Aurora's PBS and MPI launcher)"
   rm -rf "$LOGS/$1/zerork-out"
-  gpu_step "$1 zeroRK GPU paths" "$LOGS/$1/zerork-paths.log" timeout 1800 bash -c 'cd "$0" && bash "$1" "$2"' \
+  gpu_step "$1 zeroRK GPU paths" "$LOGS/$1/zerork-paths.log" timeout -k 60 1800 bash -c 'cd "$0" && bash "$1" "$2"' \
     "$ZRK" "$SRC/tests/apps/ZeroRK/zerork_gpu_paths.sh" "$WRK/apps/zerork-out"
   [ $GPU_DEAD -eq 0 ] && grep -hsE '^(PASS|FAIL) ' "$LOGS/$1/zerork-paths.log" | sed "s/^/      $1 /" | tee -a "$SUMMARY"
   cp -r "$WRK/apps/zerork-out" "$LOGS/$1/" 2>/dev/null
   rm -rf "$WRK/apps/opensn-run" && mkdir "$WRK/apps/opensn-run" && cp "$SRC"/tests/apps/OpenSn/* "$WRK/apps/opensn-run"
-  gpu_step "$1 OpenSn strong_scaling" "$LOGS/$1/opensn.log" timeout 1800 bash -c \
+  gpu_step "$1 OpenSn strong_scaling" "$LOGS/$1/opensn.log" timeout -k 60 1800 bash -c \
     'cd "$0" && source "$1" && CHIP_LOGLEVEL=off mpiexec -n 1 "$2" -i strong_scaling.py' "$WRK/apps/opensn-run" \
     "$DEPS_CACHE/opensn-deps-$OPENSN_COMMIT/bin/set_opensn_env.sh" "$OSN/build/python/opensn"
 }
