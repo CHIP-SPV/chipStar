@@ -54,8 +54,9 @@ function(add_opencl_bitcode TARGET SOURCE OUTPUT)
   add_custom_command(
     OUTPUT "${OUTPUT}"
     DEPENDS "${SOURCE}"
+    DEPFILE "${OUTPUT}.d"
     COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
-    --target=${TARGET} -o "${OUTPUT}" -c "${SOURCE}"
+    --target=${TARGET} -o "${OUTPUT}" -c "${SOURCE}" -MD -MF "${OUTPUT}.d"
     COMMENT "Building ${SOURCE}"
     VERBATIM)
 endfunction()
@@ -101,9 +102,11 @@ set(OCML_LIB_PATHS
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc.d"
   COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS}
   -o "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
   -c "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  -MD -MF "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc.d"
   COMMENT "Building c_to_opencl.bc"
   VERBATIM)
 list(APPEND DEPEND_LIST "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc")
