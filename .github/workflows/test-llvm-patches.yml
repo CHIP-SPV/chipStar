@@ -614,8 +614,9 @@ jobs:
         timeout-minutes: 90
       - name: Mark the stage as validated
         run: |
-          echo "${{ github.event.pull_request.head.sha || github.sha }}" \
-            > $CI_LLVM/llvm-stage/21/.chipstar-validated
+          { echo "${{ github.event.pull_request.head.sha || github.sha }}"
+            scripts/llvm_stage_fingerprint.sh 21
+          } > $CI_LLVM/llvm-stage/21/.chipstar-validated
 
   install-llvm-on-main-rusticl:
     needs: detect
@@ -625,6 +626,9 @@ jobs:
     name: Install LLVM 21 on main branch (rusticl)
     runs-on: [rusticl]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - name: Promote the validated LLVM 21 stage
         run: |
           set -euo pipefail
@@ -632,6 +636,12 @@ jobs:
           S=/space/pvelesko/rusticl-ci-llvm/llvm-stage/21
           test -f $S/.chipstar-validated && test -d $S$P \
             || { echo "::error::no validated LLVM 21 stage at $S"; exit 1; }
+          # See the Linux job: the stage may hold another PR's LLVM.
+          WANT=$(scripts/llvm_stage_fingerprint.sh 21)
+          if [ "$(tail -n +2 $S/.chipstar-validated)" != "$WANT" ]; then
+            echo "::error::Stage at $S was built from $(head -1 $S/.chipstar-validated), whose configure_llvm.sh or llvm-patches/llvm-21 differ from ${{ github.sha }}; refusing to promote it."
+            exit 1
+          fi
           rm -rf $P.prev; [ ! -e $P ] || mv $P $P.prev
           mv $S$P $P
           $P/bin/clang --version || { rm -rf $P; mv $P.prev $P; exit 1; }
