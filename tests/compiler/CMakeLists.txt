@@ -319,6 +319,9 @@ add_shell_test(TestFix1723BallotSyncType.bash)
 # __syncwarp must fence __shared__ memory (#1911).
 add_shell_test(TestFix1911SyncwarpLocalFence.bash)
 
+# __ballot must keep lanes 32..63 with a 64 wide warp (#1746).
+add_shell_test(TestFix1746BallotWarp64.bash)
+
 # Add the promoteInt tests
 add_subdirectory(promoteInt)
 
