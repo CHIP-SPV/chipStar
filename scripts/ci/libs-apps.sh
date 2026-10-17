@@ -157,8 +157,10 @@ export HIP_PATH=$PREFIX HIP_PLATFORM=spirv PATH=$PREFIX/bin:$PATH CMAKE_PREFIX_P
 export LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH LIBRARY_PATH=$PREFIX/lib:$LIBRARY_PATH
 if wants apps; then
   rm -rf "$WRK/apps" && mkdir "$WRK/apps"
-  ZRK=$DEPS_CACHE/zerork-$(git ls-remote git@github.com:CHIP-SPV/zero-rk.git hip-chipStar | cut -c1-40)-$(find "$PREFIX"/include/rocprim "$PREFIX"/include/thrust -type f | sort | xargs cat | cksum | cut -d' ' -f1)
-  OSN=$DEPS_CACHE/opensn-$OPENSN_COMMIT
+  # hipcc embeds headers, device bitcode and pass plugins of the install into what it builds.
+  INST=$(find "$PREFIX/include" "$PREFIX/lib/hip-device-lib" "$PREFIX/lib/llvm" "$PREFIX/bin" -type f | sort | xargs cat | cksum | cut -d' ' -f1)
+  ZRK=$DEPS_CACHE/zerork-$(git ls-remote git@github.com:CHIP-SPV/zero-rk.git hip-chipStar | cut -c1-40)-$INST
+  OSN=$DEPS_CACHE/opensn-$OPENSN_COMMIT-$INST
   (cd "$WRK/apps" && build_zerork) > "$LOGS/zerork-build.log" 2>&1; result "build zeroRK" $? "$LOGS/zerork-build.log"
   (cd "$WRK/apps" && build_opensn) > "$LOGS/opensn-build.log" 2>&1; result "build OpenSn" $? "$LOGS/opensn-build.log"
 fi
