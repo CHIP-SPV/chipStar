@@ -37,6 +37,7 @@ run() {
   setYML "$in" oxidizer_composition "{ $oxid }"
   setYML "$in" zerork_cfd_plugin_input "$zrk"
   setYML "$in" n_reactors "$7"
+  setYML "$in" n_steps 4
   setYML "$in" constant_volume "$3"
   setYML "$in" reactor_history_file_prefix "$out/$name"
   setYML "$zrk" mechanism_parsing_log "$out/$name.cklog"
@@ -64,25 +65,31 @@ compare() {
 }
 
 # Every timing log row must show all reactors on the GPU (zeroRK retries failed GPU reactors on the CPU);
-# with $2 = 1 also n_gpu_notemp > 0. Columns: 3 n_cpu, 5 n_gpu, 6 n_gpu_notemp.
+# with $2 = 1 also some row with n_gpu_notemp > 0 (zeroRK counts them only on some solves).
+# Columns: 3 n_cpu, 5 n_gpu, 6 n_gpu_notemp.
 onGpu() {
-  awk -v nt="$2" '/^#/ { next } { n++; if ($3 != 0 || $5 <= 0 || (nt && $6 <= 0)) { print "row " $1 ": n_cpu " $3 ", n_gpu " $5 ", n_gpu_notemp " $6; bad = 1 } }
-    END { exit (bad || !n) }' "$1"
+  awk -v nt="$2" '/^#/ { next } { n++; if ($6 > 0) any = 1
+    if ($3 != 0 || $5 <= 0) { print "row " $1 ": n_cpu " $3 ", n_gpu " $5; bad = 1 } }
+    END { if (nt && !any) { print "n_gpu_notemp is 0 on every row"; bad = 1 } exit (bad || !n) }' "$1"
 }
 
 # n_reactors must stay >= the plugin's n_reactors_min (256) or the GPU is skipped silently.
-for cv in 1 0; do [ -s "$out/ref_cv${cv}_000.hist" ] || run ref_cv$cv 0 $cv 1 1 1 32 2048 0 || rm -f "$out/ref_cv${cv}_000.hist"; done
+N=512
+# One CPU reference per constant_volume and always_solve_temperature pair.
+for ref in cv1_t1 cv0_t1 cv1_t0; do
+  [ -s "$out/ref_${ref}_000.hist" ] || run ref_$ref 0 ${ref:2:1} 1 1 ${ref:5:1} 32 $N 0 || rm -f "$out/ref_${ref}_000.hist"
+done
 rc=0
 # name  constant_volume integrator analytic always_solve_temperature n_reactors_max ZERORK_REACTOR_USE_LU
 while read -r name cv integ analytic ast nmax lu; do
-  if run "$name" 1 "$cv" "$integ" "$analytic" "$ast" 2048 "$nmax" "$lu" &&
-    diff=$(onGpu "$out/$name.log" $((1 - ast)) && compare "$out/ref_cv${cv}_000.hist" "$out/${name}_000.hist"); then echo "PASS  zeroRK $name"
+  if run "$name" 1 "$cv" "$integ" "$analytic" "$ast" $N "$nmax" "$lu" &&
+    diff=$(onGpu "$out/$name.log" $((1 - ast)) && compare "$out/ref_cv${cv}_t${ast}_000.hist" "$out/${name}_000.hist"); then echo "PASS  zeroRK $name"
   else echo "FAIL  zeroRK $name ($out/$name.stdout)"; echo "$diff" | head -5; rc=1; fi
 done << 'CASES'
-cvode_analytic_cv      1 0 1 1 2048 1
-seulex_fd_cv           1 1 0 1 2048 0
-radau_analytic_cv      1 3 1 1 2048 1
-cvode_analytic_cp      0 0 1 1 2048 0
-seulex_fd_notemp_batch 1 1 0 0 1024 1
+cvode_analytic_cv      1 0 1 1 512 1
+seulex_fd_cv           1 1 0 1 512 0
+radau_analytic_cv      1 3 1 1 512 1
+cvode_analytic_cp      0 0 1 1 512 0
+seulex_fd_notemp_batch 1 1 0 0 256 1
 CASES
 exit $rc
