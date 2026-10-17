@@ -1264,6 +1264,12 @@ if(CHIP_BUILD_TESTS)
       add_dependencies(${CATCH_OBJECT_LIB} hip_device_toolchain)
     endif()
   endforeach()
+  # These run hipcc from custom commands outside the object libraries above; libLazyLoad.so also links CHIP.
+  foreach(_t build_libLazyLoad build_bit_extract_kernel)
+    if(TARGET ${_t})
+      add_dependencies(${_t} hip_device_toolchain CHIP)
+    endif()
+  endforeach()
   # hipcc links -lCHIP into every catch executable, so each must link after CHIP.
   function(chip_catch_depend_on_chip dir)
     get_property(_targets DIRECTORY ${dir} PROPERTY BUILDSYSTEM_TARGETS)
