@@ -6621,6 +6621,9 @@ hipError_t hipExtModuleLaunchKernel(
 
   CHIP_TRY
   NULLCHECK(Kernel);
+  // A zero local size would trap on the modulo below; reject it before that.
+  if (LocalWorkSizeX == 0 || LocalWorkSizeY == 0 || LocalWorkSizeZ == 0)
+    RETURN(hipErrorInvalidValue);
   // Null checks on the KernelParams and Extra arguments are performed by
   // hipModuleLaunchKernelInternal().
   LOCK(ApiMtx);
