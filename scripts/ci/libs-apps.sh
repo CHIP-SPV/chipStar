@@ -90,19 +90,28 @@ run_libs() {
   done
 }
 
-# zeroRK's scripts/build_aurora.sh without its module loads and unbounded make -j.
+# Built trees are cached per runner by app commit; the libraries they load come from this run's PREFIX.
+lock() { mkdir -p "$DEPS_CACHE" && exec 9> "$DEPS_CACHE/lock" && flock 9; }
+
+# zeroRK's scripts/build_aurora.sh without its module loads and unbounded make -j. Its CMakeLists hardcodes
+# rocPRIM and rocThrust include dirs of one machine; the earlier -I makes this install's headers win.
 build_zerork() {
-  git clone -q --depth 1 -b hip-chipStar git@github.com:CHIP-SPV/zero-rk.git zero-rk &&
-    mkdir zero-rk/build_aurora && cd zero-rk/build_aurora &&
-    cmake -DCMAKE_EXE_LINKER_FLAGS=-lintlc -DENABLE_GPU=ON -DENABLE_MAGMA=OFF -DCMAKE_CXX_COMPILER=hipcc \
-      -DCMAKE_C_COMPILER=hipcc -DZERORK_TESTS=OFF -DZERORK_HAVE_MKL=OFF .. && make -j"$JOBS" && make install
+  lock || return 1
+  [ -e "$ZRK/.built" ] && { echo "reusing $ZRK"; return 0; }
+  rm -rf "$ZRK" && git clone -q --depth 1 -b hip-chipStar git@github.com:CHIP-SPV/zero-rk.git "$ZRK" &&
+    mkdir "$ZRK/build_aurora" && cd "$ZRK/build_aurora" &&
+    cmake -DCMAKE_CXX_FLAGS="-I$PREFIX/include" -DCMAKE_EXE_LINKER_FLAGS=-lintlc -DENABLE_GPU=ON -DENABLE_MAGMA=OFF -DCMAKE_CXX_COMPILER=hipcc \
+      -DCMAKE_C_COMPILER=hipcc -DZERORK_TESTS=OFF -DZERORK_HAVE_MKL=OFF .. && make -j"$JOBS" && make install &&
+    touch "$ZRK/.built"
 }
 
 # OpenSn's dependencies do not use chipStar, so each runner builds them once.
 build_opensn() {
   local deps=$DEPS_CACHE/opensn-deps-$OPENSN_COMMIT
-  mkdir -p "$DEPS_CACHE" && exec 9> "$DEPS_CACHE/lock" && flock 9 || return 1
-  git clone -q https://github.com/Open-Sn/opensn.git && cd opensn && git checkout -q $OPENSN_COMMIT || return 1
+  lock || return 1
+  [ -e "$OSN/.built" ] && { echo "reusing $OSN"; return 0; }
+  rm -rf "$OSN" && git clone -q https://github.com/Open-Sn/opensn.git "$OSN" && cd "$OSN" &&
+    git checkout -q $OPENSN_COMMIT || return 1
   [ -s "$deps/bin/set_opensn_env.sh" ] || {
     rm -rf "$deps" && cmake -S tools/dependencies -B build_deps -DCMAKE_INSTALL_PREFIX="$deps" -DJOBS="$JOBS" \
       -DCMAKE_DISABLE_FIND_PACKAGE_Boost=ON &&
@@ -116,22 +125,22 @@ build_opensn() {
   source "$deps/bin/set_opensn_env.sh" &&
     CC=hipcc CXX=hipcc "$cm/bin/cmake" -S . -B build -DOPENSN_WITH_HIP=ON -DCMAKE_HIP_ARCHITECTURES=spirv \
       -DCMAKE_HIP_PLATFORM=spirv -DCMAKE_BUILD_TYPE=RelWithDebInfo &&
-    "$cm/bin/cmake" --build build -j"$JOBS"
+    "$cm/bin/cmake" --build build -j"$JOBS" && touch "$OSN/.built"
 }
 
 run_apps() {
-  local lu out=$WRK/apps/zero-rk/build_aurora/inst_dir/share/zerork/examples/cfd_plugin_tester/outputs_gpu_lu
+  local lu out=$ZRK/build_aurora/inst_dir/share/zerork/examples/cfd_plugin_tester/outputs_gpu_lu
   note "SKIP  $1 zeroRK box_reactor (zerork_correctness_box_reactor.sh needs Aurora's PBS and MPI launcher)"
   for lu in 1 0; do
     rm -rf "$out$lu"
     gpu_step "$1 zeroRK hydrogen lu$lu" "$LOGS/$1/zerork-hydrogen-lu$lu.log" bash -c 'cd "$0" && bash "$1" "$2"' \
-      "$WRK/apps/zero-rk" "$SRC/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh" "$lu"
+      "$ZRK" "$SRC/tests/apps/ZeroRK/zerork_correctness_hydrogen.sh" "$lu"
     cp -r "$out$lu" "$LOGS/$1/" 2>/dev/null
   done
   rm -rf "$WRK/apps/opensn-run" && mkdir "$WRK/apps/opensn-run" && cp "$SRC"/tests/apps/OpenSn/* "$WRK/apps/opensn-run"
   gpu_step "$1 OpenSn strong_scaling" "$LOGS/$1/opensn.log" bash -c \
     'cd "$0" && source "$1" && CHIP_LOGLEVEL=off mpiexec -n 1 "$2" -i strong_scaling.py' "$WRK/apps/opensn-run" \
-    "$DEPS_CACHE/opensn-deps-$OPENSN_COMMIT/bin/set_opensn_env.sh" "$WRK/apps/opensn/build/python/opensn"
+    "$DEPS_CACHE/opensn-deps-$OPENSN_COMMIT/bin/set_opensn_env.sh" "$OSN/build/python/opensn"
 }
 
 note "=== $(date -u +%FT%TZ) $(hostname) GPU $GPU_PCI $DRV ($RENDER) chipStar $(git -C "$SRC" log -1 --format='%h %s') -j$JOBS"
@@ -149,6 +158,8 @@ export HIP_PATH=$PREFIX HIP_PLATFORM=spirv PATH=$PREFIX/bin:$PATH CMAKE_PREFIX_P
 export LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH LIBRARY_PATH=$PREFIX/lib:$LIBRARY_PATH
 if wants apps; then
   rm -rf "$WRK/apps" && mkdir "$WRK/apps"
+  ZRK=$DEPS_CACHE/zerork-$(git ls-remote git@github.com:CHIP-SPV/zero-rk.git hip-chipStar | cut -c1-40)-$(find "$PREFIX"/include/rocprim "$PREFIX"/include/thrust -type f | sort | xargs cat | cksum | cut -d' ' -f1)
+  OSN=$DEPS_CACHE/opensn-$OPENSN_COMMIT
   (cd "$WRK/apps" && build_zerork) > "$LOGS/zerork-build.log" 2>&1; result "build zeroRK" $? "$LOGS/zerork-build.log"
   (cd "$WRK/apps" && build_opensn) > "$LOGS/opensn-build.log" 2>&1; result "build OpenSn" $? "$LOGS/opensn-build.log"
 fi
