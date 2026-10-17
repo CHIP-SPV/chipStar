@@ -1236,6 +1236,8 @@ if(CHIP_BUILD_TESTS)
     if(NOT TARGET MathsTest)
       message(FATAL_ERROR "hip-tests found no Boost, so MathsTest would not be built; enable CHIP_FETCH_BOOST")
     endif()
+    # Build MathsTest but do not register its cases with ctest (CHIP-SPV/chipStar#2005).
+    set_property(DIRECTORY hip-tests/catch/unit/math PROPERTY TEST_INCLUDE_FILES "")
   else()
     add_subdirectory(HIP/tests/catch catch)
   endif()
