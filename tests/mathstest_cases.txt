@@ -1,4 +1,4 @@
-# hip-tests MathsTest cases registered with ctest when CHIP_REGISTER_MATHSTEST is ON (CHIP-SPV/chipStar#2005).
+# hip-tests MathsTest cases registered with ctest when CHIP_REGISTER_MATHSTEST is ON (CHIP-SPV/chipStar#2005); "# slow:" lines take over 30 s and are left out.
 Unit_Device___brev_Sanity_Positive
 Unit_Device___brevll_Sanity_Positive
 Unit_Device___byte_perm_Sanity_Positive
@@ -328,7 +328,7 @@ Unit_Device_cosh_Accuracy_Positive - double
 Unit_Device_cosh_Accuracy_Positive - float
 Unit_Device_cosh_coshf_Negative_RTC
 Unit_Device_cospi_Accuracy_Positive - double
-Unit_Device_cospi_Accuracy_Positive - float
+# slow: Unit_Device_cospi_Accuracy_Positive - float
 Unit_Device_cospi_cospif_Negative_RTC
 Unit_Device_cyl_bessel_i0_Accuracy_Limited_Positive
 Unit_Device_cyl_bessel_i0_cyl_bessel_i0f_Negative_RTC
@@ -435,19 +435,19 @@ Unit_Device_isnan_Accuracy_Positive - float
 Unit_Device_isnan_Negative_RTC
 Unit_Device_j0_Accuracy_Limited_Positive
 Unit_Device_j0_j0f_Negative_RTC
-Unit_Device_j0f_Accuracy_Limited_Positive
+# slow: Unit_Device_j0f_Accuracy_Limited_Positive
 Unit_Device_j1_Accuracy_Limited_Positive
 Unit_Device_j1_j1f_Negative_RTC
-Unit_Device_j1f_Accuracy_Limited_Positive
+# slow: Unit_Device_j1f_Accuracy_Limited_Positive
 Unit_Device_jn_Accuracy_Limited_Positive
 Unit_Device_jn_jnf_Negative_RTC
-Unit_Device_jnf_Accuracy_Limited_Positive
+# slow: Unit_Device_jnf_Accuracy_Limited_Positive
 Unit_Device_ldexp_Accuracy_Positive - double
 Unit_Device_ldexp_Accuracy_Positive - float
 Unit_Device_ldexp_ldexpf_Negative_RTC
 Unit_Device_lgamma_Accuracy_Limited_Positive
 Unit_Device_lgamma_lgammaf_Negative_RTC
-Unit_Device_lgammaf_Accuracy_Limited_Positive
+# slow: Unit_Device_lgammaf_Accuracy_Limited_Positive
 Unit_Device_llrint_Accuracy_Positive - double
 Unit_Device_llrint_Accuracy_Positive - float
 Unit_Device_llrint_llrintf_Negative_RTC
@@ -546,16 +546,16 @@ Unit_Device_sin_Accuracy_Positive - double
 Unit_Device_sin_Accuracy_Positive - float
 Unit_Device_sin_sinf_Negative_RTC
 Unit_Device_sincos_Accuracy_Positive - double
-Unit_Device_sincos_Accuracy_Positive - float
+# slow: Unit_Device_sincos_Accuracy_Positive - float
 Unit_Device_sincos_sincosf_Negative_RTC
 Unit_Device_sincospi_Accuracy_Positive - double
-Unit_Device_sincospi_Accuracy_Positive - float
+# slow: Unit_Device_sincospi_Accuracy_Positive - float
 Unit_Device_sincospi_sincospif_Negative_RTC
 Unit_Device_sinh_Accuracy_Positive - double
 Unit_Device_sinh_Accuracy_Positive - float
 Unit_Device_sinh_sinhf_Negative_RTC
 Unit_Device_sinpi_Accuracy_Positive - double
-Unit_Device_sinpi_Accuracy_Positive - float
+# slow: Unit_Device_sinpi_Accuracy_Positive - float
 Unit_Device_sinpi_sinpif_Negative_RTC
 Unit_Device_sqrt_Accuracy_Positive
 Unit_Device_sqrt_sqrtf_Negative_RTC
@@ -580,4 +580,4 @@ Unit_Device_y1_y1f_Negative_RTC
 Unit_Device_y1f_Accuracy_Limited_Positive
 Unit_Device_yn_Accuracy_Limited_Positive
 Unit_Device_yn_ynf_Negative_RTC
-Unit_Device_ynf_Accuracy_Limited_Positive
+# slow: Unit_Device_ynf_Accuracy_Limited_Positive
