@@ -1,4 +1,5 @@
 name: Unit tests (AMD rusticl)
+run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 # Builds chipStar (+ all tests) on the self-hosted rusticl runner (AMD Radeon Pro
 # W6400, navi24/radeonsi/ACO) and verifies the GPU is visible to chipStar via
@@ -18,6 +19,11 @@ on:
   # self-hosted runner. PRs are covered by `pull_request`; use the manual
   # dispatch for branches without a PR.
   workflow_dispatch:
+    inputs:
+      math_tests:
+        description: Run only the hip-tests MathsTest cases
+        type: boolean
+        default: false
 
 concurrency:
   group: rusticl-${{ github.event.pull_request.number || github.ref }}
@@ -104,7 +110,7 @@ jobs:
           # 4 GB W6400: keep parallelism low to avoid VRAM contention flakiness.
           # check.py exits non-zero unless every test passes (no known-failure
           # exclusions for this backend), so this step gates on 100% pass.
-          ../scripts/check.py ./ dgpu opencl --num-threads 4 --timeout 180
+          ../scripts/check.py ./ dgpu opencl --num-threads 4 --timeout 180 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Upload test logs on failure
         if: failure()

@@ -1,0 +1,78 @@
+name: Run math tests (/run-math-tests)
+
+# Comment /run-math-tests on a PR to run the hip-tests MathsTest cases on every
+# unit-tests workflow against the PR branch (same-repo branches only).
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  dispatch:
+    name: Dispatch from /run-math-tests comment
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request.url != '' &&
+      contains(github.event.comment.body, '/run-math-tests') &&
+      (
+           contains(fromJSON('["colleeneb", "pvelesko"]'), github.event.comment.user.login)
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Dispatch the unit-tests workflows with math_tests
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number
+            });
+            if (pr.data.head.repo.full_name !== pr.data.base.repo.full_name) {
+              core.setFailed('/run-math-tests supports only branches of this repository: workflow_dispatch cannot run a fork branch.');
+              return;
+            }
+            for (const workflow_id of [
+              'unit-tests-x86-intel.yml',
+              'unit-tests-macos-pocl.yml',
+              'unit-tests-pocl-cpu.yml',
+              'unit-tests-riscv-pocl.yml',
+              'unit-tests-amd-rusticl.yml',
+            ]) {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id,
+                ref: pr.data.head.ref,
+                inputs: { math_tests: 'true' }
+              });
+            }
+
+      - name: React with rocket on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+      - name: Post failure comment
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: ':x: Failed to dispatch the /run-math-tests runs. See [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.'
+            });
