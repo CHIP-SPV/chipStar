@@ -81,7 +81,7 @@ run_libs() {
   local lib s ex lb
   for s in "$WRK"/staging/*/; do
     lib=$(basename "$s")
-    [ -f "$s/build/CTestTestfile.cmake" ] || continue
+    [ -f "$s/build/CTestTestfile.cmake" ] || { note "SKIP  $1 $lib (no CTest tests)"; continue; }
     ex=$(grep -Evhs '^\s*(#|$)' "$s/.ci/exclude.txt" | paste -sd '|' -)
     lb=$(grep -Evhs '^\s*(#|$)' "$s/.ci/ctest-labels.txt" | paste -sd '|' -)
     rm -f "$LOGS/$1/$lib.log"
