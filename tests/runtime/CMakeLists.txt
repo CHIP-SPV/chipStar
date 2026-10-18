@@ -154,6 +154,10 @@ endif()
 set_tests_properties(TestFix1524GetEdgesCapacity PROPERTIES
   ENVIRONMENT "MALLOC_CHECK_=3")
 
+# The eager JIT build error must be replayed at launch.
+set_tests_properties(TestFix2025EagerJitBuildError PROPERTIES
+  ENVIRONMENT "CHIP_LAZY_JIT=0" FAIL_REGULAR_EXPRESSION "")
+
 # Names that the Test* glob does not match.
 add_hip_runtime_test(RegressionTest302.hip)
 add_hip_runtime_test(host-math-funcs.hip)
