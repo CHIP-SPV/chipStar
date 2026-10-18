@@ -523,7 +523,7 @@ extern "C++" inline __device__ float scalbnf(float x, int n) {
 
 extern "C" __device__  float __ocml_scalb_f32(float x, float n); // OCML
 extern "C++" inline __device__ float scalblnf(float x, long int n) {
-  return (n < INT_MAX) ? ::__ocml_scalbn_f32(x, (int)n) : ::__ocml_scalb_f32(x, (float)n);
+  return (n == (int)n) ? ::__ocml_scalbn_f32(x, (int)n) : ::__ocml_scalb_f32(x, (float)n);
 }
 
 #if defined __has_builtin && __has_builtin(__builtin_signbitf)
