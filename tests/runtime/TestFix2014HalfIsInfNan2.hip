@@ -18,6 +18,8 @@ int main() {
   if (hipMalloc(&D, sizeof(H)) != hipSuccess)
     return 1;
   k<<<1, 1>>>(D);
+  if (hipGetLastError() == hipErrorSharedObjectInitFailed)
+    return CHIP_SKIP_TEST; // Device cannot build half kernels (e.g. PoCL).
   if (hipMemcpy(H, D, sizeof(H), hipMemcpyDeviceToHost) != hipSuccess)
     return 1;
   if (H[0] != 1 || H[1] != 0 || H[2] != 1 || H[3] != 0) {
