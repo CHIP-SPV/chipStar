@@ -71,7 +71,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           ./install_chipstar.py -c chipstar --with-tests --no-install -j 8 \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON"
+            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON -DCHIP_REGISTER_MATHSTEST=ON"
 
       - name: Test native, igpu opencl
         shell: bash
@@ -80,7 +80,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 --regex-exclude=_MathsTest
 
       - name: Test native, igpu level0
         shell: bash
@@ -89,7 +89,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 --regex-exclude=_MathsTest
 
       - name: Test native, dgpu opencl
         shell: bash
@@ -98,7 +98,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 --regex-exclude=_MathsTest
 
       - name: Test native, dgpu level0
         shell: bash
