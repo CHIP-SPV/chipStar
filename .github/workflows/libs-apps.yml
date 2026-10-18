@@ -106,8 +106,12 @@ jobs:
         with:
           script: |
             const ok = process.env.RESULT === 'success';
+            const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // A newer request on this commit owns the status.
+            const { data } = await github.rest.repos.getCombinedStatusForRef({ ...context.repo, ref: process.env.SHA });
+            if (data.statuses.find(s => s.context === 'check-apps')?.target_url !== url) return;
             await github.rest.repos.createCommitStatus({
               ...context.repo, sha: process.env.SHA, state: ok ? 'success' : 'failure',
               context: 'check-apps', description: ok ? 'libraries and apps pass' : 'see summary.txt in the run artifacts',
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              target_url: url,
             });
