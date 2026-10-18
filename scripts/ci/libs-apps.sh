@@ -95,13 +95,12 @@ run_libs() {
 lock() { mkdir -p "$DEPS_CACHE" && exec 9> "$DEPS_CACHE/lock" && flock 9; }
 
 # zeroRK's scripts/build_aurora.sh without its module loads and unbounded make -j.
-# The -I does not beat zero-rk's hardcoded rocPRIM and rocThrust include dirs, see https://github.com/CHIP-SPV/chipStar/issues/2006
 build_zerork() {
   lock || return 1
   [ -e "$ZRK/.built" ] && { echo "reusing $ZRK"; return 0; }
   rm -rf "$ZRK" && git clone -q --depth 1 -b hip-chipStar git@github.com:CHIP-SPV/zero-rk.git "$ZRK" &&
     mkdir "$ZRK/build_aurora" && cd "$ZRK/build_aurora" &&
-    cmake -DCMAKE_CXX_FLAGS="-I$PREFIX/include" -DCMAKE_EXE_LINKER_FLAGS=-lintlc -DENABLE_GPU=ON -DENABLE_MAGMA=OFF -DCMAKE_CXX_COMPILER=hipcc \
+    cmake -DCMAKE_EXE_LINKER_FLAGS=-lintlc -DENABLE_GPU=ON -DENABLE_MAGMA=OFF -DCMAKE_CXX_COMPILER=hipcc \
       -DCMAKE_C_COMPILER=hipcc -DZERORK_TESTS=OFF -DZERORK_HAVE_MKL=OFF .. && make -j"$JOBS" && make install &&
     touch "$ZRK/.built"
 }
