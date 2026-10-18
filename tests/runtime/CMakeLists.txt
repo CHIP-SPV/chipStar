@@ -107,6 +107,8 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1600ExtractorArgvBoundaries.hip # compiled by TestFix1600ExtractorArgvBoundaries.bash, not a test
   TestFix1693StringTableOffset.hip # needs program-scope globals, registered below
   TestFix1703ByteOffsetTable.hip # needs program-scope globals, registered below
+  TestFix2027StaleModuleCache.hip # loads the libraries below, registered below
+  TestFix2027StaleModuleCacheLib.hip # built into the libraries below
 
   TestFixVolatileLoadLowering.hip # compiled by TestFixVolatileLoadLoweringSPIRV.bash, not a test
   TestFixKokkosUnorderedMapInsert.hip # reference idiom only, see the comment below
@@ -153,6 +155,22 @@ endif()
 # instead of depending on the heap layout to surface it.
 set_tests_properties(TestFix1524GetEdgesCapacity PROPERTIES
   ENVIRONMENT "MALLOC_CHECK_=3")
+
+# Two libraries from one source, loaded one after the other (#2027).
+foreach(V 1 2)
+  set_source_files_properties(TestFix2027StaleModuleCacheLib.hip
+    PROPERTIES LANGUAGE CXX)
+  add_library(TestFix2027Lib${V} SHARED TestFix2027StaleModuleCacheLib.hip)
+  target_compile_definitions(TestFix2027Lib${V} PRIVATE VAL=${V})
+  target_link_libraries(TestFix2027Lib${V} CHIP deviceInternal)
+  target_include_directories(TestFix2027Lib${V}
+    PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+endforeach()
+add_hip_runtime_test(TestFix2027StaleModuleCache.hip)
+target_compile_definitions(TestFix2027StaleModuleCache PRIVATE
+  LIB_A="$<TARGET_FILE:TestFix2027Lib1>" LIB_B="$<TARGET_FILE:TestFix2027Lib2>")
+target_link_libraries(TestFix2027StaleModuleCache ${CMAKE_DL_LIBS})
+add_dependencies(TestFix2027StaleModuleCache TestFix2027Lib1 TestFix2027Lib2)
 
 # Names that the Test* glob does not match.
 add_hip_runtime_test(RegressionTest302.hip)
