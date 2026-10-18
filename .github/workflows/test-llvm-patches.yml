@@ -478,7 +478,7 @@ jobs:
           # The stage is shared by every PR, so it may hold another PR's LLVM.
           WANT=$(scripts/llvm_stage_fingerprint.sh ${{ matrix.llvm-version }})
           if [ "$(tail -n +2 "${STAGED}/.chipstar-validated")" != "$WANT" ]; then
-            echo "::error::Stage at ${STAGED} was built from $(head -1 "${STAGED}/.chipstar-validated"), whose configure_llvm.sh or llvm-patches/llvm-${{ matrix.llvm-version }} differ from ${{ github.sha }}; refusing to promote it."
+            echo "::error::Stage at ${STAGED} was built from $(head -1 "${STAGED}/.chipstar-validated"), whose configure_llvm.sh, llvm-patches/llvm-${{ matrix.llvm-version }} or test-llvm-patches.yml differ from ${{ github.sha }}; refusing to promote it."
             exit 1
           fi
           echo "Promoting stage built from $(head -1 "${STAGED}/.chipstar-validated")"
@@ -639,7 +639,7 @@ jobs:
           # See the Linux job: the stage may hold another PR's LLVM.
           WANT=$(scripts/llvm_stage_fingerprint.sh 21)
           if [ "$(tail -n +2 $S/.chipstar-validated)" != "$WANT" ]; then
-            echo "::error::Stage at $S was built from $(head -1 $S/.chipstar-validated), whose configure_llvm.sh or llvm-patches/llvm-21 differ from ${{ github.sha }}; refusing to promote it."
+            echo "::error::Stage at $S was built from $(head -1 $S/.chipstar-validated), whose configure_llvm.sh, llvm-patches/llvm-21 or test-llvm-patches.yml differ from ${{ github.sha }}; refusing to promote it."
             exit 1
           fi
           rm -rf $P.prev; [ ! -e $P ] || mv $P $P.prev
@@ -822,7 +822,7 @@ jobs:
           # See the Linux job: the stage may hold another PR's LLVM.
           WANT=$(scripts/llvm_stage_fingerprint.sh 23)
           if [ "$(tail -n +2 "${STAGED}/.chipstar-validated")" != "$WANT" ]; then
-            echo "::error::Stage at ${STAGED} was built from $(head -1 "${STAGED}/.chipstar-validated"), whose configure_llvm.sh or llvm-patches/llvm-23 differ from ${{ github.sha }}; refusing to promote it."
+            echo "::error::Stage at ${STAGED} was built from $(head -1 "${STAGED}/.chipstar-validated"), whose configure_llvm.sh, llvm-patches/llvm-23 or test-llvm-patches.yml differ from ${{ github.sha }}; refusing to promote it."
             exit 1
           fi
           echo "Promoting stage built from $(head -1 "${STAGED}/.chipstar-validated")"
