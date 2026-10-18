@@ -10,6 +10,7 @@ on:
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
+      - 'scripts/llvm_stage_fingerprint.sh'
       - 'scripts/cross-aarch64/Dockerfile'
       - 'scripts/cross-aarch64/cross-build.sh'
       - 'scripts/cross-aarch64/aarch64-toolchain.cmake'
@@ -18,6 +19,7 @@ on:
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
+      - 'scripts/llvm_stage_fingerprint.sh'
       - 'scripts/cross-aarch64/Dockerfile'
       - 'scripts/cross-aarch64/cross-build.sh'
       - 'scripts/cross-aarch64/aarch64-toolchain.cmake'
@@ -70,7 +72,7 @@ jobs:
             ""|0000000000000000000000000000000000000000) BASE="" ;;
             *) git cat-file -e "$BASE" 2>/dev/null || BASE="" ;;
           esac
-          if [ -z "$BASE" ] || ! git diff --quiet "$BASE"...HEAD -- scripts/configure_llvm.sh .github/workflows/test-llvm-patches.yml; then
+          if [ -z "$BASE" ] || ! git diff --quiet "$BASE"...HEAD -- scripts/configure_llvm.sh scripts/llvm_stage_fingerprint.sh .github/workflows/test-llvm-patches.yml; then
             v21=true; v22=true; v23=true
           else
             v21=false; v22=false; v23=false
