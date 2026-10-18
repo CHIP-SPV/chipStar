@@ -1734,6 +1734,8 @@ public:
   chipstar::DeviceVar *getGlobalVar(const void *Var);
 
   void eraseModule(chipstar::Module *Module);
+  /// Forget everything cached for a source module that is about to be freed.
+  void eraseModule(const SPVModule &SrcMod);
 
   virtual chipstar::Texture *
   createTexture(const hipResourceDesc *ResDesc, const hipTextureDesc *TexDesc,
