@@ -44,6 +44,8 @@ set_target_properties(shflRotate PROPERTIES CXX_STANDARD_REQUIRED ON)
 target_link_libraries(shflRotate CHIP deviceInternal)
 target_include_directories(shflRotate
   PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
+# Times optimized device code, so a Debug build must not compile it at -O0.
+target_compile_options(shflRotate PRIVATE -O2)
 add_test(NAME shflRotate COMMAND ${HIP_PROFILE_TESTS_COMMAND} ${SKIP_DOUBLE_TESTS} ${CMAKE_CURRENT_BINARY_DIR}/shflRotate)
 
 # These are timing benchmarks: they measure per-op latency and per-launch
