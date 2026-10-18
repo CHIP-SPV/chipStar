@@ -66,6 +66,7 @@ jobs:
       contents: read
     concurrency:
       group: libs-apps
+      queue: max
     steps:
       # The script comes from the default or dispatched branch, so it can test PRs older than it.
       - uses: actions/checkout@v4
