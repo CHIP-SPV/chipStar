@@ -1,4 +1,5 @@
 name: Unit tests (macOS PoCL)
+run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 # pastrami: Apple Silicon, OpenCL only via PoCL (no Level Zero). Both SPIR-V
 # producers are built from the same LLVM 23 toolchain.
@@ -12,6 +13,11 @@ on:
   pull_request:
     paths-ignore: "docs/**"
   workflow_dispatch:
+    inputs:
+      math_tests:
+        description: Run only the hip-tests MathsTest cases
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -108,7 +114,7 @@ jobs:
         shell: /bin/bash {0}
         run: |
           set -e
-          cd build && ../scripts/check.py ./ pocl opencl
+          cd build && ../scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 60
 
       # =====================================================================
@@ -131,7 +137,7 @@ jobs:
         shell: /bin/bash {0}
         run: |
           set -e
-          cd build && ../scripts/check.py ./ pocl opencl
+          cd build && ../scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 60
 
       - uses: actions/upload-artifact@v4

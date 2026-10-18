@@ -1,4 +1,5 @@
 name: Unit tests (x86 Intel GPU)
+run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 # chipStar's own HIP unit tests on Intel hardware: both SPIR-V producers,
 # both device classes (integrated and discrete), both backends.
@@ -13,6 +14,11 @@ on:
   pull_request:
     paths-ignore: "docs/**"
   workflow_dispatch:
+    inputs:
+      math_tests:
+        description: Run only the hip-tests MathsTest cases
+        type: boolean
+        default: false
 
 concurrency:
   group: meatloaf-${{ github.event.pull_request.number || github.ref }}
@@ -80,7 +86,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, igpu level0
         shell: bash
@@ -89,7 +95,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, dgpu opencl
         shell: bash
@@ -98,7 +104,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, dgpu level0
         shell: bash
@@ -107,7 +113,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu level0 --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ dgpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       # =====================================================================
       # Lane 2: llvm-spirv translator
@@ -134,7 +140,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, igpu level0
         shell: bash
@@ -143,7 +149,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, dgpu opencl
         shell: bash
@@ -152,7 +158,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, dgpu level0
         shell: bash
@@ -161,7 +167,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu level0 --num-threads=$nt --timeout=1800
+          cd build && ../scripts/check.py ./ dgpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - uses: actions/upload-artifact@v4
         if: failure()

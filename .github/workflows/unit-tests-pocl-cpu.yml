@@ -1,10 +1,17 @@
 name: Unit tests (PoCL CPU)
+run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 on:
   push:
     paths-ignore: "docs/**"
   pull_request:
     paths-ignore: "docs/**"
+  workflow_dispatch:
+    inputs:
+      math_tests:
+        description: Run only the hip-tests MathsTest cases
+        type: boolean
+        default: false
 
 jobs:
   pre_job:
@@ -18,7 +25,7 @@ jobs:
           concurrent_skipping: 'same_content'
           skip_after_successful_duplicate: 'true'
           paths_ignore: '["docs/**"]'
-          do_not_skip: '["pull_request"]'
+          do_not_skip: '["pull_request", "workflow_dispatch"]'
 
 
   spirv-tools:
@@ -280,7 +287,7 @@ jobs:
         run: ${{ env.OPENCL_ENV }} cmake --build . --parallel 4 --target build_tests
         working-directory: build
       - name: Test OpenCL
-        run: ${{ env.OPENCL_ENV }} ctest --timeout 180 --output-on-failure -E ${{ env.EXCLUDE }}
+        run: ${{ env.OPENCL_ENV }} ctest --timeout 180 --output-on-failure ${{ inputs.math_tests && '-L MATH' || '-LE MATH' }} -E ${{ env.EXCLUDE }}
         working-directory: build
       - uses: actions/upload-artifact@v4
         if: failure()

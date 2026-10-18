@@ -1,4 +1,5 @@
 name: Unit tests (RISC-V PoCL)
+run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 # k3: SpacemiT K3 (8x X100 rv64gcv), OpenCL via a source-built PoCL on the CPU.
 # Both SPIR-V producers come from the same LLVM 23 toolchain. Sequential lanes
@@ -8,6 +9,11 @@ on:
   pull_request:
     paths-ignore: "docs/**"
   workflow_dispatch:
+    inputs:
+      math_tests:
+        description: Run only the hip-tests MathsTest cases
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -47,7 +53,7 @@ jobs:
         timeout-minutes: 150
 
       - name: Test native, pocl opencl
-        run: cd build && ../scripts/check.py ./ pocl opencl
+        run: cd build && ../scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 90
 
       - name: Build chipStar (llvm-spirv translator)
@@ -69,7 +75,7 @@ jobs:
 
       - name: Test translator, pocl opencl
         if: ${{ !cancelled() }}
-        run: cd build && ../scripts/check.py ./ pocl opencl
+        run: cd build && ../scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 90
 
       - uses: actions/upload-artifact@v4

@@ -1,0 +1,47 @@
+name: Math tests status
+
+# Mirrors each /run-math-tests run as a commit status on the PR head, linked
+# to the run.
+
+on:
+  workflow_run:
+    workflows:
+      - "Unit tests (x86 Intel GPU)"
+      - "Unit tests (macOS PoCL)"
+      - "Unit tests (PoCL CPU)"
+      - "Unit tests (RISC-V PoCL)"
+      - "Unit tests (AMD rusticl)"
+    types: [requested, in_progress, completed]
+
+jobs:
+  status:
+    if: github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.display_title == 'Math tests'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: math-tests-status-${{ github.event.workflow_run.workflow_id }}-${{ github.event.workflow_run.head_sha }}
+    permissions:
+      actions: read
+      statuses: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const r = context.payload.workflow_run;
+            const all = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: r.workflow_id,
+              head_sha: r.head_sha,
+              event: 'workflow_dispatch'
+            });
+            const cur = [...all, r].filter(x => x.display_title === r.display_title).reduce((a, b) => (b.id > a.id ? b : a));
+            const state = cur.status !== 'completed' ? 'pending' : (cur.conclusion === 'success' ? 'success' : 'failure');
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: r.head_sha,
+              state,
+              context: `math-tests / ${r.name}`,
+              description: state === 'pending' ? 'running' : cur.conclusion,
+              target_url: cur.html_url
+            });
