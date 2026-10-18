@@ -180,8 +180,8 @@ int main() {
     return 1;
   float Min = std::min({Rot, Red, Sum, Mix});
   if ((Off || !IntelGpu) && Min < 0.85f) {
-    printf("FAIL: with the fast path off the constant forms must not be "
-           "slower\n");
+    printf("FAIL: without the Intel GPU fast path the constant forms must not "
+           "be slower\n");
     return 1;
   }
   if (!Off && Gathers && Min < 1.5f) {
