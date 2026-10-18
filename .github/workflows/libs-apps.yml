@@ -6,7 +6,7 @@ name: Libraries and apps (Intel dGPU)
 # check-apps status on its head commit.
 #
 # Runner needs: modules oneapi/2025.0.4 and llvm/23.0, kernel journal access
-# (adm group), fuser, bc, curl, sha256sum, git over ssh to github.com, OpenMPI, gfortran, and on Ubuntu libgtest-dev
+# (adm group), fuser, curl, sha256sum, git over ssh to github.com, OpenMPI, gfortran, and on Ubuntu libgtest-dev
 # libgmock-dev libblas-dev liblapack-dev libboost-dev pybind11-dev.
 on:
   workflow_dispatch:
