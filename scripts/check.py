@@ -23,6 +23,7 @@ parser.add_argument('--regex-include', type=str, nargs='?', default="", help='Te
 parser.add_argument('--regex-exclude', type=str, nargs='?', default="", help='Specifically exclude tests that match this regex (known failures will still be excluded)')
 parser.add_argument('--test-mode-failures', type=str, choices=['exclude', 'include'], default='exclude', help='Control how to handle test failures: exclude (default) or include')
 parser.add_argument('--samples-only', action='store_true', help='Only run tests under ./samples (tests with SAMPLE label)')
+parser.add_argument('--math-tests', action='store_true', help='Run only the hip-tests MathsTest cases (ctest label MATH)')
 
 # --total-runtime cannot be used with --num-tries
 group = parser.add_mutually_exclusive_group()
@@ -129,6 +130,8 @@ def run_tests(num_tries):
     regex_exclude = f"{args.regex_exclude}|" if args.regex_exclude else ""
     include_flag = f" -R \"{args.regex_include}\"" if args.regex_include else ""
 
+    label_flag = " -L MATH" if args.math_tests else " -LE MATH"
+
     # Determine the test mode based on the new argument
     test_mode = "-E" if args.test_mode_failures == "exclude" else "-R"
 
@@ -141,12 +144,12 @@ def run_tests(num_tries):
         # Build exclusion pattern for samples
         exclusion_pattern = f"{regex_exclude}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}{double_cmd}"
 
-        cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads} -L SAMPLE{include_flag} -E \"{exclusion_pattern}\" -O checkpy_{args.backend}_{args.device_type}.txt"
+        cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads}{label_flag} -L SAMPLE{include_flag} -E \"{exclusion_pattern}\" -O checkpy_{args.backend}_{args.device_type}.txt"
     else:
         # if failed_test_list is not empty, separator is |, otherwise it is empty
         separator = "|" if os.path.exists(failed_test_list) and os.path.getsize(failed_test_list) > 0 else ""
 
-        cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads}{include_flag} {test_mode} \"{regex_exclude}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}{double_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
+        cmd = f"{modules} {env_vars} ctest --output-on-failure --timeout {args.timeout} --repeat until-fail:{num_tries} -j {args.num_threads}{label_flag}{include_flag} {test_mode} \"{regex_exclude}`cat {failed_test_list}`{separator}`cat {all_test_list}`{texture_cmd}{double_cmd}\" -O checkpy_{args.backend}_{args.device_type}.txt"
     
     res, err = run_cmd(cmd)
 
