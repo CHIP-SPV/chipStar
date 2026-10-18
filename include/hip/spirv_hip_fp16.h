@@ -1762,7 +1762,8 @@ THE SOFTWARE.
             {
                 auto r = __ocml_isinf_2f16(x);
                 return __half2{_Float16_2{
-                    static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
+                    static_cast<_Float16>(r.x != 0),
+                    static_cast<_Float16>(r.y != 0)}};
             }
             inline
             __HOST_DEVICE__
@@ -1770,7 +1771,8 @@ THE SOFTWARE.
             {
                 auto r = __ocml_isnan_2f16(x);
                 return __half2{_Float16_2{
-                    static_cast<_Float16>(r.x), static_cast<_Float16>(r.y)}};
+                    static_cast<_Float16>(r.x != 0),
+                    static_cast<_Float16>(r.y != 0)}};
             }
             inline
             __HOST_DEVICE__
