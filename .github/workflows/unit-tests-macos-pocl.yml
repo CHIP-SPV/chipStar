@@ -124,6 +124,7 @@ jobs:
       # configurations never share incremental state.
       # =====================================================================
       - name: Build chipStar (llvm-spirv translator)
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: /bin/bash {0}
         run: |
           set -e
@@ -134,6 +135,7 @@ jobs:
                            -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib"
 
       - name: Test translator, pocl opencl
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: /bin/bash {0}
         run: |
           set -e

@@ -28,6 +28,7 @@ jobs:
   chipstar-unit-tests:
     name: chipStar unit tests (LLVM 23, native + translator)
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: ${{ inputs.math_tests && 720 || 360 }}
     env:
       # Content-addressed kernel cache, persistent and shared across PRs: the
       # key covers module SPIR-V, driver option strings, linked rtdevlib
@@ -80,6 +81,7 @@ jobs:
             --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON"
 
       - name: Test native, igpu opencl
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -89,6 +91,7 @@ jobs:
           cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, igpu level0
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -98,6 +101,7 @@ jobs:
           cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, dgpu opencl
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -107,6 +111,7 @@ jobs:
           cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, dgpu level0
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -125,6 +130,7 @@ jobs:
       # configurations never share incremental state.
       # =====================================================================
       - name: Build chipStar (llvm-spirv translator)
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -134,6 +140,7 @@ jobs:
             --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON"
 
       - name: Test translator, igpu opencl
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -143,6 +150,7 @@ jobs:
           cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, igpu level0
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -152,6 +160,7 @@ jobs:
           cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, dgpu opencl
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -161,6 +170,7 @@ jobs:
           cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, dgpu level0
+        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
