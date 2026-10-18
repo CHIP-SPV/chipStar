@@ -65,7 +65,7 @@ compare() {
   paste "$1" <(echo "$gpu") | LC_ALL=C awk -v tol=$TOLERANCE '/^#/ { next } {
     h = NF / 2; dt = ($(h+3) - $3) / $3; dp = ($(h+4) - $4) / $4
     if (dt < 0) dt = -dt; if (dp < 0) dp = -dp
-    if (!(dt <= tol && dp <= tol) || $(h+3) $(h+4) ~ /[nN][aA][nN]|[iI][nN][fF]/) { printf "step %s: T %g vs %g, P %g vs %g\n", $1, $3, $(h+3), $4, $(h+4); bad = 1 } }
+    if (!(dt <= tol && dp <= tol) || $3 $4 $(h+3) $(h+4) ~ /[nN][aA][nN]|[iI][nN][fF]/) { printf "step %s: T %g vs %g, P %g vs %g\n", $1, $3, $(h+3), $4, $(h+4); bad = 1 } }
     END { exit bad }'
 }
 
