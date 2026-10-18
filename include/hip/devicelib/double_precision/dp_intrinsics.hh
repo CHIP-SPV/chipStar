@@ -177,10 +177,18 @@ extern "C++" inline __device__ double __dsqrt_rz(double x) {
   return __ocml_sqrt_rtz_f64(x);
 }
 #else
-extern "C++" inline __device__ double __dsqrt_rd(double x) { return sqrt(x); }
-extern "C++" inline __device__ double __dsqrt_rn(double x) { return sqrt(x); }
-extern "C++" inline __device__ double __dsqrt_ru(double x) { return sqrt(x); }
-extern "C++" inline __device__ double __dsqrt_rz(double x) { return sqrt(x); }
+extern "C++" inline __device__ double __dsqrt_rd(double x) {
+  return __builtin_sqrt(x);
+}
+extern "C++" inline __device__ double __dsqrt_rn(double x) {
+  return __builtin_sqrt(x);
+}
+extern "C++" inline __device__ double __dsqrt_ru(double x) {
+  return __builtin_sqrt(x);
+}
+extern "C++" inline __device__ double __dsqrt_rz(double x) {
+  return __builtin_sqrt(x);
+}
 #endif
 
 #if defined(OCML_BASIC_ROUNDED_OPERATIONS)
