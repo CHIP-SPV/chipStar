@@ -85,11 +85,10 @@ for ref in cv1_t1 cv0_t1; do
   [ -s "$out/ref_${ref}_000.hist" ] || run ref_$ref 0 ${ref:2:1} 1 1 ${ref:5:1} 32 $N 0 || rm -f "$out/ref_${ref}_000.hist"
 done
 # zeroRK solves temperature on the first GPU call whatever always_solve_temperature says, so the
-# no-temperature reference does step 0 with temperature and restarts from that state without it.
+# no-temperature reference restarts from step 0 of the temperature reference without it.
 # One reactor: the tester reads one state file per reactor (species, T, P).
 if [ ! -s "$out/ref_cv1_t0_000.hist" ]; then
-  STEPS=1 SOLT=0.00000041282999 run ref_s0 0 1 1 1 1 1 $N 0 &&
-    awk '!/^#/ { print $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $3, $4 }' "$out/ref_s0_000.hist" > "$out/ref_s0.state" &&
+  awk '!/^#/ { print $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $3, $4; exit }' "$out/ref_cv1_t1_000.hist" > "$out/ref_s0.state" &&
     STEPS=3 SOLT=0.00000123848997 STATE=$out/ref_s0.state run ref_cv1_t0 0 1 1 1 0 1 $N 0 || rm -f "$out/ref_cv1_t0_000.hist"
 fi
 rc=0
