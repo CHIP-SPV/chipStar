@@ -97,6 +97,7 @@ set(RUNTIME_TESTS_MANUAL
   TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
+  TestFix1962PooledResidencyEviction.hip # guarded on LevelZero_LIBRARY
   TestFix315PlatformOutOfRange.hip # run under env -u CHIP_DEVICE_TYPE, registered below
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
@@ -165,6 +166,9 @@ if(NOT APPLE)
 endif()
 if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
+endif()
+if(LevelZero_LIBRARY) # Depends on Level Zero
+  add_hip_runtime_test(TestFix1962PooledResidencyEviction.hip)
 endif()
 # String literals are initialized program-scope globals, which rusticl/Mesa
 # rejects ("Initializer for CrossWorkgroup variable not yet supported").
