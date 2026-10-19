@@ -2735,6 +2735,27 @@ void *CHIPContextLevel0::allocateImpl(size_t Size, size_t Alignment,
     auto ChipDev = (CHIPDeviceLevel0 *)Backend->getActiveDevice();
     ze_device_handle_t ZeDev = ChipDev->get();
 
+    // WORKAROUND(CHIP-SPV/chipStar#1962, intel/compute-runtime#1029): NEO
+    // evicts a whole USM pool when one resident chunk in it is freed.
+    // Remove when compute-runtime#1029 is fixed.
+    // Separate allocations are page aligned and apart; pooled chunks are not.
+    // Assume pooled if unsure.
+    static const bool DriverPools = [&] {
+      void *A = nullptr, *B = nullptr;
+      zeMemAllocDevice(ZeCtx, &DmaDesc, 64, 0, ZeDev, &A);
+      zeMemAllocDevice(ZeCtx, &DmaDesc, 64, 0, ZeDev, &B);
+      uintptr_t PA = (uintptr_t)A, PB = (uintptr_t)B;
+      bool Pooled = !A || !B || ((PA | PB) & 0xFFF) ||
+                    (PA > PB ? PA - PB : PB - PA) < 4096;
+      if (A)
+        zeMemFree(ZeCtx, A);
+      if (B)
+        zeMemFree(ZeCtx, B);
+      logDebug("Level Zero driver pools small device allocations: {}", Pooled);
+      return Pooled;
+    }();
+    if (DriverPools && Size <= 2 * 1024 * 1024)
+      Alignment = std::max<size_t>(Alignment, 4 * 1024 * 1024); // never pooled
     zeStatus = zeMemAllocDevice(ZeCtx, &DmaDesc, Size, Alignment, ZeDev, &Ptr);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeMemAllocDevice);
 #ifdef CHIP_L0_MAKE_MEM_RESIDENT
