@@ -107,5 +107,16 @@ add_test(NAME TestFix2042CMakeCuda
     -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2042CMakeCuda
     -DCONSUMER_DIR=${CMAKE_CURRENT_SOURCE_DIR}/TestFix2042CMakeCuda
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2042CMakeCuda.cmake)
-set_tests_properties(TestFix2042CMakeCuda PROPERTIES TIMEOUT 900)
+set_tests_properties(TestFix2042CMakeCuda PROPERTIES TIMEOUT 900 RESOURCE_LOCK chipStarInstall)
+# Reproduce #2046: CUDA_SEPARABLE_COMPILATION needs cucc -rdc and -dlink.
+if(NOT APPLE)
+add_test(NAME TestFix2046CMakeCudaRdc
+  COMMAND ${CMAKE_COMMAND}
+    -DBUILD_DIR=${CMAKE_BINARY_DIR}
+    -DGENERATOR=${CMAKE_GENERATOR}
+    -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2046CMakeCudaRdc
+    -DCONSUMER_DIR=${CMAKE_CURRENT_SOURCE_DIR}/TestFix2046CMakeCudaRdc
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2042CMakeCuda.cmake)
+set_tests_properties(TestFix2046CMakeCudaRdc PROPERTIES TIMEOUT 900 RESOURCE_LOCK chipStarInstall)
+endif()
 endif()

@@ -29,8 +29,10 @@
 import argparse
 import os
 import shlex
+import shutil
 import subprocess
 import sys
+import tempfile
 from shlex import quote
 from typing import List, Set, Optional
 
@@ -146,6 +148,7 @@ def prepare_argparser() -> argparse.ArgumentParser:
     parser.add_argument("-rdc", choices=['true', 'false'])
     parser.add_argument("--device-c", action='store_true')
     parser.add_argument("-dc", action='store_true')
+    parser.add_argument("-dlink", "--device-link", action='store_true')
 
     return parser
 
@@ -298,9 +301,84 @@ def filter_args_for_hipcc(arg_list: List[str]) -> List[str]:
 
     return filtered
 
+def new_driver_device_link(inputs: List[str], output: str) -> int:
+    """Copy clang-linker-wrapper's kernel registration object to output.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        wrapper = os.path.join(tmp, 'wrapper.o')
+        env = dict(os.environ, CUCC_DLINK_CAPTURE=wrapper)
+        rc = subprocess.run([get_hipcc(), '-fgpu-rdc',
+                             '-fuse-ld=' + os.path.realpath(__file__)]
+                            + inputs + ['-o', os.path.join(tmp, 'x')],
+                            env=env).returncode
+        if rc != 0:
+            return rc
+        if not os.path.exists(wrapper):
+            error_exit('-dlink: clang-linker-wrapper produced no '
+                       'registration object')
+        shutil.copy(wrapper, output)
+    return 0
+
+def capture_wrapper_object(capture: str, argv: List[str]) -> int:
+    """Act as the host linker: save the first linker-wrapper object seen.
+    """
+    args: List[str] = []
+    for a in argv:
+        if a.startswith('@'):
+            with open(a[1:]) as f:
+                args.extend(shlex.split(f.read()))
+        else:
+            args.append(a)
+    for a in args:
+        base = os.path.basename(a)
+        if '.image.wrapper' in base and base.endswith('.o'):
+            shutil.copy(a, capture)
+            return 0
+    return 1
+
+def device_link(args: List[str]) -> int:
+    """Device-link the .o/.a inputs into an object defining their fatbin symbols.
+    """
+    args = filter_args_for_hipcc(args)
+    output = args[args.index('-o') + 1]
+    inputs = [a for a in args if not a.startswith('-') and
+              a.endswith(('.o', '.a')) and a != output]
+    nm = subprocess.run(['nm'] + inputs, capture_output=True, text=True)
+    if nm.returncode != 0:
+        error_exit('nm failed: ' + nm.stderr)
+    cuids = {l.split()[-1][len('__hip_cuid_'):] for l in nm.stdout.splitlines()
+             if ' __hip_cuid_' in l}
+    with tempfile.TemporaryDirectory() as tmp:
+        fatbin = os.path.join(tmp, 'dev.hipfb')
+        rc = subprocess.run([get_hipcc(), '-fgpu-rdc', '--cuda-device-only']
+                            + inputs + ['-o', fatbin]).returncode
+        if rc != 0:
+            return rc
+        if not os.path.exists(fatbin):
+            return new_driver_device_link(inputs, output)
+        # Define the symbols that -fgpu-rdc host objects leave undefined.
+        asm = ('.section .hip_fatbin,"a",@progbits\n.p2align 12\n'
+               f'__hip_fatbin:\n.incbin "{fatbin}"\n'
+               '.section .hip_gpubin_handle,"aw"\n.p2align 3\n'
+               '__hip_gpubin_handle:\n.zero 8\n')
+        for c in sorted(cuids):
+            for sym in ('fatbin', 'gpubin_handle'):
+                asm += (f'.globl __hip_{sym}_{c}\n.protected __hip_{sym}_{c}\n'
+                        f'.set __hip_{sym}_{c},__hip_{sym}\n')
+        asm += '.section .note.GNU-stack,"",@progbits\n'
+        asm_file = os.path.join(tmp, 'dev.s')
+        with open(asm_file, 'w') as f:
+            f.write(asm)
+        return subprocess.run([get_hipcc(), '-c', '-x', 'assembler', asm_file,
+                               '-o', output]).returncode
+
 def main():
     """Driver implementation.
     """
+    capture = os.environ.get('CUCC_DLINK_CAPTURE')
+    if capture:
+        sys.exit(capture_wrapper_object(capture, sys.argv[1:]))
+
     if os.environ.get('CHIP_CUCC_VERBOSE') == "1":
         print(f"cucc args: {' '.join(map(quote, sys.argv))}",
               file=sys.stderr)
@@ -320,6 +398,9 @@ def main():
 
     if known_args.default_stream == "per-thread":
         error_exit("per-thread stream function is not implemented.")
+
+    if known_args.device_link:
+        sys.exit(device_link(other_args))
 
     languages = determine_input_languages(other_args, known_args.x)
 
@@ -386,6 +467,7 @@ def main():
 
     # Handle relocatable device code and device compilation flags
     if (known_args.relocatable_device_code == 'true' or
+        known_args.rdc == 'true' or
         known_args.device_c or
         known_args.dc):
             hipcc_args.append("-fgpu-rdc")
