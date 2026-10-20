@@ -118,3 +118,10 @@ add_compile_test(NAME cucc-relocatable-device-code-true-compile
 set_tests_properties(cucc-relocatable-device-code-true-compile PROPERTIES
   ENVIRONMENT CHIP_CUCC_VERBOSE=1
   PASS_REGULAR_EXPRESSION "Executing: .*hipcc .*-fgpu-rdc.*-c.*")
+
+# cucc objects must link into a PIE executable.
+if(UNIX AND NOT APPLE)
+  add_test(NAME TestFix2045CuccPie
+    COMMAND bash -c "${CMAKE_BINARY_DIR}/bin/cucc -c hello.cu -o ${CMAKE_CURRENT_BINARY_DIR}/pie.o && ${CMAKE_BINARY_DIR}/bin/cucc -pie ${CMAKE_CURRENT_BINARY_DIR}/pie.o -o ${CMAKE_CURRENT_BINARY_DIR}/pie"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+endif()
