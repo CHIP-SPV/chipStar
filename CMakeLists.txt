@@ -1228,18 +1228,21 @@ install(TARGETS CHIP
   INCLUDES DESTINATION ${CHIP_CMAKE_INSTALL_INCLUDEDIR}
 )
 
-# libcuda.so and libcudart.so symlink to libCHIP.so; libcudadevrt.so and
+# libcuda and libcudart symlink to libCHIP; libcudadevrt.so and
 # libcudart_static.a are empty placeholders for find_package(CUDAToolkit).
-file(REMOVE "${CMAKE_BINARY_DIR}/libcuda.so")
-file(CREATE_LINK "libCHIP.so" "${CMAKE_BINARY_DIR}/libcuda.so" SYMBOLIC)
-file(REMOVE "${CMAKE_BINARY_DIR}/libcudart.so")
-file(CREATE_LINK "libCHIP.so" "${CMAKE_BINARY_DIR}/libcudart.so" SYMBOLIC)
+if(CHIP_BUILD_SHARED_LIBS)
+  set(CHIP_SO "${CMAKE_SHARED_LIBRARY_PREFIX}CHIP${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  foreach(cuda_lib cuda cudart)
+    set(cuda_link "${CMAKE_BINARY_DIR}/lib${cuda_lib}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    file(REMOVE "${cuda_link}")
+    file(CREATE_LINK "${CHIP_SO}" "${cuda_link}" SYMBOLIC)
+    install(FILES "${cuda_link}" DESTINATION ${CHIP_CMAKE_INSTALL_LIBDIR})
+  endforeach()
+endif()
 file(WRITE "${CMAKE_BINARY_DIR}/libcudadevrt.so" "")
 file(WRITE "${CMAKE_BINARY_DIR}/libcudart_static.a" "")
 
 install(FILES
-  "${CMAKE_BINARY_DIR}/libcuda.so"
-  "${CMAKE_BINARY_DIR}/libcudart.so"
   "${CMAKE_BINARY_DIR}/libcudadevrt.so"
   "${CMAKE_BINARY_DIR}/libcudart_static.a"
   DESTINATION ${CHIP_CMAKE_INSTALL_LIBDIR})
