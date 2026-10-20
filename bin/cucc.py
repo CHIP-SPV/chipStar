@@ -364,6 +364,10 @@ def main():
             # CMake infers CMAKE_CUDA_COMPILER_TOOLKIT_ROOT from this line.
             print(f"#$ TOP={get_hip_path()}")
 
+            # CMake fills CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES from this.
+            print(f'#$ INCLUDES="-I{get_cuda_include_dir()}" '
+                  f'"-I{get_hip_path()}/include"')
+
             # Contents of the LIBRARIES variable is used by CMake for locating
             # a 'link line'.
             print(f"#$ LIBRARIES= -L{get_cuda_library_dir()}")
