@@ -386,6 +386,7 @@ def main():
 
     # Handle relocatable device code and device compilation flags
     if (known_args.relocatable_device_code == 'true' or
+        known_args.rdc == 'true' or
         known_args.device_c or
         known_args.dc):
             hipcc_args.append("-fgpu-rdc")
