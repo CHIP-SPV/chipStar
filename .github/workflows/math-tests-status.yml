@@ -24,6 +24,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const { data: run } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: context.runId });
+            const { data: wf } = await github.rest.actions.getWorkflow({ owner, repo, workflow_id: run.workflow_id });
             const all = await github.paginate(github.rest.actions.listWorkflowRuns, {
               owner,
               repo,
@@ -40,7 +41,7 @@ jobs:
               repo,
               sha: run.head_sha,
               state: process.env.RESULT === 'success' ? 'success' : 'failure',
-              context: `math-tests / ${run.name}`,
+              context: `math-tests / ${wf.name}`,
               description: process.env.RESULT,
               target_url: run.html_url
             });
