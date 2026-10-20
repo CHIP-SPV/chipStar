@@ -105,7 +105,7 @@ add_test(NAME TestFix1635HostTarget
 set_tests_properties(TestFix1635HostTarget PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
-if(CHIP_BUILD_SHARED_LIBS)
+if(CHIP_BUILD_SHARED_LIBS AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
 # Reproduce #2042: CMake's CUDA language and find_package(CUDAToolkit) must
 # work with the installed cucc, with or without the toolchain file.
 add_test(NAME TestFix2042CMakeCuda

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.28)
 project(t LANGUAGES CXX CUDA)
 find_package(CUDAToolkit REQUIRED)
 add_executable(t t.cu)
