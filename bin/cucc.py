@@ -40,7 +40,7 @@ from typing import List, Set, Optional
 # TODO: Add an option or env-var for controlling the value of this.
 MASQUERADE_AS_NVCC = True
 DEFAULT_VERSION_BANNER = """\
-nvcc: CHIPSTAR Cuda compiler driver
+nvcc: NVIDIA (R) Cuda compiler driver
  V12.5.40"""
 DEFAULT_COMPUTE_CAPABILITY = 80
 
