@@ -241,15 +241,14 @@ def expand_options_file(path: str) -> List[str]:
         with open(path) as stream:
             lines = stream.readlines()
     except OSError as err:
-        warn(f"could not read options file '{path}': {err}")
-        return []
+        error_exit(f"could not read options file '{path}': {err}")
 
     opts : List[str] = []
     for line in lines:
         try:
             opts.extend(shlex.split(line, comments=True))
         except ValueError as err:
-            warn(f"could not parse options file '{path}': {err}")
+            error_exit(f"could not parse options file '{path}': {err}")
     return opts
 
 
