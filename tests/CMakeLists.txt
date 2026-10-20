@@ -96,3 +96,9 @@ add_test(NAME TestFix1635HostTarget
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1635HostTarget.cmake)
 set_tests_properties(TestFix1635HostTarget PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+add_test(NAME TestFix2047InstallPrefixSpace
+  COMMAND ${CMAKE_COMMAND}
+    -DBUILD_DIR=${CMAKE_BINARY_DIR}
+    -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2047InstallPrefixSpace
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2047InstallPrefixSpace.cmake)
