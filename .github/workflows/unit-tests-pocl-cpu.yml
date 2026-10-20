@@ -294,3 +294,13 @@ jobs:
         with: 
           name: build-and-check-${{ matrix.backend }}-pocl-${{ matrix.pocl-version }}-llvm-${{ matrix.llvm-version }}
           path: build/Testing/Temporary/LastTest.log
+
+  math-tests-status:
+    needs: chipstar
+    if: ${{ always() && inputs.math_tests }}
+    permissions:
+      actions: read
+      statuses: write
+    uses: ./.github/workflows/math-tests-status.yml
+    with:
+      result: ${{ needs.chipstar.result }}

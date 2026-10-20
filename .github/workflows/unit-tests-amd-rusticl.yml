@@ -121,3 +121,13 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/checkpy_*.txt
           if-no-files-found: ignore
+
+  math-tests-status:
+    needs: build-and-hipinfo
+    if: ${{ always() && inputs.math_tests }}
+    permissions:
+      actions: read
+      statuses: write
+    uses: ./.github/workflows/math-tests-status.yml
+    with:
+      result: ${{ needs.build-and-hipinfo.result }}

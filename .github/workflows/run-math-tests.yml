@@ -21,6 +21,7 @@ jobs:
     permissions:
       actions: write
       contents: read
+      statuses: write
       pull-requests: write
       issues: write
     steps:
@@ -50,6 +51,20 @@ jobs:
                 workflow_id,
                 ref: pr.data.head.ref,
                 inputs: { math_tests: 'true' }
+              });
+              const wf = await github.rest.actions.getWorkflow({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id
+              });
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: pr.data.head.sha,
+                state: 'pending',
+                context: `math-tests / ${wf.data.name}`,
+                description: 'running',
+                target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/workflows/${workflow_id}?query=` + encodeURIComponent(`branch:${pr.data.head.ref} event:workflow_dispatch`)
               });
             }
 

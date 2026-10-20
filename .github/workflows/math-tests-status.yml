@@ -1,47 +1,46 @@
 name: Math tests status
 
-# Mirrors each /run-math-tests run as a commit status on the PR head, linked
-# to the run.
+# Posts the final /run-math-tests result of a unit-tests workflow as a commit
+# status on the PR head, linked to the run.
 
 on:
-  workflow_run:
-    workflows:
-      - "Unit tests (x86 Intel GPU)"
-      - "Unit tests (macOS PoCL)"
-      - "Unit tests (PoCL CPU)"
-      - "Unit tests (RISC-V PoCL)"
-      - "Unit tests (AMD rusticl)"
-    types: [requested, in_progress, completed]
+  workflow_call:
+    inputs:
+      result:
+        required: true
+        type: string
 
 jobs:
   status:
-    if: github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.display_title == 'Math tests'
     runs-on: ubuntu-latest
-    concurrency:
-      group: math-tests-status-${{ github.event.workflow_run.workflow_id }}-${{ github.event.workflow_run.head_sha }}
     permissions:
       actions: read
       statuses: write
     steps:
       - uses: actions/github-script@v7
+        env:
+          RESULT: ${{ inputs.result }}
         with:
           script: |
-            const r = context.payload.workflow_run;
+            const { owner, repo } = context.repo;
+            const { data: run } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: context.runId });
             const all = await github.paginate(github.rest.actions.listWorkflowRuns, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: r.workflow_id,
-              head_sha: r.head_sha,
+              owner,
+              repo,
+              workflow_id: run.workflow_id,
+              head_sha: run.head_sha,
               event: 'workflow_dispatch'
             });
-            const cur = [...all, r].filter(x => x.display_title === r.display_title).reduce((a, b) => (b.id > a.id ? b : a));
-            const state = cur.status !== 'completed' ? 'pending' : (cur.conclusion === 'success' ? 'success' : 'failure');
+            if (all.some(x => x.display_title === run.display_title && x.id > run.id)) {
+              core.info('A newer math run owns the status; skipping.');
+              return;
+            }
             await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: r.head_sha,
-              state,
-              context: `math-tests / ${r.name}`,
-              description: state === 'pending' ? 'running' : cur.conclusion,
-              target_url: cur.html_url
+              owner,
+              repo,
+              sha: run.head_sha,
+              state: process.env.RESULT === 'success' ? 'success' : 'failure',
+              context: `math-tests / ${run.name}`,
+              description: process.env.RESULT,
+              target_url: run.html_url
             });
