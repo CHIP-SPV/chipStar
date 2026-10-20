@@ -372,10 +372,8 @@ def main():
             # a 'link line'.
             print(f"#$ LIBRARIES= -L{get_cuda_library_dir()}")
 
-            # The 'link line'. We use it to propagate chipStar's
-            # runtime link options. 'g++' is abritrarily chosen - it's included
-            # just in case for keeping CMake's link line parser happy.
-            print(f"#$ g++ -L{get_cuda_library_dir()} -lCHIP")
+            # The 'link line': CMake uses its first word as the link launcher.
+            print(f"#$ {get_hipcc()} -L{get_cuda_library_dir()} -lCHIP")
 
             # --verbose option is not propagated so CMake does not get
             # confused by the extra output from the hipcc.
