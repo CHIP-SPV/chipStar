@@ -145,11 +145,11 @@ Setting only the compiler also works:
 cmake -DCMAKE_CUDA_COMPILER=<chipStar-install-dir>/bin/cucc /path/to/your/cuda-project
 ```
 
-A target mixing `.c` or `.cpp` sources with `.cu` sources is linked by CMake
+A target that has `.cpp` sources besides its `.cu` sources is linked by CMake
 using the C++ compiler, which currently fails on non-PIE host objects
 ("relocation R_X86_64_32S ... recompile with -fPIE"). Either set
-`CMAKE_CXX_COMPILER` to chipStar's `clang++`, or add `-fPIE` to
-`CMAKE_CUDA_FLAGS`.
+`CMAKE_CXX_COMPILER` to the `clang++` of the LLVM chipStar was built with,
+or add `-fPIE` to `CMAKE_CUDA_FLAGS`.
 
 Without the toolchain file, a CUDA toolkit installed on the system may be
 picked up by `find_package(CUDAToolkit)` instead of chipStar's `libcudart`.
