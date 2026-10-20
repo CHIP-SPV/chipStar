@@ -304,9 +304,9 @@ def device_link(args: List[str]) -> int:
     """Device-link the .o/.a inputs into an object defining their fatbin symbols.
     """
     args = filter_args_for_hipcc(args)
-    inputs = [a for a in args if a.endswith(('.o', '.a'))]
     output = args[args.index('-o') + 1]
-    inputs = [a for a in inputs if a != output]
+    inputs = [a for a in args if not a.startswith('-') and
+              a.endswith(('.o', '.a')) and a != output]
     nm = subprocess.run(['nm'] + inputs, capture_output=True, text=True)
     if nm.returncode != 0:
         error_exit('nm failed: ' + nm.stderr)
