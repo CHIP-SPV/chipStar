@@ -368,6 +368,9 @@ def main():
             print(f'#$ INCLUDES="-I{get_cuda_include_dir()}" '
                   f'"-I{get_hip_path()}/include"')
 
+            # CMake parses the default architecture from '-arch compute_NN'.
+            print(f"#$ nvlink -arch compute_{DEFAULT_COMPUTE_CAPABILITY}")
+
             # Contents of the LIBRARIES variable is used by CMake for locating
             # a 'link line'.
             print(f"#$ LIBRARIES= -L{get_cuda_library_dir()}")
