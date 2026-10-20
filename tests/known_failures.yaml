@@ -917,6 +917,8 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     'Unit_Device_cos_Accuracy_Positive - float_MathsTest': 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     'Unit_Device_cosh_Accuracy_Positive - float_MathsTest': 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     'Unit_Device_cospi_Accuracy_Positive - float_MathsTest': 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
+    Unit_Device_cyl_bessel_i0_Accuracy_Limited_Positive_MathsTest: 'long double reference is only double precision on arm64 macOS, intermittent (#2051)'
+    Unit_Device_cyl_bessel_i1_Accuracy_Limited_Positive_MathsTest: 'long double reference is only double precision on arm64 macOS, intermittent (#2051)'
     'Unit_Device_erf_Accuracy_Positive - float_MathsTest': 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     'Unit_Device_erfc_Accuracy_Positive - float_MathsTest': 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     Unit_Device_erfcinvf_Accuracy_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
