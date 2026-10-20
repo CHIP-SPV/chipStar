@@ -282,15 +282,6 @@ def filter_args_for_hipcc(arg_list: List[str]) -> List[str]:
         if arg == "-forward-unknown-to-host-compiler":
             continue
 
-        if arg == "--options-file":
-            if i < len(arg_list):
-                filtered.extend(expand_options_file(arg_list[i]))
-                i += 1
-            continue
-        if arg.startswith("--options-file="):
-            filtered.extend(expand_options_file(arg[len("--options-file="):]))
-            continue
-
         # -Xcompiler takes the next token as its value. That value may be a
         # single option or a comma-separated list of host options; expand it
         # into individual flags instead of passing it through verbatim.
@@ -314,7 +305,18 @@ def main():
         print(f"cucc args: {' '.join(map(quote, sys.argv))}",
               file=sys.stderr)
 
-    known_args, other_args = prepare_argparser().parse_known_args()
+    # An options file is equivalent to its contents on the command line.
+    argv: List[str] = []
+    args_iter = iter(sys.argv[1:])
+    for arg in args_iter:
+        if arg == "--options-file":
+            argv.extend(expand_options_file(next(args_iter, "")))
+        elif arg.startswith("--options-file="):
+            argv.extend(expand_options_file(arg[len("--options-file="):]))
+        else:
+            argv.append(arg)
+
+    known_args, other_args = prepare_argparser().parse_known_args(argv)
 
     if known_args.default_stream == "per-thread":
         error_exit("per-thread stream function is not implemented.")
