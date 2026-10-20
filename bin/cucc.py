@@ -29,6 +29,7 @@
 import argparse
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -300,6 +301,41 @@ def filter_args_for_hipcc(arg_list: List[str]) -> List[str]:
 
     return filtered
 
+def new_driver_device_link(inputs: List[str], output: str) -> int:
+    """Copy clang-linker-wrapper's kernel registration object to output.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        wrapper = os.path.join(tmp, 'wrapper.o')
+        env = dict(os.environ, CUCC_DLINK_CAPTURE=wrapper)
+        rc = subprocess.run([get_hipcc(), '-fgpu-rdc',
+                             '-fuse-ld=' + os.path.realpath(__file__)]
+                            + inputs + ['-o', os.path.join(tmp, 'x')],
+                            env=env).returncode
+        if rc != 0:
+            return rc
+        if not os.path.exists(wrapper):
+            error_exit('-dlink: clang-linker-wrapper produced no '
+                       'registration object')
+        shutil.copy(wrapper, output)
+    return 0
+
+def capture_wrapper_object(capture: str, argv: List[str]) -> int:
+    """Act as the host linker: save the first linker-wrapper object seen.
+    """
+    args: List[str] = []
+    for a in argv:
+        if a.startswith('@'):
+            with open(a[1:]) as f:
+                args.extend(shlex.split(f.read()))
+        else:
+            args.append(a)
+    for a in args:
+        base = os.path.basename(a)
+        if '.image.wrapper' in base and base.endswith('.o'):
+            shutil.copy(a, capture)
+            return 0
+    return 1
+
 def device_link(args: List[str]) -> int:
     """Device-link the .o/.a inputs into an object defining their fatbin symbols.
     """
@@ -318,6 +354,8 @@ def device_link(args: List[str]) -> int:
                             + inputs + ['-o', fatbin]).returncode
         if rc != 0:
             return rc
+        if not os.path.exists(fatbin):
+            return new_driver_device_link(inputs, output)
         # Define the symbols that -fgpu-rdc host objects leave undefined.
         asm = ('.section .hip_fatbin,"a",@progbits\n.p2align 12\n'
                f'__hip_fatbin:\n.incbin "{fatbin}"\n'
@@ -337,6 +375,10 @@ def device_link(args: List[str]) -> int:
 def main():
     """Driver implementation.
     """
+    capture = os.environ.get('CUCC_DLINK_CAPTURE')
+    if capture:
+        sys.exit(capture_wrapper_object(capture, sys.argv[1:]))
+
     if os.environ.get('CHIP_CUCC_VERBOSE') == "1":
         print(f"cucc args: {' '.join(map(quote, sys.argv))}",
               file=sys.stderr)
