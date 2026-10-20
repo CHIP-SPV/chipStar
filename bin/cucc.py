@@ -308,6 +308,8 @@ def device_link(args: List[str]) -> int:
     output = args[args.index('-o') + 1]
     inputs = [a for a in inputs if a != output]
     nm = subprocess.run(['nm'] + inputs, capture_output=True, text=True)
+    if nm.returncode != 0:
+        error_exit('nm failed: ' + nm.stderr)
     cuids = {l.split()[-1][len('__hip_cuid_'):] for l in nm.stdout.splitlines()
              if ' __hip_cuid_' in l}
     with tempfile.TemporaryDirectory() as tmp:
