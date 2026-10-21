@@ -47,7 +47,8 @@ git config --global --add safe.directory '*' || true
 
 # The checkout is bind-mounted read-only; build out of tree.
 SRC="$WORK_DIR/src-$SHA"
-rm -rf "$SRC"; cp -a "$CHIPSTAR_DIR" "$SRC"
+# Content-compare, no -t: a file that differs from this tree's last build gets a fresh mtime.
+rsync -rlpc --delete "$CHIPSTAR_DIR/" "$SRC/"
 
 # ninja cannot see the compiler image, a new file that shadows an included one, nor
 # a dropped -D, toolchain *_INIT or CMake default, which only seed a fresh cache;
