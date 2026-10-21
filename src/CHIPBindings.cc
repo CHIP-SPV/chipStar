@@ -5174,6 +5174,21 @@ hipError_t hipMemcpyDtoH(void *Dst, hipDeviceptr_t Src, size_t SizeBytes) {
   CHIP_CATCH
 }
 
+// Rejects a fill that does not lie inside one allocation tracked by Dev.
+static chipstar::AllocationInfo *
+checkMemsetRange(chipstar::Device *Dev, const void *Dst, size_t SizeBytes) {
+  auto *AllocInfo = Dev->AllocTracker->getAllocInfo(Dst);
+  auto Fits = [&](const void *Base) {
+    auto Offset = uintptr_t(Dst) - uintptr_t(Base);
+    return Base && uintptr_t(Dst) >= uintptr_t(Base) &&
+           Offset < AllocInfo->Size && SizeBytes <= AllocInfo->Size - Offset;
+  };
+  if (!AllocInfo || !(Fits(AllocInfo->DevPtr) || Fits(AllocInfo->HostPtr)))
+    CHIPERR_LOG_AND_THROW("Memset range is outside of any allocation",
+                          hipErrorInvalidValue);
+  return AllocInfo;
+}
+
 static inline hipError_t hipMemsetAsyncInternal(void *Dst, int Value,
                                                 size_t SizeBytes,
                                                 hipStream_t Stream) {
@@ -5191,6 +5206,7 @@ static inline hipError_t hipMemsetAsyncInternal(void *Dst, int Value,
     return hipSuccess;
   }
 
+  checkMemsetRange(ChipQueue->getDevice(), Dst, SizeBytes);
   char CharVal = Value;
   ChipQueue->memFillAsync(Dst, SizeBytes, &CharVal, 1);
 
@@ -5383,13 +5399,7 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
 
   char CharVal = Value;
 
-  // Check if this pointer is registered
-  auto AllocTracker = Backend->getActiveDevice()->AllocTracker;
-  auto AllocInfo = AllocTracker->getAllocInfo(Dst);
-
-  if (!AllocInfo)
-    CHIPERR_LOG_AND_THROW("AllocInfo not found for the given pointer",
-                          hipErrorInvalidValue);
+  auto AllocInfo = checkMemsetRange(Backend->getActiveDevice(), Dst, SizeBytes);
 
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
                                                          &CharVal, 1);
@@ -5470,6 +5480,7 @@ hipError_t hipMemsetD8Async(hipDeviceptr_t Dest, unsigned char Value,
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
     RETURN(hipSuccess);
 
+  checkMemsetRange(ChipQueue->getDevice(), Dest, Count);
   ChipQueue->memFillAsync(Dest, 1 * Count, &Value, 1);
   RETURN(hipSuccess);
 
@@ -5512,6 +5523,7 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
     RETURN(hipSuccess);
 
+  checkMemsetRange(ChipQueue->getDevice(), Dest, 2 * Count);
   ChipQueue->memFillAsync(Dest, 2 * Count, &Value, 2);
   RETURN(hipSuccess);
 
@@ -5525,6 +5537,7 @@ hipError_t hipMemsetD16(hipDeviceptr_t Dest, unsigned short Value,
   if (!Count)
     return hipSuccess;
   NULLCHECK(Dest);
+  checkMemsetRange(Backend->getActiveDevice(), Dest, 2 * Count);
 
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dest, 2 * Count,
                                                          &Value, 2);
@@ -5553,6 +5566,7 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
     RETURN(hipSuccess);
 
+  checkMemsetRange(ChipQueue->getDevice(), Dst, 4 * Count);
   ChipQueue->memFillAsync(Dst, 4 * Count, &Value, 4);
   RETURN(hipSuccess);
 
@@ -5566,6 +5580,7 @@ hipError_t hipMemsetD32(hipDeviceptr_t Dst, int Value, size_t Count) {
   if (!Count)
     return hipSuccess;
   NULLCHECK(Dst);
+  checkMemsetRange(Backend->getActiveDevice(), Dst, 4 * Count);
 
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, 4 * Count, &Value,
                                                          4);
