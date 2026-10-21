@@ -2298,6 +2298,20 @@ protected:
 
 	}
       }
+      // The two default streams also order against each other.
+      chipstar::Queue *OtherDefault =
+          this->isDefaultLegacyQueue()
+              ? (ChipDevice_->isPerThreadStreamUsedNoLock()
+                     ? ChipDevice_->getPerThreadDefaultQueueNoLock()
+                     : nullptr)
+              : ChipDevice_->getLegacyDefaultQueue();
+      if (OtherDefault && OtherDefault != this && !OtherDefault->isEmptyQueue()) {
+        std::shared_ptr<chipstar::Event> ChipMarkerEvent;
+        EventHandle handle = CreateMarkerInQueue(OtherDefault, ChipMarkerEvent);
+        EventHandles.push_back(handle);
+        BackendPtr->trackEvent(ChipMarkerEvent);
+        MarkerEvents.push_back(ChipMarkerEvent);
+      }
     } else if (this->getQueueFlags().isBlocking()) {
       // This is a blocking queue, sync with default streams
       // Create marker for legacy default stream
