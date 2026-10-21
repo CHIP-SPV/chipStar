@@ -1012,6 +1012,17 @@ file(GLOB_RECURSE CHIP_COPIED_HEADERS CONFIGURE_DEPENDS
      ${CMAKE_SOURCE_DIR}/HIP/include/* ${CMAKE_SOURCE_DIR}/include/*)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
              ${CHIP_COPIED_HEADERS})
+# Remove copies whose source header is gone; the listed files are generated.
+file(GLOB_RECURSE _built_headers RELATIVE ${CMAKE_BINARY_DIR}/include
+     ${CMAKE_BINARY_DIR}/include/*)
+list(REMOVE_ITEM _built_headers chipStarConfig.hh hip/hip_version.h
+     rocm_version.h rocm-core/rocm_version.h)
+foreach(_h IN LISTS _built_headers)
+  if(NOT EXISTS ${CMAKE_SOURCE_DIR}/HIP/include/${_h} AND
+     NOT EXISTS ${CMAKE_SOURCE_DIR}/include/${_h})
+    file(REMOVE ${CMAKE_BINARY_DIR}/include/${_h})
+  endif()
+endforeach()
 file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/
      DESTINATION ${CMAKE_BINARY_DIR}/include)
 file(COPY ${CMAKE_SOURCE_DIR}/include/
