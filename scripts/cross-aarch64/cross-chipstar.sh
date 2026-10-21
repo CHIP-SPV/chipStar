@@ -116,10 +116,9 @@ for f in hipcc.bin hipconfig.bin; do cmp -s "$NATIVE/bin/$f" "$CROSS/bin/$f" || 
 # append is applied (:878), so a test that hipcc links directly still
 # reaches for the host's /usr/bin/ld. Until that is fixed in HIPCC, wrap
 # hipcc so the retarget flags are on every invocation regardless of path.
-ln -sf hipcc.bin "$CROSS/bin/hipcc.real"
 cat > "$CROSS/bin/hipcc.wrap" <<WRAP
 #!/bin/sh
-exec "$CROSS/bin/hipcc.real" "\$@" $HIPCC_LINK_FLAGS_APPEND
+exec "$CROSS/bin/hipcc.bin" "\$@" $HIPCC_LINK_FLAGS_APPEND
 WRAP
 chmod +x "$CROSS/bin/hipcc.wrap"
 cmp -s "$CROSS/bin/hipcc.wrap" "$CROSS/bin/hipcc" && rm "$CROSS/bin/hipcc.wrap" || mv -f "$CROSS/bin/hipcc.wrap" "$CROSS/bin/hipcc"
