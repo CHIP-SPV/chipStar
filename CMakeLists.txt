@@ -573,7 +573,7 @@ endif()
 add_subdirectory(llvm_passes)
 # Shared LLVM libraries that device code compilation loads; bitcode commands depend on them.
 set(CHIP_LLVM_SHARED_LIBS)
-foreach(_lib libLLVM.so libclang-cpp.so)
+foreach(_lib libLLVM${CMAKE_SHARED_LIBRARY_SUFFIX} libclang-cpp${CMAKE_SHARED_LIBRARY_SUFFIX})
   if(EXISTS ${LLVM_LIBRARY_DIR}/${_lib})
     file(REAL_PATH ${LLVM_LIBRARY_DIR}/${_lib} _real)
     list(APPEND CHIP_LLVM_SHARED_LIBS ${_real})
