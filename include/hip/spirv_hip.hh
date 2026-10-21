@@ -30,6 +30,8 @@
 #include <stdlib.h>
 #if __cplusplus >= 201103L
 #include <thread>
+#include <tuple>
+#include <type_traits>
 #endif
 
 #include <hip/driver_types.h>
@@ -93,6 +95,42 @@ typedef int hipLaunchParm;
 
 #define hipLaunchKernelGGL(kernelName, ...)                                    \
   hipLaunchKernelGGLInternal((kernelName), __VA_ARGS__)
+
+// Argument packing for hipExtLaunchKernelGGL in hip_ext.h, as in clr's
+// amd_hip_runtime.h.
+template <std::size_t n, typename... Ts,
+          typename std::enable_if<n == sizeof...(Ts)>::type * = nullptr>
+void pArgs(const std::tuple<Ts...> &, void *) {}
+
+template <std::size_t n, typename... Ts,
+          typename std::enable_if<n != sizeof...(Ts)>::type * = nullptr>
+void pArgs(const std::tuple<Ts...> &formals, void **_vargs) {
+  using T = typename std::tuple_element<n, std::tuple<Ts...>>::type;
+  static_assert(!std::is_reference<T>{}, "A __global__ function cannot have a "
+                                         "reference as one of its arguments.");
+  // __builtin_addressof: an overloaded operator& must not redirect the argument.
+  _vargs[n] = const_cast<void *>(
+      static_cast<const void *>(__builtin_addressof(std::get<n>(formals))));
+  return pArgs<n + 1>(formals, _vargs);
+}
+
+#ifdef __HIP_DEVICE_COMPILE__
+// Kernel pointers carry the device_kernel calling convention here; the host
+// pass does the check.
+template <typename F, typename... Actuals>
+std::tuple<Actuals...> validateArgsCountType(F, std::tuple<Actuals...> actuals) {
+  return actuals;
+}
+#else
+template <typename... Formals, typename... Actuals>
+std::tuple<Formals...> validateArgsCountType(void (*kernel)(Formals...),
+                                             std::tuple<Actuals...>(actuals)) {
+  static_assert(sizeof...(Formals) == sizeof...(Actuals),
+                "Argument Count Mismatch");
+  std::tuple<Formals...> to_formals{std::move(actuals)};
+  return to_formals;
+}
+#endif
 
 #pragma push_macro("__DEVICE__")
 #define __DEVICE__ static __device__ __forceinline__
