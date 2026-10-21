@@ -6,9 +6,9 @@ name: Unit tests (ARM64 Mali)
 # happens on an x86 runner in a container and only the tests run on salami.
 # Both SPIR-V producers are covered; each is a separate cross build.
 #
-# One tree per runner and variant, on the builder and on salami, reused and
-# rebuilt incrementally. The salami test runs in the same job, so no other job
-# can overwrite the tree in between.
+# One tree per runner and variant, on the builder and on salami, rebuilt from
+# scratch each run. The salami test runs in the same job, so no other job can
+# overwrite the tree in between.
 # See scripts/cross-aarch64/README.md for how the cross build works and
 # which tests it deliberately leaves to the x86 gate.
 
@@ -123,19 +123,20 @@ jobs:
               -E '^(TestHipccAcceptCFiles|TestRDCWithSingleHipccCmd|TestRDCWithMultipleHipccCmds|TestWholeProgramCompilation|TestSeparateCompilation|TestBFloat16RDC|TestPrintfStaticString|TestStaticLibRDC|TestStaticLibRDCOffloadArch|hipSubwordAtomics-subword-atomics|hipVolatileAccesses-volatile-accesses|TestSpirvDuplicatePhiHip)$'
         timeout-minutes: 10
 
-      - name: Test igpu opencl on salami (${{ matrix.variant }})
+      - id: mali
+        name: Test igpu opencl on salami (${{ matrix.variant }})
         run: |
           set -euo pipefail
           ssh -tt salami "cd ~/ci-stage/$TREE && rm -rf ~/.cache/chipStar && nt=\$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc) && CHIP_MODULE_CACHE_DIR= CHIP_LOGLEVEL=err POCL_KERNEL_CACHE=0 LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl --num-threads=\$nt --timeout=1800"
         timeout-minutes: 30
 
       - name: Fetch salami logs
-        if: failure()
+        if: failure() && steps.mali.outcome == 'failure'
         run: |
           rsync -a -m --include='*/' --include='checkpy_*.txt' --include='LastTest.log' --exclude='*' "salami:ci-stage/$TREE/" salami-logs/ || true
 
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && steps.mali.outcome == 'failure'
         with:
           name: test-logs-salami-${{ matrix.variant }}
           path: salami-logs
