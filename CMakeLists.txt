@@ -666,6 +666,8 @@ endif()
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/hipInfo
   COMMAND ${HIPCC_BUILD_PATH}/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp -o ${CMAKE_BINARY_DIR}/hipInfo
+    -MD -MF ${CMAKE_BINARY_DIR}/hipInfo.d -MT ${CMAKE_BINARY_DIR}/hipInfo
+  DEPFILE ${CMAKE_BINARY_DIR}/hipInfo.d
   DEPENDS ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp hipcc.bin CHIP devicelib_bc
     ${HIP_DEVICE_TOOLCHAIN_STAMP}
 )

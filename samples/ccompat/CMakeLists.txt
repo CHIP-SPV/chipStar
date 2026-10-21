@@ -1,15 +1,17 @@
 add_custom_command(
-  OUTPUT saxpy.o DEPENDS ${CMAKE_SOURCE_DIR}/samples/ccompat/saxpy.hip
+  OUTPUT saxpy.o DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/saxpy.o.d DEPENDS ${CMAKE_SOURCE_DIR}/samples/ccompat/saxpy.hip
   ${HIP_DEVICE_TOOLCHAIN_STAMP}
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_SOURCE_DIR}/samples/ccompat/saxpy.hip -c -g -pthread
-  -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/HIP/include)
+  -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/HIP/include
+  -MD -MF ${CMAKE_CURRENT_BINARY_DIR}/saxpy.o.d -MT ${CMAKE_CURRENT_BINARY_DIR}/saxpy.o)
 
 add_custom_command(
-  OUTPUT ccompat.o DEPENDS ${CMAKE_SOURCE_DIR}/samples/ccompat/ccompat.c
+  OUTPUT ccompat.o DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/ccompat.o.d DEPENDS ${CMAKE_SOURCE_DIR}/samples/ccompat/ccompat.c
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_SOURCE_DIR}/samples/ccompat/ccompat.c -c -g -pthread
-  -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/HIP/include)
+  -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/HIP/include
+  -MD -MF ${CMAKE_CURRENT_BINARY_DIR}/ccompat.o.d -MT ${CMAKE_CURRENT_BINARY_DIR}/ccompat.o)
 
 add_custom_command(
 OUTPUT ccompat DEPENDS ccompat.o saxpy.o
