@@ -616,14 +616,24 @@ unset(_hip_ver_patch)
 # utility target is waited on completely, and so is every target it
 # depends on.
 #
-# HIP objects list this stamp in their depfile, so a device library or pass
-# plugin, hipcc or .hipInfo change recompiles them.
+# HIP objects list this stamp in their depfile, so a device library, pass
+# plugin, LLVM tool, hipcc or .hipInfo change recompiles them.
 set(HIP_DEVICE_TOOLCHAIN_STAMP ${CMAKE_BINARY_DIR}/hip_device_toolchain.stamp)
+# LLVM executables hipcc runs to emit device code.
+set(HIP_DEVICE_LLVM_TOOLS)
+foreach(_tool clang clang++ llvm-link opt llvm-spirv-${LLVM_VERSION_MAJOR} llvm-spirv
+    clang-offload-bundler llvm-objcopy llvm-offload-binary clang-linker-wrapper)
+  if(EXISTS ${CLANG_ROOT_PATH_BIN}/${_tool})
+    list(APPEND HIP_DEVICE_LLVM_TOOLS ${CLANG_ROOT_PATH_BIN}/${_tool})
+  endif()
+endforeach()
+unset(_tool)
 add_custom_command(OUTPUT ${HIP_DEVICE_TOOLCHAIN_STAMP}
   COMMAND ${CMAKE_COMMAND} -E touch ${HIP_DEVICE_TOOLCHAIN_STAMP}
   DEPENDS $<TARGET_FILE:LLVMHipPasses> $<TARGET_FILE:hipcc.bin>
     ${CMAKE_BINARY_DIR}/share/.hipInfo
     ${CMAKE_BINARY_DIR}/lib/hip-device-lib/hipspv-${OFFLOAD_TRIPLE}.bc
+    ${HIP_DEVICE_LLVM_TOOLS}
   VERBATIM)
 add_custom_target(hip_device_toolchain DEPENDS ${HIP_DEVICE_TOOLCHAIN_STAMP})
 add_dependencies(hip_device_toolchain LLVMHipPasses devicelib_bc hipcc.bin)

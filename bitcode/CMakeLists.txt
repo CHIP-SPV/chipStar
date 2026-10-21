@@ -115,7 +115,7 @@ list(TRANSFORM OCML_LIBS REPLACE "(.+)" "$<TARGET_PROPERTY:\\1,OUTPUT_NAME>"
 # devicelib
 add_custom_command(
   OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
-  DEPENDS ${DEPEND_LIST} ${OCML_LIBS} ${OCML_LIB_OUTPUTS}
+  DEPENDS ${DEPEND_LIST} ${OCML_LIBS} ${OCML_LIB_OUTPUTS} "${LLVM_LINK}"
   COMMAND ${CMAKE_COMMAND} -E make_directory
   "${CMAKE_BINARY_DIR}/${BC_DESTINATION}"
   COMMAND "${LLVM_LINK}"
@@ -235,7 +235,7 @@ function(embed_spirv_in_cpp
     # External llvm-spirv translator
     add_custom_command(
       OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
-      DEPENDS "${BC_SOURCE}" "${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash"
+      DEPENDS "${BC_SOURCE}" "${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash" "${LLVM_SPIRV}"
       BYPRODUCTS "${SPIR_BINARY}"
       COMMAND "${LLVM_SPIRV}"
       --spirv-ext=${SPIRV_EXTENSIONS}
