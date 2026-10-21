@@ -2357,11 +2357,27 @@ CHIPQueueOpenCL::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   } else {
     logTrace("clSVMmemfill {} / {} B\n", Dst, Size);
     Ctx->unmapManagedForDevice(get()->get());
+    // WORKAROUND(CHIP-SPV/chipStar#1969, no upstream report): the oneAPI
+    // 2024.1 CPU OpenCL runtime reads the pattern after clEnqueueSVMMemFill
+    // returns. Remove when the oneAPI 2025.0 CPU OpenCL runtime is the minimum.
+    auto *PatternCopy = new std::vector<char>(
+        static_cast<const char *>(Pattern),
+        static_cast<const char *>(Pattern) + PatternSize);
     int Retval = ::clEnqueueSVMMemFill(
-        get()->get(), Dst, Pattern, PatternSize, Size,
+        get()->get(), Dst, PatternCopy->data(), PatternSize, Size,
         SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
         std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativePtr());
+    if (Retval != CL_SUCCESS)
+      delete PatternCopy;
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueSVMMemFill);
+    Retval = clSetEventCallback(
+        std::static_pointer_cast<CHIPEventOpenCL>(Event)->getNativeRef(),
+        CL_COMPLETE,
+        [](cl_event, cl_int, void *P) {
+          delete static_cast<std::vector<char> *>(P);
+        },
+        PatternCopy);
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
   }
 
   return Event;
