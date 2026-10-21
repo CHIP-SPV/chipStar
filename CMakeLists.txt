@@ -676,6 +676,9 @@ add_custom_target(hipInfoBin ALL
   DEPENDS ${CMAKE_BINARY_DIR}/hipInfo
 )
 
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
+  ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py)
 execute_process(
   COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/manage_known_failures.py
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/known_failures.yaml
