@@ -1,5 +1,10 @@
 # hiptest
 
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/strings.xstdout
+  ${CMAKE_CURRENT_SOURCE_DIR}/nop_printfs.xstdout
+  ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_str_args.xstdout)
+
 file(READ strings.xstdout STRINGS_XSTDOUT)
 add_chip_test(strings PrintfSimple ${STRINGS_XSTDOUT} strings.cc)
 
