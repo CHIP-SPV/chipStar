@@ -212,7 +212,7 @@ function(embed_spirv_in_cpp
     # In-tree SPIR-V backend via clang
     add_custom_command(
       OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
-      DEPENDS "${BC_SOURCE}"
+      DEPENDS "${BC_SOURCE}" "${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash"
       BYPRODUCTS "${SPIR_BINARY}"
       # NOTE: the triple must NOT carry the "chipstar" OS component here.
       # spirv64vX-unknown-chipstar selects the HIPSPV toolchain, whose -c
@@ -235,7 +235,7 @@ function(embed_spirv_in_cpp
     # External llvm-spirv translator
     add_custom_command(
       OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
-      DEPENDS "${BC_SOURCE}"
+      DEPENDS "${BC_SOURCE}" "${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash"
       BYPRODUCTS "${SPIR_BINARY}"
       COMMAND "${LLVM_SPIRV}"
       --spirv-ext=${SPIRV_EXTENSIONS}
