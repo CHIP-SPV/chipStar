@@ -88,6 +88,9 @@ add_hipcc_test(TestAPIObjects.hip HIPCC_OPTIONS -c)
 # Calls HipPrintf builds must use their callee's convention (#1677).
 add_shell_test(TestFix1677PrintfCallConv.bash)
 
+# __threadfence* must fence local and global memory, seq_cst (#1453).
+add_shell_test(TestFix1453ThreadfenceAllSpaces.bash)
+
 # Test the hip_runtime.h header compiles in C++ mode. If the test
 # passes - the header probably is compilable by other regular C++
 # compilers too (e.g. g++).
