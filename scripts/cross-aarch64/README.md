@@ -152,7 +152,7 @@ docker run --rm -v $PWD/scripts/cross-aarch64:/s:ro -v $WORK:/work chipstar-cros
 mkdir -p $WORK/image-ctx/opt && cp -a $WORK/x86-stage/opt/* $WORK/spirv-stage/opt/* $WORK/image-ctx/opt/
 TAG=$(scripts/cross-aarch64/image-tag.sh)
 docker build -f scripts/cross-aarch64/Dockerfile.chipstar -t chipstar-cross-aarch64:$TAG $WORK/image-ctx
-docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:$TAG \
+docker run --rm -e CROSS_IMAGE=chipstar-cross-aarch64:$TAG -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:$TAG \
   /chipstar/scripts/cross-aarch64/cross-chipstar.sh <tree>
 scripts/cross-aarch64/ship-to-salami.sh $WORK/cross-<tree> <tree>
 ssh salami "cd ci-stage/<tree> && LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl"
