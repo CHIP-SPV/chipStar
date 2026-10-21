@@ -1158,7 +1158,7 @@ set(_versionInfoHeader
 #define __HIP_HAS_GET_PCH ${_pchStatus}\n
 #endif\n
 ")
-file(WRITE "${PROJECT_BINARY_DIR}/include/hip/hip_version.h" ${_versionInfoHeader})
+file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/include/hip/hip_version.h" CONTENT "${_versionInfoHeader}" @ONLY)
 install(FILES "${PROJECT_BINARY_DIR}/include/hip/hip_version.h"
   DESTINATION ${INCLUDE_INSTALL_DIR}/hip)
 
@@ -1183,8 +1183,8 @@ set(_rocmVersionHeader
 #define ROCM_VERSION_PATCH ${HIP_VERSION_PATCH}\n
 #endif\n
 ")
-file(WRITE "${PROJECT_BINARY_DIR}/include/rocm_version.h" ${_rocmVersionHeader})
-file(WRITE "${PROJECT_BINARY_DIR}/include/rocm-core/rocm_version.h" ${_rocmVersionHeader})
+file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/include/rocm_version.h" CONTENT "${_rocmVersionHeader}" @ONLY)
+file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/include/rocm-core/rocm_version.h" CONTENT "${_rocmVersionHeader}" @ONLY)
 install(FILES "${PROJECT_BINARY_DIR}/include/rocm_version.h"
   DESTINATION ${INCLUDE_INSTALL_DIR})
 install(FILES "${PROJECT_BINARY_DIR}/include/rocm-core/rocm_version.h"
