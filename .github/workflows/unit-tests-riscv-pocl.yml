@@ -7,6 +7,7 @@ run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore: "docs/**"
   workflow_dispatch:
     inputs:
@@ -21,6 +22,7 @@ concurrency:
 
 jobs:
   build-and-test:
+    if: ${{ !github.event.pull_request.draft }}
     name: chipStar unit tests (RISC-V, LLVM 23, native + translator)
     runs-on: [self-hosted, riscv64, k3]
     env:

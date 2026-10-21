@@ -12,6 +12,7 @@ run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore: "docs/**"
   workflow_dispatch:
     inputs:
@@ -26,6 +27,7 @@ concurrency:
 
 jobs:
   chipstar-unit-tests:
+    if: ${{ !github.event.pull_request.draft }}
     name: chipStar unit tests (LLVM 23, native + translator)
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: ${{ inputs.math_tests && 720 || 360 }}
