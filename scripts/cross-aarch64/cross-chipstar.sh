@@ -29,7 +29,7 @@
 #   STAGE_PREFIX   install prefix ON SALAMI, must be identical to where the
 #                  tree will be rsync'd: it is baked into RPATH and .hipInfo
 #                  (default /home/pvelesko/ci-stage/<tree>)
-#   CROSS_IMAGE    image tag, part of the stamp that forces a clean rebuild
+#   CROSS_IMAGE    image ID or tag, part of the stamp that forces a clean rebuild
 # Output: $WORK_DIR/cross-<tree>, ready for ship-to-salami.sh.
 set -e
 SHA="${1:?usage: cross-chipstar.sh <tree> [jobs]}"
@@ -49,10 +49,12 @@ git config --global --add safe.directory '*' || true
 SRC="$WORK_DIR/src-$SHA"
 rm -rf "$SRC"; cp -a "$CHIPSTAR_DIR" "$SRC"
 
-# ninja cannot see the compiler image, nor a dropped -D, toolchain *_INIT or
-# option()/CACHE default, which only seed a fresh cache; any change wipes both builds.
-STAMP=$( { echo "${CROSS_IMAGE:-}"; cat "$HERE/cross-chipstar.sh" "$HERE/chipstar-aarch64-toolchain.cmake"
-  git -C "$SRC" grep -h --recurse-submodules -E 'option\(| CACHE ' -- '*CMakeLists.txt' '*.cmake'; } | sha256sum )
+# ninja cannot see the compiler image, a header that newly shadows another, nor a
+# dropped -D, toolchain *_INIT or CMake default, which only seed a fresh cache;
+# any change wipes both builds.
+STAMP=$(set -eo pipefail; { echo "${CROSS_IMAGE:-}"; cat "$HERE/cross-chipstar.sh" "$HERE/chipstar-aarch64-toolchain.cmake"
+  git -C "$SRC" ls-files --recurse-submodules -- '*.h' '*.hh' '*.hpp' '*.cuh' '*.inc'
+  git -C "$SRC" ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | (cd "$SRC" && xargs -0 cat); } | sha256sum)
 [ "$(cat "$WORK_DIR/stamp-$SHA" 2>/dev/null)" = "$STAMP" ] || rm -rf "$WORK_DIR/native-$SHA" "$WORK_DIR/cross-$SHA" "$WORK_DIR/stamp-$SHA"
 
 # --- pass 1: native x86 build of the tools the aarch64 build must RUN -----
