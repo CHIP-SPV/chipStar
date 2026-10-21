@@ -1,0 +1,122 @@
+name: Run app tests (/run-app-tests)
+
+# chipStar plus every downstream library with its tests, and the zeroRK and
+# OpenSn checks, on an Intel discrete GPU under Level Zero and OpenCL. Run it
+# from the Actions tab, or comment /run-app-tests on a pull request to get an
+# app-tests status on its head commit.
+#
+# Runner needs: modules oneapi/2025.0.4 and llvm/23.0, kernel journal access
+# (adm group), fuser, curl, sha256sum, git over ssh to github.com, OpenMPI, gfortran, and on Ubuntu libgtest-dev
+# libgmock-dev libblas-dev liblapack-dev libboost-dev pybind11-dev.
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to test (overrides ref)
+        required: false
+      ref:
+        description: Branch, tag or sha to test, by default the dispatched branch
+        required: false
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  # Runs on GitHub's hosted runners: the job below executes the tested tree's code, so it never holds the write token.
+  resolve:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request &&
+       (github.event.comment.body == '/run-app-tests' ||
+        startsWith(github.event.comment.body, '/run-app-tests ') ||
+        startsWith(github.event.comment.body, fromJSON('"/run-app-tests\n"')) ||
+        startsWith(github.event.comment.body, fromJSON('"/run-app-tests\r"'))) &&
+       contains(fromJSON('["colleeneb", "pvelesko"]'), github.event.comment.user.login))
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      pull-requests: write
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+    env:
+      PR: ${{ github.event.issue.number || inputs.pr }}
+      REF: ${{ inputs.ref }}
+    steps:
+      - name: Resolve the commit to test
+        id: target
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = process.env.PR;
+            if (!pr) return core.setOutput('sha', process.env.REF || context.sha);
+            const { data } = await github.rest.pulls.get({ ...context.repo, pull_number: Number(pr) });
+            core.setOutput('sha', data.head.sha);
+            await github.rest.repos.createCommitStatus({
+              ...context.repo, sha: data.head.sha, state: 'pending', context: 'app-tests',
+              description: 'libraries and apps running',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+            if (context.eventName === 'issue_comment')
+              await github.rest.reactions.createForIssueComment({
+                ...context.repo, comment_id: context.payload.comment.id, content: 'rocket',
+              });
+
+  run:
+    needs: resolve
+    runs-on: [self-hosted, intel-dgpu]
+    timeout-minutes: 1440
+    permissions:
+      contents: read
+    concurrency:
+      group: libs-apps
+      queue: max
+    steps:
+      # The script comes from the default or dispatched branch, so it can test PRs older than it.
+      - uses: actions/checkout@v4
+        with:
+          path: ci
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: src
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: recursive
+      # The job owns the machine; the script's load-based default would shrink by the previous job's load.
+      - name: Build and test
+        run: |
+          jobs=$(awk -v n="$(nproc)" '/^MemTotal/ { j = int($2 / 3145728); if (n - 1 < j) j = n - 1; print (j < 1 ? 1 : j) }' /proc/meminfo)
+          ci/scripts/ci/libs-apps.sh -s src -w "${{ runner.temp }}/libs-apps" -j "$jobs"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: libs-apps-logs
+          path: |
+            ${{ runner.temp }}/libs-apps/summary.txt
+            ${{ runner.temp }}/libs-apps/logs
+
+  report:
+    needs: [resolve, run]
+    if: always() && needs.resolve.outputs.sha != '' && (github.event.issue.number || inputs.pr)
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          RESULT: ${{ needs.run.result }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+        with:
+          script: |
+            const ok = process.env.RESULT === 'success';
+            const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // A newer request on this commit owns the status.
+            const { data } = await github.rest.repos.getCombinedStatusForRef({ ...context.repo, ref: process.env.SHA });
+            if (data.statuses.find(s => s.context === 'app-tests')?.target_url !== url) return;
+            await github.rest.repos.createCommitStatus({
+              ...context.repo, sha: process.env.SHA, state: ok ? 'success' : 'failure',
+              context: 'app-tests', description: ok ? 'libraries and apps pass' : 'see summary.txt in the run artifacts',
+              target_url: url,
+            });
