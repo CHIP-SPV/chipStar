@@ -35,9 +35,9 @@ jobs:
             integrated_spirv: "ON"
           - variant: translator
             integrated_spirv: "OFF"
-    env:
-      TREE: ${{ runner.name }}-${{ matrix.variant }}
     steps:
+      - run: echo "TREE=$RUNNER_NAME-${{ matrix.variant }}" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
