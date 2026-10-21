@@ -51,8 +51,9 @@ rm -rf "$SRC"; cp -a "$CHIPSTAR_DIR" "$SRC"
 
 # ninja cannot see the compiler image or the CMake option defaults and
 # toolchain *_INIT values that only seed a fresh cache; any change wipes both builds.
-STAMP=$( { echo "${CROSS_IMAGE:-}"; git -C "$SRC" ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | (cd "$SRC" && xargs -0 cat); } | sha256sum )
-[ "$(cat "$WORK_DIR/stamp-$SHA" 2>/dev/null)" = "$STAMP" ] || rm -rf "$WORK_DIR/native-$SHA" "$WORK_DIR/cross-$SHA"
+STAMP=$( { echo "${CROSS_IMAGE:-}"; git -C "$SRC" ls-files --recurse-submodules -- '*.h' '*.hh' '*.hpp' '*.cuh' '*.inc'
+  git -C "$SRC" ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | (cd "$SRC" && xargs -0 cat); } | sha256sum )
+[ "$(cat "$WORK_DIR/stamp-$SHA" 2>/dev/null)" = "$STAMP" ] || rm -rf "$WORK_DIR/native-$SHA" "$WORK_DIR/cross-$SHA" "$WORK_DIR/stamp-$SHA"
 
 # --- pass 1: native x86 build of the tools the aarch64 build must RUN -----
 # chipStar builds four things and then executes them during its own build:
