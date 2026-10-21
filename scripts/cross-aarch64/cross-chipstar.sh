@@ -21,17 +21,18 @@
 # The only non-stock library the aarch64 link needs is libmali.so.0, salami's
 # OpenCL implementation, satisfied by the empty stub from libmali-stub/.
 #
-# Usage (inside the container):  cross-chipstar.sh <sha> [jobs]
+# Usage (inside the container):  cross-chipstar.sh <tree> [jobs]
 # Environment:
 #   CHIPSTAR_DIR   chipStar checkout                 (default /chipstar)
 #   WORK_DIR       scratch                           (default /work)
 #   X86_LLVM       x86-hosted LLVM 23 with AArch64   (default /opt/llvm-x86-aarch64)
 #   STAGE_PREFIX   install prefix ON SALAMI, must be identical to where the
 #                  tree will be rsync'd: it is baked into RPATH and .hipInfo
-#                  (default /home/pvelesko/ci-stage/<sha>)
-# Output: $WORK_DIR/stage$STAGE_PREFIX, ready to rsync to salami:$STAGE_PREFIX.
+#                  (default /home/pvelesko/ci-stage/<tree>)
+#   CROSS_IMAGE    image tag, part of the stamp that forces a clean rebuild
+# Output: $WORK_DIR/cross-<tree>, ready for ship-to-salami.sh.
 set -e
-SHA="${1:?usage: cross-chipstar.sh <sha> [jobs]}"
+SHA="${1:?usage: cross-chipstar.sh <tree> [jobs]}"
 JOBS="${2:-$(nproc)}"
 CHIPSTAR_DIR="${CHIPSTAR_DIR:-/chipstar}"
 WORK_DIR="${WORK_DIR:-/work}"
@@ -48,6 +49,11 @@ git config --global --add safe.directory '*' || true
 SRC="$WORK_DIR/src-$SHA"
 rm -rf "$SRC"; cp -a "$CHIPSTAR_DIR" "$SRC"
 
+# ninja cannot see the compiler image or the CMake option defaults and
+# toolchain *_INIT values that only seed a fresh cache; any change wipes both builds.
+STAMP=$( { echo "${CROSS_IMAGE:-}"; git -C "$SRC" ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | (cd "$SRC" && xargs -0 cat); } | sha256sum )
+[ "$(cat "$WORK_DIR/stamp-$SHA" 2>/dev/null)" = "$STAMP" ] || rm -rf "$WORK_DIR/native-$SHA" "$WORK_DIR/cross-$SHA"
+
 # --- pass 1: native x86 build of the tools the aarch64 build must RUN -----
 # chipStar builds four things and then executes them during its own build:
 #   hipcc.bin / hipconfig.bin   the C++ compiler for every Catch2 test
@@ -59,7 +65,6 @@ rm -rf "$SRC"; cp -a "$CHIPSTAR_DIR" "$SRC"
 # compiled for x86 this time. Nothing from this tree is shipped.
 NATIVE="$WORK_DIR/native-$SHA"
 "$HERE/libmali-stub/make-stub.sh" "$WORK_DIR/x86-stub" gcc
-rm -rf "$NATIVE"
 cmake -S "$SRC" -B "$NATIVE" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_CONFIG_BIN="$X86_LLVM/bin/llvm-config" \
@@ -74,9 +79,7 @@ ninja -C "$NATIVE" -j"$JOBS" hipcc.bin hipconfig.bin LLVMHipPasses prepare-built
 # --- pass 2: aarch64 chipStar + tests -----------------------------------
 "$HERE/libmali-stub/make-stub.sh" "$WORK_DIR/mali-stub"
 CROSS="$WORK_DIR/cross-$SHA"
-# Always a fresh configure: toolchain-file *_INIT variables only seed a new
-# cache, so a reused build dir would silently keep stale linker flags.
-rm -rf "$WORK_DIR/stage" "$CROSS"
+# Reused build dir: the stamp above wipes it when a fresh configure is needed.
 cmake -S "$SRC" -B "$CROSS" -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$HERE/chipstar-aarch64-toolchain.cmake" \
   -DCMAKE_BUILD_TYPE=Release \
@@ -105,24 +108,27 @@ export HIPCC_LINK_FLAGS_APPEND="--target=aarch64-linux-gnu --sysroot=/ --gcc-too
 # Build the runtime first so .hipInfo and bin/ exist, then swap in the x86
 # hipcc before anything tries to compile a test with it.
 ninja -C "$CROSS" -j"$JOBS" CHIP hipcc.bin hipconfig.bin devicelib_bc LLVMHipPasses
-cp -f "$NATIVE/bin/hipcc.bin" "$NATIVE/bin/hipconfig.bin" "$CROSS/bin/"
+# Copy only when different so an unchanged tool keeps its mtime.
+for f in hipcc.bin hipconfig.bin; do cmp -s "$NATIVE/bin/$f" "$CROSS/bin/$f" || cp -f "$NATIVE/bin/$f" "$CROSS/bin/$f"; done
 # hipcc drops HIPCC_LINK_FLAGS_APPEND on its -no-hip-rt link path: the
 # no-hip-rt copy of the link flags is taken (hipBin_spirv.h:845) before the
 # append is applied (:878), so a test that hipcc links directly still
 # reaches for the host's /usr/bin/ld. Until that is fixed in HIPCC, wrap
 # hipcc so the retarget flags are on every invocation regardless of path.
-mv "$CROSS/bin/hipcc" "$CROSS/bin/hipcc.real"
-cat > "$CROSS/bin/hipcc" <<WRAP
+ln -sf hipcc.bin "$CROSS/bin/hipcc.real"
+cat > "$CROSS/bin/hipcc.wrap" <<WRAP
 #!/bin/sh
 exec "$CROSS/bin/hipcc.real" "\$@" $HIPCC_LINK_FLAGS_APPEND
 WRAP
-chmod +x "$CROSS/bin/hipcc"
+chmod +x "$CROSS/bin/hipcc.wrap"
+cmp -s "$CROSS/bin/hipcc.wrap" "$CROSS/bin/hipcc" && rm "$CROSS/bin/hipcc.wrap" || mv -f "$CROSS/bin/hipcc.wrap" "$CROSS/bin/hipcc"
 # The plugin that compiles every test is this x86 one, so the build-time
 # lowering choice must be made in the NATIVE configure above; the flag on the
 # cross configure only affects the aarch64 plugin that is overwritten here.
 # Getting this wrong shipped SPV_INTEL_cache_controls modules to Mali, which
 # rejects the OpExtension at clCreateProgramWithIL with CL_INVALID_VALUE.
-cp -f "$NATIVE/lib/libLLVMHipSpvPasses.so" "$CROSS/lib/libLLVMHipSpvPasses.so"
+cmp -s "$NATIVE/lib/libLLVMHipSpvPasses.so" "$CROSS/lib/libLLVMHipSpvPasses.so" \
+  || cp -f "$NATIVE/lib/libLLVMHipSpvPasses.so" "$CROSS/lib/libLLVMHipSpvPasses.so"
 ninja -C "$CROSS" -j"$JOBS" all
 ninja -C "$CROSS" -j"$JOBS" build_tests
 
@@ -131,4 +137,5 @@ arch() { aarch64-linux-gnu-readelf -h "$1" 2>/dev/null | awk '/Machine:/{print $
 [ "$(arch "$CROSS/bin/hipcc.bin")" = Advanced ]  || { echo "ERROR: hipcc.bin is not x86"; exit 1; }
 [ "$(arch "$CROSS/lib/libLLVMHipSpvPasses.so")" = Advanced ] || { echo "ERROR: pass plugin is not x86"; exit 1; }
 [ "$(arch "$CROSS/tests/runtime/TestKernelArgs")" = AArch64 ] || { echo "ERROR: test binaries are not aarch64"; exit 1; }
+echo "$STAMP" > "$WORK_DIR/stamp-$SHA"
 echo "CROSS-CHIPSTAR-OK build=$CROSS"
