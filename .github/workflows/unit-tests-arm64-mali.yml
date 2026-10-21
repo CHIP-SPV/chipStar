@@ -36,7 +36,11 @@ jobs:
           - variant: translator
             integrated_spirv: "OFF"
     steps:
-      - run: echo "TREE=$RUNNER_NAME-${{ matrix.variant }}" >> "$GITHUB_ENV"
+      # A cancelled run's container outlives its docker client; stop it before checkout
+      # so it cannot write objects newer than the new source.
+      - run: |
+          echo "TREE=$RUNNER_NAME-${{ matrix.variant }}" >> "$GITHUB_ENV"
+          docker rm -f "cross-$RUNNER_NAME-${{ matrix.variant }}" 2>/dev/null || true
 
       - uses: actions/checkout@v4
         with:
@@ -96,7 +100,6 @@ jobs:
         run: |
           set -euo pipefail
           JOBS=$(nproc); JOBS=$(( JOBS > 1 ? JOBS - 1 : 1 ))
-          docker rm -f "cross-$TREE" 2>/dev/null || true
           docker run --rm --name "cross-$TREE" --user "$(id -u):$(id -g)" -e HOME=/work \
             -e CROSS_IMAGE="$(docker image inspect -f '{{.Id}}' "$CROSS_IMAGE")" \
             -e INTEGRATED_SPIRV=${{ matrix.integrated_spirv }} \
