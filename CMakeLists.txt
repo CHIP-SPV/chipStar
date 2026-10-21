@@ -623,8 +623,10 @@ set(HIP_DEVICE_TOOLCHAIN_STAMP ${CMAKE_BINARY_DIR}/hip_device_toolchain.stamp)
 set(HIP_DEVICE_LLVM_TOOLS)
 foreach(_tool clang clang++ llvm-link opt llvm-spirv-${LLVM_VERSION_MAJOR} llvm-spirv
     clang-offload-bundler llvm-objcopy llvm-offload-binary clang-linker-wrapper)
-  if(EXISTS ${CLANG_ROOT_PATH_BIN}/${_tool})
-    list(APPEND HIP_DEVICE_LLVM_TOOLS ${CLANG_ROOT_PATH_BIN}/${_tool})
+  unset(_path CACHE)
+  find_program(_path ${_tool} NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
+  if(_path)
+    list(APPEND HIP_DEVICE_LLVM_TOOLS ${_path})
   endif()
 endforeach()
 foreach(_lib libLLVM.so libclang-cpp.so)
@@ -636,6 +638,7 @@ endforeach()
 unset(_tool)
 unset(_lib)
 unset(_real)
+unset(_path CACHE)
 add_custom_command(OUTPUT ${HIP_DEVICE_TOOLCHAIN_STAMP}
   COMMAND ${CMAKE_COMMAND} -E touch ${HIP_DEVICE_TOOLCHAIN_STAMP}
   DEPENDS $<TARGET_FILE:LLVMHipPasses> $<TARGET_FILE:hipcc.bin>
