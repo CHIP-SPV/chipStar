@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <limits>
 #include <map>
 #include <unordered_set>
 #include <thread>
@@ -548,14 +549,15 @@ void CHIPDeviceOpenCL::populateDevicePropertiesImpl() {
         CHIP_DEFAULT_WARP_SIZE);
   }
 
+  // OpenCL has no work-group count limit; HIP stores the grid size as int.
   HipDeviceProps_.maxGridSize[0] = HipDeviceProps_.maxGridSize[1] =
-      HipDeviceProps_.maxGridSize[2] = 65536;
+      HipDeviceProps_.maxGridSize[2] = std::numeric_limits<int>::max();
   HipDeviceProps_.memoryClockRate = 1000;
   HipDeviceProps_.memoryBusWidth = 256;
   HipDeviceProps_.major = 2;
   HipDeviceProps_.minor = 0;
 
-  HipDeviceProps_.maxThreadsPerMultiProcessor = HipDeviceProps_.maxGridSize[0];
+  HipDeviceProps_.maxThreadsPerMultiProcessor = 65536;
 
   HipDeviceProps_.computeMode = 0;
   HipDeviceProps_.arch = {};
