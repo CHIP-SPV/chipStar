@@ -3020,6 +3020,8 @@ void CHIPBackendOpenCL::initializeImpl() {
         (ChipEnvVars.getDevice().getType() == DeviceType::POCL);
     bool isCpuSpecific = (ChipEnvVars.getDevice().getType() == DeviceType::CPU);
 
+    // For cpu, try non-PoCL platforms first, then PoCL.
+    for (int Pass = 0; Pass < 2 && foundPlatformIdx == -1; Pass++)
     for (int platformIdx = 0; platformIdx < Platforms.size(); platformIdx++) {
       std::string platformName =
           Platforms[platformIdx].getInfo<CL_PLATFORM_NAME>();
@@ -3031,10 +3033,8 @@ void CHIPBackendOpenCL::initializeImpl() {
         continue; // Skip non-POCL platforms when POCL is specifically requested
       }
 
-      // For CPU device type, skip POCL platforms (let POCL be handled by
-      // CHIP_DEVICE_TYPE=pocl)
-      if (isCpuSpecific && isPoclPlatform) {
-        continue; // Skip POCL platforms when CPU is specifically requested
+      if (isCpuSpecific && isPoclPlatform && Pass == 0) {
+        continue;
       }
 
       std::vector<cl::Device> Dev;
