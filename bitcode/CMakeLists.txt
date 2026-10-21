@@ -53,7 +53,7 @@ set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture" "malloc") # "printf_s
 function(add_opencl_bitcode TARGET SOURCE OUTPUT)
   add_custom_command(
     OUTPUT "${OUTPUT}"
-    DEPENDS "${SOURCE}" "${CMAKE_CXX_COMPILER}"
+    DEPENDS "${SOURCE}" "${CMAKE_CXX_COMPILER}" ${CHIP_LLVM_SHARED_LIBS}
     DEPFILE "${OUTPUT}.d"
     COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
     --target=${TARGET} -o "${OUTPUT}" -c "${SOURCE}" -MD -MF "${OUTPUT}.d"
@@ -101,7 +101,7 @@ set(OCML_LIB_PATHS
 
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c" "${CMAKE_CXX_COMPILER}"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c" "${CMAKE_CXX_COMPILER}" ${CHIP_LLVM_SHARED_LIBS}
   DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc.d"
   COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS}
   -o "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
@@ -118,7 +118,7 @@ list(TRANSFORM OCML_LIBS REPLACE "(.+)" "$<TARGET_PROPERTY:\\1,OUTPUT_NAME>"
 # devicelib
 add_custom_command(
   OUTPUT "${CMAKE_BINARY_DIR}/${BC_DESTINATION}/${BC_FILE}"
-  DEPENDS ${DEPEND_LIST} ${OCML_LIBS} ${OCML_LIB_OUTPUTS} "${LLVM_LINK}"
+  DEPENDS ${DEPEND_LIST} ${OCML_LIBS} ${OCML_LIB_OUTPUTS} "${LLVM_LINK}" ${CHIP_LLVM_SHARED_LIBS}
   COMMAND ${CMAKE_COMMAND} -E make_directory
   "${CMAKE_BINARY_DIR}/${BC_DESTINATION}"
   COMMAND "${LLVM_LINK}"
@@ -215,7 +215,7 @@ function(embed_spirv_in_cpp
     # In-tree SPIR-V backend via clang
     add_custom_command(
       OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
-      DEPENDS "${BC_SOURCE}" "${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash" "${CMAKE_CXX_COMPILER}"
+      DEPENDS "${BC_SOURCE}" "${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash" "${CMAKE_CXX_COMPILER}" ${CHIP_LLVM_SHARED_LIBS}
       BYPRODUCTS "${SPIR_BINARY}"
       # NOTE: the triple must NOT carry the "chipstar" OS component here.
       # spirv64vX-unknown-chipstar selects the HIPSPV toolchain, whose -c
@@ -238,7 +238,7 @@ function(embed_spirv_in_cpp
     # External llvm-spirv translator
     add_custom_command(
       OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
-      DEPENDS "${BC_SOURCE}" "${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash" "${LLVM_SPIRV}"
+      DEPENDS "${BC_SOURCE}" "${CMAKE_SOURCE_DIR}/scripts/embed-binary-in-cpp.bash" "${LLVM_SPIRV}" ${CHIP_LLVM_SHARED_LIBS}
       BYPRODUCTS "${SPIR_BINARY}"
       COMMAND "${LLVM_SPIRV}"
       --spirv-ext=${SPIRV_EXTENSIONS}
