@@ -1004,6 +1004,11 @@ add_to_config(_versionInfo HIP_VERSION_GITHASH "${HIP_VERSION_GITHASH}")
 file(WRITE ${PROJECT_BINARY_DIR}/bin/.hipVersion ${_versionInfo})
 install(FILES ${PROJECT_BINARY_DIR}/bin/.hipVersion DESTINATION bin)
 
+# Rerun configure when a copied header is added, removed or edited.
+file(GLOB_RECURSE CHIP_COPIED_HEADERS CONFIGURE_DEPENDS
+     ${CMAKE_SOURCE_DIR}/HIP/include/* ${CMAKE_SOURCE_DIR}/include/*)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             ${CHIP_COPIED_HEADERS})
 file(COPY ${CMAKE_SOURCE_DIR}/HIP/include/
      DESTINATION ${CMAKE_BINARY_DIR}/include)
 file(COPY ${CMAKE_SOURCE_DIR}/include/
