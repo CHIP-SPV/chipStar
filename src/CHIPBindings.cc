@@ -6631,6 +6631,9 @@ hipError_t hipExtModuleLaunchKernel(
 
   // TODO: Process flags (hipExtAnyOrderLaunch).
 
+  if (!LocalWorkSizeX || !LocalWorkSizeY || !LocalWorkSizeZ)
+    RETURN(hipErrorInvalidConfiguration);
+
   // Check local sizes divide grids.
   if (GlobalWorkSizeX % LocalWorkSizeX != 0 ||
       GlobalWorkSizeY % LocalWorkSizeY != 0 ||
