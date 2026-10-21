@@ -15,6 +15,7 @@ name: Unit tests (ARM64 Mali)
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore: "docs/**"
   workflow_dispatch:
 
@@ -24,6 +25,7 @@ concurrency:
 
 jobs:
   cross-compile:
+    if: ${{ !github.event.pull_request.draft }}
     name: cross-compile for salami (${{ matrix.variant }})
     runs-on: [self-hosted, Linux, X64]
     strategy:

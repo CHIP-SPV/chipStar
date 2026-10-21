@@ -13,6 +13,7 @@ run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore: "docs/**"
   # No `push:` trigger: it would double-fire alongside `pull_request` for branches
   # with an open PR, producing duplicate runs that compete for the single
@@ -31,6 +32,7 @@ concurrency:
 
 jobs:
   build-and-hipinfo:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: [rusticl]
     timeout-minutes: 120
     env:

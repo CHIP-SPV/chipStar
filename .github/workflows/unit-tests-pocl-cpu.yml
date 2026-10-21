@@ -5,6 +5,7 @@ on:
   push:
     paths-ignore: "docs/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore: "docs/**"
   workflow_dispatch:
     inputs:
@@ -15,6 +16,7 @@ on:
 
 jobs:
   pre_job:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-22.04
     outputs:
       should_skip: ${{ steps.skip_check.outputs.should_skip }}

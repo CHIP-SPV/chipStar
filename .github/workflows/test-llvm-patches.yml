@@ -15,6 +15,7 @@ on:
       - 'scripts/cross-aarch64/aarch64-toolchain.cmake'
       - '.github/workflows/test-llvm-patches.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'llvm-patches/**'
       - 'scripts/configure_llvm.sh'
@@ -35,6 +36,7 @@ jobs:
   # llvm-23-only change must not rebuild 21/22. Runs on GitHub-hosted ubuntu
   # so it never queues behind the self-hosted build runners.
   detect:
+    if: ${{ !github.event.pull_request.draft }}
     name: Detect changed LLVM versions
     runs-on: ubuntu-latest
     outputs:
