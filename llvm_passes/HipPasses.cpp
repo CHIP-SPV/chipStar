@@ -46,7 +46,9 @@
 #include "HipCanonicalizeGEP.h"
 #include "HipCoalesceDuplicatePhiPreds.h"
 
+#include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -321,6 +323,29 @@ public:
       Cast->replaceAllUsesWith(Sel);
       Cast->eraseFromParent();
       Changed = true;
+    }
+    return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  }
+  static bool isRequired() { return true; }
+};
+
+// WORKAROUND(CHIP-SPV/chipStar#1987, intel/intel-graphics-compiler (not yet reported)): IGC force-inlines a recursive function with a generic pointer argument, emits it as a subroutine and crashes. Remove when CanaryIgcRecursiveGenericPtr fires.
+// Marks every function on a call graph cycle noinline (SPIR-V DontInline).
+class HipNoInlineRecursionPass
+    : public HipRequiredPassInfoMixin<HipNoInlineRecursionPass> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    bool Changed = false;
+    CallGraph CG(M);
+    for (auto I = scc_begin(&CG); !I.isAtEnd(); ++I) {
+      if (!I.hasCycle())
+        continue;
+      for (CallGraphNode *N : *I)
+        if (Function *F = N->getFunction()) {
+          F->removeFnAttr(Attribute::AlwaysInline);
+          F->addFnAttr(Attribute::NoInline);
+          Changed = true;
+        }
     }
     return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
   }
@@ -919,6 +944,10 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
       MPM, createModuleToFunctionPassAdaptor(HipShuffleShiftPass()),
       "HipShuffleShiftPass");
 #endif
+
+  // WORKAROUND(CHIP-SPV/chipStar#1987, intel/intel-graphics-compiler (not yet reported)): see the pass.
+  addPassWithVerification(MPM, HipNoInlineRecursionPass(),
+                          "HipNoInlineRecursionPass");
 
   // WORKAROUND(CHIP-SPV/chipStar#1680, KhronosGroup/SPIRV-LLVM-Translator#3866): llvm-spirv emits one OpPhi entry per LLVM phi entry, duplicating predecessors. Remove when the pinned llvm_release branch includes #3866.
   // Last CFG change before SPIR-V emission, so nothing merges the forwarding blocks back.
