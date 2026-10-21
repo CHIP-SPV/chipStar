@@ -77,6 +77,7 @@ CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
    */
   for (CHIPGraphNode *OriginalNode : OriginalGraph.Nodes_) {
     CHIPGraphNode *CloneNode = OriginalNode->clone();
+    CloneNode->Owner_ = this;
     Nodes_.push_back(CloneNode);
     CloneMap_[OriginalNode] = CloneNode;
     logDebug("Adding to CloneMap: Original {} {} -> Clone {} {}",
@@ -336,6 +337,7 @@ void CHIPGraph::addNode(CHIPGraphNode *Node) {
   logDebug("{} CHIPGraph::addNode({})", (void *)this, (void *)Node);
   Node->Msg = "M" + std::to_string(NodeCounter);
   NodeCounter++;
+  Node->Owner_ = this;
   Nodes_.push_back(Node);
 }
 
@@ -348,6 +350,14 @@ void CHIPGraph::removeNode(CHIPGraphNode *Node) {
         "tried to remove the node which was not found in graph", hipErrorTbd);
   } else {
     Nodes_.erase(Found);
+  }
+  // Scan the remaining nodes: removeDependency() leaves the reverse edge.
+  for (auto *Other : Nodes_) {
+    auto &Deps = Other->Dependencies_;
+    Deps.erase(std::remove(Deps.begin(), Deps.end(), Node), Deps.end());
+    auto &Dependants = Other->Dependendants_;
+    Dependants.erase(std::remove(Dependants.begin(), Dependants.end(), Node),
+                     Dependants.end());
   }
 }
 
@@ -567,11 +577,11 @@ CHIPGraphNodeGraph::CHIPGraphNodeGraph(const CHIPGraph *Graph)
 CHIPGraphNodeGraph::CHIPGraphNodeGraph(const CHIPGraphNodeGraph &Other)
     : CHIPGraphNode(Other), SubGraph_(new CHIPGraph(*Other.SubGraph_)) {}
 
-CHIPGraphNodeGraph::~CHIPGraphNodeGraph() { delete SubGraph_; }
+CHIPGraphNodeGraph::~CHIPGraphNodeGraph() { SubGraph_->release(); }
 
 void CHIPGraphNodeGraph::setGraph(const CHIPGraph *Graph) {
   auto *Clone = new CHIPGraph(*Graph);
-  delete SubGraph_;
+  SubGraph_->release();
   SubGraph_ = Clone;
 }
 
