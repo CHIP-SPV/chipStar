@@ -1,9 +1,9 @@
-name: Libraries and apps (Intel dGPU)
+name: Run app tests (/run-app-tests)
 
 # chipStar plus every downstream library with its tests, and the zeroRK and
 # OpenSn checks, on an Intel discrete GPU under Level Zero and OpenCL. Run it
-# from the Actions tab, or comment /check-apps on a pull request to get a
-# check-apps status on its head commit.
+# from the Actions tab, or comment /run-app-tests on a pull request to get an
+# app-tests status on its head commit.
 #
 # Runner needs: modules oneapi/2025.0.4 and llvm/23.0, kernel journal access
 # (adm group), fuser, curl, sha256sum, git over ssh to github.com, OpenMPI, gfortran, and on Ubuntu libgtest-dev
@@ -27,7 +27,11 @@ jobs:
   resolve:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.issue.pull_request && startsWith(github.event.comment.body, '/check-apps') &&
+      (github.event.issue.pull_request &&
+       (github.event.comment.body == '/run-app-tests' ||
+        startsWith(github.event.comment.body, '/run-app-tests ') ||
+        startsWith(github.event.comment.body, fromJSON('"/run-app-tests\n"')) ||
+        startsWith(github.event.comment.body, fromJSON('"/run-app-tests\r"'))) &&
        contains(fromJSON('["colleeneb", "pvelesko"]'), github.event.comment.user.login))
     runs-on: ubuntu-latest
     permissions:
@@ -49,7 +53,7 @@ jobs:
             const { data } = await github.rest.pulls.get({ ...context.repo, pull_number: Number(pr) });
             core.setOutput('sha', data.head.sha);
             await github.rest.repos.createCommitStatus({
-              ...context.repo, sha: data.head.sha, state: 'pending', context: 'check-apps',
+              ...context.repo, sha: data.head.sha, state: 'pending', context: 'app-tests',
               description: 'libraries and apps running',
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             });
@@ -110,9 +114,9 @@ jobs:
             const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             // A newer request on this commit owns the status.
             const { data } = await github.rest.repos.getCombinedStatusForRef({ ...context.repo, ref: process.env.SHA });
-            if (data.statuses.find(s => s.context === 'check-apps')?.target_url !== url) return;
+            if (data.statuses.find(s => s.context === 'app-tests')?.target_url !== url) return;
             await github.rest.repos.createCommitStatus({
               ...context.repo, sha: process.env.SHA, state: ok ? 'success' : 'failure',
-              context: 'check-apps', description: ok ? 'libraries and apps pass' : 'see summary.txt in the run artifacts',
+              context: 'app-tests', description: ok ? 'libraries and apps pass' : 'see summary.txt in the run artifacts',
               target_url: url,
             });
