@@ -1223,6 +1223,8 @@ public:
     assert(DeviceBuffer_);
     return DeviceBuffer_;
   }
+  /// Set to the buffer itself to leak it without allocating.
+  std::shared_ptr<ArgSpillBuffer> Leak;
 };
 
 /**
@@ -2605,6 +2607,9 @@ public:
    */
 
   virtual void addCallback(hipStreamCallback_t Callback, void *UserData);
+
+  /// Keep Obj alive until the work enqueued so far completes, without waiting.
+  virtual void keepAliveUntilDone(std::shared_ptr<void> Obj) = 0;
   /**
    * @brief Launch a host function to be executed in stream order
    *
