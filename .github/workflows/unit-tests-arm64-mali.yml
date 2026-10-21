@@ -6,10 +6,9 @@ name: Unit tests (ARM64 Mali)
 # happens on an x86 runner in a container and only the tests run on salami.
 # Both SPIR-V producers are covered; each is a separate cross build.
 #
-# The two jobs share nothing on disk. The handoff is an rsync to
-# salami:~/ci-stage/pr-<N>-<variant>/, one tree per pull request that each push
-# rewrites in place, and .github/workflows/reap-ci-scratch.yml deletes when the
-# pull request closes.
+# One tree per runner and variant, on the builder and on salami, reused and
+# rebuilt incrementally. The salami test runs in the same job, so no other job
+# can overwrite the tree in between.
 # See scripts/cross-aarch64/README.md for how the cross build works and
 # which tests it deliberately leaves to the x86 gate.
 
@@ -36,23 +35,14 @@ jobs:
             integrated_spirv: "ON"
           - variant: translator
             integrated_spirv: "OFF"
-    outputs:
-      tree: ${{ steps.tree.outputs.tree }}
+    env:
+      TREE: ${{ runner.name }}-${{ matrix.variant }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           submodules: 'recursive'
-
-      # Named after the pull request, which survives a force push; a dispatch
-      # has no pull request and is named after its head instead.
-      - id: tree
-        env:
-          PR: ${{ github.event.pull_request.number }}
-        run: |
-          if [ -n "$PR" ]; then TREE="pr-$PR"; else TREE="manual-$(git rev-parse --short=12 HEAD)"; fi
-          echo "tree=$TREE" >> "$GITHUB_OUTPUT"
 
       # The image bakes in an LLVM 23 built from llvm-patches/llvm-23, so a
       # change to any patch changes the compiler that builds the Mali test
@@ -106,21 +96,22 @@ jobs:
         run: |
           set -euo pipefail
           JOBS=$(nproc); JOBS=$(( JOBS > 1 ? JOBS - 1 : 1 ))
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work \
+          docker rm -f "cross-$TREE" 2>/dev/null || true
+          docker run --rm --name "cross-$TREE" --user "$(id -u):$(id -g)" -e HOME=/work \
+            -e CROSS_IMAGE="$CROSS_IMAGE" \
             -e INTEGRATED_SPIRV=${{ matrix.integrated_spirv }} \
-            -e STAGE_PREFIX=/home/pvelesko/ci-stage/${{ steps.tree.outputs.tree }}-${{ matrix.variant }} \
+            -e STAGE_PREFIX=/home/pvelesko/ci-stage/$TREE \
             -v "$PWD":/chipstar:ro -v "$CROSS_WORK":/work \
             "$CROSS_IMAGE" \
             /chipstar/scripts/cross-aarch64/cross-chipstar.sh \
-              ${{ steps.tree.outputs.tree }}-${{ matrix.variant }} "$JOBS"
+              "$TREE" "$JOBS"
         timeout-minutes: 30
 
       - name: Ship to salami
         run: |
           set -euo pipefail
           scripts/cross-aarch64/ship-to-salami.sh \
-            "$CROSS_WORK/cross-${{ steps.tree.outputs.tree }}-${{ matrix.variant }}" \
-            ${{ steps.tree.outputs.tree }}-${{ matrix.variant }}
+            "$CROSS_WORK/cross-$TREE" "$TREE"
         timeout-minutes: 15
 
       # Compile tests salami drops, with the aarch64 Linux host ABI; -E: those the x86 builder cannot run.
@@ -129,39 +120,24 @@ jobs:
           set -euo pipefail
           docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work -v "$CROSS_WORK":/work \
             "$CROSS_IMAGE" ctest --output-on-failure -j"$(( $(nproc) > 1 ? $(nproc) - 1 : 1 ))" \
-              --test-dir /work/cross-${{ steps.tree.outputs.tree }}-${{ matrix.variant }}/tests/compiler \
+              --test-dir /work/cross-$TREE/tests/compiler \
               -E '^(TestHipccAcceptCFiles|TestRDCWithSingleHipccCmd|TestRDCWithMultipleHipccCmds|TestWholeProgramCompilation|TestSeparateCompilation|TestBFloat16RDC|TestPrintfStaticString|TestStaticLibRDC|TestStaticLibRDCOffloadArch|hipSubwordAtomics-subword-atomics|hipVolatileAccesses-volatile-accesses|TestSpirvDuplicatePhiHip)$'
         timeout-minutes: 10
 
-  test-mali:
-    name: run on Mali (${{ matrix.variant }})
-    needs: cross-compile
-    runs-on: [self-hosted, Linux, ARM64]
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [native, translator]
-    env:
-      CHIP_MODULE_CACHE_DIR: ""
-      CHIP_LOGLEVEL: err
-      POCL_KERNEL_CACHE: "0"
-    steps:
-      - name: Test igpu opencl (${{ matrix.variant }})
+      - name: Test igpu opencl on salami (${{ matrix.variant }})
         run: |
           set -euo pipefail
-          T=$HOME/ci-stage/${{ needs.cross-compile.outputs.tree }}-${{ matrix.variant }}
-          [ -x "$T/hipInfo" ] || { echo "::error::no cross-built tree at $T"; exit 1; }
-          cd "$T"
-          rm -rf ~/.cache/chipStar
-          nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          LD_LIBRARY_PATH=$PWD python3 src/scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800
+          ssh salami "cd ~/ci-stage/$TREE && rm -rf ~/.cache/chipStar && nt=\$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc) && CHIP_MODULE_CACHE_DIR= CHIP_LOGLEVEL=err POCL_KERNEL_CACHE=0 LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl --num-threads=\$nt --timeout=1800"
         timeout-minutes: 30
+
+      - name: Fetch salami logs
+        if: failure()
+        run: |
+          rsync -a -m --include='*/' --include='checkpy_*.txt' --include='LastTest.log' --exclude='*' "salami:ci-stage/$TREE/" salami-logs/ || true
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: test-logs-salami-${{ matrix.variant }}
-          path: |
-            ~/ci-stage/${{ needs.cross-compile.outputs.tree }}-${{ matrix.variant }}/checkpy_*.txt
-            ~/ci-stage/${{ needs.cross-compile.outputs.tree }}-${{ matrix.variant }}/Testing/**/LastTest.log
+          path: salami-logs
           if-no-files-found: ignore

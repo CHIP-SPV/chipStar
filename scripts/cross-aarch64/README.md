@@ -111,7 +111,7 @@ So the tests are built on an x86 runner and only executed on salami.
 | `chipstar-aarch64-toolchain.cmake` | Keeps clang as the compiler (chipStar's CMake rejects anything else, and device bitcode needs it) and retargets it via `CMAKE_<LANG>_COMPILER_TARGET`, which chipStar's `CMAKE_CXX_FLAGS` assignments cannot drop. |
 | `libmali-stub/` | Salami's OpenCL is `libmali.so.0` loaded directly, no ICD. The stub carries that SONAME and defines every `cl*` the real driver exports (`cl-symbols.txt`, from `nm -D` on salami) as an empty function, so executables that call the API directly link. Nothing from it ships. |
 | `image-tag.sh` | Prints the image tag: a digest of `llvm-patches/llvm-23/`, `configure_llvm.sh` and the image recipe. The image bakes in an LLVM built from that patch series, so tagging by content is what forces a rebuild when a patch changes instead of silently validating Mali against a compiler that predates it. |
-| `ship-to-salami.sh` | Relocates the baked build-machine paths in every `CTestTestfile.cmake`, drops the tests that invoke a compiler at test time, and rsyncs to `salami:~/ci-stage/<sha>/`. |
+| `ship-to-salami.sh` | Relocates the baked build-machine paths in every `CTestTestfile.cmake`, drops the tests that invoke a compiler at test time, and rsyncs to `salami:~/ci-stage/<tree>/`. |
 
 Why the toolchain-invoking tests are dropped rather than run: the tree's
 hipcc, opt and cucc are x86 binaries (they had to be, to run on the
@@ -153,7 +153,7 @@ mkdir -p $WORK/image-ctx/opt && cp -a $WORK/x86-stage/opt/* $WORK/spirv-stage/op
 TAG=$(scripts/cross-aarch64/image-tag.sh)
 docker build -f scripts/cross-aarch64/Dockerfile.chipstar -t chipstar-cross-aarch64:$TAG $WORK/image-ctx
 docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:$TAG \
-  /chipstar/scripts/cross-aarch64/cross-chipstar.sh <sha>
-scripts/cross-aarch64/ship-to-salami.sh $WORK/cross-<sha> <sha>
-ssh salami "cd ci-stage/<sha> && LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl"
+  /chipstar/scripts/cross-aarch64/cross-chipstar.sh <tree>
+scripts/cross-aarch64/ship-to-salami.sh $WORK/cross-<tree> <tree>
+ssh salami "cd ci-stage/<tree> && LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl"
 ```
