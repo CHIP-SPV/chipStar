@@ -641,8 +641,6 @@ foreach(_tool clang clang++ llvm-link opt llvm-spirv-${LLVM_VERSION_MAJOR} llvm-
 endforeach()
 list(APPEND HIP_DEVICE_LLVM_TOOLS ${CHIP_LLVM_SHARED_LIBS})
 unset(_tool)
-unset(_lib)
-unset(_real)
 unset(_path CACHE)
 add_custom_command(OUTPUT ${HIP_DEVICE_TOOLCHAIN_STAMP}
   COMMAND ${CMAKE_COMMAND} -E touch ${HIP_DEVICE_TOOLCHAIN_STAMP}
