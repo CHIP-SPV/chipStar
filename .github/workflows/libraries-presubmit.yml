@@ -52,7 +52,7 @@ jobs:
           export CMAKE_INCLUDE_PATH=${OpenCL_ROOT}/include:${CMAKE_INCLUDE_PATH:-}
           export SDKROOT=$(xcrun --show-sdk-path)
 
-          STAGING=${{ runner.temp }}/chipstar-ci-staging/${{ github.event.pull_request.number || 'dispatch' }}
+          STAGING=${{ runner.temp }}/chipstar-ci-staging
           rm -rf $STAGING
 
           ./install_chipstar.py -c chipfft,chipblas \
@@ -129,7 +129,7 @@ jobs:
         with:
           name: library-test-logs-pastrami
           path: |
-            ${{ runner.temp }}/chipstar-ci-staging/${{ github.event.pull_request.number || 'dispatch' }}/staging/*/build/Testing/**/LastTest*.log
+            ${{ runner.temp }}/chipstar-ci-staging/staging/*/build/Testing/**/LastTest*.log
           if-no-files-found: ignore
 
   # chipFFT + chipBLAS positive verification on Linux ARM64 (salami, Mali-G52
@@ -159,7 +159,7 @@ jobs:
           export LLVM_DIR=$(module show llvm/21.0 2>&1 | grep -E 'prepend-path\s+PATH' | awk '{print $NF}' | head -1 | xargs dirname)
           echo "LLVM_DIR=$LLVM_DIR"
 
-          STAGING=/tmp/chipstar-ci-staging-salami/${{ github.event.pull_request.number || 'dispatch' }}
+          STAGING=/tmp/chipstar-ci-staging-salami
           rm -rf $STAGING
 
           ./install_chipstar.py -c chipfft,chipblas \
@@ -243,5 +243,5 @@ jobs:
         with:
           name: library-test-logs-salami
           path: |
-            /tmp/chipstar-ci-staging-salami/${{ github.event.pull_request.number || 'dispatch' }}/staging/*/build/Testing/**/LastTest*.log
+            /tmp/chipstar-ci-staging-salami/staging/*/build/Testing/**/LastTest*.log
           if-no-files-found: ignore
