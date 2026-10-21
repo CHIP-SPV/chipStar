@@ -619,7 +619,7 @@ unset(_hip_ver_patch)
 # HIP objects list this stamp in their depfile, so a device library, pass
 # plugin or LLVM tool change recompiles them.
 set(HIP_DEVICE_TOOLCHAIN_STAMP ${CMAKE_BINARY_DIR}/hip_device_toolchain.stamp)
-# LLVM executables hipcc runs to emit device code.
+# LLVM executables hipcc runs to emit device code, and the shared libraries they load.
 set(HIP_DEVICE_LLVM_TOOLS)
 foreach(_tool clang clang++ llvm-link opt llvm-spirv-${LLVM_VERSION_MAJOR} llvm-spirv
     clang-offload-bundler llvm-objcopy llvm-offload-binary clang-linker-wrapper)
@@ -627,7 +627,15 @@ foreach(_tool clang clang++ llvm-link opt llvm-spirv-${LLVM_VERSION_MAJOR} llvm-
     list(APPEND HIP_DEVICE_LLVM_TOOLS ${CLANG_ROOT_PATH_BIN}/${_tool})
   endif()
 endforeach()
+foreach(_lib libLLVM.so libclang-cpp.so)
+  if(EXISTS ${LLVM_LIBRARY_DIR}/${_lib})
+    file(REAL_PATH ${LLVM_LIBRARY_DIR}/${_lib} _real)
+    list(APPEND HIP_DEVICE_LLVM_TOOLS ${_real})
+  endif()
+endforeach()
 unset(_tool)
+unset(_lib)
+unset(_real)
 add_custom_command(OUTPUT ${HIP_DEVICE_TOOLCHAIN_STAMP}
   COMMAND ${CMAKE_COMMAND} -E touch ${HIP_DEVICE_TOOLCHAIN_STAMP}
   DEPENDS $<TARGET_FILE:LLVMHipPasses>
