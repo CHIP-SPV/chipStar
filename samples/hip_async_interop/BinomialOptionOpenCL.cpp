@@ -62,6 +62,7 @@ void* runOpenCLKernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHan
       assert (Err == CL_SUCCESS);
       std::cout << BuildLog << "\n";
       delete [] BuildLog;
+      clReleaseEvent(DepEv);
       return NULL;
     }
 
@@ -82,6 +83,8 @@ void* runOpenCLKernel(void *NativeEventDep, uintptr_t *NativeHandles, int NumHan
   cl_event RetEvent = 0;
   Err = clEnqueueNDRangeKernel(CQ, Kernel, 1, Goffs0, GWS, LWS, 1, &DepEv, &RetEvent);
   assert (Err == CL_SUCCESS);
+  // Drop the reference hipGetNativeEventFromHipEvent gave us.
+  clReleaseEvent(DepEv);
   assert (RetEvent != 0);
   return (void*)RetEvent;
 }
