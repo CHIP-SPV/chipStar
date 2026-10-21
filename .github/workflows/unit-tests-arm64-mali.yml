@@ -118,7 +118,8 @@ jobs:
       - name: Compile tests for aarch64 host (${{ matrix.variant }})
         run: |
           set -euo pipefail
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/work -v "$CROSS_WORK":/work \
+          docker rm -f "cross-$TREE" 2>/dev/null || true
+          docker run --rm --name "cross-$TREE" --user "$(id -u):$(id -g)" -e HOME=/work -v "$CROSS_WORK":/work \
             "$CROSS_IMAGE" ctest --output-on-failure -j"$(( $(nproc) > 1 ? $(nproc) - 1 : 1 ))" \
               --test-dir /work/cross-$TREE/tests/compiler \
               -E '^(TestHipccAcceptCFiles|TestRDCWithSingleHipccCmd|TestRDCWithMultipleHipccCmds|TestWholeProgramCompilation|TestSeparateCompilation|TestBFloat16RDC|TestPrintfStaticString|TestStaticLibRDC|TestStaticLibRDCOffloadArch|hipSubwordAtomics-subword-atomics|hipVolatileAccesses-volatile-accesses|TestSpirvDuplicatePhiHip)$'
@@ -127,7 +128,7 @@ jobs:
       - name: Test igpu opencl on salami (${{ matrix.variant }})
         run: |
           set -euo pipefail
-          ssh salami "cd ~/ci-stage/$TREE && rm -rf ~/.cache/chipStar && nt=\$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc) && CHIP_MODULE_CACHE_DIR= CHIP_LOGLEVEL=err POCL_KERNEL_CACHE=0 LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl --num-threads=\$nt --timeout=1800"
+          ssh -tt salami "cd ~/ci-stage/$TREE && rm -rf ~/.cache/chipStar && nt=\$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc) && CHIP_MODULE_CACHE_DIR= CHIP_LOGLEVEL=err POCL_KERNEL_CACHE=0 LD_LIBRARY_PATH=\$PWD python3 src/scripts/check.py ./ igpu opencl --num-threads=\$nt --timeout=1800"
         timeout-minutes: 30
 
       - name: Fetch salami logs
