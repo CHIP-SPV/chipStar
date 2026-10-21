@@ -6,9 +6,9 @@ name: Unit tests (ARM64 Mali)
 # happens on an x86 runner in a container and only the tests run on salami.
 # Both SPIR-V producers are covered; each is a separate cross build.
 #
-# One tree per runner and variant, on the builder and on salami, rebuilt from
-# scratch each run. The salami test runs in the same job, so no other job can
-# overwrite the tree in between.
+# One tree per runner and variant, on the builder and on salami, reused and
+# rebuilt incrementally. The salami test runs in the same job, so no other job
+# can overwrite the tree in between.
 # See scripts/cross-aarch64/README.md for how the cross build works and
 # which tests it deliberately leaves to the x86 gate.
 
@@ -98,6 +98,7 @@ jobs:
           JOBS=$(nproc); JOBS=$(( JOBS > 1 ? JOBS - 1 : 1 ))
           docker rm -f "cross-$TREE" 2>/dev/null || true
           docker run --rm --name "cross-$TREE" --user "$(id -u):$(id -g)" -e HOME=/work \
+            -e CROSS_IMAGE="$CROSS_IMAGE" \
             -e INTEGRATED_SPIRV=${{ matrix.integrated_spirv }} \
             -e STAGE_PREFIX=/home/pvelesko/ci-stage/$TREE \
             -v "$PWD":/chipstar:ro -v "$CROSS_WORK":/work \
