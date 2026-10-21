@@ -142,3 +142,7 @@ set_tests_properties(TestFix1782NormRnorm PROPERTIES
 add_hip_test(TestFix1889SinfAccuracy.cpp)
 set_tests_properties(TestFix1889SinfAccuracy PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
+
+add_hip_test(TestFix1814LargeArgMath.cpp)
+set_tests_properties(TestFix1814LargeArgMath PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")
