@@ -14,7 +14,7 @@ add_custom_command(
   -MD -MF ${CMAKE_CURRENT_BINARY_DIR}/ccompat.o.d -MT ${CMAKE_CURRENT_BINARY_DIR}/ccompat.o)
 
 add_custom_command(
-OUTPUT ccompat DEPENDS ccompat.o saxpy.o
+OUTPUT ccompat DEPENDS ccompat.o saxpy.o $<TARGET_FILE:CHIP> $<TARGET_FILE:ocml_host_math_funcs>
 COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc 
 ./ccompat.o ./saxpy.o -o ccompat  -g -pthread)
 
