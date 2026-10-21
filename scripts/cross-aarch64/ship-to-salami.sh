@@ -38,6 +38,7 @@ PREFIX="/home/pvelesko/ci-stage/$SHA"
 BUILDER_PREFIX="$(sed -n 's|^CMAKE_CACHEFILE_DIR:INTERNAL=||p' "$BUILD/CMakeCache.txt")"
 
 STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
 rsync -a --exclude='*.o' --exclude='CMakeFiles' --exclude='*.ninja' "$BUILD/" "$STAGE/"
 
 # 1. relocate
@@ -155,7 +156,6 @@ PY
 ssh "$HOST" "mkdir -p '$PREFIX'"
 rsync -a --delete "$STAGE/" "$HOST:$PREFIX/"
 rsync -a --delete --exclude='.git' "$(dirname "$BUILD")/src-$SHA/" "$HOST:$PREFIX/src/"
-rm -rf "$STAGE"
 ssh "$HOST" "cd '$PREFIX' && LD_LIBRARY_PATH=\$PWD sh catch-discover.sh"
 ssh "$HOST" "cd '$PREFIX' && LD_LIBRARY_PATH=\$PWD ./hipInfo 2>/dev/null | grep -m1 'Name:'"
 echo "SHIP-OK $HOST:$PREFIX"
