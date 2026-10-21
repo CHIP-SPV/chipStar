@@ -53,7 +53,7 @@ set(NON_OCML_SOURCES "devicelib" "_cl_print_str" "texture" "malloc") # "printf_s
 function(add_opencl_bitcode TARGET SOURCE OUTPUT)
   add_custom_command(
     OUTPUT "${OUTPUT}"
-    DEPENDS "${SOURCE}"
+    DEPENDS "${SOURCE}" "${CMAKE_CXX_COMPILER}"
     COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_CL_COMPILE_FLAGS}
     --target=${TARGET} -o "${OUTPUT}" -c "${SOURCE}"
     COMMENT "Building ${SOURCE}"
@@ -100,7 +100,7 @@ set(OCML_LIB_PATHS
 
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c" "${CMAKE_CXX_COMPILER}"
   COMMAND "${CMAKE_CXX_COMPILER}" ${BITCODE_C_COMPILE_FLAGS}
   -o "${CMAKE_CURRENT_BINARY_DIR}/BC/c_to_opencl.bc"
   -c "${CMAKE_CURRENT_SOURCE_DIR}/c_to_opencl.c"
@@ -212,7 +212,7 @@ function(embed_spirv_in_cpp
     # In-tree SPIR-V backend via clang
     add_custom_command(
       OUTPUT "${OUTPUT_SOURCE}" "${OUTPUT_HEADER}"
-      DEPENDS "${BC_SOURCE}"
+      DEPENDS "${BC_SOURCE}" "${CMAKE_CXX_COMPILER}"
       BYPRODUCTS "${SPIR_BINARY}"
       # NOTE: the triple must NOT carry the "chipstar" OS component here.
       # spirv64vX-unknown-chipstar selects the HIPSPV toolchain, whose -c
