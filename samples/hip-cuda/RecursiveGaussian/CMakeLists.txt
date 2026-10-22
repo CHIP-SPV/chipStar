@@ -9,6 +9,7 @@ add_custom_command(OUTPUT "${DEST_IMAGE}"
   COMMAND "${CMAKE_COMMAND}" -E copy
     "${CMAKE_CURRENT_SOURCE_DIR}/RecursiveGaussian_Input.bmp"
     "${CMAKE_CURRENT_BINARY_DIR}"
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/RecursiveGaussian_Input.bmp"
   VERBATIM)
 
 add_custom_target("RecursiveGaussian_image" ALL
