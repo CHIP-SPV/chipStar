@@ -2,7 +2,7 @@
 #
 # cmake/SpirvToolsExternal.cmake hands the external project its compilers as
 # CMAKE_ARGS. The external's configure step re-runs on every build (its
-# UPDATE_COMMAND is never up to date), and each run passes those arguments to
+# update step is never up to date), and each run passes those arguments to
 # cmake again. If the compiler argument is a bare name, cmake resolves it
 # through PATH at every run; when PATH differs between two runs (a module
 # loaded in one shell but not the other, `ninja` then `ninja install` from
