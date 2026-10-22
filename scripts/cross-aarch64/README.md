@@ -147,8 +147,8 @@ Reproduce locally (image build is a one-off, ~40 min for the LLVM):
 docker build -t chipstar-cross-aarch64:base scripts/cross-aarch64
 docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:base \
   /chipstar/scripts/cross-aarch64/image-llvm.sh
-docker run --rm -v $PWD/scripts/cross-aarch64:/s:ro -v $WORK:/work chipstar-cross-aarch64:base \
-  /s/image-spirv-tools.sh
+docker run --rm -v $PWD:/chipstar:ro -v $WORK:/work chipstar-cross-aarch64:base \
+  /chipstar/scripts/cross-aarch64/image-spirv-tools.sh
 mkdir -p $WORK/image-ctx/opt && cp -a $WORK/x86-stage/opt/* $WORK/spirv-stage/opt/* $WORK/image-ctx/opt/
 TAG=$(scripts/cross-aarch64/image-tag.sh)
 docker build -f scripts/cross-aarch64/Dockerfile.chipstar -t chipstar-cross-aarch64:$TAG $WORK/image-ctx

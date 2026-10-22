@@ -77,8 +77,8 @@ jobs:
           rm -rf "$W/x86-stage" "$W/spirv-stage"
           docker run --rm --user "$U" -e HOME=/work -v "$PWD":/chipstar:ro -v "$W":/work \
             chipstar-cross-aarch64:base /chipstar/scripts/cross-aarch64/image-llvm.sh
-          docker run --rm --user "$U" -e HOME=/work -v "$PWD/scripts/cross-aarch64":/s:ro -v "$W":/work \
-            chipstar-cross-aarch64:base /s/image-spirv-tools.sh
+          docker run --rm --user "$U" -e HOME=/work -v "$PWD":/chipstar:ro -v "$W":/work \
+            chipstar-cross-aarch64:base /chipstar/scripts/cross-aarch64/image-spirv-tools.sh
           rm -rf "$W/image-ctx" && mkdir -p "$W/image-ctx/opt"
           cp -a "$W"/x86-stage/opt/* "$W"/spirv-stage/opt/* "$W/image-ctx/opt/"
           docker build -f scripts/cross-aarch64/Dockerfile.chipstar \
