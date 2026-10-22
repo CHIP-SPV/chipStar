@@ -6792,7 +6792,12 @@ extern "C" void **__hipRegisterFatBinary(const void *Data) {
   if (!ChipEnvVars.getLazyJit() && Backend) {
     logDebug("Lazy JIT disabled, compiling module now");
     const SPVModule *SMod = getSPVRegister().getSource(ModHandle);
-    Backend->getActiveDevice()->getOrCreateModule(*SMod);
+    // Keep registering; the build error is replayed at launch.
+    try {
+      Backend->getActiveDevice()->getOrCreateModule(*SMod);
+    } catch (CHIPError &Err) {
+      logWarn("Eager module build failed: {}", Err.getErrStr());
+    }
   }
 
   logDebug("Registered SPIR-V module {}, source-binary={}",
