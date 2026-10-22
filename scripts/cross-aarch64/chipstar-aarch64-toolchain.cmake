@@ -18,6 +18,8 @@ set(CMAKE_C_COMPILER_TARGET   aarch64-linux-gnu)
 set(CMAKE_CXX_COMPILER_TARGET aarch64-linux-gnu)
 # Cross gcc's sysroot supplies libc/libstdc++/crt for the aarch64 target.
 set(CMAKE_SYSROOT /)
+# --gcc-toolchain on C compiles too; via /lib/gcc-cross, depfiles name headers ninja cannot find.
+set(CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN /usr)
 set(_ld "--gcc-toolchain=/usr -B/usr/aarch64-linux-gnu/bin -fuse-ld=/usr/bin/aarch64-linux-gnu-ld -L/opt/spirv-tools-aarch64/lib")
 set(CMAKE_EXE_LINKER_FLAGS_INIT    "${_ld}")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "${_ld}")
