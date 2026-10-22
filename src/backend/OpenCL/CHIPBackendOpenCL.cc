@@ -1824,9 +1824,6 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
   noteWorkEnqueued();
   
   auto *OclContext = static_cast<CHIPContextOpenCL *>(ChipContext_);
-  std::shared_ptr<chipstar::Event>(LaunchEvent) =
-      static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
-          OclContext, chipstar::EventFlags(), "kernelLaunch");
   CHIPExecItemOpenCL *ChipOclExecItem = (CHIPExecItemOpenCL *)ExecItem;
   CHIPKernelOpenCL *Kernel = (CHIPKernelOpenCL *)ChipOclExecItem->getKernel();
   cl_kernel KernelHandle = ChipOclExecItem->getKernelHandle();
@@ -1851,17 +1848,25 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
 
   OclContext->unmapManagedForDevice(get()->get());
 
+  std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
+      ExecItem->getArgSpillBuffer();
+
+  // Only the keep-alive callback below needs the launch event.
+  std::shared_ptr<chipstar::Event> LaunchEvent;
+  if (SpillBuf || AllocationsToKeepAlive)
+    LaunchEvent = static_cast<CHIPBackendOpenCL *>(Backend)->createEventShared(
+        OclContext, chipstar::EventFlags(), "KernelLaunch");
+
   auto [SyncQueuesEventHandles, EventLocks] =
       addDependenciesQueueSync(LaunchEvent);
 
   clStatus = clEnqueueNDRangeKernel(
       get()->get(), KernelHandle, NumDims, GlobalOffset, Global, Local,
       SyncQueuesEventHandles.size(), SyncQueuesEventHandles.data(),
-      std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)->getNativePtr());
+      LaunchEvent ? std::static_pointer_cast<CHIPEventOpenCL>(LaunchEvent)
+                        ->getNativePtr()
+                  : nullptr);
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clEnqueueNDRangeKernel);
-
-  std::shared_ptr<chipstar::ArgSpillBuffer> SpillBuf =
-      ExecItem->getArgSpillBuffer();
 
   if (SpillBuf || AllocationsToKeepAlive) {
     // Use an event call back to prolong the lifetimes of the
@@ -1887,7 +1892,6 @@ CHIPQueueOpenCL::launchImpl(chipstar::ExecItem *ExecItem) {
     }
   }
 
-  LaunchEvent->Msg = "KernelLaunch";
   return LaunchEvent;
 }
 

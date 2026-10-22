@@ -96,6 +96,7 @@ set(RUNTIME_TESTS_MANUAL
   TestBufferDevAddr.hip           # guarded on OpenCL_LIBRARY
   TestDeviceAbortStderr.hip       # SIGABRT death + stderr checked by a driver script
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
+  TestFix1996LaunchNoEvent.hip    # guarded on OpenCL_LIBRARY, not Apple
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
   TestFix1962PooledResidencyEviction.hip # guarded on LevelZero_LIBRARY
   TestFix315PlatformOutOfRange.hip # run under env -u CHIP_DEVICE_TYPE, registered below
@@ -348,6 +349,12 @@ set_tests_properties(TestNativeHandlesBackendName_NoBE PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS"
   SKIP_RETURN_CODE ${CHIP_SKIP_TEST}
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+# Interposes by defining a symbol in the executable, which Mach-O does not honor.
+if(OpenCL_LIBRARY AND UNIX AND NOT APPLE)
+  add_hip_runtime_test(TestFix1996LaunchNoEvent.hip)
+  target_link_libraries(TestFix1996LaunchNoEvent ${CMAKE_DL_LIBS})
+endif()
 
 ######################################
 # Tests built by hand.
