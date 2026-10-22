@@ -77,6 +77,14 @@ add_test(NAME TestFix1486SpirvToolsInstallPrefix
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1486SpirvToolsInstallPrefix.cmake)
 set_tests_properties(TestFix1486SpirvToolsInstallPrefix PROPERTIES TIMEOUT 300)
 
+# Reproduce #2082: SPIRV-Tools tracked the fork's main, so reused and fresh build dirs differed.
+add_test(NAME TestFix2082SpirvToolsPinned
+  COMMAND ${CMAKE_COMMAND}
+    -DCHIPSTAR_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -DGENERATOR=${CMAKE_GENERATOR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2082SpirvToolsPinned.cmake)
+set_tests_properties(TestFix2082SpirvToolsPinned PROPERTIES TIMEOUT 300)
+
 # Reproduce #1632: a build directory reconfigured with a different
 # LLVM_CONFIG_BIN kept the first LLVM's tools, packages and compilers.
 add_test(NAME TestFix1632LlvmConfigChanged
