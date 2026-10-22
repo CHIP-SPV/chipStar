@@ -7,6 +7,6 @@
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake ninja-build python3 git ca-certificates rsync \
+    build-essential cmake ninja-build python3 git ca-certificates \
     g++-aarch64-linux-gnu gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
     && rm -rf /var/lib/apt/lists/*

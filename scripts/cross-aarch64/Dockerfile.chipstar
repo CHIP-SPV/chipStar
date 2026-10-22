@@ -17,7 +17,7 @@ FROM chipstar-cross-aarch64:base
 # test-llvm-patches.yml verifies, and any edit to it re-triggers that
 # multi-hour toolchain rebuild.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl-dev pkg-config python3-yaml xxd \
+    libssl-dev pkg-config python3-yaml rsync xxd \
  && rm -rf /var/lib/apt/lists/*
 COPY opt/llvm-x86-aarch64    /opt/llvm-x86-aarch64
 COPY opt/spirv-tools-aarch64 /opt/spirv-tools-aarch64
