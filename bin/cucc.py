@@ -28,6 +28,7 @@
 # Enable v3.9+ type annotations in older versions (down to 3.7).
 import argparse
 import os
+import shlex
 import subprocess
 import sys
 from shlex import quote
@@ -38,6 +39,10 @@ from typing import List, Set, Optional
 # CUDA code in CMake without find_package().
 # TODO: Add an option or env-var for controlling the value of this.
 MASQUERADE_AS_NVCC = True
+DEFAULT_VERSION_BANNER = """\
+nvcc: NVIDIA (R) Cuda compiler driver
+ V12.5.40"""
+DEFAULT_COMPUTE_CAPABILITY = 80
 
 def error_exit(msg : str):
     """Print an error message to stderr and then exit with an error.
@@ -53,11 +58,13 @@ def warn(msg : str):
 class IgnoredOption(argparse.Action):
     """An action that ignores the option and gives a warning about it.
     """
-    def __init__(self, option_strings, dest, **kwargs):
+    def __init__(self, option_strings, dest, quiet=False, **kwargs):
         super().__init__(option_strings, dest, **kwargs)
+        self.quiet = quiet
 
     def __call__(self, parser, namespace, values, option_string=None):
-        warn(f"Ignored option '{self.option_strings[-1]}'")
+        if not self.quiet:
+            warn(f"Ignored option '{self.option_strings[-1]}'")
 
 def prepare_argparser() -> argparse.ArgumentParser:
     """Prepares argument parser intended for parse_known_args()
@@ -95,7 +102,8 @@ def prepare_argparser() -> argparse.ArgumentParser:
     # nvcc allows -std=c++ mixed with C files which in case the option is
     # ineffective for C files.
     parser.add_argument(
-        '-std', '--std', choices=['c++03', 'c++11', 'c++14', 'c++17', 'c++12'],
+        '-std', '--std',
+        choices=['c++03', 'c++11', 'c++14', 'c++17', 'c++20', 'c++23'],
         help="Specify language standard for CUDA and C++ inputs.")
 
     # The nvcc differs from clang, hipcc and other compilers by that the
@@ -111,15 +119,15 @@ def prepare_argparser() -> argparse.ArgumentParser:
 
     # TODO: define __CUDA_ARCH__ and __CUDA_ARCH_LIST__ based on
     #       '-arch' values.
-    parser.add_argument("-arch", action=IgnoredOption)
+    parser.add_argument("-arch", action=IgnoredOption, quiet=True)
     # TODO: handle -fmad. Investigate what is the nvcc's default for this too.
     parser.add_argument('-fmad', '--fmad', choices=['true', 'false'],
                         action=IgnoredOption)
     parser.add_argument("-maxrregcount", "--maxrregcount",
                         action=IgnoredOption, help="Ignored option.")
-    parser.add_argument("--keep", nargs=0, action=IgnoredOption)
-    parser.add_argument("--keep-dir", action=IgnoredOption)
-    parser.add_argument("--generate-code", action=IgnoredOption)
+    parser.add_argument("--keep", nargs=0, action=IgnoredOption, quiet=True)
+    parser.add_argument("--keep-dir", action=IgnoredOption, quiet=True)
+    parser.add_argument("--generate-code", action=IgnoredOption, quiet=True)
     parser.add_argument("-G", "--device-debug", nargs=0, action=IgnoredOption,
                         help="Generate debug information for device code.")
     # "The compiler has an option (-use_fast_math) that forces each
@@ -131,7 +139,7 @@ def prepare_argparser() -> argparse.ArgumentParser:
     parser.add_argument("-use_fast_math", "--use_fast_math",
                         nargs=0, action=IgnoredOption)
     parser.add_argument("-gencode", "--gencode",
-                        nargs="?", action=IgnoredOption)
+                        nargs="?", action=IgnoredOption, quiet=True)
 
     # Add new arguments for relocatable device code and device compilation
     parser.add_argument("--relocatable-device-code", choices=['true', 'false'])
@@ -201,16 +209,93 @@ def determine_input_languages(arg_list: List[str], xmode: Optional[str] = None) 
 
     return modes
 
+def expand_xcompiler_options(value: str) -> List[str]:
+    """Expand nvcc's -Xcompiler value into individual host options.
+
+    nvcc -Xcompiler behavior:
+      -Xcompiler -Wall                       -> ["-Wall"]
+      -Xcompiler "-Wall","-Werror"           -> ["-Wall", "-Werror"]
+      -Xcompiler \"-Wl,--no-as-needed\"      -> ["-Wl,--no-as-needed"]
+    """
+    try:
+        lexer = shlex.shlex(value, posix=True)
+        lexer.whitespace_split = True # Split on separators only, not wordchars.
+        lexer.whitespace = ","        # The comma is the sole separator.
+        lexer.commenters = ""         # '#' has no special meaning here.
+        opts = [opt.strip() for opt in lexer if opt.strip()]
+    except ValueError as err:
+        # Malformed value (unbalanced quote): pass it through as is.
+        warn(f"could not parse -Xcompiler value '{value}': {err}")
+        opts = [value]
+    return opts
+
+
+def expand_options_file(path: str) -> List[str]:
+    """Expand nvcc's --options-file value into individual options.
+
+    The file holds one option per line, with an option and its argument
+    separated by spaces. Blank lines are skipped and '#' starts a comment,
+    as in nvcc.
+    """
+    try:
+        with open(path) as stream:
+            lines = stream.readlines()
+    except OSError as err:
+        error_exit(f"could not read options file '{path}': {err}")
+
+    opts : List[str] = []
+    for line in lines:
+        try:
+            opts.extend(shlex.split(line, comments=True))
+        except ValueError as err:
+            error_exit(f"could not parse options file '{path}': {err}")
+    return opts
+
+
 def filter_args_for_hipcc(arg_list: List[str]) -> List[str]:
     """Filter out arguments on the way to hipcc.
     """
     filtered = []
-    for arg in arg_list:
+    i = 0
+    while i < len(arg_list):
+        arg = arg_list[i]
+        i += 1
+
+        if arg == "--threads":
+            if i < len(arg_list):
+                i += 1
+                continue
+            # Without a value it is not the --threads we handle; pass it on.
+
+        if arg.startswith("-ftz=") or arg.startswith("--ftz="):
+            continue
+
+        # nvcc uses -ccbin (aliased --compiler-bindir) to select the host
+        # compiler. chipStar compiles host code with clang through hipcc, so
+        # the path is not needed - drop it along with its value.
+        if arg == "-ccbin" or arg == "--compiler-bindir":
+            if i < len(arg_list):
+                i += 1
+            continue
+        if arg.startswith("-ccbin=") or arg.startswith("--compiler-bindir="):
+            continue
+        if arg == "-forward-unknown-to-host-compiler":
+            continue
+
+        # -Xcompiler takes the next token as its value. That value may be a
+        # single option or a comma-separated list of host options; expand it
+        # into individual flags instead of passing it through verbatim.
         if arg == "-Xcompiler":
+            if i < len(arg_list):
+                filtered.extend(expand_xcompiler_options(arg_list[i]))
+                i += 1
             continue
         if arg.startswith("-Xcompiler="):
-            arg = arg.replace("-Xcompiler=", "", 1)
+            filtered.extend(expand_xcompiler_options(arg[len("-Xcompiler="):]))
+            continue
+
         filtered.append(arg)
+
     return filtered
 
 def main():
@@ -220,7 +305,18 @@ def main():
         print(f"cucc args: {' '.join(map(quote, sys.argv))}",
               file=sys.stderr)
 
-    known_args, other_args = prepare_argparser().parse_known_args()
+    # An options file is equivalent to its contents on the command line.
+    argv: List[str] = []
+    args_iter = iter(sys.argv[1:])
+    for arg in args_iter:
+        if arg == "--options-file":
+            argv.extend(expand_options_file(next(args_iter, "")))
+        elif arg.startswith("--options-file="):
+            argv.extend(expand_options_file(arg[len("--options-file="):]))
+        else:
+            argv.append(arg)
+
+    known_args, other_args = prepare_argparser().parse_known_args(argv)
 
     if known_args.default_stream == "per-thread":
         error_exit("per-thread stream function is not implemented.")
@@ -252,8 +348,9 @@ def main():
 
     if known_args.version:
         alt_version_str = os.environ.get('CUCC_VERSION_STRING')
-        if MASQUERADE_AS_NVCC and alt_version_str:
-            print(alt_version_str)
+        if MASQUERADE_AS_NVCC:
+            print(alt_version_str if alt_version_str
+                  else DEFAULT_VERSION_BANNER)
             sys.exit(0)
         else:
             hipcc_args.append("--version")
@@ -268,14 +365,19 @@ def main():
             # CMake infers CMAKE_CUDA_COMPILER_TOOLKIT_ROOT from this line.
             print(f"#$ TOP={get_hip_path()}")
 
+            # CMake fills CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES from this.
+            print(f'#$ INCLUDES="-I{get_cuda_include_dir()}" '
+                  f'"-I{get_hip_path()}/include"')
+
+            # CMake parses the default architecture from '-arch compute_NN'.
+            print(f"#$ nvlink -arch compute_{DEFAULT_COMPUTE_CAPABILITY}")
+
             # Contents of the LIBRARIES variable is used by CMake for locating
             # a 'link line'.
             print(f"#$ LIBRARIES= -L{get_cuda_library_dir()}")
 
-            # The 'link line'. We use it to propagate chipStar's
-            # runtime link options. 'g++' is abritrarily chosen - it's included
-            # just in case for keeping CMake's link line parser happy.
-            print(f"#$ g++ -L{get_cuda_library_dir()} -lCHIP")
+            # The 'link line': CMake uses its first word as the link launcher.
+            print(f"#$ {get_hipcc()} -L{get_cuda_library_dir()} -lCHIP")
 
             # --verbose option is not propagated so CMake does not get
             # confused by the extra output from the hipcc.

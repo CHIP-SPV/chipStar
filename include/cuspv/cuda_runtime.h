@@ -41,6 +41,11 @@
 #define __CHIP_CUDA_RUNTIME_H__
 #endif
 
+// Has to be defined before hip_runtime.h is included.
+#ifndef __HIP_PLATFORM_SPIRV__
+#define __HIP_PLATFORM_SPIRV__
+#endif
+
 // Having __NVCC__ defined makes HIP headers to define
 // __HIP_PLATFORM_{NVCC/NVIDIA}__ which clash with other
 // __HIP_PLATFORM_*__ defines (mutual exclusivity). Hide __NVCC__

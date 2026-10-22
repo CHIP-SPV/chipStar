@@ -96,3 +96,16 @@ add_test(NAME TestFix1635HostTarget
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1635HostTarget.cmake)
 set_tests_properties(TestFix1635HostTarget PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+if(CHIP_BUILD_SHARED_LIBS AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+# Reproduce #2042: CMake's CUDA language and find_package(CUDAToolkit) must
+# work with the installed cucc, with or without the toolchain file.
+add_test(NAME TestFix2042CMakeCuda
+  COMMAND ${CMAKE_COMMAND}
+    -DBUILD_DIR=${CMAKE_BINARY_DIR}
+    -DGENERATOR=${CMAKE_GENERATOR}
+    -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2042CMakeCuda
+    -DCONSUMER_DIR=${CMAKE_CURRENT_SOURCE_DIR}/TestFix2042CMakeCuda
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2042CMakeCuda.cmake)
+set_tests_properties(TestFix2042CMakeCuda PROPERTIES TIMEOUT 900)
+endif()

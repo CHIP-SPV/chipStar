@@ -118,44 +118,42 @@ is a non-exhaustive list of known issues and limitations:
 #### Configuring CMake-based CUDA Projects
 
 CUDA projects using CMake can be targeted to utilize chipStar. The
-feature is experimental, and has been only tested with CMake 3.24.3.
-Additionally, thie feature currently only covers CMake projects that
-use CMake's built-in CUDA compilation flow instead of relying
-`find_package(CUDA)` or `find_package(CUDAToolkit)`. Here is an
+feature is experimental. Both CMake's built-in CUDA language and
+`find_package(CUDAToolkit)` with `CUDA::cudart` are supported; the latter
+needs CMake 3.28 or newer. Here is an
 example of `CMakeLists.txt` for enabling CUDA.
 
 ```cmake
 project(MyCudaProject LANGUAGES CUDA CXX C)
-add_executable(myexe main.cu some.cu some.cpp some.c)
+find_package(CUDAToolkit REQUIRED)
+add_executable(myexe main.cu some.cu)
+target_link_libraries(myexe CUDA::cudart)
 ```
 
 The CUDA-on-chipStar is enabled by making the `cucc` tool appear as
-`nvcc` for CMake. To make CMake target chipStar, define a following
-environment variable:
+`nvcc` for CMake. Configure with the toolchain file installed by chipStar,
+which sets `CMAKE_CUDA_COMPILER` and `CUDAToolkit_ROOT`:
 
 ```
-export CUCC_VERSION_STRING="nvcc: NVIDIA (R) Cuda compiler driver"
+cmake -DCMAKE_TOOLCHAIN_FILE=<chipStar-install-dir>/share/cmake/chipstar/cuda-toolchain.cmake \
+      /path/to/your/cuda-project
 ```
 
-Create dummy `libcudart.so`, `libcudart_static.a` and `libcudadevrt.so`
-files and place them under the chipStar library install directory:
+Setting only the compiler also works:
 
 ```
-touch <chipStar-install-dir>/lib/libcudart.so
-touch <chipStar-install-dir>/lib/libcudart_static.a
-touch <chipStar-install-dir>/lib/libcudadevrt.so
+cmake -DCMAKE_CUDA_COMPILER=<chipStar-install-dir>/bin/cucc /path/to/your/cuda-project
 ```
 
-And invoke cmake as follows:
+A target that has `.cpp` sources besides its `.cu` sources is linked by CMake
+using the C++ compiler, which currently fails on non-PIE host objects
+("relocation R_X86_64_32S ... recompile with -fPIE"). Either set
+`CMAKE_CXX_COMPILER` to the `clang++` of the LLVM chipStar was built with,
+or add `-fPIE` to `CMAKE_CUDA_FLAGS`.
 
-```
-cmake -DCMAKE_CUDA_COMPILER=<chipStar-install-dir>/bin/cucc \
-      -DCMAKE_CUDA_ARCHITECTURES=72 /path/to/your/cuda-project
-```
-
-Note that the `CMAKE_CUDA_ARCHITECTURES` only needs to be set to some valid
-architecture for the command to succeed. Otherwise, the value does not
-matter and chipStar ignores it.
+Without the toolchain file, a CUDA toolkit installed on the system may be
+picked up by `find_package(CUDAToolkit)` instead of chipStar's `libcudart`.
+Set `CUDAToolkit_ROOT=<chipStar-install-dir>` to prevent that.
 
 ### Compiling a HIP application using chipStar
 
