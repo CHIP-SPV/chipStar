@@ -6,15 +6,20 @@
 # sub-build's compiler (CMakeLists.txt:577-578), so in a cross build it
 # silently produces x86 static libraries that the aarch64 libCHIP link then
 # rejects. Providing a prebuilt aarch64 SPIRV-Tools makes find_package
-# succeed and the ExternalProject never runs. Same repo and tag chipStar
-# would have fetched itself.
+# succeed and the ExternalProject never runs. Same repo and the commit pinned
+# in cmake/SpirvToolsExternal.cmake.
 set -e
 JOBS="${1:-$(nproc)}"
 WORK_DIR="${WORK_DIR:-/work}"
 PREFIX=/opt/spirv-tools-aarch64
+CHIPSTAR_DIR="${CHIPSTAR_DIR:-/chipstar}"
+REV=$(sed -n 's/^set(SPIRV_TOOLS_VERSION "\(.*\)")/\1/p' "$CHIPSTAR_DIR/cmake/SpirvToolsExternal.cmake")
+: "${REV:?no SPIRV_TOOLS_VERSION in SpirvToolsExternal.cmake}"
 git config --global --add safe.directory '*' || true
 mkdir -p "$WORK_DIR" && cd "$WORK_DIR"
 [ -d SPIRV-Tools ] || git clone --depth 1 https://github.com/CHIP-SPV/SPIRV-Tools.git
+git -C SPIRV-Tools fetch --depth 1 origin "$REV"
+git -C SPIRV-Tools checkout --detach "$REV"
 cd SPIRV-Tools && python3 utils/git-sync-deps && cd ..
 cmake -S SPIRV-Tools -B spirv-tools-build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \

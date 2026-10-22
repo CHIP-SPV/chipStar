@@ -16,6 +16,8 @@ cd "$ROOT"
   # The patch series and the script that pins LLVM's refs and applies it.
   find llvm-patches/llvm-23 -type f -exec sha256sum {} + | sort -k2
   sha256sum scripts/configure_llvm.sh
+  # The SPIRV-Tools commit image-spirv-tools.sh builds.
+  sha256sum cmake/SpirvToolsExternal.cmake
   # The image recipe itself.
   sha256sum scripts/cross-aarch64/Dockerfile \
             scripts/cross-aarch64/Dockerfile.chipstar \
