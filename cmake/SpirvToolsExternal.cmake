@@ -5,7 +5,8 @@
 # Download and build SPIRV-Tools
 include(ExternalProject)
 
-set(SPIRV_TOOLS_VERSION "main")
+# A commit, not a branch, so every build of a chipStar commit gets the same SPIRV-Tools.
+set(SPIRV_TOOLS_VERSION "2d579aea06654623760975d9c785838296980363")
 set(SPIRV_TOOLS_INSTALL_DIR "${CMAKE_BINARY_DIR}/external/spirv-tools")
 
 # Create the include directory before it's referenced
@@ -13,7 +14,7 @@ file(MAKE_DIRECTORY "${SPIRV_TOOLS_INSTALL_DIR}/include")
 file(MAKE_DIRECTORY "${SPIRV_TOOLS_INSTALL_DIR}/lib")
 
 # Full paths, not bare names: the external's configure step re-runs on every
-# build (UPDATE_COMMAND is never up to date) and passes these again each time.
+# build (the update step is never up to date) and passes these again each time.
 # A bare name is resolved through PATH at every run, and a PATH that resolves
 # it differently between two runs makes cmake treat the compiler as changed,
 # delete the external's cache and reconfigure with only the compiler entries,
@@ -25,7 +26,6 @@ message(STATUS "CHIPSTAR_CXX_COMPILER: ${CHIPSTAR_CXX_COMPILER}")
 ExternalProject_Add(SPIRV-Tools-External
   GIT_REPOSITORY   https://github.com/CHIP-SPV/SPIRV-Tools.git
   GIT_TAG          ${SPIRV_TOOLS_VERSION}
-  GIT_SHALLOW      TRUE
   SOURCE_SUBDIR    "."
   CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${SPIRV_TOOLS_INSTALL_DIR}
@@ -36,7 +36,7 @@ ExternalProject_Add(SPIRV-Tools-External
     -DSPIRV_TOOLS_INSTALL_HEADERS=ON
     -DSPIRV_TOOLS_BUILD_STATIC=ON
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-  UPDATE_COMMAND   ${CMAKE_COMMAND} -E chdir <SOURCE_DIR> python3 utils/git-sync-deps
+  PATCH_COMMAND    ${CMAKE_COMMAND} -E chdir <SOURCE_DIR> python3 utils/git-sync-deps
   LOG_DOWNLOAD ON
   LOG_UPDATE ON
   LOG_CONFIGURE ON
