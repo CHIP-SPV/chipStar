@@ -6816,6 +6816,12 @@ extern "C" void __hipUnregisterFatBinary(void *Data) {
 
   logDebug("Unregister module: {}", Data);
   SPVRegister::Handle ModHandle{Data};
+  if (Backend && NumBins > 1) {
+    LOCK(ApiMtx);
+    if (hipDeviceSynchronizeInternal() == hipSuccess)
+      for (auto *Dev : Backend->getDevices())
+        Dev->eraseModule(*reinterpret_cast<const SPVModule *>(Data));
+  }
   getSPVRegister().unregisterSource(ModHandle);
 
   logDebug("Modules left: {}", NumBins - 1);

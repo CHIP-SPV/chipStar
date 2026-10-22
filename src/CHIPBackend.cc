@@ -1201,6 +1201,26 @@ void chipstar::Device::eraseModule(chipstar::Module *Module) {
     }
 }
 
+void chipstar::Device::eraseModule(const SPVModule &SrcMod) {
+  chipstar::Module *Compiled = nullptr;
+  {
+    LOCK(DeviceVarMtx); // SrcModToCompiledMod_, FailedSrcMods_,
+                        // HostPtrToCompiledMod_, DeviceVarLookup_
+    FailedSrcMods_.erase(&SrcMod);
+    for (auto &K : SrcMod.Kernels)
+      HostPtrToCompiledMod_.erase(K.Ptr);
+    for (auto &V : SrcMod.Variables) {
+      HostPtrToCompiledMod_.erase(V.Ptr);
+      DeviceVarLookup_.erase(V.Ptr);
+    }
+    auto It = SrcModToCompiledMod_.find(&SrcMod);
+    if (It != SrcModToCompiledMod_.end())
+      Compiled = It->second;
+  }
+  if (Compiled)
+    eraseModule(Compiled);
+}
+
 void chipstar::Device::addQueue(chipstar::Queue *ChipQueue) {
   logDebug("{} Device::addQueue({})", (void *)this, (void *)ChipQueue);
 
