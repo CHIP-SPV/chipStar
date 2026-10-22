@@ -1209,7 +1209,8 @@ string(REPLACE "$<INSTALL_PREFIX>" "@CHIP_INSTALL_PREFIX@" _hipInfo_install "${_
 file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo_install.in" ${_hipInfo_install})
 file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/share/.hipInfo" CONTENT "@_hipInfo_build@" @ONLY)
 # Substitute the prefix given to `cmake --install`, not the configure-time one.
-install(CODE "set(CHIP_INSTALL_PREFIX \"\${CMAKE_INSTALL_PREFIX}\")
+# hipcc pastes the .hipInfo flags into a shell command, so escape spaces.
+install(CODE "string(REPLACE \" \" \"\\\\ \" CHIP_INSTALL_PREFIX \"\${CMAKE_INSTALL_PREFIX}\")
   configure_file(\"${PROJECT_BINARY_DIR}/share/.hipInfo_install.in\"
     \"${PROJECT_BINARY_DIR}/share/.hipInfo_install\" @ONLY)")
 install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
