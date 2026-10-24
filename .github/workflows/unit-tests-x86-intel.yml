@@ -50,6 +50,11 @@ jobs:
       POCL_KERNEL_CACHE: "0"
       # 10s under the 1800s test timeout so the runtime gives up first.
       CHIP_L0_EVENT_TIMEOUT: "1790"
+      # Build dirs persist across jobs so ninja rebuilds only what changed.
+      BUILD_ROOT: /home/pvelesko/ci-build
+      # Outside the checkout, which actions/checkout cleans every job.
+      CCACHE_DIR: /home/pvelesko/.cache/ccache-ci
+      CCACHE_MAXSIZE: 20G
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,6 +75,21 @@ jobs:
           module load oneapi/2025.0.4 opencl/dgpu
           clinfo -l | grep "Platform #0" || { echo "No OpenCL devices detected."; exit 1; }
 
+      # ninja cannot see a rebuilt toolchain, a new file shadowing an included one, nor a
+      # changed CMake default, which only seeds a fresh cache; any change wipes both lanes.
+      - name: Reset build dirs on configuration change
+        shell: bash
+        run: |
+          set -eo pipefail
+          source scripts/module-env.sh
+          module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
+          LLVM_DIR=$(llvm-config --prefix)
+          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-x86-intel.yml
+            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
+          [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
+          mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+
       # =====================================================================
       # Lane 1: in-tree SPIR-V backend
       # =====================================================================
@@ -79,8 +99,20 @@ jobs:
           set -e
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
-          ./install_chipstar.py -c chipstar --with-tests --no-install -j 8 \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON"
+          B=$BUILD_ROOT/native
+          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
+          # Device code is compiled through the pass plugin and device library
+          # --hip-path points at, which ccache does not see on the command line.
+          export CCACHE_EXTRAFILES=$B/lib/libLLVMHipSpvPasses.so:$B/lib/hip-device-lib/hipspv-spirv64v1.3-unknown-chipstar.bc
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DLLVM_CONFIG_BIN=$(which llvm-config)
+          ninja -C $B -j8
+          ninja -C $B -j8 build_tests
+          ccache -s
 
       - name: Test native, igpu opencl
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -90,7 +122,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, igpu level0
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -100,7 +132,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, dgpu opencl
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -110,7 +142,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, dgpu level0
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -120,7 +152,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ dgpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       # =====================================================================
       # Lane 2: llvm-spirv translator
@@ -128,8 +160,7 @@ jobs:
       # One LLVM 23 toolchain serves both lanes: chipStar's patches landed in
       # llvm#213052, so the SPIRV-target build also drives the translator and
       # the producer is chosen per build by CHIP_LLVM_USE_INTERGRATED_SPIRV.
-      # The installer wipes and recreates build/ per invocation, so the two
-      # configurations never share incremental state.
+      # Each lane keeps its own build dir under BUILD_ROOT.
       # =====================================================================
       - name: Build chipStar (llvm-spirv translator)
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -138,8 +169,20 @@ jobs:
           set -e
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
-          ./install_chipstar.py -c chipstar --with-tests --no-install -j 8 \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON"
+          B=$BUILD_ROOT/translator
+          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
+          # Device code is compiled through the pass plugin and device library
+          # --hip-path points at, which ccache does not see on the command line.
+          export CCACHE_EXTRAFILES=$B/lib/libLLVMHipSpvPasses.so:$B/lib/hip-device-lib/hipspv-spirv64v1.3-unknown-chipstar.bc
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DLLVM_CONFIG_BIN=$(which llvm-config)
+          ninja -C $B -j8
+          ninja -C $B -j8 build_tests
+          ccache -s
 
       - name: Test translator, igpu opencl
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -149,7 +192,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, igpu level0
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -159,7 +202,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/igpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, dgpu opencl
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -169,7 +212,7 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 opencl/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, dgpu level0
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
@@ -179,15 +222,15 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           nt=$(cat /opt/actions-runner/num-threads.txt 2>/dev/null || nproc)
-          cd build && ../scripts/check.py ./ dgpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ dgpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: test-logs-x86
           path: |
-            build/checkpy_*.txt
-            build/Testing/**/LastTest.log
+            ${{ env.BUILD_ROOT }}/*/checkpy_*.txt
+            ${{ env.BUILD_ROOT }}/*/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
 
   math-tests-status:
