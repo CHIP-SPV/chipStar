@@ -49,6 +49,8 @@ jobs:
       CHIP_BE: opencl
       CHIP_PLATFORM: "0"
       CHIP_DEVICE: "0"
+      # Build dir persists across jobs so ninja rebuilds only what changed.
+      BUILD_ROOT: /home/runner/_work/ci-build
 
     steps:
       - uses: actions/checkout@v4
@@ -61,6 +63,19 @@ jobs:
         shell: bash
         run: echo "$LLVM_PREFIX/bin" >> "$GITHUB_PATH"
 
+      # ninja cannot see a rebuilt toolchain, a new file shadowing an included one, nor a
+      # changed CMake default, which only seeds a fresh cache; any change wipes the build dir.
+      - name: Reset build dir on configuration change
+        shell: bash
+        run: |
+          set -eo pipefail
+          STAMP=$(set -eo pipefail; { find -L $LLVM_PREFIX/bin $LLVM_PREFIX/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-amd-rusticl.yml
+            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
+          [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
+          mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+          rm -f $BUILD_ROOT/build/checkpy_*.txt $BUILD_ROOT/build/Testing/Temporary/LastTest.log
+
       - name: Show rusticl device (clinfo)
         shell: bash
         run: |
@@ -69,32 +84,27 @@ jobs:
           which llvm-spirv xxd
           clinfo -l
 
-      - name: Configure chipStar (program-scope globals OFF for rusticl)
+      - name: Build chipStar (program-scope globals OFF for rusticl)
         shell: bash
         run: |
           set -e
-          cmake -S . -B build -G Ninja \
+          B=$BUILD_ROOT/build
+          cmake -S . -B $B -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER="$LLVM_PREFIX/bin/clang" \
             -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++" \
             -DLLVM_CONFIG_BIN="$LLVM_PREFIX/bin/llvm-config" \
             -DCHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS=OFF \
             -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
-            -DCMAKE_INSTALL_PREFIX=build/install
-
-      - name: Build chipStar runtime + hipInfo
-        shell: bash
-        run: cmake --build build -j"$(nproc)"
-
-      - name: Build all tests
-        shell: bash
-        run: cmake --build build --target build_tests -j"$(nproc)"
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON
+          ninja -C $B -j$(nproc)
+          ninja -C $B -j$(nproc) build_tests
 
       - name: Verify rusticl AMD GPU via hipInfo
         shell: bash
         run: |
           set -e
-          cd build
+          cd $BUILD_ROOT/build
           echo "=== hipInfo ==="
           ./hipInfo | tee hipinfo.out
           echo "=== assert an AMD Radeon device is present ==="
@@ -108,11 +118,11 @@ jobs:
         shell: bash
         run: |
           set -e
-          cd build
+          cd $BUILD_ROOT/build
           # 4 GB W6400: keep parallelism low to avoid VRAM contention flakiness.
           # check.py exits non-zero unless every test passes (no known-failure
           # exclusions for this backend), so this step gates on 100% pass.
-          ../scripts/check.py ./ dgpu opencl --num-threads 4 --timeout 180 ${{ inputs.math_tests && '--math-tests' || '' }}
+          $GITHUB_WORKSPACE/scripts/check.py ./ dgpu opencl --num-threads 4 --timeout 180 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Upload test logs on failure
         if: failure()
@@ -120,8 +130,8 @@ jobs:
         with:
           name: rusticl-check-logs
           path: |
-            build/Testing/Temporary/LastTest.log
-            build/checkpy_*.txt
+            /home/runner/_work/ci-build/build/Testing/Temporary/LastTest.log
+            /home/runner/_work/ci-build/build/checkpy_*.txt
           if-no-files-found: ignore
 
   math-tests-status:
