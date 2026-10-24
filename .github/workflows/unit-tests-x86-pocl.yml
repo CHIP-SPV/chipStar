@@ -1,0 +1,107 @@
+name: Unit tests (x86 Linux PoCL)
+run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
+
+# cupcake (i9-13900K), OpenCL via a source-built PoCL 7.2 on the CPU, inside the rusticl runner container.
+# Both SPIR-V producers come from the same LLVM 23 toolchain. Sequential lanes
+# rather than a matrix: there is one runner.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: "docs/**"
+  workflow_dispatch:
+    inputs:
+      math_tests:
+        description: Run only the hip-tests MathsTest cases
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    if: ${{ !github.event.pull_request.draft }}
+    name: chipStar unit tests (x86 PoCL, LLVM 23, native + translator)
+    runs-on: [rusticl]
+    env:
+      LLVM_DIR: /space/pvelesko/install/llvm/23.0
+      # PoCL 7.2 on LLVM 21, built without hwloc, which the container lacks.
+      OCL_ICD_VENDORS: /space/pvelesko/install/pocl/7.2-llvm21/etc/OpenCL/vendors
+      # Build dirs persist across jobs so ninja rebuilds only what changed.
+      BUILD_ROOT: /home/runner/_work/ci-build-pocl
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: 'recursive'
+
+      # ninja cannot see a rebuilt toolchain, a new file shadowing an included one, nor a
+      # changed CMake default, which only seeds a fresh cache; any change wipes both lanes.
+      - name: Reset build dirs on configuration change
+        run: |
+          set -eo pipefail
+          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-x86-pocl.yml
+            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
+          [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
+          mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+
+      - name: Build chipStar (native SPIR-V backend)
+        run: |
+          set -e
+          B=$BUILD_ROOT/native
+          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config
+          ninja -C $B -j$(nproc)
+          ninja -C $B -j$(nproc) build_tests
+        timeout-minutes: 60
+
+      - name: Test native, pocl opencl
+        run: cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+        timeout-minutes: 60
+
+      - name: Build chipStar (llvm-spirv translator)
+        id: translator-build
+        if: ${{ !cancelled() }}
+        run: |
+          set -e
+          B=$BUILD_ROOT/translator
+          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config
+          ninja -C $B -j$(nproc)
+          ninja -C $B -j$(nproc) build_tests
+        timeout-minutes: 60
+
+      - name: Test translator, pocl opencl
+        if: ${{ !cancelled() && steps.translator-build.outcome == 'success' }}
+        run: cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+        timeout-minutes: 60
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs-x86-pocl
+          path: |
+            /home/runner/_work/ci-build-pocl/*/checkpy_*.txt
+            /home/runner/_work/ci-build-pocl/*/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+
+  math-tests-status:
+    needs: build-and-test
+    if: ${{ always() && inputs.math_tests }}
+    permissions:
+      actions: read
+      statuses: write
+    uses: ./.github/workflows/math-tests-status.yml
+    with:
+      result: ${{ needs.build-and-test.result }}

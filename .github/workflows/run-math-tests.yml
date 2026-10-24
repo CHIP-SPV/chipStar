@@ -41,7 +41,7 @@ jobs:
             for (const workflow_id of [
               'unit-tests-x86-intel.yml',
               'unit-tests-macos-pocl.yml',
-              'unit-tests-pocl-cpu.yml',
+              'unit-tests-x86-pocl.yml',
               'unit-tests-riscv-pocl.yml',
               'unit-tests-amd-rusticl.yml',
             ]) {
