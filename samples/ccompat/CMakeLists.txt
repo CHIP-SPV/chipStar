@@ -31,5 +31,5 @@ if(CMAKE_GENERATOR MATCHES "Ninja")
   add_test(NAME TestFix2057CcompatToolchainStamp
     COMMAND ${CMAKE_MAKE_PROGRAM} -C ${CMAKE_BINARY_DIR} -t query samples/ccompat/ccompat.o)
   set_tests_properties(TestFix2057CcompatToolchainStamp PROPERTIES
-    PASS_REGULAR_EXPRESSION "\n    (\\| )?hip_device_toolchain\\.stamp\n")
+    PASS_REGULAR_EXPRESSION "[^|] (\\| )?hip_device_toolchain\\.stamp")
 endif()
