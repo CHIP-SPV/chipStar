@@ -103,7 +103,13 @@ def compiles_at_runtime(line):
 kept = dropped = dropped_rtc = 0
 for f in pathlib.Path(stage).rglob('CTestTestfile.cmake'):
     out = []
-    lines = f.read_text().splitlines()
+    # one entry per command: a quoted value with a newline spans lines
+    lines = []
+    for l in f.read_text().splitlines():
+        if lines and not lines[-1].startswith('#') and '"' in re.sub(r'"(?:\\.|[^"\\])*"|\[(=*)\[.*?\]\1\]', '', lines[-1], flags=re.S):
+            lines[-1] += '\n' + l
+        else:
+            lines.append(l)
     i = 0
     while i < len(lines):
         l = lines[i]
