@@ -1,4 +1,4 @@
-name: Unit tests (macOS PoCL)
+name: Unit tests (arm64 macOS PoCL)
 run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 # pastrami: Apple Silicon, OpenCL only via PoCL (no Level Zero). Both SPIR-V

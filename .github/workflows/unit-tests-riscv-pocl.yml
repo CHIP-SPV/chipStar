@@ -1,4 +1,4 @@
-name: Unit tests (RISC-V PoCL)
+name: Unit tests (RISC-V Linux PoCL)
 run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 
 # k3: SpacemiT K3 (8x X100 rv64gcv), OpenCL via a source-built PoCL on the CPU.
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   build-and-test:
     if: ${{ !github.event.pull_request.draft }}
-    name: chipStar unit tests (RISC-V, LLVM 23, native + translator)
+    name: chipStar unit tests (RISC-V Linux PoCL, LLVM 23, native + translator)
     runs-on: [self-hosted, riscv64, k3]
     env:
       PATH: /home/bianbu/.local/bin:/usr/local/bin:/usr/bin:/bin
