@@ -75,13 +75,13 @@ jobs:
             echo "$v=${!v}" >> $GITHUB_ENV
           done
 
-      # ninja cannot see a rebuilt toolchain, a new file shadowing an included one, nor a
+      # ninja cannot see a rebuilt toolchain or a new SDK, a new file shadowing an included one, nor a
       # changed CMake default, which only seeds a fresh cache; any change wipes both lanes.
       - name: Reset build dirs on configuration change
         shell: /bin/bash {0}
         run: |
           set -eo pipefail
-          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -exec stat -f '%N %m' {} + | sort; cat .github/workflows/unit-tests-macos-pocl.yml
+          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -exec stat -f '%N %m' {} + | sort; echo $SDKROOT; cat .github/workflows/unit-tests-macos-pocl.yml
             git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
             git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | shasum -a 256)
           [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
