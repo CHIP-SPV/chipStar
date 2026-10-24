@@ -62,6 +62,22 @@ jobs:
           fetch-depth: 0
           submodules: 'recursive'
 
+      # ninja cannot see a rebuilt toolchain, a new file shadowing an included one, nor a
+      # changed CMake default, which only seeds a fresh cache; any change wipes both lanes.
+      - name: Reset build dirs on configuration change
+        shell: bash
+        run: |
+          set -eo pipefail
+          rm -f $BUILD_ROOT/*/checkpy_*.txt $BUILD_ROOT/*/Testing/Temporary/LastTest.log
+          source scripts/module-env.sh
+          module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
+          LLVM_DIR=$(llvm-config --prefix)
+          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-x86-intel.yml
+            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
+          [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
+          mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+
       - name: Sanity-check runner (page locking, OpenCL devices)
         shell: bash
         run: |
@@ -74,22 +90,6 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 opencl/dgpu
           clinfo -l | grep "Platform #0" || { echo "No OpenCL devices detected."; exit 1; }
-
-      # ninja cannot see a rebuilt toolchain, a new file shadowing an included one, nor a
-      # changed CMake default, which only seeds a fresh cache; any change wipes both lanes.
-      - name: Reset build dirs on configuration change
-        shell: bash
-        run: |
-          set -eo pipefail
-          source scripts/module-env.sh
-          module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
-          LLVM_DIR=$(llvm-config --prefix)
-          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-x86-intel.yml
-            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
-            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
-          [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
-          mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
-          rm -f $BUILD_ROOT/*/checkpy_*.txt $BUILD_ROOT/*/Testing/Temporary/LastTest.log
 
       # =====================================================================
       # Lane 1: in-tree SPIR-V backend
