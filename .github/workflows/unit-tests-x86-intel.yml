@@ -89,18 +89,19 @@ jobs:
             git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
           [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
           mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+          rm -f $BUILD_ROOT/*/checkpy_*.txt $BUILD_ROOT/*/Testing/Temporary/LastTest.log
 
       # =====================================================================
       # Lane 1: in-tree SPIR-V backend
       # =====================================================================
       - name: Build chipStar (native SPIR-V backend)
+        id: native-build
         shell: bash
         run: |
           set -e
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           B=$BUILD_ROOT/native
-          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
           # Device code is compiled through the pass plugin and device library
           # --hip-path points at, which ccache does not see on the command line.
           export CCACHE_EXTRAFILES=$B/lib/libLLVMHipSpvPasses.so:$B/lib/hip-device-lib/hipspv-spirv64v1.3-unknown-chipstar.bc
@@ -115,7 +116,7 @@ jobs:
           ccache -s
 
       - name: Test native, igpu opencl
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -125,7 +126,7 @@ jobs:
           cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, igpu level0
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -135,7 +136,7 @@ jobs:
           cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, dgpu opencl
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -145,7 +146,7 @@ jobs:
           cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test native, dgpu level0
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -163,6 +164,7 @@ jobs:
       # Each lane keeps its own build dir under BUILD_ROOT.
       # =====================================================================
       - name: Build chipStar (llvm-spirv translator)
+        id: translator-build
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: bash
         run: |
@@ -170,7 +172,6 @@ jobs:
           source scripts/module-env.sh
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           B=$BUILD_ROOT/translator
-          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
           # Device code is compiled through the pass plugin and device library
           # --hip-path points at, which ccache does not see on the command line.
           export CCACHE_EXTRAFILES=$B/lib/libLLVMHipSpvPasses.so:$B/lib/hip-device-lib/hipspv-spirv64v1.3-unknown-chipstar.bc
@@ -185,7 +186,7 @@ jobs:
           ccache -s
 
       - name: Test translator, igpu opencl
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.translator-build.outcome == 'success' && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -195,7 +196,7 @@ jobs:
           cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ igpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, igpu level0
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.translator-build.outcome == 'success' && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -205,7 +206,7 @@ jobs:
           cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ igpu level0 --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, dgpu opencl
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.translator-build.outcome == 'success' && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
@@ -215,7 +216,7 @@ jobs:
           cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ dgpu opencl --num-threads=$nt --timeout=1800 ${{ inputs.math_tests && '--math-tests' || '' }}
 
       - name: Test translator, dgpu level0
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.translator-build.outcome == 'success' && (success() || inputs.math_tests) }}
         shell: bash
         run: |
           set -e
