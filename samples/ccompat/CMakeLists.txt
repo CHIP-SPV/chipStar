@@ -24,3 +24,11 @@ add_custom_target(ccompatBuild ALL
 
 add_dependencies(ccompatBuild hipcc.bin CHIP)
 add_test(NAME ccompat COMMAND ${CMAKE_BINARY_DIR}/samples/ccompat/ccompat)
+
+# Reproduce #2057: ccompat.o must rebuild when hipcc or .hipInfo changes.
+if(CMAKE_GENERATOR MATCHES "Ninja")
+  add_test(NAME TestFix2057CcompatToolchainStamp
+    COMMAND ${CMAKE_MAKE_PROGRAM} -C ${CMAKE_BINARY_DIR} -t query samples/ccompat/ccompat.o)
+  set_tests_properties(TestFix2057CcompatToolchainStamp PROPERTIES
+    PASS_REGULAR_EXPRESSION "\n    (\\| )?hip_device_toolchain\\.stamp\n")
+endif()
