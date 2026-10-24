@@ -8,6 +8,7 @@ add_custom_command(
 
 add_custom_command(
   OUTPUT ccompat.o DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/ccompat.o.d DEPENDS ${CMAKE_SOURCE_DIR}/samples/ccompat/ccompat.c
+  ${HIP_DEVICE_TOOLCHAIN_STAMP}
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
   ${CMAKE_SOURCE_DIR}/samples/ccompat/ccompat.c -c -g -pthread
   -I${CMAKE_SOURCE_DIR}/include -I${CMAKE_SOURCE_DIR}/HIP/include
