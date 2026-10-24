@@ -4,10 +4,8 @@ run-name: ${{ inputs.math_tests && 'Math tests' || '' }}
 # pastrami: Apple Silicon, OpenCL only via PoCL (no Level Zero). Both SPIR-V
 # producers are built from the same LLVM 23 toolchain.
 #
-# Single job with two sequential lanes rather than a matrix: install_chipstar.py
-# builds in-tree at <source>/build, and matrix legs share one runner workspace,
-# so two legs would fight over the same directory if the runner ever gained a
-# second job slot.
+# Sequential lanes rather than a matrix: there is one runner and the lanes share
+# BUILD_ROOT.
 
 on:
   pull_request:
@@ -31,6 +29,8 @@ jobs:
     runs-on: [self-hosted, ARM64, MacOS]
     env:
       CHIP_MODULE_CACHE_DIR: ""
+      # Build dirs persist across jobs so ninja rebuilds only what changed.
+      BUILD_ROOT: /Users/paulius/ci-build
     steps:
       - uses: actions/checkout@v3
         with:
@@ -75,6 +75,19 @@ jobs:
             echo "$v=${!v}" >> $GITHUB_ENV
           done
 
+      # ninja cannot see a rebuilt toolchain or a new SDK, a new file shadowing an included one, nor a
+      # changed CMake default, which only seeds a fresh cache; any change wipes both lanes.
+      - name: Reset build dirs on configuration change
+        shell: /bin/bash {0}
+        run: |
+          set -eo pipefail
+          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -exec stat -f '%N %m' {} + | sort; echo $SDKROOT; cat .github/workflows/unit-tests-macos-pocl.yml
+            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | shasum -a 256)
+          [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
+          mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+          rm -f $BUILD_ROOT/*/checkpy_*.txt $BUILD_ROOT/*/Testing/Temporary/LastTest.log
+
       # =====================================================================
       # Lane 1: in-tree SPIR-V backend
       # =====================================================================
@@ -82,12 +95,18 @@ jobs:
         shell: /bin/bash {0}
         run: |
           set -e
-          ./install_chipstar.py -c chipstar --with-tests -j $(sysctl -n hw.ncpu) \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
-                           -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
-                           -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON \
-                           -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib \
-                           -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/install-native"
+          B=$BUILD_ROOT/native
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON \
+            -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config \
+            -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib \
+            -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/install-native
+          ninja -C $B -j$(sysctl -n hw.ncpu)
+          ninja -C $B -j$(sysctl -n hw.ncpu) build_tests
+          cmake --install $B
 
       - name: Test install (native)
         shell: /bin/bash {0}
@@ -116,32 +135,35 @@ jobs:
         shell: /bin/bash {0}
         run: |
           set -e
-          cd build && ../scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 60
 
       # =====================================================================
       # Lane 2: llvm-spirv translator
-      #
-      # The installer wipes and recreates build/ per invocation, so the two
-      # configurations never share incremental state.
       # =====================================================================
       - name: Build chipStar (llvm-spirv translator)
+        id: translator-build
         if: ${{ !cancelled() && (success() || inputs.math_tests) }}
         shell: /bin/bash {0}
         run: |
           set -e
-          ./install_chipstar.py -c chipstar --with-tests --no-install -j $(sysctl -n hw.ncpu) \
-            --cmake-flags="-DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
-                           -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
-                           -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON \
-                           -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib"
+          B=$BUILD_ROOT/translator
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
+            -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DCHIP_BUILD_SAMPLES=ON -DCHIP_BUILD_TESTS=ON \
+            -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config \
+            -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib
+          ninja -C $B -j$(sysctl -n hw.ncpu)
+          ninja -C $B -j$(sysctl -n hw.ncpu) build_tests
 
       - name: Test translator, pocl opencl
-        if: ${{ !cancelled() && (success() || inputs.math_tests) }}
+        if: ${{ !cancelled() && steps.translator-build.outcome == 'success' }}
         shell: /bin/bash {0}
         run: |
           set -e
-          cd build && ../scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+          cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 60
 
       - uses: actions/upload-artifact@v4
@@ -149,8 +171,8 @@ jobs:
         with:
           name: test-logs-macos-llvm23
           path: |
-            build/checkpy_*.txt
-            build/Testing/Temporary/LastTest.log
+            /Users/paulius/ci-build/*/checkpy_*.txt
+            /Users/paulius/ci-build/*/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
 
   math-tests-status:
