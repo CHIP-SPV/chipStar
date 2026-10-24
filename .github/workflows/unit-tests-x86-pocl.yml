@@ -29,6 +29,9 @@ jobs:
       LLVM_DIR: /space/pvelesko/install/llvm/23.0
       # PoCL 7.2 on LLVM 21, built without hwloc, which the container lacks.
       OCL_ICD_VENDORS: /space/pvelesko/install/pocl/7.2-llvm21/etc/OpenCL/vendors
+      # WORKAROUND(CHIP-SPV/chipStar#2095): concurrent PoCL cache misses mix kernel layouts. Remove when PoCL fixes it.
+      POCL_KERNEL_CACHE: "0"
+      CHIP_MODULE_CACHE_DIR: ""
       # Build dirs persist across jobs so ninja rebuilds only what changed.
       BUILD_ROOT: /home/runner/_work/ci-build-pocl
     steps:
