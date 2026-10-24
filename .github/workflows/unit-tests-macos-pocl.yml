@@ -86,6 +86,7 @@ jobs:
             git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | shasum -a 256)
           [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
           mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+          rm -f $BUILD_ROOT/*/checkpy_*.txt $BUILD_ROOT/*/Testing/Temporary/LastTest.log
 
       # =====================================================================
       # Lane 1: in-tree SPIR-V backend
@@ -95,7 +96,6 @@ jobs:
         run: |
           set -e
           B=$BUILD_ROOT/native
-          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
           cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
             -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
@@ -147,7 +147,6 @@ jobs:
         run: |
           set -e
           B=$BUILD_ROOT/translator
-          rm -f $B/checkpy_*.txt $B/Testing/Temporary/LastTest.log
           cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
             -DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
