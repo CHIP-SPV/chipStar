@@ -1174,7 +1174,7 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     Unit_Device_y1f_Accuracy_Limited_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     Unit_Device_yn_Accuracy_Limited_Positive_MathsTest: 'double Bessel j0/j1/jn/y0/y1/yn return NaN for large arguments, native_rsqrt is float only (#1814)'
     Unit_Device_ynf_Accuracy_Limited_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
-'^(fv-az|runnervm)': # GitHub hosted ubuntu-22.04 runner, PoCL 7.2 on x86 CPU (unit-tests-pocl-cpu.yml)
+'^chipstar-rusticl$': # cupcake rusticl runner container, PoCL 7.2 on x86 CPU (unit-tests-x86-pocl.yml)
   ALL:
   LEVEL0_GPU:
   OPENCL_CPU:
