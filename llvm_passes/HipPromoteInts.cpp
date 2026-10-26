@@ -445,7 +445,7 @@ static Value *processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being pr
   Value *NewValue = nullptr;
 
   // Check if SrcOp is a NonStd ConstantInt needing specific extension
-  if (isa<ConstantInt>(PromotedSrc) && IsSrcNonStandard) {
+  if (isa<ConstantInt>(PromotedSrc) && PromotedSrc->getType() == SrcTy && IsSrcNonStandard) {
       LLVM_DEBUG(dbgs() << Indent << "  Extending NonStd ConstantInt operand for ZExt: " << *PromotedSrc << "\n");
       NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, false, Indent, ".constexpr.zext");
       LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std const src): ====> " << *NewValue << "\n");
@@ -460,6 +460,11 @@ static Value *processZExtInst(ZExtInst *ZExtI, Type *NonStdType /* Type being pr
 
     // Adjust the PromotedSrc (which is i64) to match the promoted destination type (PromotedDestTy)
     NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, false, Indent + "    Adjusting NonStd Src for ZExt: ");
+    // High bits above the original width are garbage; restore wraparound.
+    NewValue = Builder.CreateAnd(
+        NewValue, ConstantInt::get(PromotedDestTy,
+                                   APInt::getLowBitsSet(PromotedDestTy->getIntegerBitWidth(),
+                                                        SrcTy->getIntegerBitWidth())));
     if (NewValue == PromotedSrc) {
       LLVM_DEBUG(dbgs() << Indent << "  " << *ZExtI << "   promoting ZExt (non-std src, becomes no-op): ====> " << *NewValue << "\n");
     } else {
@@ -1130,7 +1135,7 @@ static Value *processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being pr
   Value *NewValue = nullptr;
 
   // Check if SrcOp is a NonStd ConstantInt needing specific extension
-  if (isa<ConstantInt>(PromotedSrc) && IsSrcNonStandard) {
+  if (isa<ConstantInt>(PromotedSrc) && PromotedSrc->getType() == SrcTy && IsSrcNonStandard) {
       LLVM_DEBUG(dbgs() << Indent << "  Extending NonStd ConstantInt operand for SExt: " << *PromotedSrc << "\n");
       NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, true, Indent, ".constexpr.sext"); // Note: NeedsSignedExt = true
       LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std const src): ====> " << *NewValue << "\n");
@@ -1147,6 +1152,9 @@ static Value *processSExtInst(SExtInst *SExtI, Type *NonStdType /* Type being pr
     // Adjust the PromotedSrc (which is i64) to match the promoted destination type (PromotedDestTy)
     LLVM_DEBUG(dbgs() << Indent << "    Adjusting NonStd Src for SExt: " << *PromotedSrc << " to " << *PromotedDestTy << "\n");
     NewValue = adjustType(PromotedSrc, PromotedDestTy, Builder, true, Indent + "    Adjusting NonStd Src for SExt: "); // Note: NeedsSignedExt = true
+    // High bits above the original width are garbage; restore wraparound.
+    Constant *K = ConstantInt::get(PromotedDestTy, PromotedDestTy->getIntegerBitWidth() - SrcTy->getIntegerBitWidth());
+    NewValue = Builder.CreateAShr(Builder.CreateShl(NewValue, K), K);
     if (NewValue == PromotedSrc) {
       LLVM_DEBUG(dbgs() << Indent << "  " << *SExtI << "   promoting SExt (non-std inst src, becomes no-op): ====> " << *NewValue << "\n");
     } else {
