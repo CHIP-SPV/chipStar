@@ -23,6 +23,7 @@
 #include "CHIPBackend.hh"
 #include "ModuleCache.hh"
 #include <atomic>
+#include <algorithm>
 
 // Definition of thread_local static member (required when not using 'inline')
 thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefaultQueue;
@@ -2297,7 +2298,8 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
 
   auto PreKernel = ExecState == MANAGED_MEM_STATE::PRE_KERNEL;
   std::vector<std::shared_ptr<chipstar::Event>> CopyEvents;
-  auto ArgVisitor = [&](const chipstar::AllocationInfo &AllocInfo) -> void {
+
+  auto SyncAllocation = [&](const chipstar::AllocationInfo &AllocInfo) -> void {
     if (AllocInfo.isMappedHostAllocation()) {
       logDebug("Sync host memory {} ({})", AllocInfo.HostPtr,
                (PreKernel ? "Unmap" : "Map"));
@@ -2310,33 +2312,6 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
                // hipHostGetDevicePointer was never called, meaning no device
                // backing exists yet and there is nothing to sync.
                AllocInfo.MemoryType == hipMemoryTypeManaged) {
-      // If the module has no indirect global buffer accesses, only sync
-      // allocations whose DevPtr is explicitly passed as a kernel argument.
-      const SPVModuleInfo &ModInfo = ExecItem->getKernel()->getModule()->getInfo();
-      if (ModInfo.HasNoIGBAs) {
-        bool IsKernelArg = false;
-        const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
-        void *DevBegin = AllocInfo.DevPtr;
-        void *DevEnd = static_cast<char *>(AllocInfo.DevPtr) + AllocInfo.Size;
-        FuncInfo.visitKernelArgs(ExecItem->getArgs(),
-                                 [&](const SPVFuncInfo::KernelArg &Arg) {
-                                   if (Arg.Kind == SPVTypeKind::Pointer &&
-                                       !Arg.isWorkgroupPtr()) {
-                                     void *PtrVal = *static_cast<void **>(
-                                         const_cast<void *>(Arg.Data));
-                                     // The argument may point anywhere inside
-                                     // the allocation, e.g. the device pointer
-                                     // of an interior host pointer.
-                                     if (PtrVal >= DevBegin && PtrVal < DevEnd)
-                                       IsKernelArg = true;
-                                   }
-                                 });
-        if (!IsKernelArg) {
-          logDebug("Skipping sync of managed memory {} - not a kernel arg",
-                   AllocInfo.DevPtr);
-          return;
-        }
-      }
       void *Src = PreKernel ? AllocInfo.HostPtr : AllocInfo.DevPtr;
       void *Dst = PreKernel ? AllocInfo.DevPtr : AllocInfo.HostPtr;
       logDebug("Sync managed memory {} -> {} ({})", Src, Dst,
@@ -2346,7 +2321,38 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
           PreKernel ? hipMemcpyHostToDevice : hipMemcpyDeviceToHost));
     }
   };
-  AllocTracker->visitAllocations(ArgVisitor);
+
+  // handle the cases where we need to sync host to device (and vice versa)
+  // (for mapped and managed memory.)
+  // HasNoIGBAs=true means no indirect global buffer accesses.
+  // if it is true, then we only need to check if the kernel arguments
+  // match any mapped or managed host memory. if so, we sync them.
+  // if it is false, we sync all mapped or managed host memory.
+  const SPVModuleInfo &ModInfo = ExecItem->getKernel()->getModule()->getInfo();
+  if (ModInfo.HasNoIGBAs) {
+    std::vector<chipstar::AllocationInfo *> KernelPtrAllocs;
+    const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
+    FuncInfo.visitKernelArgs(
+        ExecItem->getArgs(), [&](const SPVFuncInfo::KernelArg &Arg) {
+          if (Arg.Kind == SPVTypeKind::Pointer && !Arg.isWorkgroupPtr())
+            KernelPtrAllocs.push_back(AllocTracker->getAllocInfo(
+                *static_cast<void **>(const_cast<void *>(Arg.Data))));
+        });
+    // sorting and removing duplicates to avoid syncing the same allocation
+    // (e.g. from different pointers pointing to same alloc)
+    std::sort(KernelPtrAllocs.begin(), KernelPtrAllocs.end());
+    KernelPtrAllocs.erase(
+        std::unique(KernelPtrAllocs.begin(), KernelPtrAllocs.end()),
+        KernelPtrAllocs.end());
+    for (auto *AllocInfo : KernelPtrAllocs)
+      if (AllocInfo)
+        SyncAllocation(*AllocInfo);
+
+  } else {
+    // ModInfo.HasNoIGBAs is false so the kernel may reach memory it was never
+    // passed
+    AllocTracker->visitAllocations(SyncAllocation);
+  }
 
   if (CopyEvents.empty())
     return nullptr;
