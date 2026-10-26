@@ -656,6 +656,3 @@ PreservedAnalyses HipPrintfToOpenCLPrintfPass::run(Module &Mod,
   SmallPtrSet<GlobalVariable *, 8> UnusedGlobals;
   return Modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-namespace {
-} // namespace
