@@ -125,6 +125,9 @@ jobs:
             "$CROSS_IMAGE" ctest --output-on-failure -j"$(( $(nproc) > 1 ? $(nproc) - 1 : 1 ))" \
               --test-dir /work/cross-$TREE/tests/compiler \
               -E '^(TestHipccAcceptCFiles|TestRDCWithSingleHipccCmd|TestRDCWithMultipleHipccCmds|TestWholeProgramCompilation|TestSeparateCompilation|TestBFloat16RDC|TestPrintfStaticString|TestStaticLibRDC|TestStaticLibRDCOffloadArch|hipSubwordAtomics-subword-atomics|hipVolatileAccesses-volatile-accesses|TestSpirvDuplicatePhiHip)$'
+          docker run --rm --name "cross-$TREE-canaries" --user "$(id -u):$(id -g)" -e HOME=/work -v "$CROSS_WORK":/work \
+            "$CROSS_IMAGE" ctest --output-on-failure --test-dir /work/cross-$TREE/tests/canaries \
+              -E '^CanaryIGCShuffleIntViewOfFloat$'
         timeout-minutes: 10
 
       - id: mali
