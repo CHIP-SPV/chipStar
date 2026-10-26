@@ -1470,12 +1470,6 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
         // Mark this instruction as visited
         GlobalVisited.insert(I);
       }
-      // Don't add duplicate replacements for successfully processed deferred instructions
-      if (!GlobalVisited.count(I)) {
-        addReplacement(I, processed, Replacements);
-        // Mark the instruction as visited right after adding it to Replacements
-        GlobalVisited.insert(I);
-      }
       DeferredInstructions.pop_front();
       LLVM_DEBUG(dbgs() << "Successfully processed deferred instruction: " << *I << "\n");
     }
