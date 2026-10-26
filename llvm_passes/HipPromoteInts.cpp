@@ -391,7 +391,7 @@ static Value *processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
     for (unsigned i = 0; i < Phi->getNumIncomingValues(); ++i) {
       Value *OriginalValue = Phi->getIncomingValue(i);
       LLVM_DEBUG(dbgs() << Indent << "    Processing incoming: " << *OriginalValue << "\n");
-      if(!PromotedValues.count(OriginalValue)) {
+      if(!isa<ConstantInt, UndefValue>(OriginalValue) && !PromotedValues.count(OriginalValue)) {
         LLVM_DEBUG(dbgs() << Indent << "      Incoming value not yet promoted, deferring: " << *OriginalValue << "\n");
         return nullptr;
       }
@@ -406,8 +406,8 @@ static Value *processPhiNode(PHINode *Phi, Type *NonStdType, Type *PromotedTy,
       Value *OriginalValue = Phi->getIncomingValue(i);
       BasicBlock *IncomingBlock = Phi->getIncomingBlock(i);
       Value *NewIncomingValue = nullptr;
-      assert(PromotedValues.count(OriginalValue) && "Incoming value not yet promoted");
-      NewIncomingValue = PromotedValues[OriginalValue];
+      assert((isa<ConstantInt, UndefValue>(OriginalValue) || PromotedValues.count(OriginalValue)) && "Incoming value not yet promoted");
+      NewIncomingValue = PromotedValues.count(OriginalValue) ? PromotedValues[OriginalValue] : OriginalValue;
       // Ensure the determined value matches the NewPhi's type
       LLVM_DEBUG(dbgs() << Indent << "      Adjusting incoming value type if needed...\n");
       Value *AdjustedValue = adjustType(NewIncomingValue, PromotedType, Builder, false, Indent + "        ");
@@ -1456,6 +1456,7 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
     } // End for (auto &chain : prunedChains)
 
     LLVM_DEBUG(dbgs() << "Processing deferred instructions\n");
+    unsigned StuckCount = 0;
     while (!DeferredInstructions.empty()) {
       auto *I = DeferredInstructions.front();
       LLVM_DEBUG(dbgs() << "Processing deferred instruction: " << *I << "\n");
@@ -1465,8 +1466,14 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
       auto processed = processInstruction(I, NonStdType, PromotedTy, Indent, Replacements, PromotedValues);
       if (!processed) {
         LLVM_DEBUG(dbgs() << "Deferring instruction: " << *I << "\n");
+        if (++StuckCount > DeferredInstructions.size()) {
+          std::string S;
+          raw_string_ostream(S) << *I;
+          report_fatal_error("HipPromoteInts: cannot promote " + Twine(S) + ": no deferred instruction can make progress");
+        }
         DeferredInstructions.push_back(I);
       } else {
+        StuckCount = 0;
         // Mark this instruction as visited
         GlobalVisited.insert(I);
       }
