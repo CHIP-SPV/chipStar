@@ -749,6 +749,7 @@ static Function *appendPtrArgs(Function *F, unsigned NumExtra) {
     F->getArg(i)->replaceAllUsesWith(NF->getArg(i));
     NF->getArg(i)->takeName(F->getArg(i));
   }
+  F->replaceAllUsesWith(NF);
   F->eraseFromParent();
   return NF;
 }
