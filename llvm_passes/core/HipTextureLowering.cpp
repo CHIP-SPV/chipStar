@@ -14,7 +14,7 @@
 #include "HipTextureLowering.h"
 
 #include "LLVMSPIRV.h"
-#include "../src/common.hh"
+#include "../../src/common.hh"
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"

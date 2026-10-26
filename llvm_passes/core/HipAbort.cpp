@@ -46,7 +46,7 @@
 
 #include "HipAbort.h"
 
-#include "../src/common.hh"
+#include "../../src/common.hh"
 
 #include "llvm/IR/Module.h"
 

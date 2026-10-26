@@ -69,7 +69,7 @@ For example, the `__syncthreads()` call is implemented by calling `barrier(CLK_L
 
 ### chipStar-specific LLVM passes
 
-There are several transformations (LLVM passes) done on the LLVM IR of the device code to deal with differences between CUDA and OpenCL/Level0/SPIR-V capabilities. The passes can be found in `<chipStar>/llvm-passes`. Most of them have more documentation in the source. Note that for debugging LLVM passes, it's recommended to compile Clang+LLVM in debug mode and enable assertions (`cmake -DLLVM_ENABLE_ASSERTIONS=ON ...`); the Clang/LLVM packages in linux distributions are usually compiled in release mode, without assertions.
+There are several transformations (LLVM passes) done on the LLVM IR of the device code to deal with differences between CUDA and OpenCL/Level0/SPIR-V capabilities. The passes can be found in `<chipStar>/llvm_passes` (in the `core`, `workarounds` and `verify` subdirectories). Most of them have more documentation in the source. Note that for debugging LLVM passes, it's recommended to compile Clang+LLVM in debug mode and enable assertions (`cmake -DLLVM_ENABLE_ASSERTIONS=ON ...`); the Clang/LLVM packages in linux distributions are usually compiled in release mode, without assertions.
 
 * HipAbort.cpp - special handling for abort() calls from the device side (to cause a host abort currently).
 * HipDefrost.cpp - removes freeze from instructions (workaround for the llvm-spirv translator).
@@ -80,7 +80,7 @@ There are several transformations (LLVM passes) done on the LLVM IR of the devic
 * HipLowerSwitch.cpp - Lowers switch instructions with a "non-standard" integer bitwidth (e.g. i4) to bitwidth supported by SPIRV-LLVM-Translator
 * HipLowerZeroLengthArrays.cpp - Lowers occurrences of zero length array types (unsupported by SPIRV-LLVM-Translator)
 * HipSanityChecks.cpp - sanity checks on the LLVM IR just before HIP-to-SPIR-V lowering
-* HipPasses.cpp - defines a pass plugin that runs a collection of LLVM passes (= rest of the files in this directory).
+* HipPasses.cpp - defines a pass plugin that runs a collection of LLVM passes (the passes are in the `core/`, `workarounds/` and `verify/` subdirectories).
 * HipPrintf.cpp - pass to convert calls to the CUDA/HIP printf() to OpenCL/SPIR-V compatible printf() calls.
 * HipStripUsedIntrinsics.cpp - pass to remove llvm.used and llvm.compiler.used intrinsic variables.
 * HipTextureLowering.cpp - pass that transforms kernels (and texturing functions) with `hipTextureObject_t` argument to kernels with actual opencl image+sampler arguments.
