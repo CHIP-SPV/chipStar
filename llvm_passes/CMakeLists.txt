@@ -101,28 +101,37 @@ add_library(LLVMHipPasses MODULE
     HipCoalesceDuplicatePhiPreds.cpp
     HipDynMem.cpp
     HipEmitLoweredNames.cpp
+    HipFPContract.cpp
+    HipFixOpenCLMD.cpp
+    HipFloatShuffle.cpp
     HipFunctionPointerAS.cpp
     HipGlobalVariables.cpp
     HipIGBADetector.cpp
     HipKernelArgSpiller.cpp
     HipLowerFPAtomicMinMax.cpp
     HipLowerHintIntrinsics.cpp
+    HipLowerMemmove.cpp
     HipLowerOverflowIntrinsics.cpp
     HipLowerPointerVectors.cpp
     HipLowerRoundIntrinsics.cpp
+    HipLowerSitofpI1.cpp
     HipLowerSubwordAtomics.cpp
     HipLowerSwitch.cpp
     HipLowerVolatileAccesses.cpp
     HipLowerZeroLengthArrays.cpp
+    HipOffsetBeforeCast.cpp
     HipPasses.cpp
     HipPrintf.cpp
     HipPromoteInts.cpp
     HipSanityChecks.cpp
+    HipSharedAddrLocalInit.cpp
+    HipShuffleShift.cpp
     HipStripDebugInfo.cpp
     HipStripUsedIntrinsics.cpp
     HipTextureLowering.cpp
     HipVerify.cpp
     HipWarps.cpp
+    RemoveNoInlineOptNoneAttrs.cpp
     ${EXTRA_OBJS})
 
 # The plugin registers its pipeline through llvmGetPassPluginInfo. If that
