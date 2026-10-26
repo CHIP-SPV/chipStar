@@ -840,7 +840,10 @@ __SHFL(uint);
 __SHFL(long);
 __SHFL(ulong);
 __SHFL(float);
-__SHFL(double);
+// WORKAROUND(CHIP-SPV/chipStar#2106, intel/intel-graphics-compiler#397): IGC fp64 emulation hangs on a double add of a sub-group shuffle, so the four double __shfl* overloads below shuffle as long. Remove when IGC fixes it.
+EXPORT OVLD double __shfl(double var, int srcLane, int wSize) {
+  return as_double(__shfl(as_long(var), srcLane, wSize));
+}
 
 // CUDA rule: lanes may read earlier width-segments, but a source lane in a
 // later segment returns the caller's own value. laneMask is not masked to the
@@ -860,7 +863,9 @@ __SHFL_XOR(uint);
 __SHFL_XOR(long);
 __SHFL_XOR(ulong);
 __SHFL_XOR(float);
-__SHFL_XOR(double);
+EXPORT OVLD double __shfl_xor(double var, int laneMask, int wSize) {
+  return as_double(__shfl_xor(as_long(var), laneMask, wSize));
+}
 
 #define __SHFL_UP(T)                                                           \
   EXPORT OVLD T __shfl_up(T var, uint delta, int wSize) {                      \
@@ -878,7 +883,9 @@ __SHFL_UP(uint);
 __SHFL_UP(long);
 __SHFL_UP(ulong);
 __SHFL_UP(float);
-__SHFL_UP(double);
+EXPORT OVLD double __shfl_up(double var, uint delta, int wSize) {
+  return as_double(__shfl_up(as_long(var), delta, wSize));
+}
 
 #define __SHFL_DOWN(T)                                                         \
   EXPORT OVLD T __shfl_down(T var, uint delta, int wSize) {                    \
@@ -896,7 +903,9 @@ __SHFL_DOWN(uint);
 __SHFL_DOWN(long);
 __SHFL_DOWN(ulong);
 __SHFL_DOWN(float);
-__SHFL_DOWN(double);
+EXPORT OVLD double __shfl_down(double var, uint delta, int wSize) {
+  return as_double(__shfl_down(as_long(var), delta, wSize));
+}
 
 // _sync shuffle variants.
 //
