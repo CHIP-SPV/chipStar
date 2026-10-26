@@ -71,9 +71,6 @@ Modify `llvm_passes/CMakeLists.txt` to also link LLVM components when building s
 if(APPLE)
   if(LLVM_LINK_LLVM_DYLIB)
     target_link_libraries(LLVMHipPasses PRIVATE LLVM)
-    target_link_libraries(LLVMHipDynMem PRIVATE LLVM)
-    target_link_libraries(LLVMHipStripUsedIntrinsics PRIVATE LLVM)
-    target_link_libraries(LLVMHipDefrost PRIVATE LLVM)
   else()
     # Static LLVM on macOS - need to link individual components
     llvm_map_components_to_libnames(LLVM_LIBS
@@ -81,9 +78,6 @@ if(APPLE)
       IRReader Linker Target AggressiveInstCombine InstCombine
       ScalarOpts Vectorize)
     target_link_libraries(LLVMHipPasses PRIVATE ${LLVM_LIBS})
-    target_link_libraries(LLVMHipDynMem PRIVATE ${LLVM_LIBS})
-    target_link_libraries(LLVMHipStripUsedIntrinsics PRIVATE ${LLVM_LIBS})
-    target_link_libraries(LLVMHipDefrost PRIVATE ${LLVM_LIBS})
   endif()
 endif()
 ```
