@@ -1,7 +1,7 @@
 // Canary for https://github.com/CHIP-SPV/chipStar/issues/1896. MEANT TO FAIL
 // EVENTUALLY. Runs a plain OpenCL C kernel, no chipStar involved, and asserts
 // IGC still miscompiles a SIMD32 sub_group_shuffle of as_int(float). When it
-// fails, delete HipFloatShufflePass and its registration in
+// fails, delete llvm_passes/workarounds/HipFloatShuffle.* and its registration in
 // llvm_passes/HipPasses.cpp and this test together, then close #1896 naming
 // the IGC release that fixed it.
 #include <CL/cl.h>

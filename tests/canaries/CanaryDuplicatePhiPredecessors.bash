@@ -2,8 +2,8 @@
 # Canary for https://github.com/CHIP-SPV/chipStar/issues/1680. MEANT TO FAIL EVENTUALLY.
 # Asserts the configured llvm-spirv still lacks
 # https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3866. When it fires,
-# delete llvm_passes/HipCoalesceDuplicatePhiPreds.*, its registration in
-# llvm_passes/HipPasses.cpp and llvm_passes/CMakeLists.txt,
+# delete llvm_passes/workarounds/HipCoalesceDuplicatePhiPreds.*, its
+# registration in llvm_passes/HipPasses.cpp and llvm_passes/CMakeLists.txt,
 # tests/compiler/TestFix1680DuplicatePhiPreds.bash and this test together, then
 # close #1680 naming the translator release that shipped #3866.
 # #3866 also stops emitting OpBranchConditional with equal targets; that half is

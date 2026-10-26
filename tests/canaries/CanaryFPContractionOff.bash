@@ -2,7 +2,7 @@
 # Canary for https://github.com/CHIP-SPV/chipStar/issues/1654. MEANT TO FAIL
 # EVENTUALLY: it asserts the in-tree SPIR-V backend still puts ContractionOff
 # on a kernel whose FP ops all permit contraction. When it goes red, delete
-# HipFPContractPass in llvm_passes/HipPasses.cpp, TestFix1654FPContract.bash
+# llvm_passes/workarounds/HipFPContract.*, TestFix1654FPContract.bash
 # and this file, then close #1654 naming the upstream change. The metadata
 # default comes from https://github.com/llvm/llvm-project/pull/206404; no
 # upstream issue exists.

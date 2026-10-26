@@ -3,7 +3,7 @@
 # EVENTUALLY: it asserts clang still hoists a local array initializer that
 # takes __shared__ addresses into a constant global copied with llvm.memcpy.
 # Once it prints CANARY FIRED on every supported LLVM, delete
-# HipSharedAddrLocalInitPass, its registration and the LLVMSPIRV.h include in
+# llvm_passes/workarounds/HipSharedAddrLocalInit.*, its registration in
 # llvm_passes/HipPasses.cpp, this file and its line in CMakeLists.txt. The
 # upstream issue is https://github.com/llvm/llvm-project/issues/198078.
 set -eu

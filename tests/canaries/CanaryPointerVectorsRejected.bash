@@ -4,7 +4,7 @@
 # It asserts that the SPIR-V path still rejects a vector of pointers, which is
 # the only reason the hip-lower-pointer-vectors pass exists. When this test
 # goes red, upstream has fixed the gap: delete
-# llvm_passes/HipLowerPointerVectors.*, its registration in
+# llvm_passes/workarounds/HipLowerPointerVectors.*, its registration in
 # llvm_passes/HipPasses.cpp and llvm_passes/CMakeLists.txt,
 # tests/compiler/TestFix1577PointerVectors.*, and this file, then close
 # https://github.com/CHIP-SPV/chipStar/issues/1577 naming the upstream fix.
@@ -25,7 +25,7 @@
 # cannot observe that; only the emitter-side condition is covered here.
 set -eu
 
-SRC_DIR="@CMAKE_CURRENT_SOURCE_DIR@"
+SRC_DIR="@CMAKE_SOURCE_DIR@/tests/compiler"
 CLANG="@LLVM_TOOLS_BINARY_DIR@/clang"
 LLVM_AS="@LLVM_TOOLS_BINARY_DIR@/llvm-as"
 LLVM_SPIRV="@LLVM_SPIRV@"

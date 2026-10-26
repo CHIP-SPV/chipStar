@@ -3,8 +3,7 @@
 # Asserts IGC still lowers a lane-plus-constant sub_group_shuffle, rotate or
 # shift down, to an indirect r[a0] register gather on bmg and pvc. No upstream
 # IGC report exists yet. When it fires, check every shape on every part the
-# workaround serves; once none gathers, delete HipShuffleShiftPass from
-# llvm_passes/HipPasses.cpp, the bitcode/shflShift_* rtdevlib modules, their
+# workaround serves; once none gathers, delete llvm_passes/workarounds/HipShuffleShift.*, the bitcode/shflShift_* rtdevlib modules, their
 # linking in both backends, CHIP_FAST_SHUFFLE and this canary, and drop the
 # speedup requirement from tests/benchmarks/shflRotate.hip.
 # Needs no GPU: ocloc is an offline compiler and -device names a target.

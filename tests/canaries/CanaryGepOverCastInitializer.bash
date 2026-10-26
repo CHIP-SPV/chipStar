@@ -2,7 +2,7 @@
 # Canary for https://github.com/CHIP-SPV/chipStar/issues/1693. MEANT TO FAIL
 # EVENTUALLY: it asserts the in-tree SPIR-V backend still aborts on a
 # getelementptr over an addrspacecast in a global initializer, the shape
-# HipOffsetBeforeCastPass in llvm_passes/HipPasses.cpp rewrites. When it goes
+# HipOffsetBeforeCastPass in llvm_passes/workarounds/HipOffsetBeforeCast.* rewrites. When it goes
 # red, delete this file and say so on #1693; close #1693 only once its
 # ptrtoint form emits valid SPIR-V too. Delete the pass and
 # tests/runtime/TestFix1693StringTableOffset.hip only once IGC also resolves
