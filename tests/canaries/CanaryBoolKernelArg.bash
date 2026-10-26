@@ -18,9 +18,11 @@ bad=0
 # Text form: "3 TypeBool <id>" then "3 FunctionParameter <type> <id>".
 awk '$2 == "TypeBool" { b[$3] = 1 } $2 == "FunctionParameter" && b[$3] { f = 1 } END { exit !f }' tr.spt &&
   { echo "llvm-spirv: bool kernel parameter"; bad=1; }
-"@LLVM_TOOLS_BINARY_DIR@/llc" -mtriple=spirv64v1.3-unknown-unknown m.ll -o be.spt > be.log 2>&1 ||
-  { echo "FAIL: llc"; cat be.log; exit 1; }
-awk '$3 == "OpTypeBool" { b[$1] = 1 } $3 == "OpFunctionParameter" && b[$4] { f = 1 } END { exit !f }' be.spt &&
-  { echo "llc: bool kernel parameter"; bad=1; }
+if "@LLVM_TOOLS_BINARY_DIR@/llc" --version | grep -q spirv64; then
+  "@LLVM_TOOLS_BINARY_DIR@/llc" -mtriple=spirv64v1.3-unknown-unknown m.ll -o be.spt > be.log 2>&1 ||
+    { echo "FAIL: llc"; cat be.log; exit 1; }
+  awk '$3 == "OpTypeBool" { b[$1] = 1 } $3 == "OpFunctionParameter" && b[$4] { f = 1 } END { exit !f }' be.spt &&
+    { echo "llc: bool kernel parameter"; bad=1; }
+fi
 [ $bad = 1 ] && echo PASSED ||
   { echo "CANARY FIRED: no producer emits a bool kernel parameter, see the header"; exit 1; }
