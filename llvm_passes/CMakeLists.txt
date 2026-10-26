@@ -131,7 +131,6 @@ add_library(LLVMHipPasses MODULE
     HipPrintf.cpp
     HipPromoteInts.cpp
     HipSanityChecks.cpp
-    HipSpirvFunctionReorderPass.cpp
     HipStripDebugInfo.cpp
     HipStripUsedIntrinsics.cpp
     HipTextureLowering.cpp
