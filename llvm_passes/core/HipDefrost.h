@@ -6,7 +6,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Removes freeze instructions from code for SPIRV-LLVM translator tool.
+// Removes freeze instructions because HipShuffleShift does not look through
+// them.
 //
 // (c) 2021 Paulius Velesko for Argonne National Laboratory
 //===----------------------------------------------------------------------===//
