@@ -791,13 +791,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, RemoveNoInlineOptNoneAttrsPass(), "RemoveNoInlineOptNoneAttrsPass-2");
   // Increase getInlineParams argument for more aggressive inlining.
   addPassWithVerification(MPM, ModuleInlinerWrapperPass(getInlineParams(1000)), "ModuleInlinerWrapperPass");
-#if LLVM_VERSION_MAJOR < 14
-  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(SROA()), "SROA");
-#elif LLVM_VERSION_MAJOR < 16
-  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(SROAPass()), "SROAPass");
-#else
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::PreserveCFG)), "SROAPass-PreserveCFG");
-#endif
 
   addPassWithVerification(MPM, HipTextureLoweringPass(), "HipTextureLoweringPass");
 
@@ -920,11 +914,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipVerifyPass("Post-HIP passes", true)); // true = print final summary
 }
 
-#if LLVM_VERSION_MAJOR < 14
-#define PASS_ID "hip-link-time-passes"
-#else
 #define PASS_ID "hip-post-link-passes"
-#endif
 
 extern "C" ::llvm::PassPluginLibraryInfo
 llvmGetPassPluginInfo() {
