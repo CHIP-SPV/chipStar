@@ -90,48 +90,48 @@ else()
 endif()
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 17.0)
-  list(APPEND EXTRA_OBJS SPIRVImageType.cc)
+  list(APPEND EXTRA_OBJS core/SPIRVImageType.cc)
 endif()
 
 # One source per line, alphabetically sorted, so that two branches each adding
 # a pass insert at different anchors and merge without a conflict.
 add_library(LLVMHipPasses MODULE
-    HipAbort.cpp
-    HipCanonicalizeGEP.cpp
-    HipCoalesceDuplicatePhiPreds.cpp
-    HipDynMem.cpp
-    HipEmitLoweredNames.cpp
-    HipFPContract.cpp
-    HipFixOpenCLMD.cpp
-    HipFloatShuffle.cpp
-    HipFunctionPointerAS.cpp
-    HipGlobalVariables.cpp
-    HipIGBADetector.cpp
-    HipKernelArgSpiller.cpp
-    HipLowerFPAtomicMinMax.cpp
-    HipLowerHintIntrinsics.cpp
-    HipLowerMemmove.cpp
-    HipLowerOverflowIntrinsics.cpp
-    HipLowerPointerVectors.cpp
-    HipLowerRoundIntrinsics.cpp
-    HipLowerSitofpI1.cpp
-    HipLowerSubwordAtomics.cpp
-    HipLowerSwitch.cpp
-    HipLowerVolatileAccesses.cpp
-    HipLowerZeroLengthArrays.cpp
-    HipOffsetBeforeCast.cpp
     HipPasses.cpp
-    HipPrintf.cpp
-    HipPromoteInts.cpp
-    HipSanityChecks.cpp
-    HipSharedAddrLocalInit.cpp
-    HipShuffleShift.cpp
-    HipStripDebugInfo.cpp
-    HipStripUsedIntrinsics.cpp
-    HipTextureLowering.cpp
-    HipVerify.cpp
-    HipWarps.cpp
-    RemoveNoInlineOptNoneAttrs.cpp
+    core/HipAbort.cpp
+    core/HipDynMem.cpp
+    core/HipEmitLoweredNames.cpp
+    core/HipGlobalVariables.cpp
+    core/HipIGBADetector.cpp
+    core/HipKernelArgSpiller.cpp
+    core/HipLowerFPAtomicMinMax.cpp
+    core/HipLowerSubwordAtomics.cpp
+    core/HipLowerSwitch.cpp
+    core/HipLowerVolatileAccesses.cpp
+    core/HipPrintf.cpp
+    core/HipPromoteInts.cpp
+    core/HipStripUsedIntrinsics.cpp
+    core/HipTextureLowering.cpp
+    core/HipWarps.cpp
+    core/RemoveNoInlineOptNoneAttrs.cpp
+    verify/HipSanityChecks.cpp
+    verify/HipVerify.cpp
+    workarounds/HipCanonicalizeGEP.cpp
+    workarounds/HipCoalesceDuplicatePhiPreds.cpp
+    workarounds/HipFPContract.cpp
+    workarounds/HipFixOpenCLMD.cpp
+    workarounds/HipFloatShuffle.cpp
+    workarounds/HipFunctionPointerAS.cpp
+    workarounds/HipLowerHintIntrinsics.cpp
+    workarounds/HipLowerMemmove.cpp
+    workarounds/HipLowerOverflowIntrinsics.cpp
+    workarounds/HipLowerPointerVectors.cpp
+    workarounds/HipLowerRoundIntrinsics.cpp
+    workarounds/HipLowerSitofpI1.cpp
+    workarounds/HipLowerZeroLengthArrays.cpp
+    workarounds/HipOffsetBeforeCast.cpp
+    workarounds/HipSharedAddrLocalInit.cpp
+    workarounds/HipShuffleShift.cpp
+    workarounds/HipStripDebugInfo.cpp
     ${EXTRA_OBJS})
 
 # The plugin registers its pipeline through llvmGetPassPluginInfo. If that
@@ -184,6 +184,12 @@ target_compile_definitions(LLVMHipPasses PRIVATE
   $<$<CONFIG:Debug>:CHIP_DEBUG_BUILD>
   $<$<BOOL:${CHIP_KEEP_KERNEL_DEBUG_INFO}>:CHIP_KEEP_KERNEL_DEBUG_INFO>
   $<$<BOOL:${CHIP_LLVM_USE_INTERGRATED_SPIRV}>:CHIP_LLVM_USE_INTERGRATED_SPIRV>)
+
+target_include_directories(LLVMHipPasses PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/core
+  ${CMAKE_CURRENT_SOURCE_DIR}/workarounds
+  ${CMAKE_CURRENT_SOURCE_DIR}/verify)
 
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
 target_compile_options(LLVMHipPasses PRIVATE -I/${LLVM_INCLUDE_DIRS})

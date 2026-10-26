@@ -69,7 +69,7 @@ For example, the `__syncthreads()` call is implemented by calling `barrier(CLK_L
 
 ### chipStar-specific LLVM passes
 
-There are several transformations (LLVM passes) done on the LLVM IR of the device code to deal with differences between CUDA and OpenCL/Level0/SPIR-V capabilities. The passes can be found in `<chipStar>/llvm-passes`. Most of them have more documentation in the source. Note that for debugging LLVM passes, it's recommended to compile Clang+LLVM in debug mode and enable assertions (`cmake -DLLVM_ENABLE_ASSERTIONS=ON ...`); the Clang/LLVM packages in linux distributions are usually compiled in release mode, without assertions.
+There are several transformations (LLVM passes) done on the LLVM IR of the device code to deal with differences between CUDA and OpenCL/Level0/SPIR-V capabilities. The passes can be found in `<chipStar>/llvm_passes` (in the `core`, `workarounds` and `verify` subdirectories). Most of them have more documentation in the source. Note that for debugging LLVM passes, it's recommended to compile Clang+LLVM in debug mode and enable assertions (`cmake -DLLVM_ENABLE_ASSERTIONS=ON ...`); the Clang/LLVM packages in linux distributions are usually compiled in release mode, without assertions.
 
 * HipAbort.cpp - special handling for abort() calls from the device side (to cause a host abort currently).
 * HipDynMem.cpp - replaces dynamically sized shared-memory variables (`extern __shared__ type variable[];`) with a kernel argument. This is because in OpenCL, dynamically-sized local memory can only be passed as kernel argument.
