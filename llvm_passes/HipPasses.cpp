@@ -16,6 +16,7 @@
 
 #include "HipAbort.h"
 #include "HipDefrost.h"
+#include "HipLowerMemset.h"
 #include "HipDynMem.h"
 #include "HipStripDebugInfo.h"
 #include "HipStripUsedIntrinsics.h"
@@ -152,6 +153,7 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(MPM, HipPrintfToOpenCLPrintfPass(), "HipPrintfToOpenCLPrintfPass");
   // Before HipShuffleShift, whose index analysis does not look through freeze.
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipDefrostPass()), "HipDefrostPass");
+  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemsetPass()), "HipLowerMemsetPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerFPAtomicMinMaxPass()), "HipLowerFPAtomicMinMaxPass");
   // OpenCL SPIR-V consumers implement 32 and 64 bit atomics only; rewrite 8
   // and 16 bit ones onto their containing word. Runs after the fmin / fmax

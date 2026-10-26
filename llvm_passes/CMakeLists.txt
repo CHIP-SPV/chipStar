@@ -105,6 +105,7 @@ add_library(LLVMHipPasses MODULE
     core/HipIGBADetector.cpp
     core/HipKernelArgSpiller.cpp
     core/HipLowerFPAtomicMinMax.cpp
+    core/HipLowerMemset.cpp
     core/HipLowerSubwordAtomics.cpp
     core/HipLowerSwitch.cpp
     core/HipLowerVolatileAccesses.cpp
