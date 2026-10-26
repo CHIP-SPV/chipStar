@@ -894,7 +894,7 @@ __SHFL_DOWN(long);
 __SHFL_DOWN(ulong);
 __SHFL_DOWN(float);
 #ifdef CHIP_FP64_EMU_SHUFFLE_WORKAROUND
-// WORKAROUND(CHIP-SPV/chipStar#2106, intel/intel-graphics-compiler#397): IGC
+// WORKAROUND(CHIP-SPV/chipStar#2106, intel/compute-runtime#1036): IGC
 // fp64 emulation hangs on a double add of a sub-group shuffle, so shuffle the
 // bits as long. Remove when IGC fixes it.
 EXPORT OVLD double __shfl(double var, int srcLane, int wSize) {
