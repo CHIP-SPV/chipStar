@@ -49,6 +49,7 @@
 #include "../src/common.hh"
 
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #include <set>
 #include <iostream>
@@ -329,6 +330,7 @@ static bool eraseAbortMsg(Module &M) {
   GlobalVariable *AbortMsg = M.getGlobalVariable(ChipDeviceAbortMsgName);
   if (AbortMsg == nullptr)
     return false;
+  removeFromUsedLists(M, [&](Constant *C) { return C == AbortMsg; });
   AbortMsg->replaceAllUsesWith(Constant::getNullValue(AbortMsg->getType()));
   AbortMsg->eraseFromParent();
   return true;
@@ -344,6 +346,7 @@ static bool eraseAbortFlag(Module &M) {
   bool Erased = eraseAbortMsg(M);
   GlobalVariable *AbortFlag = M.getGlobalVariable(ChipDeviceAbortFlagName);
   if (AbortFlag != nullptr) {
+    removeFromUsedLists(M, [&](Constant *C) { return C == AbortFlag; });
     AbortFlag->replaceAllUsesWith(Constant::getNullValue(AbortFlag->getType()));
     AbortFlag->eraseFromParent();
     return true;
