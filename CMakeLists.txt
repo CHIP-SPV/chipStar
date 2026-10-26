@@ -604,6 +604,13 @@ else()
                  "to cache-control decorations")
 endif()
 
+# HipVerify validates with the producer the probe shows: clang -cc1 with the
+# probe's extension list when clang's in-tree backend emits the SPIR-V.
+if(CHIP_LLVM_USE_INTERGRATED_SPIRV AND
+   _cc_cmds MATCHES "\"-emit-obj\" \"-mllvm\" \"-spirv-ext=([^\"]*)\"")
+  set(CHIP_HIPVERIFY_BACKEND_EXT "${CMAKE_MATCH_1}")
+endif()
+
 add_subdirectory(llvm_passes)
 # Shared LLVM libraries that device code compilation loads; bitcode commands depend on them.
 set(CHIP_LLVM_SHARED_LIBS)
