@@ -9,13 +9,8 @@
 // LLVM pass to remove llvm.used and llvm.compiler.used intrinsic variables (see
 // LLVM lang ref for details) from HIP device code modules.
 //
-// LLVM/Clang generates these in some cases.  We remove them because they also
-// generate illegal address space casts (when the IR is passed to llvm-spirv
-// translator tool).  It is safe to remove llvm(.compiler).used variables as
-// they are meaningless for SPIR-V.
-//
-// This pass is likely not needed when SPIR-V backend land on LLVM in the
-// future.
+// They are meaningless for SPIR-V, and while they exist Internalize/GlobalDCE
+// keep everything they name (e.g. the texture and printf helpers) alive.
 //
 // (c) 2021-2022 Pekka Jääskeläinen / Parmance for Argonne National Laboratory
 //===----------------------------------------------------------------------===//

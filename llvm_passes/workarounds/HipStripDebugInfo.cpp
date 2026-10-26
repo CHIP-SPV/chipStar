@@ -8,12 +8,11 @@
 //===----------------------------------------------------------------------===//
 // LLVM pass removing debug information from HIP device code modules.
 //
-// Neither SPIR-V producer emits debug information our consumers accept: the
-// SPIRV-LLVM-Translator emits a cyclic DebugTypeComposite reference which
-// spirv-val rejects, and the in-tree SPIR-V backend emits a DebugCompilationUnit
-// whose DWARF version operand is not a 32-bit unsigned OpConstant. The spec
-// answer for the former, SPV_KHR_relaxed_extended_instruction, is implemented by
-// none of the drivers chipStar targets.
+// The SPIRV-LLVM-Translator emits a cyclic DebugTypeComposite reference which
+// spirv-val rejects. The spec answer, SPV_KHR_relaxed_extended_instruction, is
+// implemented by none of the drivers chipStar targets. The in-tree backend
+// emits no debug information unless --spv-emit-nonsemantic-debug-info is given,
+// which chipStar never does.
 //
 // Only IGC on Intel Data Center GPU Max tolerates the malformed result, which is
 // what makes gdb-oneapi usable on Aurora. Everywhere else the invalid SPIR-V
