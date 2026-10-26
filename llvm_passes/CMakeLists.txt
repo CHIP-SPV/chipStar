@@ -98,6 +98,7 @@ endif()
 add_library(LLVMHipPasses MODULE
     HipPasses.cpp
     core/HipAbort.cpp
+    core/HipDefrost.cpp
     core/HipDynMem.cpp
     core/HipEmitLoweredNames.cpp
     core/HipGlobalVariables.cpp
