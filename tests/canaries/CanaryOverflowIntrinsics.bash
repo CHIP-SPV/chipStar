@@ -35,11 +35,11 @@ if [ "$LLVM_SPIRV" != NOT_NEEDED ] && [ -x "$LLVM_SPIRV" ]; then
 fi
 
 if "$LLC" --version | grep -q spirv64; then
-  PROBED=yes
   emit u
   "$LLC" -mtriple=spirv64v1.3-unknown-chipstar -filetype=obj m.ll -o m.spv > m.log 2>&1 ||
     { echo "FAIL: the backend does not compile umul"; cat m.log; exit 1; }
   if command -v ocloc >/dev/null 2>&1; then
+    PROBED=yes
     if ocloc compile -spirv_input -file m.spv -device bmg -output_no_suffix -output o > o.log 2>&1; then
       echo "CANARY FIRED: IGC now builds the backend's OpUMulExtended, see the header"; exit 1
     fi
