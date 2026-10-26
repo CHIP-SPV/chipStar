@@ -6,7 +6,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// Expand llvm.memset intrinsics to loops before handing the bitcode to
+// Expand llvm.memset intrinsics except small constant ones to loops
+// (those are left to the SPIR-V producer) before handing the bitcode to
 // llvm-spirv translator. The translator expands memset intrinsics to an
 // emulation function with a name encoding the destination pointer type
 // (e.g. "spirv.spirv.llvm_memset_p0_i32..."). During reverse translation,
@@ -41,8 +42,14 @@ static bool lowerMemsets(Function &F) {
   SmallPtrSet<MemSetInst *, 8> WorkList;
   for (auto &BB : F)
     for (auto &I : BB)
-      if (auto *MemSet = dyn_cast<MemSetInst>(&I))
-        WorkList.insert(MemSet);
+      if (auto *MemSet = dyn_cast<MemSetInst>(&I)) {
+        // Small constant memsets are lowered natively by the SPIR-V producer.
+        auto *Len = dyn_cast<ConstantInt>(MemSet->getLength());
+        if (MemSet->getIntrinsicID() != Intrinsic::memset ||
+            !isa<ConstantInt>(MemSet->getValue()) || !Len ||
+            Len->getValue().ugt(256) || Len->isZero())
+          WorkList.insert(MemSet);
+      }
 
   for (auto *MemSet : WorkList) {
     expandMemSetAsLoop(MemSet);
