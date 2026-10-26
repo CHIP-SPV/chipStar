@@ -9,6 +9,15 @@
 #include <numeric>
 #include <iostream>
 
+constexpr size_t N = 10;
+
+__global__ void performConstMemset(char *Dst, int I) {
+  char Buf[N];
+  memset(Buf, 7, N);
+  memset(Dst, 9, N);
+  Dst[I] += Buf[I + 1]; // Runtime index keeps Buf in private memory.
+}
+
 __global__ void performMemset(void *Dst, int Val, size_t Count) {
   memset(Dst, Val, Count);
 }
@@ -31,7 +40,6 @@ __global__ void performMemcpyLoop(void *Dst, void *Src, size_t Count) {
 }
 
 int main() {
-  constexpr size_t N = 10;
   char *DstD, DstH[N];
   (void)hipMalloc(&DstD, N);
   (void)hipMemset(DstD, 0, N);
@@ -65,6 +73,12 @@ int main() {
   for (size_t i = 0; i < N; i++)
     if (DstH[i] != i + 64)
       return 4;
+
+  performConstMemset<<<1,1>>>(DstD, 3);
+  (void)hipMemcpy(DstH, DstD, N, hipMemcpyDeviceToHost);
+  for (size_t i = 0; i < N; i++)
+    if (DstH[i] != 9 + (i == 3 ? 7 : 0))
+      return 5;
 
   (void)hipFree(SrcD);
   (void)hipFree(DstD);
