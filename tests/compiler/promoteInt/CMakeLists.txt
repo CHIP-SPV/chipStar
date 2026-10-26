@@ -47,6 +47,13 @@ if(LLVM_VERSION_MAJOR GREATER 18)
   list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_block_sort-hip-spirv64-generic-link.ll)
   list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_device_scan-hip-spirv64-generic-link.ll)
   list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_warp_sort-hip-spirv64-generic-lower.ll)
+
+  # hip-post-link-passes must print identical IR on every run (#2117).
+  add_test(
+    NAME TestFix2117PromoteIntsDeterminism
+    COMMAND bash -c "set -eo pipefail; for i in 1 2 3 4 5; do CHIP_VERIFY_MODE=off \"${LLVM_TOOLS_BINARY_DIR}/opt\" -load-pass-plugin \"${CMAKE_BINARY_DIR}/lib/libLLVMHipSpvPasses.so\" -passes=hip-post-link-passes -S \"${CMAKE_CURRENT_SOURCE_DIR}/benchmark_block_sort-hip-spirv64-generic-link.ll\" -o det$i.ll; done; for i in 2 3 4 5; do cmp det1.ll det$i.ll; done"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
 endif()
 
 # If we have this, a pass won't help
