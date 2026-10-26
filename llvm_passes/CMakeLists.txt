@@ -117,7 +117,6 @@ add_library(LLVMHipPasses MODULE
     HipKernelArgSpiller.cpp
     HipLowerFPAtomicMinMax.cpp
     HipLowerHintIntrinsics.cpp
-    HipLowerMemset.cpp
     HipLowerOverflowIntrinsics.cpp
     HipLowerPointerVectors.cpp
     HipLowerRoundIntrinsics.cpp

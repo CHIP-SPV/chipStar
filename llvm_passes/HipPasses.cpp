@@ -29,7 +29,6 @@
 #include "HipSanityChecks.h"
 #include "LLVMSPIRV.h"
 #include "HipLowerSwitch.h"
-#include "HipLowerMemset.h"
 #include "HipLowerHintIntrinsics.h"
 #include "HipLowerFPAtomicMinMax.h"
 #include "HipLowerRoundIntrinsics.h"
@@ -809,7 +808,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   //  Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"'
   //  failed.
   addPassWithVerification(MPM, HipPrintfToOpenCLPrintfPass(), "HipPrintfToOpenCLPrintfPass");
-  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemsetPass()), "HipLowerMemsetPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerFPAtomicMinMaxPass()), "HipLowerFPAtomicMinMaxPass");
   // OpenCL SPIR-V consumers implement 32 and 64 bit atomics only; rewrite 8
   // and 16 bit ones onto their containing word. Runs after the fmin / fmax
