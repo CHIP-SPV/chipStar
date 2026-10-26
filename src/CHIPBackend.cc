@@ -23,7 +23,7 @@
 #include "CHIPBackend.hh"
 #include "ModuleCache.hh"
 #include <atomic>
-#include <set>
+#include <algorithm>
 
 // Definition of thread_local static member (required when not using 'inline')
 thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefaultQueue;
@@ -2330,23 +2330,27 @@ chipstar::Queue::RegisteredVarCopy(chipstar::ExecItem *ExecItem,
   // if it is false, we sync all mapped or managed host memory.
   const SPVModuleInfo &ModInfo = ExecItem->getKernel()->getModule()->getInfo();
   if (ModInfo.HasNoIGBAs) {
-    // set in case two arguments may point into the same allocation
-    std::set<void *> KernelPointerArgs;
+    std::vector<chipstar::AllocationInfo *> KernelPtrAllocs;
     const auto &FuncInfo = *ExecItem->getKernel()->getFuncInfo();
-    FuncInfo.visitKernelArgs(ExecItem->getArgs(),
-                             [&](const SPVFuncInfo::KernelArg &Arg) {
-                               if (Arg.Kind == SPVTypeKind::Pointer &&
-                                   !Arg.isWorkgroupPtr())
-                                 KernelPointerArgs.insert(*static_cast<void **>(
-                                     const_cast<void *>(Arg.Data)));
-                             });
-
-    for (void *Ptr : KernelPointerArgs)
-      // if a pointer arg is in the allocation tracker, sync it
-      if (auto *AllocInfo = AllocTracker->getAllocInfo(Ptr))
+    FuncInfo.visitKernelArgs(
+        ExecItem->getArgs(), [&](const SPVFuncInfo::KernelArg &Arg) {
+          if (Arg.Kind == SPVTypeKind::Pointer && !Arg.isWorkgroupPtr())
+            KernelPtrAllocs.push_back(AllocTracker->getAllocInfo(
+                *static_cast<void **>(const_cast<void *>(Arg.Data))));
+        });
+    // sorting and removing duplicates to avoid syncing the same allocation
+    // (e.g. from different pointers pointing to same alloc)
+    std::sort(KernelPtrAllocs.begin(), KernelPtrAllocs.end());
+    KernelPtrAllocs.erase(
+        std::unique(KernelPtrAllocs.begin(), KernelPtrAllocs.end()),
+        KernelPtrAllocs.end());
+    for (auto *AllocInfo : KernelPtrAllocs)
+      if (AllocInfo)
         SyncAllocation(*AllocInfo);
+
   } else {
-    // ModInfo.HasNoIGBAs is false so the kernel may reach memory it was never passed
+    // ModInfo.HasNoIGBAs is false so the kernel may reach memory it was never
+    // passed
     AllocTracker->visitAllocations(SyncAllocation);
   }
 
