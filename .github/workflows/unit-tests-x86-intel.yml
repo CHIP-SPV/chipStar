@@ -110,6 +110,7 @@ jobs:
             -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
             -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
             -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DCHIP_FP64_EMU_SHUFFLE_WORKAROUND=ON \
             -DLLVM_CONFIG_BIN=$(which llvm-config)
           ninja -C $B -j8
           ninja -C $B -j8 build_tests
@@ -180,6 +181,7 @@ jobs:
             -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
             -DCHIP_LLVM_USE_INTERGRATED_SPIRV=OFF \
             -DCHIP_ATOMICS_CACHE_BYPASS_WORKAROUND=ON \
+            -DCHIP_FP64_EMU_SHUFFLE_WORKAROUND=ON \
             -DLLVM_CONFIG_BIN=$(which llvm-config)
           ninja -C $B -j8
           ninja -C $B -j8 build_tests
