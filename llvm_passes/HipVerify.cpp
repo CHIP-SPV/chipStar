@@ -283,6 +283,12 @@ bool HipVerifyPass::runSPIRVValidation(const std::vector<uint32_t> &spirvBinary,
   return result.SPIRVValidatePass;
 }
 
+#ifdef CHIP_HIPVERIFY_BACKEND_EXT
+static const char *const SpirvTool = "clang";
+#else
+static const char *const SpirvTool = "llvm-spirv";
+#endif
+
 std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &errorMsg, VerificationResult &result) {
   LLVM_DEBUG(dbgs() << "HipVerify: Converting LLVM IR to SPIR-V\n");
   
@@ -434,11 +440,11 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
     return {};
   }
   
-  // Step 3: Convert to SPIR-V using llvm-spirv
-  std::string LLVMSpirvPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/llvm-spirv";
+  // Step 3: Convert to SPIR-V
+  std::string LLVMSpirvPath = std::string(LLVM_TOOLS_BINARY_DIR) + "/" + SpirvTool;
   result.LLVMSpirvPath = LLVMSpirvPath;
   if (!sys::fs::exists(LLVMSpirvPath)) {
-    errorMsg = "llvm-spirv not found";
+    errorMsg = std::string(SpirvTool) + " not found";
     sys::fs::remove(LLTempFile);
     sys::fs::remove(LLStrippedTempFile);
     sys::fs::remove(BCTempFile);
@@ -449,7 +455,7 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
   // DEBUG: Print which llvm-spirv we're using and its version
   // errs() << "HipVerify: Using llvm-spirv at: " << LLVMSpirvPath << "\n";
   
-  // Get version of llvm-spirv
+  // Get the tool version
   std::string VersionErrMsg;
   SmallVector<StringRef, 2> VersionArgs{LLVMSpirvPath, "--version"};
   SmallString<256> VersionOutput;
@@ -465,15 +471,21 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
     // errs() << "HipVerify: Failed to get llvm-spirv version: " << VersionErrMsg << "\n";
   }
   
-  /*
-   Use the same flags as the actual HIP compilation process
-   Based on bitcode/CMakeLists.txt: SPIRV_EXTENSIONS "+SPV_EXT_shader_atomic_float_add"
-   Plus printf extension and function pointer extension to avoid validation errors
-  */
+  // Flags match the SPIR-V producer chipStar's device compilation uses.
+#ifdef CHIP_HIPVERIFY_BACKEND_EXT
+  std::string TripleStr = Triple(M.getTargetTriple()).str();
+#endif
   SmallVector<StringRef, 8> Args{
     LLVMSpirvPath,
+#ifdef CHIP_HIPVERIFY_BACKEND_EXT
+    "-cc1",
+    "-triple", TripleStr,
+    "-emit-obj",
+    "-mllvm", "-spirv-ext=" CHIP_HIPVERIFY_BACKEND_EXT,
+#else
     "--spirv-max-version=1.2",
     "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add",
+#endif
     "-o", SPVTempFile,
     BCTempFile
   };
@@ -518,11 +530,11 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
     
     // Store the actual error message for the verification result
     if (!StderrOutput.empty()) {
-      errorMsg = "llvm-spirv failed: " + StderrOutput;
+      errorMsg = std::string(SpirvTool) + " failed: " + StderrOutput;
     } else if (!ErrMsg.empty()) {
-      errorMsg = "llvm-spirv failed: " + ErrMsg;
+      errorMsg = std::string(SpirvTool) + " failed: " + ErrMsg;
     } else {
-      errorMsg = "llvm-spirv failed with code " + std::to_string(Result);
+      errorMsg = std::string(SpirvTool) + " failed with code " + std::to_string(Result);
     }
     
     sys::fs::remove(LLTempFile);
@@ -816,7 +828,7 @@ void HipVerifyPass::printFinalSummary() {
       errs() << "llvm-as: " << firstResult.LLVMAsPath << "\n";
     }
     if (!firstResult.LLVMSpirvPath.empty()) {
-      errs() << "llvm-spirv: " << firstResult.LLVMSpirvPath << "\n";
+      errs() << SpirvTool << ": " << firstResult.LLVMSpirvPath << "\n";
     }
     if (!firstResult.SpirvValPath.empty()) {
       errs() << "spirv-val: " << firstResult.SpirvValPath << "\n";
