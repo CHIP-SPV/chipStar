@@ -254,6 +254,7 @@ add_shell_test(TestFix1577PointerVectors.bash)
 # A constant zero length copy must not reach SPIR-V emission.
 add_shell_test(TestFix1634ZeroLengthCopy.bash)
 add_shell_test(TestFix2110GlobalVarUsedList.bash)
+add_shell_test(TestFix2108AbortUsedList.bash)
 if(NOT CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
   add_shell_test(TestFix2115KernelInUsedList.bash)
 endif()
