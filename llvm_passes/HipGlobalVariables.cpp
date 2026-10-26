@@ -48,6 +48,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "PassPluginCompat.h"
 
 #define DEBUG_TYPE "hip-lower-gv"
@@ -578,6 +579,8 @@ static void eraseMappedGlobalVariables(GVarMapT &GVarMap) {
         // There might still be constantExpr users but no instructions should
         // depend on them.
         findInstructionUses(OldGVar).size() == 0) {
+      removeFromUsedLists(*OldGVar->getParent(),
+                          [&](Constant *C) { return C == OldGVar; });
       OldGVar->replaceAllUsesWith(PoisonValue::get(OldGVar->getType()));
       OldGVar->eraseFromParent();
     } else
