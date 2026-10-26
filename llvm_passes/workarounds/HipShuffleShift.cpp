@@ -13,10 +13,13 @@
 
 #include "HipShuffleShift.h"
 
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include <cstdlib>
 #include <optional>
+#include <string>
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 
