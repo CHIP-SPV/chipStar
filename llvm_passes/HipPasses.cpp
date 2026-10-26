@@ -924,38 +924,9 @@ llvmGetPassPluginInfo() {
                     addFullLinkTimePasses(MPM);
                     return true;
                   }
-                  // Register IR-only validation pass as standalone (legacy - use hip-verify instead)
-                  if (Name == "ir-validate") {
-                    MPM.addPass(HipVerifyPass("IR validation"));
-                    return true;
-                  }
-                  // Register separate SPIR-V validation pass as standalone (legacy - use hip-verify instead)
-                  if (Name == "spirv-validate") {
-                    MPM.addPass(HipVerifyPass("SPIR-V validation"));
-                    return true;
-                  }
-                  // Register merged IR+SPIR-V validation pass as standalone (legacy - use hip-verify instead)
+                  // Register merged IR+SPIR-V validation pass as standalone
                   if (Name == "ir-spirv-validate") {
                     MPM.addPass(HipVerifyPass("IR+SPIR-V validation"));
-                    return true;
-                  }
-                  // Register the overflow intrinsic lowering as standalone,
-                  // which makes it directly testable with opt.
-                  if (Name == "hip-lower-overflow-intrinsics") {
-                    MPM.addPass(HipLowerOverflowIntrinsicsPass());
-                    return true;
-                  }
-                  // Same for the pointer-vector lowering, so the workaround
-                  // in #1577 can be tested with opt directly.
-                  if (Name == "hip-lower-pointer-vectors") {
-                    MPM.addPass(HipLowerPointerVectorsPass());
-                    return true;
-                  }
-                  // Register the 8 and 16 bit atomic lowering as standalone,
-                  // which makes it directly testable with opt.
-                  if (Name == "hip-lower-subword-atomics") {
-                    MPM.addPass(createModuleToFunctionPassAdaptor(
-                        HipLowerSubwordAtomicsPass()));
                     return true;
                   }
                   // Register the volatile access lowering as standalone,
@@ -963,23 +934,6 @@ llvmGetPassPluginInfo() {
                   if (Name == "hip-lower-volatile-accesses") {
                     MPM.addPass(createModuleToFunctionPassAdaptor(
                         HipLowerVolatileAccessesPass()));
-                    return true;
-                  }
-                  // Register the vtable function pointer address space pass
-                  // as standalone, which makes it directly testable with opt.
-                  if (Name == "hip-function-pointer-as") {
-                    MPM.addPass(HipFunctionPointerASPass());
-                    return true;
-                  }
-                  // Register the hint intrinsic lowering as standalone,
-                  // which makes it directly testable with opt.
-                  if (Name == "hip-lower-hint-intrinsics") {
-                    MPM.addPass(HipLowerHintIntrinsicsPass());
-                    return true;
-                  }
-                  // Register unified HipVerify pass
-                  if (Name == "hip-verify") {
-                    MPM.addPass(HipVerifyPass());
                     return true;
                   }
                   return false;
