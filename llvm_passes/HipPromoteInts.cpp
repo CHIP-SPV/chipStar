@@ -214,11 +214,6 @@ struct Replacement {
   Instruction *Old;
   Value *New;
   Replacement(Instruction *O, Value *N) : Old(O), New(N) {}
-  
-  // Add equality operator for comparison
-  bool operator==(const Replacement &Other) const {
-    return Old == Other.Old && New == Other.New;
-  }
 };
 
 // Helper to adjust value V to type TargetTy using Builder
@@ -1487,14 +1482,6 @@ PreservedAnalyses HipPromoteIntsPass::run(Module &M,
 
     // Now perform the main replacements
     LLVM_DEBUG(dbgs() << "\n\n\n\n\nPerforming main instruction replacements...\n");
-    
-    // Remove duplicates from Replacements
-    std::sort(Replacements.begin(), Replacements.end(), 
-              [](const Replacement &A, const Replacement &B) { 
-                return std::make_pair(A.Old, A.New) < std::make_pair(B.Old, B.New); 
-              });
-    Replacements.erase(std::unique(Replacements.begin(), Replacements.end()), Replacements.end());
-
     
     // Track which instructions have been replaced to avoid duplicates
     SmallPtrSet<Instruction*, 32> ReplacedInstructions;
