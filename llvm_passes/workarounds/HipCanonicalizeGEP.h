@@ -12,6 +12,10 @@
 // bitcast-to-array-of-uchar access chain, which the Intel Graphics Compiler
 // miscompiles.
 //
+// WORKAROUND(CHIP-SPV/chipStar#1360, intel/intel-graphics-compiler#429): IGC
+// over-strides a single-index GEP over [N x i8] in private arrays. Remove once
+// the supported IGC floor is 2.40.0 or newer (intel/intel-graphics-compiler#430).
+//
 // Copyright (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
 

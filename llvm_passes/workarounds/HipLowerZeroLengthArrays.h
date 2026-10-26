@@ -9,6 +9,10 @@
 // Lowers occurrences of zero length array types which are not supported by
 // llvm-spirv.
 //
+// WORKAROUND(CHIP-SPV/chipStar#2109, llvm/llvm-project#172367): the LLVM 21
+// SPIR-V backend emits [0 x T] as OpTypeRuntimeArray, which IGC rejects. Remove
+// when LLVM 21 support is dropped.
+//
 // Copyright (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 

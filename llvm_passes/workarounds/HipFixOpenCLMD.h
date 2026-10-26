@@ -8,6 +8,10 @@
 //===----------------------------------------------------------------------===//
 // Sets the OpenCL version metadata to 2.0.
 //
+// WORKAROUND(CHIP-SPV/chipStar#2101, no upstream report): clang tags HIP device
+// IR with opencl.ocl.version 0.0 and llvm-spirv aborts on the mismatch with the
+// CL2.0 device library. Remove when either side stops doing that.
+//
 // (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 
@@ -18,15 +22,6 @@
 
 using namespace llvm;
 
-// LLVM commit 15a1769631ff0b2b3e830b03e51ae5f54f08a0ab introduces
-// 'opencl.ocl.version' module metadata into device code. This triggers an
-// assertion in SPIRV-LLVM Translator if the HIP device code and linked device
-// bitcode has mixed OpenCL version metadata. The commit in question inserts
-// OpenCL version 0.0 in HIP compilation mode (in CUDA mode it is 2.0).
-//
-// This pass works around the issue until some fix is introduced in Clang. The
-// issue is fixed by setting OpenCL version to the same as bitcode library
-// (2.0).
 class HipFixOpenCLMDPass : public HipRequiredPassInfoMixin<HipFixOpenCLMDPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);

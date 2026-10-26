@@ -7,6 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 // LLVM pass removing debug information from HIP device code modules.
+//
+// WORKAROUND(CHIP-SPV/chipStar#1420, no upstream report): llvm-spirv emits a
+// forward-referenced DebugTypeComposite cycle that spirv-val rejects. Remove
+// when the translator output validates and loads on every consumer.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_PASSES_HIP_STRIP_DEBUG_INFO_H
