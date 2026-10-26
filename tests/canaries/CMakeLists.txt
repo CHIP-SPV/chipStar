@@ -81,3 +81,35 @@ if(OpenCL_LIBRARY)
     PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL"
     SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST" TIMEOUT 120)
 endif()
+
+# Fails once clang stops casting vtable slots to addrspace(1); read its header.
+add_shell_test(CanaryVtableFunctionCastAS.bash)
+# Fail once the SPIR-V producers accept what the lowering passes expand; read
+# their headers. Each probes the tools it finds and skips when it finds none.
+add_shell_test(CanaryRoundIntrinsicsRejected.bash)
+add_shell_test(CanaryOverflowIntrinsics.bash)
+set_tests_properties(CanaryRoundIntrinsicsRejected CanaryOverflowIntrinsics
+  PROPERTIES SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
+if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
+  # Fail once llvm-spirv stops tripping on what the workaround passes fix; read their headers.
+  add_shell_test(CanaryOCLVersionMismatch.bash)
+  add_shell_test(CanaryBoolKernelArg.bash)
+  add_shell_test(CanaryDebugInfoTranslatorCycle.bash)
+  add_shell_test(CanaryIgcPrivByteArrayGEP.bash)
+  add_shell_test(CanaryIgcCacheControlDropA32.bash)
+  set_tests_properties(CanaryDebugInfoTranslatorCycle CanaryIgcPrivByteArrayGEP
+    CanaryIgcCacheControlDropA32 PROPERTIES
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+endif()
+
+if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
+  # Fails once the backend legalizes the hint intrinsics; read its header.
+  add_shell_test(CanaryHintIntrinsicsBackend.bash)
+  set_tests_properties(CanaryHintIntrinsicsBackend PROPERTIES
+    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+  # LLVM 22 legalizes zero-size arrays; read the header.
+  if(LLVM_VERSION_MAJOR LESS 22)
+    add_shell_test(CanaryZeroLengthArrayBackend.bash)
+  endif()
+endif()
