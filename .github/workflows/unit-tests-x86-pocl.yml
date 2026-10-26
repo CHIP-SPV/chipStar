@@ -70,7 +70,7 @@ jobs:
         timeout-minutes: 60
 
       - name: Test native, pocl opencl
-        run: cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+        run: ulimit -c 0 && cd $BUILD_ROOT/native && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 60
 
       - name: Build chipStar (llvm-spirv translator)
@@ -91,7 +91,7 @@ jobs:
 
       - name: Test translator, pocl opencl
         if: ${{ !cancelled() && steps.translator-build.outcome == 'success' }}
-        run: cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+        run: ulimit -c 0 && cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
         timeout-minutes: 60
 
       - uses: actions/upload-artifact@v4
