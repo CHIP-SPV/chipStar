@@ -278,6 +278,7 @@ option(CHIP_BUILD_SHARED_LIBS "Build chipStar as a shared library" ON)
 option(CHIP_BUILD_DOCS "Build doxygen documentation" OFF)
 option(CHIP_LLVM_USE_INTERGRATED_SPIRV "Use LLVM's intergrated SPIR-V backend for emitting device binary instead of SPIR-V translator. Auto-detected from LLVM targets when LLVM >= 22." OFF)
 option(CHIP_ATOMICS_CACHE_BYPASS_WORKAROUND "Lower volatile global accesses to relaxed device-scope atomics instead of SPV_INTEL_cache_controls decorations. The decorations are the better lowering (they bypass only the core-private cache and need no atomic capability on the allocation), but a module carrying OpCapability CacheControlsINTEL is rejected by a consumer that does not support it: rusticl fails clBuildProgram with -11 spirv_to_nir failed. Enable this when building for such a target." OFF)
+option(CHIP_FP64_EMU_SHUFFLE_WORKAROUND "Shuffle doubles as long, for Intel GPUs that run IGC fp64 emulation, where a double add of a sub-group shuffle hangs (CHIP-SPV/chipStar#2106)." OFF)
 
 option(CHIP_KEEP_KERNEL_DEBUG_INFO "Keep device debug info in kernels. No SPIR-V producer emits debug info that validates, and only IGC on Intel Data Center GPU Max tolerates it, so this is off by default and should only be enabled for that device." OFF)
 option(CHIP_SET_RPATH "Add CMAKE_INSTALL_PREFIX/lib to the RPATH for chipStar executables" ON)
