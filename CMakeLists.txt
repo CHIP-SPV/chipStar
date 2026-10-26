@@ -254,15 +254,7 @@ set(CONFIG_LANG_PACKAGE_INSTALL_DIR ${LIB_INSTALL_DIR}/cmake/hip-lang)
 
 set(HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
 if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
-  # LLVM-22: The new offload driver exists on this version but HIPSPV
-  # toolchain doesn't support it.
-  #
-  # LLVM-23: HIPSPV toolchain supports the new offload driver. The new
-  # offload driver is enabled by default. To disable it
-  # --no-offload-new-driver needs to be issued in HIP compilation and
-  # link steps.
-  #
-  # LLVM-23+: the old offload driver may be removed.
+  # HIPSPV supports the new offload driver from LLVM 23, and requires it there.
   set(HAVE_CLANG_NEW_OFFLOAD_DRIVER ON)
 endif()
 
@@ -327,6 +319,11 @@ consumption issues in ARM Mali GPU driver." OFF)
 cmake_dependent_option(
   USE_NEW_OFFLOAD_DRIVER "Use Clang's new offload driver."
   ON HAVE_CLANG_NEW_OFFLOAD_DRIVER OFF)
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 23 AND NOT USE_NEW_OFFLOAD_DRIVER)
+  message(FATAL_ERROR "USE_NEW_OFFLOAD_DRIVER=OFF is not supported on LLVM 23+: "
+    "the old offload driver breaks -fgpu-rdc linking "
+    "(https://github.com/CHIP-SPV/chipStar/issues/1959).")
+endif()
 
 if(CHIP_EXT_FLOAT_ATOMICS)
   message(DEPRECATION "-DCHIP_EXT_FLOAT_ATOMICS is no longer effective.")
@@ -768,10 +765,6 @@ set(HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_
   # excludes the wrappers.
   -nohipwrapperinc)
 
-if(LLVM_VERSION_MAJOR GREATER_EQUAL 23 AND NOT USE_NEW_OFFLOAD_DRIVER)
-  list(APPEND HIP_OFFLOAD_COMPILE_ONLY_OPTIONS_ --no-offload-new-driver)
-endif()
-
 # Include a header for applying fixups before any user or system includes.
 set(HIP_FIXUPS_HEADER_BUILD
   -include ${CMAKE_SOURCE_DIR}/include/hip/spirv_fixups.h)
@@ -796,10 +789,6 @@ else()
     --hip-link
     # Required for selecting HIPSPV toolchain instead of AMD's one in clang.
     --offload=${OFFLOAD_TRIPLE})
-
-  if(LLVM_VERSION_MAJOR GREATER_EQUAL 23)
-    list(APPEND HIP_RDC_SUPPLEMENT_LINK_FLAGS_ --no-offload-new-driver)
-  endif()
 endif()
 
 if (NOT CLANG_VERSION_LESS_15)
