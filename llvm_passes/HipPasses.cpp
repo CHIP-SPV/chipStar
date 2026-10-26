@@ -786,9 +786,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // dynamic shared memories being modeled as zero length arrays.
   addPassWithVerification(MPM, HipLowerZeroLengthArraysPass(), "HipLowerZeroLengthArraysPass");
 
-  // Prepare device code for texture function lowering which does not yet work
-  // on non-inlined code and local variables of hipTextureObject_t type.
-  addPassWithVerification(MPM, RemoveNoInlineOptNoneAttrsPass(), "RemoveNoInlineOptNoneAttrsPass-2");
   // Increase getInlineParams argument for more aggressive inlining.
   addPassWithVerification(MPM, ModuleInlinerWrapperPass(getInlineParams(1000)), "ModuleInlinerWrapperPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::PreserveCFG)), "SROAPass-PreserveCFG");
