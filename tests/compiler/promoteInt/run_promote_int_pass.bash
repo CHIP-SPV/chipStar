@@ -27,7 +27,7 @@ CHIP_VERIFY_MODE=off ${LLVM_OPT} -load-pass-plugin "${HIP_SPV_PASSES_LIB}" \
 ${LLVM_DIS} "${OUTPUT_BC}" -o "${OUTPUT_LL}" || exit 1
 
 # Check for non-standard integer types
-NON_STD_INT_COUNT=$(grep -c -E 'i[0-9]+(?<!i1|i8|i16|i32|i64)' "${OUTPUT_LL}" || true)
+NON_STD_INT_COUNT=$(perl -0pe 's/;[^\n]*|"[^"]*"//g' "${OUTPUT_LL}" | sed -E 's/^[-$.A-Za-z0-9_]+://' | grep -oE '(^|[^%@!.$A-Za-z0-9_-])i[0-9]+' | grep -cvE 'i(1|8|16|32|64)$' || true)
 if [ "${NON_STD_INT_COUNT}" -gt 0 ]; then
     echo "ERROR: Found ${NON_STD_INT_COUNT} non-standard integer types in output"
     echo "See ${OUTPUT_LL} for details"
