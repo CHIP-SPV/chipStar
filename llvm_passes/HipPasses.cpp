@@ -15,7 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "HipAbort.h"
-#include "HipCleanup.h"
 #include "HipDynMem.h"
 #include "HipStripDebugInfo.h"
 #include "HipStripUsedIntrinsics.h"
@@ -76,12 +75,12 @@ using namespace llvm;
 // GlobalDCE alone must keep. A device module is self-contained, so nothing can
 // link against them and the unreferenced ones can go; left in, a dead table
 // whose virtual base offsets are inttoptr constants aborts llvm-spirv
-// (CHIP-SPV/chipStar#1382).
+// (CHIP-SPV/chipStar#1382). Also drops the per-TU __hip_cuid* markers.
 static bool preserveDuringInternalize(const GlobalValue &GV) {
   if (isa<GlobalVariable>(GV)) {
     StringRef Name = GV.getName();
     return !(Name.starts_with("_ZTV") || Name.starts_with("_ZTT") ||
-             Name.starts_with("_ZTC"));
+             Name.starts_with("_ZTC") || Name.starts_with("__hip_cuid"));
   }
   const auto *F = dyn_cast<Function>(&GV);
   return !(F && F->getCallingConv() == CallingConv::SPIR_FUNC);
@@ -877,10 +876,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   // handles <N x ptr> itself.
   addPassWithVerification(MPM, HipLowerPointerVectorsPass(),
                           "HipLowerPointerVectorsPass");
-
-  // Must be last: removes __chip_*/__hip_* globals and stubs their users.
-  // Runs after HipIGBADetectorPass which creates __chip_module_has_no_IGBAs.
-  addPassWithVerification(MPM, HipCleanupPass(), "HipCleanupPass");
 
 #ifdef CHIP_LLVM_USE_INTERGRATED_SPIRV
   // After every pass that creates or removes FP operations or calls.

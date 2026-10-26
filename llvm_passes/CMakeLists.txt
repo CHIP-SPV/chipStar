@@ -107,7 +107,6 @@ add_library(LLVMHipStripUsedIntrinsics MODULE HipStripUsedIntrinsics.cpp)
 add_library(LLVMHipPasses MODULE
     HipAbort.cpp
     HipCanonicalizeGEP.cpp
-    HipCleanup.cpp
     HipCoalesceDuplicatePhiPreds.cpp
     HipDynMem.cpp
     HipEmitLoweredNames.cpp

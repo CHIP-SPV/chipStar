@@ -642,7 +642,7 @@ findResettableNonSymbolGVs(Module &M, const GVarMapT &GVarMap) {
     if (GV.hasSection()) // Non-user defined variable - e.g. llvm.used
                          // intrinsic.
       continue;
-    if (GVarMap.count(&GV))
+    if (GVarMap.count(&GV) || GV.getName().starts_with("__hip_cuid"))
       continue;
     // So far, all host-inaccessible global device variables either has a COMDAT
     // section or lacks the externally_initialized attribute.
