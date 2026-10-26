@@ -2,7 +2,7 @@
 # Canary for https://github.com/CHIP-SPV/chipStar/issues/1891. MEANT TO FAIL EVENTUALLY.
 # Asserts the in-tree SPIR-V backend still lowers sitofp i1 true to +1, i.e. still
 # lacks https://github.com/llvm/llvm-project/pull/209232.
-# HipLowerSitofpI1Pass in llvm_passes/HipPasses.cpp works around it and also
+# HipLowerSitofpI1Pass in llvm_passes/workarounds/HipLowerSitofpI1.* works around it and also
 # covers https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/3918
 # (CanarySitofpI1Translator). Delete the pass, its registration and both canaries
 # together only once both canaries fire for every supported LLVM version, then

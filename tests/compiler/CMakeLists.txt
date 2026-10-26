@@ -119,14 +119,6 @@ add_hipcc_test(TestHipComplexInclude.hip HIPCC_OPTIONS)
 
 add_shell_test(TestFix1650NonLoweredInitGlobalAddress.bash)
 if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
-  # Fails the day the backend accepts the shape HipOffsetBeforeCastPass
-  # rewrites. Read its header before acting.
-  add_shell_test(CanaryGepOverCastInitializer.bash)
-  # Fails the day the backend stops taking an initializer's byte offset as an
-  # array index. Read its header before acting.
-  add_shell_test(CanaryByteOffsetInitializer.bash)
-  # Fails the day the backend stops emitting memmove as OpCopyMemorySized (#1958).
-  add_shell_test(CanaryMemmoveCopyMemorySized.bash)
   add_shell_test(TestFix1958MemmoveOverlap.bash)
 endif()
 
@@ -178,9 +170,6 @@ add_shell_test(TestFix1670DynMemCallArgs.bash)
 add_hipcc_test(TestFix1692DynSharedLocalInit.hip HIPCC_OPTIONS -O2 -c)
 # TIMEOUT is a hang guard only; the test takes about a second.
 set_tests_properties(hipcc-TestFix1692DynSharedLocalInit PROPERTIES TIMEOUT 120)
-# Fails the day clang stops hoisting such an initializer, which is the signal to
-# delete HipSharedAddrLocalInitPass. Read its header before acting.
-add_shell_test(CanarySharedAddrInitHoisted.bash)
 # A static table of dynamic shared addresses cannot be lowered; hipcc must say so.
 add_hipcc_test(TestFix1692DynSharedStaticTable.hip HIPCC_OPTIONS -c)
 set_tests_properties(hipcc-TestFix1692DynSharedStaticTable PROPERTIES TIMEOUT 120
@@ -243,30 +232,7 @@ add_shell_test(TestFix1634ZeroLengthCopy.bash)
 add_shell_test(TestFix1640AggregateInitGlobalAddress.bash)
 if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   add_shell_test(TestFix1654FPContract.bash)
-  # Fails the day the backend stops forcing ContractionOff. Read its header.
-  add_shell_test(CanaryFPContractionOff.bash)
 endif()
-# Fails the day upstream stops rejecting <N x ptr>, which is the signal to
-# delete the hip-lower-pointer-vectors pass. Read its header before acting.
-add_shell_test(CanaryPointerVectorsRejected.bash)
-# Fails the day llvm-spirv stops rejecting one of the hint intrinsics, which is
-# the signal to delete that case. Read its header before acting. Needs the
-# translator, so it is not registered when LLVM_SPIRV is NOT_NEEDED.
-if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
-  add_shell_test(CanaryHintIntrinsicsRejected.bash)
-  # Fails once llvm-spirv carries KhronosGroup/SPIRV-LLVM-Translator#3866; read its header.
-  add_shell_test(CanaryDuplicatePhiPredecessors.bash)
-  # Fails once llvm-spirv carries KhronosGroup/SPIRV-LLVM-Translator#3918; read its header.
-  add_shell_test(CanarySitofpI1Translator.bash)
-endif()
-if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
-  # Fails once the backend carries llvm/llvm-project#209232; read its header.
-  add_shell_test(CanarySitofpI1Backend.bash)
-endif()
-# Fails once IGC stops gathering a constant-offset shuffle; read its header.
-add_shell_test(CanaryIgcShuffleRotateGather.bash)
-set_tests_properties(CanaryIgcShuffleRotateGather PROPERTIES
-  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 add_shell_test(TestTextureUnsupportedMixedDim.bash)
 

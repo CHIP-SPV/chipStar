@@ -2,8 +2,8 @@
 # Canary for https://github.com/CHIP-SPV/chipStar/issues/1958. MEANT TO FAIL EVENTUALLY.
 # Asserts the in-tree SPIR-V backend still emits an overlapping llvm.memmove as
 # OpCopyMemorySized, which SPIR-V consumers read back as memcpy (no upstream
-# LLVM issue filed yet). When it fails, delete HipLowerMemmovePass in
-# llvm_passes/HipPasses.cpp, its registration and this canary together, then
+# LLVM issue filed yet). When it fails, delete llvm_passes/workarounds/HipLowerMemmove.*,
+# its registration and this canary together, then
 # close #1958.
 set -u
 cd "$(mktemp -d)"

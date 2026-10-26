@@ -4,7 +4,7 @@
 # of getelementptr (i8, @D, 12) in a global initializer as an array index over
 # @D's own type, which addresses &D[12] instead of &D[3]. When it goes red,
 # delete retypeToBytes and its call in HipOffsetBeforeCastPass
-# (llvm_passes/HipPasses.cpp) and this file, and close #1703. No upstream
+# (llvm_passes/workarounds/HipOffsetBeforeCast.cpp) and this file, and close #1703. No upstream
 # report names this; the reproducer attached to
 # https://github.com/llvm/llvm-project/issues/95760 shows it.
 set -eu
