@@ -808,10 +808,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   addPassWithVerification(MPM, HipTextureLoweringPass(), "HipTextureLoweringPass");
 
-  // TODO: Update printf pass for HIP-Clang 14+. It now triggers an assert:
-  //
-  //  Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"'
-  //  failed.
   addPassWithVerification(MPM, HipPrintfToOpenCLPrintfPass(), "HipPrintfToOpenCLPrintfPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipDefrostPass()), "HipDefrostPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemsetPass()), "HipLowerMemsetPass");
