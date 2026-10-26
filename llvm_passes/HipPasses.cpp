@@ -16,7 +16,6 @@
 
 #include "HipAbort.h"
 #include "HipCleanup.h"
-#include "HipDefrost.h"
 #include "HipDynMem.h"
 #include "HipStripDebugInfo.h"
 #include "HipStripUsedIntrinsics.h"
@@ -810,7 +809,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   //  Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"'
   //  failed.
   addPassWithVerification(MPM, HipPrintfToOpenCLPrintfPass(), "HipPrintfToOpenCLPrintfPass");
-  addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipDefrostPass()), "HipDefrostPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerMemsetPass()), "HipLowerMemsetPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerFPAtomicMinMaxPass()), "HipLowerFPAtomicMinMaxPass");
   // OpenCL SPIR-V consumers implement 32 and 64 bit atomics only; rewrite 8

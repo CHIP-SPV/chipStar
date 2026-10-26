@@ -96,7 +96,6 @@ if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 17.0)
 endif()
 
 add_library(LLVMHipStripUsedIntrinsics MODULE HipStripUsedIntrinsics.cpp)
-add_library(LLVMHipDefrost MODULE HipDefrost.cpp)
 # One source per line, alphabetically sorted, so that two branches each adding
 # a pass insert at different anchors and merge without a conflict.
 #
@@ -110,7 +109,6 @@ add_library(LLVMHipPasses MODULE
     HipCanonicalizeGEP.cpp
     HipCleanup.cpp
     HipCoalesceDuplicatePhiPreds.cpp
-    HipDefrost.cpp
     HipDynMem.cpp
     HipEmitLoweredNames.cpp
     HipFunctionPointerAS.cpp
@@ -181,7 +179,6 @@ if(APPLE)
   target_link_libraries(LLVMHipPasses PRIVATE LLVM)
   target_link_libraries(LLVMHipDynMem PRIVATE LLVM)
   target_link_libraries(LLVMHipStripUsedIntrinsics PRIVATE LLVM)
-  target_link_libraries(LLVMHipDefrost PRIVATE LLVM)
 endif()
 
 # In Debug builds, default HipVerify to "failures" mode so the IR/SPIR-V
@@ -195,7 +192,6 @@ target_compile_definitions(LLVMHipPasses PRIVATE
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
 target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipStripUsedIntrinsics PRIVATE -I/${LLVM_INCLUDE_DIRS})
-target_compile_options(LLVMHipDefrost PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipPasses PRIVATE -I/${LLVM_INCLUDE_DIRS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
@@ -208,7 +204,7 @@ if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 endif()
 
-install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics LLVMHipDefrost LLVMHipPasses
+install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics LLVMHipPasses
         LIBRARY DESTINATION lib/llvm
         ARCHIVE DESTINATION lib/llvm
         )
