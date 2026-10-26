@@ -4,7 +4,8 @@
 # MEANT TO FAIL EVENTUALLY. Asserts llvm-spirv and the in-tree SPIR-V backend still
 # give a spir_kernel i1 parameter OpTypeBool, which the OpenCL SPIR-V environment
 # spec (env/common_properties.asciidoc, Kernel Arguments) does not allow;
-# spirv-val does not check it. Fires only once BOTH producers stop; then delete the
+# spirv-val does not check it. Fires once all probed producers stop (the llc half is skipped when llc
+# has no SPIR-V target, so check the backend separately); then delete the
 # kernel-arg wrapper code in llvm_passes/core/HipPromoteInts.cpp and this canary, and close #849.
 set -u
 cd "$(mktemp -d)"
@@ -18,9 +19,11 @@ bad=0
 # Text form: "3 TypeBool <id>" then "3 FunctionParameter <type> <id>".
 awk '$2 == "TypeBool" { b[$3] = 1 } $2 == "FunctionParameter" && b[$3] { f = 1 } END { exit !f }' tr.spt &&
   { echo "llvm-spirv: bool kernel parameter"; bad=1; }
-"@LLVM_TOOLS_BINARY_DIR@/llc" -mtriple=spirv64v1.3-unknown-unknown m.ll -o be.spt > be.log 2>&1 ||
-  { echo "FAIL: llc"; cat be.log; exit 1; }
-awk '$3 == "OpTypeBool" { b[$1] = 1 } $3 == "OpFunctionParameter" && b[$4] { f = 1 } END { exit !f }' be.spt &&
-  { echo "llc: bool kernel parameter"; bad=1; }
+if "@LLVM_TOOLS_BINARY_DIR@/llc" --version | grep -q spirv64; then
+  "@LLVM_TOOLS_BINARY_DIR@/llc" -mtriple=spirv64v1.3-unknown-unknown m.ll -o be.spt > be.log 2>&1 ||
+    { echo "FAIL: llc"; cat be.log; exit 1; }
+  awk '$3 == "OpTypeBool" { b[$1] = 1 } $3 == "OpFunctionParameter" && b[$4] { f = 1 } END { exit !f }' be.spt &&
+    { echo "llc: bool kernel parameter"; bad=1; }
+fi
 [ $bad = 1 ] && echo PASSED ||
   { echo "CANARY FIRED: no producer emits a bool kernel parameter, see the header"; exit 1; }
