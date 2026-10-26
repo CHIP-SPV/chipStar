@@ -36,6 +36,7 @@ uncached() { # $1 device; prints the L1-uncached load messages in the ISA
   ( cd "d-$1" && IGC_ShaderDumpEnable=1 IGC_DumpToCustomDir="$PWD" \
       ocloc compile -file ../m.spv -spirv_input -device "$1" ) > "ocloc-$1.log" 2>&1 ||
     { echo "FAIL: ocloc did not build for $1"; cat "ocloc-$1.log"; exit 1; }
+  compgen -G "d-$1/*.asm" > /dev/null || { echo "FAIL: no asm dump for $1"; exit 1; }
   cat "d-$1"/*.asm | grep -cE 'load\.ugm\.[a-z0-9]+\.a[0-9]+\.uc' || true
 }
 N=$(uncached pvc) || { echo "$N"; exit 1; }

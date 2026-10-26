@@ -36,6 +36,7 @@ stores() { # $1 the two lines computing %r from %j; prints the stores to %o IGC 
   ( cd d && IGC_ShaderDumpEnable=1 IGC_DumpToCustomDir="$PWD" \
       ocloc compile -spirv_input -file ../m.spv -device bmg ) > ocloc.log 2>&1 ||
     { echo "FAIL: ocloc did not build the module"; cat ocloc.log >&2; return 1; }
+  compgen -G 'd/*_codegen.ll' > /dev/null || { echo "FAIL: no codegen dump for bmg" >&2; return 1; }
   cat d/*_codegen.ll | grep -c 'store float %[^,]*, ptr addrspace(1) %o' || true
 }
 
