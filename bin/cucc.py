@@ -291,6 +291,9 @@ def main():
     if known_args.device_c or known_args.dc or "-dc" in other_args or "--device-c" in other_args:
         hipcc_args.append("-c")
 
+    # Host objects must link into PIE executables (system g++ defaults to PIE).
+    hipcc_args.append("-fPIE")
+
     if other_args is not None:
         hipcc_args.extend(filter_args_for_hipcc(other_args))
 
