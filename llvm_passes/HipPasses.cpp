@@ -39,7 +39,6 @@
 #include "HipPromoteInts.h"
 #include "HipLowerOverflowIntrinsics.h"
 #include "HipLowerPointerVectors.h"
-#include "HipSpirvFunctionReorderPass.h"
 #include "HipVerify.h"
 #include "HipCanonicalizeGEP.h"
 #include "HipCoalesceDuplicatePhiPreds.h"
@@ -994,11 +993,6 @@ llvmGetPassPluginInfo() {
                   // which makes it directly testable with opt.
                   if (Name == "hip-lower-hint-intrinsics") {
                     MPM.addPass(HipLowerHintIntrinsicsPass());
-                    return true;
-                  }
-                  // Register SPIR-V function reorder pass as standalone
-                  if (Name == "hip-spirv-function-reorder") {
-                    MPM.addPass(HipSpirvFunctionReorderPass());
                     return true;
                   }
                   // Register unified HipVerify pass
