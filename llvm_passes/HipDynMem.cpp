@@ -535,10 +535,6 @@ static RegisterPass<HipDynMemExternReplacePass>
       "convert HIP dynamic shared memory to OpenCL kernel argument");
 
 
-// Pass hook for the new pass manager.
-#include "llvm/Passes/PassBuilder.h"
-#include "PassPluginCompat.h"
-
 PreservedAnalyses HipDynMemExternReplaceNewPass::run(Module &M, ModuleAnalysisManager &AM) {
   // force the entire IR to be parsed before your pass runs
   if (auto Err = M.materializeAll())
@@ -547,21 +543,3 @@ PreservedAnalyses HipDynMemExternReplaceNewPass::run(Module &M, ModuleAnalysisMa
     return PreservedAnalyses::none();
   return PreservedAnalyses::all();
 }
-
-#ifndef CHIP_COMBINED_PASS_PLUGIN
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "hip-dyn-mem", LLVM_VERSION_STRING,
-          [](PassBuilder &PB) {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &FPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-dyn-mem") {
-                    FPM.addPass(HipDynMemExternReplaceNewPass());
-                    return true;
-                  }
-                  return false;
-                });
-          }};
-}
-#endif // CHIP_COMBINED_PASS_PLUGIN

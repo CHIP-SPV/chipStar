@@ -50,9 +50,9 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "PassPluginCompat.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <optional>
 
@@ -361,21 +361,3 @@ PreservedAnalyses HipKernelArgSpillerPass::run(Module &M,
   return spillKernelArgs(M) ? PreservedAnalyses::none()
                             : PreservedAnalyses::all();
 }
-
-#ifndef CHIP_COMBINED_PASS_PLUGIN
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, PASS_NAME, LLVM_VERSION_STRING,
-          [](PassBuilder &PB) {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &FPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == PASS_NAME) {
-                    FPM.addPass(HipKernelArgSpillerPass());
-                    return true;
-                  }
-                  return false;
-                });
-          }};
-}
-#endif // CHIP_COMBINED_PASS_PLUGIN

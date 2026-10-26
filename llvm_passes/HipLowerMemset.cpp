@@ -32,9 +32,9 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IRBuilder.h>
-#include <llvm/Passes/PassBuilder.h>
+#include <llvm/IR/IntrinsicInst.h>
+#include <llvm/IR/Module.h>
 #include <llvm/TargetParser/Triple.h>
-#include "PassPluginCompat.h"
 #include "chipStarConfig.hh"
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
 
@@ -77,21 +77,3 @@ PreservedAnalyses HipLowerMemsetPass::run(Function &F,
                                           FunctionAnalysisManager &AM) {
   return lowerMemsets(F) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-#ifndef CHIP_COMBINED_PASS_PLUGIN
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "hip-lower-memset", LLVM_VERSION_STRING,
-          [](PassBuilder &PB) {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, FunctionPassManager &FPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-lower-memset") {
-                    FPM.addPass(HipLowerMemsetPass());
-                    return true;
-                  }
-                  return false;
-                });
-          }};
-}
-#endif // CHIP_COMBINED_PASS_PLUGIN

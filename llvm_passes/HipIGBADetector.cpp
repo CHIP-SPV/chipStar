@@ -37,11 +37,11 @@
 
 #include "LLVMSPIRV.h"
 
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
 #include "llvm/IR/Module.h"
-#include <llvm/Passes/PassBuilder.h>
-#include "PassPluginCompat.h"
+#include "llvm/Support/Debug.h"
 
 #define PASS_NAME "hip-igpa-detector"
 #define DEBUG_TYPE PASS_NAME
@@ -131,21 +131,3 @@ PreservedAnalyses HipIGBADetectorPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
   return detectIGBAs(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-#ifndef CHIP_COMBINED_PASS_PLUGIN
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, PASS_NAME, LLVM_VERSION_STRING,
-          [](PassBuilder &PB) {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &MPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == PASS_NAME) {
-                    MPM.addPass(HipIGBADetectorPass());
-                    return true;
-                  }
-                  return false;
-                });
-          }};
-}
-#endif // CHIP_COMBINED_PASS_PLUGIN

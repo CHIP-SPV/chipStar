@@ -18,10 +18,10 @@
 #include "HipLowerSwitch.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "PassPluginCompat.h"
+#include "llvm/Support/Debug.h"
 
 #define PASS_NAME "hip-lower-switch"
 #define DEBUG_TYPE PASS_NAME
@@ -112,21 +112,3 @@ PreservedAnalyses HipLowerSwitchPass::run(Function &F,
   return lowerSwitches(F) ? PreservedAnalyses::none()
                           : PreservedAnalyses::all();
 }
-
-#ifndef CHIP_COMBINED_PASS_PLUGIN
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "hip-lower-switch", LLVM_VERSION_STRING,
-          [](PassBuilder &PB) {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, FunctionPassManager &FPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == PASS_NAME) {
-                    FPM.addPass(HipLowerSwitchPass());
-                    return true;
-                  }
-                  return false;
-                });
-          }};
-}
-#endif // CHIP_COMBINED_PASS_PLUGIN

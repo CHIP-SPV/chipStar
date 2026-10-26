@@ -50,10 +50,8 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Module.h>
-#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
-#include "PassPluginCompat.h"
 
 #define PASS_NAME "hip-lower-subword-atomics"
 #define DEBUG_TYPE PASS_NAME
@@ -436,21 +434,3 @@ PreservedAnalyses HipLowerSubwordAtomicsPass::run(Function &F,
   return lowerSubwordAtomics(F) ? PreservedAnalyses::none()
                                 : PreservedAnalyses::all();
 }
-
-#ifndef CHIP_COMBINED_PASS_PLUGIN
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, PASS_NAME, LLVM_VERSION_STRING,
-          [](PassBuilder &PB) {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, FunctionPassManager &FPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == PASS_NAME) {
-                    FPM.addPass(HipLowerSubwordAtomicsPass());
-                    return true;
-                  }
-                  return false;
-                });
-          }};
-}
-#endif // CHIP_COMBINED_PASS_PLUGIN

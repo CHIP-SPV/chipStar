@@ -49,8 +49,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "PassPluginCompat.h"
 #include "llvm/Support/Debug.h"
 
 #define PASS_NAME "hip-lower-overflow-intrinsics"

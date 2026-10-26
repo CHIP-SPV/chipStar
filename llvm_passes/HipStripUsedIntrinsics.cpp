@@ -63,31 +63,9 @@ char HipStripCompilerUsedLegacyPass::ID = 0;
 static RegisterPass<HipStripCompilerUsedLegacyPass>
     X("hip-strip-compiler-used", "Strip llvm.compiler.used variables.");
 
-// Pass hook for the new pass manager.
-#include "llvm/Passes/PassBuilder.h"
-#include "PassPluginCompat.h"
-
 PreservedAnalyses HipStripUsedIntrinsicsPass::run(Module &M,
                                                   ModuleAnalysisManager &AM) {
   bool Changed = stripGlobalVar(M, "llvm.used");
   Changed |= stripGlobalVar(M, "llvm.compiler.used");
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-#ifndef CHIP_COMBINED_PASS_PLUGIN
-extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
-llvmGetPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "hip-strip-compiler-used",
-          LLVM_VERSION_STRING, [](PassBuilder &PB) {
-            PB.registerPipelineParsingCallback(
-                [](StringRef Name, ModulePassManager &FPM,
-                   ArrayRef<PassBuilder::PipelineElement>) {
-                  if (Name == "hip-strip-compiler-used") {
-                    FPM.addPass(HipStripUsedIntrinsicsPass());
-                    return true;
-                  }
-                  return false;
-                });
-          }};
-}
-#endif // CHIP_COMBINED_PASS_PLUGIN
