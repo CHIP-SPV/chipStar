@@ -792,10 +792,6 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
 
   addPassWithVerification(MPM, HipTextureLoweringPass(), "HipTextureLoweringPass");
 
-  // TODO: Update printf pass for HIP-Clang 14+. It now triggers an assert:
-  //
-  //  Assertion `isa<X>(Val) && "cast<Ty>() argument of incompatible type!"'
-  //  failed.
   addPassWithVerification(MPM, HipPrintfToOpenCLPrintfPass(), "HipPrintfToOpenCLPrintfPass");
   addPassWithVerification(MPM, createModuleToFunctionPassAdaptor(HipLowerFPAtomicMinMaxPass()), "HipLowerFPAtomicMinMaxPass");
   // OpenCL SPIR-V consumers implement 32 and 64 bit atomics only; rewrite 8
