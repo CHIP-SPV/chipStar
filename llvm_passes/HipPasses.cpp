@@ -86,7 +86,6 @@
 #include "llvm/Transforms/Utils/LowerMemIntrinsics.h"
 #include "llvm/TargetParser/Triple.h"
 
-#include <cstdlib>
 #include <optional>
 #include <string>
 #include <utility>
