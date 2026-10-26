@@ -118,6 +118,7 @@ jobs:
         shell: bash
         run: |
           set -e
+          ulimit -c 0
           cd $BUILD_ROOT/build
           # 4 GB W6400: keep parallelism low to avoid VRAM contention flakiness.
           # check.py exits non-zero unless every test passes (no known-failure
