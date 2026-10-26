@@ -16,8 +16,10 @@ printf '%s\n' 'struct Node { struct Node *next; int v; };' \
   'kernel void k(global struct Node *n, global int *o) { *o = n->next->v; }' > d.cl
 # The translator arguments the HIPSPV toolchain passes, which differ per LLVM version.
 echo '__global__ void k() {}' > h.hip
-TRARGS=$("@LLVM_TOOLS_BINARY_DIR@/clang" -### -x hip --offload=spirv64 -nogpulib -nogpuinc \
-  --cuda-device-only -c h.hip -o h.o 2>&1 | grep '/llvm-spirv"' | grep -o '"--spirv[^"]*"' | tr -d '"')
+# --offload-device-only takes the emitter flag directly, not behind -Xoffload-compiler-<triple>.
+EMIT="@NONRDC_EMITTER_OPTS_STR@"; EMIT=${EMIT#-Xoffload-compiler-* }
+TRARGS=$("@LLVM_TOOLS_BINARY_DIR@/clang" -### -x hip --offload=@OFFLOAD_TRIPLE@ $EMIT \
+  -nogpulib -nogpuinc --offload-device-only -c h.hip -o h.o 2>&1 | grep -E '(^|/|")llvm-spirv(-[0-9]+)?"' | grep -o '"--spirv[^"]*"' | tr -d '"')
 [ -n "$TRARGS" ] || { echo "FAIL: clang -### printed no llvm-spirv arguments"; exit 1; }
 echo "llvm-spirv arguments: $TRARGS"
 { "@LLVM_TOOLS_BINARY_DIR@/clang" -cc1 -triple spir64-unknown-unknown -cl-std=CL2.0 \
