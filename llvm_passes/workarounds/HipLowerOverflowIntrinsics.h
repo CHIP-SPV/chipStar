@@ -9,6 +9,10 @@
 // Expands llvm.{u,s}mul.with.overflow into plain integer arithmetic so that
 // neither intrinsic reaches SPIR-V emission.
 //
+// WORKAROUND(CHIP-SPV/chipStar#1475, KhronosGroup/SPIRV-LLVM-Translator#3990,
+// intel/intel-graphics-compiler#432): llvm-spirv rejects smul.with.overflow and
+// the backend's OpUMulExtended does not link in IGC. Remove when both are fixed.
+//
 // Copyright (c) 2026 chipStar developers
 //===----------------------------------------------------------------------===//
 

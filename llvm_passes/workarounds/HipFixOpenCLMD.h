@@ -8,6 +8,10 @@
 //===----------------------------------------------------------------------===//
 // Sets the OpenCL version metadata to 2.0.
 //
+// WORKAROUND(CHIP-SPV/chipStar#2101, no upstream report): clang tags HIP device
+// IR with opencl.ocl.version 0.0 and llvm-spirv aborts on the mismatch with the
+// CL2.0 device library. Remove when either side stops doing that.
+//
 // (c) 2023 chipStar developers
 //===----------------------------------------------------------------------===//
 
