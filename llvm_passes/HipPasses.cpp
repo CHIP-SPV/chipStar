@@ -64,8 +64,6 @@
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 
-#include <cstdlib>
-#include <optional>
 #include <string>
 #include <utility>
 
