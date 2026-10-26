@@ -64,9 +64,6 @@ private:
   // SPIR-V conversion helpers
   std::vector<uint32_t> convertIRToSPIRV(Module &M, std::string &errorMsg, VerificationResult &result);
   
-  // Function reordering for SPIR-V compliance
-  void reorderFunctionsForSPIRV(Module &M);
-  bool needsReordering(Module &M);
   bool isSPIRVTarget(Module &M);
   
   // Summary output
