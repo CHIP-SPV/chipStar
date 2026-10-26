@@ -292,9 +292,6 @@ static const char *const SpirvTool = "llvm-spirv";
 std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &errorMsg, VerificationResult &result) {
   LLVM_DEBUG(dbgs() << "HipVerify: Converting LLVM IR to SPIR-V\n");
   
-  // Apply function reordering for SPIR-V compliance
-  // reorderFunctionsForSPIRV(M);
-  
   // Create temporary files
   SmallString<256> LLTempFile;
   SmallString<256> LLStrippedTempFile;
