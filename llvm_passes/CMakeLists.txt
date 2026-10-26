@@ -89,21 +89,12 @@ else()
   set(EXTRA_OBJS "$<TARGET_OBJECTS:LLVMImports>")
 endif()
 
-add_library(LLVMHipDynMem MODULE HipDynMem.cpp ${EXTRA_OBJS})
-
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 17.0)
   list(APPEND EXTRA_OBJS SPIRVImageType.cc)
 endif()
 
-add_library(LLVMHipStripUsedIntrinsics MODULE HipStripUsedIntrinsics.cpp)
 # One source per line, alphabetically sorted, so that two branches each adding
 # a pass insert at different anchors and merge without a conflict.
-#
-# Order is not load-bearing, but only because every pass guards its standalone
-# llvmGetPassPluginInfo with CHIP_COMBINED_PASS_PLUGIN, leaving HipPasses.cpp
-# as the single definition here. A pass that forgets the guard adds a second
-# LLVM_ATTRIBUTE_WEAK definition, which the link resolves silently by position
-# rather than rejecting; PassPluginRegistersPipeline below catches that.
 add_library(LLVMHipPasses MODULE
     HipAbort.cpp
     HipCanonicalizeGEP.cpp
@@ -134,11 +125,12 @@ add_library(LLVMHipPasses MODULE
     HipWarps.cpp
     ${EXTRA_OBJS})
 
-# The plugin registers its pipeline through llvmGetPassPluginInfo, and the
-# ordering note above explains how easily that registration is lost: the link
-# still succeeds, the symbol is still exported, and only an actual opt run
-# notices. Without this test the failure surfaces as every hipcc invocation
-# reporting "unknown pass name" with no build error anywhere.
+# The plugin registers its pipeline through llvmGetPassPluginInfo. If that
+# registration is lost (for example a second weak definition of the symbol in
+# another source file) the link still succeeds, the symbol is still exported,
+# and only an actual opt run notices. Without this test the failure surfaces as
+# every hipcc invocation reporting "unknown pass name" with no build error
+# anywhere.
 find_program(LLVM_OPT NAMES opt-${LLVM_VERSION_MAJOR} opt NAMES_PER_DIR
   NO_DEFAULT_PATH PATHS ${CLANG_ROOT_PATH_BIN} ENV PATH)
 if(LLVM_OPT)
@@ -174,8 +166,6 @@ if(APPLE)
   
   message(STATUS "macOS: Linking pass plugins against libLLVM.dylib")
   target_link_libraries(LLVMHipPasses PRIVATE LLVM)
-  target_link_libraries(LLVMHipDynMem PRIVATE LLVM)
-  target_link_libraries(LLVMHipStripUsedIntrinsics PRIVATE LLVM)
 endif()
 
 # In Debug builds, default HipVerify to "failures" mode so the IR/SPIR-V
@@ -187,8 +177,6 @@ target_compile_definitions(LLVMHipPasses PRIVATE
   $<$<BOOL:${CHIP_LLVM_USE_INTERGRATED_SPIRV}>:CHIP_LLVM_USE_INTERGRATED_SPIRV>)
 
 # If trying to recompile with LLVM unloaded, the inlcude path is not found
-target_compile_options(LLVMHipDynMem PRIVATE -I/${LLVM_INCLUDE_DIRS})
-target_compile_options(LLVMHipStripUsedIntrinsics PRIVATE -I/${LLVM_INCLUDE_DIRS})
 target_compile_options(LLVMHipPasses PRIVATE -I/${LLVM_INCLUDE_DIRS})
 
 if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
@@ -201,11 +189,10 @@ if("${LLVM_VERSION}" VERSION_GREATER_EQUAL 14.0)
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 endif()
 
-install(TARGETS LLVMHipDynMem LLVMHipStripUsedIntrinsics LLVMHipPasses
+install(TARGETS LLVMHipPasses
         LIBRARY DESTINATION lib/llvm
         ARCHIVE DESTINATION lib/llvm
         )
-target_compile_definitions(LLVMHipPasses PRIVATE CHIP_COMBINED_PASS_PLUGIN)
 
 # Selects the volatile access lowering baked into the pass. See the header of
 # HipLowerVolatileAccesses.cpp for why the default is cache controls.
