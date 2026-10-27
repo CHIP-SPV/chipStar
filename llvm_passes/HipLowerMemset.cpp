@@ -34,9 +34,19 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Passes/PassBuilder.h>
 #include "PassPluginCompat.h"
+#include "chipStarConfig.hh"
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
 
 using namespace llvm;
+
+// WORKAROUND(CHIP-SPV/chipStar#2131, Arm Mali driver: not reported): Mali-G52
+// miscompiles the translator's lowering of small constant memsets. Remove when
+// no supported Mali driver needs it.
+#ifdef CHIP_MALI_GPU_WORKAROUNDS
+static constexpr bool ExpandAll = true;
+#else
+static constexpr bool ExpandAll = false;
+#endif
 
 static bool lowerMemsets(Function &F) {
   SmallPtrSet<MemSetInst *, 8> WorkList;
@@ -45,7 +55,7 @@ static bool lowerMemsets(Function &F) {
       if (auto *MemSet = dyn_cast<MemSetInst>(&I)) {
         // Small constant memsets are lowered natively by the SPIR-V producer.
         auto *Len = dyn_cast<ConstantInt>(MemSet->getLength());
-        if (MemSet->getIntrinsicID() != Intrinsic::memset ||
+        if (ExpandAll || MemSet->getIntrinsicID() != Intrinsic::memset ||
             !isa<ConstantInt>(MemSet->getValue()) || !Len ||
             Len->getValue().ugt(256) || Len->isZero())
           WorkList.insert(MemSet);
