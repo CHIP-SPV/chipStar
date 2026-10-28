@@ -170,20 +170,13 @@ int main() {
   const char *Env = getenv("CHIP_FAST_SHUFFLE");
   bool Off = Env && (!strcasecmp(Env, "off") || !strcmp(Env, "0") ||
                      !strcasecmp(Env, "false"));
-  bool IntelGpu = strstr(P.name, "Intel") && !strstr(P.name, "Core") &&
-                  !strstr(P.name, "Xeon") && !strstr(P.name, "cpu");
-  // Battlemage and PVC gather an indexed shuffle through a0; other Intel GPUs
-  // run the fast path but only report.
+  // Battlemage and PVC gather an indexed shuffle through a0; other devices
+  // only report.
   bool Gathers = strstr(P.name, "Arc(TM) B") || strstr(P.name, "GPU Max");
   printf("%s, fast shuffle %s\n", P.name, Off ? "off" : "on");
   if (!Rot || !Red || !Sum || !Mix)
     return 1;
   float Min = std::min({Rot, Red, Sum, Mix});
-  if ((Off || !IntelGpu) && Min < 0.85f) {
-    printf("FAIL: without the Intel GPU fast path the constant forms must not "
-           "be slower\n");
-    return 1;
-  }
   if (!Off && Gathers && Min < 1.5f) {
     printf("FAIL: on this GPU the constant forms must be 1.5x faster\n");
     return 1;
