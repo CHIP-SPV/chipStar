@@ -573,7 +573,6 @@ ANY:
     Unit_hipFreeImplicitSyncHost_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipGetLastError_with_hipMemsetAsync_ErrorHandlingTest: 'Error handling tests fail on PoCL'
     Unit_hipGraphAddMemcpyNode_HostToHost_GraphsTest1: 'All HIP graph API and stream capture tests'
-    Unit_hipGraphDestroyNode_DestroyDependencyNode_GraphsTest1: 'All HIP graph API and stream capture tests'
     Unit_hipGraphMemcpyNodeSetParams1D_Positive_Basic_GraphsTest2: 'All HIP graph API and stream capture tests'
     Unit_hipHostMalloc_AllocateMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipHostMalloc_AllocateUseMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
@@ -658,7 +657,6 @@ kosmickrisp-m4: # Apple M4 via Mesa KosmicKrisp (Vulkan on Metal), native Vulkan
     Unit_deviceFunctions_CompileTest_UnitDeviceTests: 'https://github.com/CHIP-SPV/chipStar/issues/2183'
     Unit_hipDynamicShared_KernelTest: 'https://github.com/CHIP-SPV/chipStar/issues/2183'
     Unit_hipGraph_SimpleGraphWithKernel_GraphsTest1: 'https://github.com/CHIP-SPV/chipStar/issues/2183'
-    Unit_hipGraphDestroyNode_DestroyDependencyNode_GraphsTest1: 'https://github.com/CHIP-SPV/chipStar/issues/654'
     Unit_hipGridLaunch_KernelTest: 'https://github.com/CHIP-SPV/chipStar/issues/2183'
     Unit_hipLaunchHostFunc_Graph_StreamTest: 'https://github.com/CHIP-SPV/chipStar/issues/2183'
     Unit_hipMultiStream_sameDevice_StreamTest: 'https://github.com/CHIP-SPV/chipStar/issues/2183'
@@ -848,11 +846,9 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
   LEVEL0_GPU:
     Unit_hipHostMalloc_AllocateMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipHostMalloc_AllocateUseMoreThanAvailGPUMemory_MemoryTest2: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
-    Unit_hipGraphDestroyNode_DestroyDependencyNode_GraphsTest1: 'SEGFAULT'
   OPENCL_CPU:
   OPENCL_GPU:
     Unit_hipStreamAddCallback_WithDefaultStream: 'timeout'
-    Unit_hipGraphDestroyNode_DestroyDependencyNode_GraphsTest1: 'SEGFAULT'
     Unit_hipMemcpy2DAsync_Positive_Basic_MemoryTest1: 'Failed'
     Unit_hipEventQuery_DifferentDevice_EventTest: 'Timeout'
     Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'Failed'
