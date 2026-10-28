@@ -1749,7 +1749,7 @@ void chipstar::Backend::waitForThreadExit() {
                 "been created via hipStreamCreate()");
         logWarn("Removing user-created streams without calling a destructor");
       }
-      for (auto &Queue : Dev->getQueuesNoLock()) {
+      for (auto &Queue : Dev->getQueuesNoLockCopy()) {
         logDebug("Destroying queue {}", (void *)Queue);
         Queue->finishWithoutEventsMtx();
         Dev->removeQueue(Queue);

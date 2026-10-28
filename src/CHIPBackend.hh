@@ -46,6 +46,7 @@
 #include "CHIPException.hh"
 #include <memory>
 #include <utility>
+#include <unordered_set>
 
 #include "SPVRegister.hh"
 
@@ -1445,6 +1446,7 @@ public:
   std::mutex QueueAddRemoveMtx;
 
   const std::unordered_set<chipstar::Queue *>& getQueuesNoLock() { return UserQueues_; }
+  std::unordered_set<chipstar::Queue *> getQueuesNoLockCopy() { return UserQueues_; }
 
   /// Return the number of user created queues.
   size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
