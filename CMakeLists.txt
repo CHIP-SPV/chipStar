@@ -934,7 +934,9 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
 
 if(OpenCL_LIBRARY)
   if(CHIP_SET_RPATH_OCL)
-    target_link_options(CHIP PUBLIC -Wl,-rpath,${OpenCL_DIR})
+    target_link_options(CHIP INTERFACE -Wl,-rpath,${OpenCL_DIR})
+    set_property(TARGET CHIP APPEND PROPERTY BUILD_RPATH "${OpenCL_DIR}")
+    set_property(TARGET CHIP APPEND PROPERTY INSTALL_RPATH "${OpenCL_DIR}")
   endif()
   target_link_directories(CHIP PUBLIC ${OpenCL_DIR})
 endif()
