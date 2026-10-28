@@ -1753,7 +1753,10 @@ void CHIPQueueOpenCL::addCallback(hipStreamCallback_t Callback,
       std::static_pointer_cast<CHIPEventOpenCL>(HoldbackBarrierCompletedEv)
           ->ClEvent,
       CL_COMPLETE, pfn_notify, Cb);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
+  if (clStatus != CL_SUCCESS) {
+    delete Cb;
+    CHIPERR_CHECK_LOG_AND_THROW_TABLE(clSetEventCallback);
+  }
 
   // Flush both queues to ensure the callback fires on drivers like ARM Mali
   // that require explicit flush for event callbacks. When in profiling mode,
