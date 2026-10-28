@@ -7,6 +7,7 @@
 static void cb(hipStream_t, hipError_t, void *) {}
 
 int main() {
+  unsetenv("CLSETEVENTCALLBACK_FAILED");
   hipError_t Err = hipStreamAddCallback(0, cb, nullptr, 0);
   bool Injected = getenv("CLSETEVENTCALLBACK_FAILED");
   if (Err == hipSuccess && !Injected) {
