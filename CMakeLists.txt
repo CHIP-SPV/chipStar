@@ -705,6 +705,7 @@ if (NOT SPIRV-Tools_FOUND)
   set(CHIP_SPIRV_VAL "${SPIRV_TOOLS_INSTALL_DIR}/bin/spirv-val")
 else()
   message(STATUS "spirv-tools: ${SPIRV-Tools_FOUND}")
+  find_package(SPIRV-Tools-opt REQUIRED)
   # spirv-val is not part of the SPIRV-Tools package; look beside that package.
   find_program(CHIP_SPIRV_VAL spirv-val HINTS "${SPIRV-Tools_DIR}/../../../bin")
 endif()
@@ -756,7 +757,7 @@ endif()
 target_compile_definitions(
   CHIP PRIVATE ${HIP_ENABLE_SPIRV} ${CHIP_SPV_DEFINITIONS})
 
-target_link_libraries(CHIP PRIVATE SPIRV-Tools)
+target_link_libraries(CHIP PRIVATE SPIRV-Tools SPIRV-Tools-opt)
 
 target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS})
 
