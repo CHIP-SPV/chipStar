@@ -594,6 +594,35 @@ ANY:
     Unit_hipStreamPerThread_ChildProc_StreamPerThreadTest: 'Failed'
     abort: 'Works only on dGPU, otherwise, things being printed out of order'
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
+  VULKAN_GPU:
+    CanarySitofpI1Backend: 'https://github.com/CHIP-SPV/chipStar/issues/2145'
+    TestFix1770ExtractorFp64ExitStatus: 'https://github.com/CHIP-SPV/chipStar/issues/2146'
+    TestFix1781RhaddSad: 'https://github.com/CHIP-SPV/chipStar/issues/2134'
+    TestFix315PlatformOutOfRange: 'https://github.com/CHIP-SPV/chipStar/issues/2135'
+    Unit_hipGraphClone_Functional_GraphsTest1: 'https://github.com/CHIP-SPV/chipStar/issues/2137'
+    Unit_hipManagedKeyword_SingleGpu_TypeQualifiers: 'https://github.com/CHIP-SPV/chipStar/issues/2138'
+    Unit_hipMemcpyToSymbolAsync_ToNFrom_UnitDeviceTests: 'https://github.com/CHIP-SPV/chipStar/issues/2143'
+    Unit_hipMemset_Negative_InvalidPtr_MemoryTest1: 'https://github.com/CHIP-SPV/chipStar/issues/2136'
+    Unit_hipMemset_Negative_OutOfBoundsPtr_MemoryTest1: 'https://github.com/CHIP-SPV/chipStar/issues/2136'
+    Unit_hipStreamPerThread_ChildProc_StreamPerThreadTest: 'https://github.com/CHIP-SPV/chipStar/issues/2144'
+'chipstar-vk-': # every GPU of the native Vulkan lane on cupcake, a loaded shared host
+  VULKAN_GPU:
+    manyMallocMemcopies: 'https://github.com/CHIP-SPV/chipStar/issues/2151'
+chipstar-vk-b570: # Arc B570 via Mesa ANV, native Vulkan backend (self-hosted runner)
+  VULKAN_GPU:
+    Unit_hipGraphAddMemcpyNode_HostToHost_GraphsTest1: 'https://github.com/CHIP-SPV/chipStar/issues/2139'
+    Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'https://github.com/CHIP-SPV/chipStar/issues/2150'
+chipstar-vk-w6400: # Radeon Pro W6400 via Mesa RADV, native Vulkan backend (self-hosted runner)
+  VULKAN_GPU:
+    TestAtomics: 'https://github.com/CHIP-SPV/chipStar/issues/2140'
+    TestFix1896ShflFloatAsInt: 'https://github.com/CHIP-SPV/chipStar/issues/2141'
+    TestModuleCacheInvalidation: 'https://github.com/CHIP-SPV/chipStar/issues/2140'
+    TestSyncThreadsGlobalMem: 'https://github.com/CHIP-SPV/chipStar/issues/2142'
+    '^clock': 'https://github.com/CHIP-SPV/chipStar/issues/2154'
+    Unit_SimpleAtomicsTest_UnitDeviceTests: 'https://github.com/CHIP-SPV/chipStar/issues/2140'
+    Unit_ballot_UnitDeviceTests: 'https://github.com/CHIP-SPV/chipStar/issues/2141'
+    Unit_hipTestAtomicAdd_UnitDeviceTests: 'https://github.com/CHIP-SPV/chipStar/issues/2140'
+    shuffles: 'https://github.com/CHIP-SPV/chipStar/issues/2141'
 chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runner)
   ALL:
   LEVEL0_GPU:
