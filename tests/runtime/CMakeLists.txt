@@ -541,7 +541,7 @@ if(UNIX AND NOT APPLE)
     TestFix2008ClSetEventCallbackErrorMap.hip
     ClSetEventCallbackErrorInterposer.cpp)
   target_link_libraries(TestFix2008ClSetEventCallbackErrorMap
-    CHIP deviceInternal ${CMAKE_DL_LIBS})
+    CHIP deviceInternal)
   target_include_directories(TestFix2008ClSetEventCallbackErrorMap
     PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
 
