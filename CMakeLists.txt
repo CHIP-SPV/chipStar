@@ -101,13 +101,17 @@ if(NOT DEFINED OpenCL_LIBRARY)
     # On macOS, search DYLD_LIBRARY_PATH and LIBRARY_PATH for ocl-icd-loader
     # Prefer ocl-icd-loader over macOS OpenCL framework (which lacks SPIR-V support)
     message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL in DYLD_LIBRARY_PATH/LIBRARY_PATH")
+    # Never Apple's OpenCL.framework (OpenCL 1.2, no SPIR-V)
+    set(_CHIP_FIND_FRAMEWORK "${CMAKE_FIND_FRAMEWORK}")
+    set(CMAKE_FIND_FRAMEWORK NEVER)
     find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.dylib
       PATHS ENV DYLD_LIBRARY_PATH ENV LIBRARY_PATH
       NO_DEFAULT_PATH NO_CACHE)
     if(NOT OpenCL_LIBRARY)
-      # Fallback to default search (will find macOS framework)
+      # Fallback to default search
       find_library(OpenCL_LIBRARY NAMES OpenCL NO_CACHE)
     endif()
+    set(CMAKE_FIND_FRAMEWORK "${_CHIP_FIND_FRAMEWORK}")
   else()
     message(STATUS "OpenCL_LIBRARY was not set. Searching for libOpenCL.so in LD_LIBRARY_PATH")
     find_library(OpenCL_LIBRARY NAMES OpenCL libOpenCL.so.1 PATHS ENV LD_LIBRARY_PATH ./ NO_CACHE)
