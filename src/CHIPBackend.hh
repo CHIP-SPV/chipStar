@@ -1447,8 +1447,9 @@ public:
 
   const std::unordered_set<chipstar::Queue *>& getQueuesNoLock() { return UserQueues_; }
   // copy for loops that erase or run without QueueAddRemoveMtx
-  std::unordered_set<chipstar::Queue *> getQueuesNoLockCopy() { return UserQueues_; }
-
+  std::vector<chipstar::Queue *> getQueuesNoLockCopy() {
+    return {UserQueues_.begin(), UserQueues_.end()};
+  }
   /// Return the number of user created queues.
   size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
 
