@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 import argparse
 import subprocess
 import hashlib
@@ -155,14 +156,10 @@ def run_tests(num_tries):
 
     # If using -R, print the tests that passed
     if test_mode == "-R":
-        passed_tests = []
-        for line in res.split('\n'):
-            if "Test" in line and "Passed" in line:
-                test_name = line.split(':')[1].strip()
-                passed_tests.append(test_name)
-        
+        passed_tests = re.findall(r"^ *\d+/\d+ +Test +#\d+: (.*?) \.+ +Passed +[\d.]+ sec$", res, re.M)
+
         if passed_tests:
-            print("The following tests FAILED:")
+            print("The following tests PASSED:")
             for test in passed_tests:
                 print(f"        {test}")
         else:
