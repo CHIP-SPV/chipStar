@@ -1205,10 +1205,9 @@ void chipstar::Device::eraseModule(chipstar::Module *Module) {
 void chipstar::Device::addQueue(chipstar::Queue *ChipQueue) {
   logDebug("{} Device::addQueue({})", (void *)this, (void *)ChipQueue);
 
-  auto QueueFound =
-      std::find(UserQueues_.begin(), UserQueues_.end(), ChipQueue);
+  auto QueueFound = UserQueues_.find(ChipQueue);
   if (QueueFound == UserQueues_.end()) {
-    UserQueues_.push_back(ChipQueue);
+    UserQueues_.insert(ChipQueue);
   } else {
     CHIPERR_LOG_AND_THROW("Tried to add a queue to the backend which was "
                           "already present in the backend queue list",
@@ -1286,8 +1285,7 @@ bool chipstar::Device::removeQueue(chipstar::Queue *ChipQueue) {
   LOCK(DeviceMtx) // reading chipstar::Device::UserQueues_
 
   // Remove from device queue list
-  auto FoundQueue =
-      std::find(UserQueues_.begin(), UserQueues_.end(), ChipQueue);
+  auto FoundQueue = UserQueues_.find(ChipQueue);
   if (FoundQueue == UserQueues_.end()) {
     std::string Msg =
         "Tried to remove a queue for a device but the queue was not found in "
@@ -1977,17 +1975,13 @@ chipstar::Queue *chipstar::Backend::findQueue(chipstar::Queue *ChipQueue) {
   } else if (ChipQueue == nullptr) {
     return Dev->getDefaultQueue();
   }
-  std::vector<chipstar::Queue *> AllQueues;
-  if (Dev->isPerThreadStreamUsedNoLock())
-    AllQueues.push_back(Dev->getPerThreadDefaultQueueNoLock());
-  AllQueues.push_back(Dev->getLegacyDefaultQueue());
-
-  for (auto &Dev : Dev->getQueuesNoLock()) {
-    AllQueues.push_back(Dev);
-  }
-
-  auto QueueFound = std::find(AllQueues.begin(), AllQueues.end(), ChipQueue);
-  if (QueueFound == AllQueues.end())
+  if (ChipQueue == Dev->getLegacyDefaultQueue()) return Dev->getLegacyDefaultQueue();
+  if (Dev->isPerThreadStreamUsedNoLock() && ChipQueue == Dev->getPerThreadDefaultQueueNoLock()) return Dev->getPerThreadDefaultQueueNoLock();
+  
+  const std::unordered_set<chipstar::Queue *> &UserQueues = Dev->getQueuesNoLock();
+  auto QueueFound = UserQueues.find(ChipQueue);
+  
+  if (QueueFound == UserQueues.end())
     CHIPERR_LOG_AND_THROW("Backend::findQueue() was given a non-nullptr "
                           "queue but this queue "
                           "was not found among the backend queues.",
