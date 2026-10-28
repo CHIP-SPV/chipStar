@@ -44,6 +44,7 @@ list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/signed_constant_compare.ll
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/loads.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/phi-cycle.ll)
 list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/phi-constant.ll)
+list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/extract-nonstd-vector.ll)
 
 if(LLVM_VERSION_MAJOR GREATER 18)
   list(APPEND TEST_IR_FILES ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_block_sort-hip-spirv64-generic-link.ll)
