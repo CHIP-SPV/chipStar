@@ -158,6 +158,10 @@ constexpr uint32_t IpcEventMagic = 0x43565049; // "IPVC"
 } // namespace
 
 void CHIPEventVulkan::getIpcHandle(hipIpcEventHandle_t *Handle) {
+#ifndef __linux__
+  CHIPERR_LOG_AND_THROW("IPC events need Linux memfd and pidfd",
+                        hipErrorNotSupported);
+#else
   auto *Dev = static_cast<CHIPContextVulkan *>(ChipContext_)->getVulkanDevice();
   if (!Dev->hasIpcSemaphore())
     CHIPERR_LOG_AND_THROW("Vulkan device cannot export timeline semaphores",
@@ -200,6 +204,7 @@ void CHIPEventVulkan::getIpcHandle(hipIpcEventHandle_t *Handle) {
   std::memcpy(H.UUID, Dev->getIpcUUID(), sizeof(H.UUID));
   std::memset(Handle->reserved, 0, sizeof(Handle->reserved));
   std::memcpy(Handle->reserved, &H, sizeof(H));
+#endif
 }
 
 void CHIPEventVulkan::openIpc(int SemFd, int ShmFd) {
@@ -249,6 +254,10 @@ VkSemaphore CHIPDeviceVulkan::createIpcSemaphore(bool Export) {
 chipstar::Event *
 CHIPBackendVulkan::openIpcEvent(chipstar::Context *ChipCtx,
                                 const hipIpcEventHandle_t &Handle) {
+#ifndef __linux__
+  CHIPERR_LOG_AND_THROW("IPC events need Linux memfd and pidfd",
+                        hipErrorNotSupported);
+#else
   IpcEventHandleVulkan H;
   std::memcpy(&H, Handle.reserved, sizeof(H));
   if (H.Magic != IpcEventMagic)
@@ -284,6 +293,7 @@ CHIPBackendVulkan::openIpcEvent(chipstar::Context *ChipCtx,
   std::unique_ptr<CHIPEventVulkan> Event(new CHIPEventVulkan(ChipCtx));
   Event->openIpc(SemFd, ShmFd);
   return Event.release();
+#endif
 }
 
 bool CHIPEventVulkan::updateFinishStatus(bool ThrowErrorIfNotReady) {
