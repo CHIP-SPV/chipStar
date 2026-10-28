@@ -22,7 +22,7 @@ parser.add_argument('-v', '--verbose', action='store_true', help='verbose output
 parser.add_argument('-d', '--dry-run', '-N', action='store_true', help='dry run')
 parser.add_argument('--regex-include', type=str, nargs='?', default="", help='Tests to be run must also match this regex (known failures will still be excluded)')
 parser.add_argument('--regex-exclude', type=str, nargs='?', default="", help='Specifically exclude tests that match this regex (known failures will still be excluded)')
-parser.add_argument('--test-mode-failures', type=str, choices=['exclude', 'include'], default='exclude', help='Control how to handle test failures: exclude (default) or include')
+parser.add_argument('--test-mode-failures', type=str, choices=['exclude', 'include'], default='exclude', help='exclude (default): skip known failures (test_lists), --regex-exclude matches and unsupported texture/double tests; include: run only those normally excluded tests and list which passed (ignored with --samples-only)')
 parser.add_argument('--samples-only', action='store_true', help='Only run tests under ./samples (tests with SAMPLE label)')
 parser.add_argument('--math-tests', action='store_true', help='Run only the hip-tests MathsTest cases (ctest label MATH)')
 
