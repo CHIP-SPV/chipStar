@@ -1038,12 +1038,8 @@ static Value *processExtractElementInst(ExtractElementInst *ExtractI, Type *NonS
          finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
          return NewInst;
       } else {
-        // If PromotedVecElementTy is neither the original ElementTy nor the PromotedTy,
-        // this scenario needs more complex handling (potentially element-wise zext/trunc on vector).
-        // For now, assert or fallback to simpler logic.
-         LLVM_DEBUG(dbgs() << Indent << "WARN: Unhandled case in ExtractElement promotion. Vector element type mismatch." << *PromotedVecOp->getType() << " vs " << *TargetElementType << "\n");
-         // Fallback: Create extract with original types (might fail later)
-         Value *NewInst = Builder.CreateExtractElement(VecOp, IndexOp);
+         auto *WideVecTy = VectorType::get(TargetElementType, cast<VectorType>(VecOp->getType())->getElementCount());
+         Value *NewInst = Builder.CreateExtractElement(Builder.CreateZExt(PromotedVecOp, WideVecTy), IndexOp);
          finalizePromotion(ExtractI, NewInst, Replacements, PromotedValues);
          return NewInst;
       }
