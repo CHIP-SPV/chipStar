@@ -151,6 +151,22 @@ make -C build -j8 all install
   * [oneAPI Level Zero Loader](https://github.com/oneapi-src/level-zero/releases)
 * For HIP-SYCL and HIP-MKL Interoperability: [oneAPI](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
 
+### Vulkan Backend
+
+The native Vulkan backend (`-DCHIP_USE_NATIVE_VULKAN_SPIRV=ON`, LLVM 24+, a Vulkan 1.3 driver) needs libclc built for `spirv64-unknown-vulkan` and installed into the LLVM prefix as `share/clc/spirv64-unknown-vulkan/libclc.bc`. With `P` set to the LLVM install prefix:
+
+```bash
+cmake -S llvm-project/libclc -B build-libclc-vk -G Ninja \
+  -DLLVM_DIR="$P/lib/cmake/llvm" \
+  -DLLVM_DEFAULT_TARGET_TRIPLE=spirv64-unknown-vulkan \
+  -DCMAKE_CLC_COMPILER="$P/bin/clang" \
+  -DCMAKE_AR="$P/bin/llvm-ar" -DCMAKE_RANLIB="$P/bin/llvm-ranlib" \
+  -DCMAKE_INSTALL_PREFIX="$P"
+ninja -C build-libclc-vk install
+```
+
+`CMAKE_AR`/`CMAKE_RANLIB` are required on macOS, where Apple's `ar` drops the bitcode members and the build silently installs an empty `libclc.bc` (about 2 KB instead of about 3 MB). This is temporary until libclc picks LLVM's archiver itself ([llvm-project#236409](https://github.com/llvm/llvm-project/issues/236409)).
+
 ## Downloading Sources
 
 You can download and unpack the latest released source package or clone the development branch via git. We aim to keep the `main` development branch stable, but it might have stability issues during the development cycle.
