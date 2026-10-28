@@ -1,0 +1,122 @@
+name: Unit tests (native Vulkan)
+
+# Builds chipStar with CHIP_USE_NATIVE_VULKAN_SPIRV=ON once and runs check.py on
+# the Vulkan backend on each cupcake GPU in turn. The runner is a container that
+# sees the B570, W6400 and GTX 1650 (/space/pvelesko/chipstar-vulkan-runner);
+# VK_ICD_FILENAMES picks one GPU per step, since each has its own driver.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: "docs/**"
+  workflow_dispatch:
+
+concurrency:
+  group: vulkan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: ${{ !github.event.pull_request.draft }}
+    name: Vulkan (cupcake)
+    runs-on: cupcake-vulkan
+    timeout-minutes: 180
+    env:
+      LLVM_PREFIX: /space/pvelesko/install/llvm/main-vulkan-2026-10
+      BUILD_ROOT: /home/runner/_work/ci-build
+      ICD: /usr/share/vulkan/icd.d
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      # ninja cannot see a rebuilt toolchain, a new file shadowing an included one, nor a
+      # changed CMake default, which only seeds a fresh cache; any change wipes the build dir.
+      - name: Reset build dir on configuration change
+        shell: bash
+        run: |
+          set -eo pipefail
+          STAMP=$(set -eo pipefail; { find -L $LLVM_PREFIX/bin $LLVM_PREFIX/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-vulkan.yml
+            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
+          [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
+          mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+          rm -rf $BUILD_ROOT/build/logs
+
+      - name: Build chipStar (native Vulkan)
+        id: build
+        shell: bash
+        run: |
+          set -e
+          B=$BUILD_ROOT/build
+          cmake -S . -B $B -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="$LLVM_PREFIX/bin/clang" \
+            -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++" \
+            -DLLVM_CONFIG_BIN="$LLVM_PREFIX/bin/llvm-config" \
+            -DCHIP_USE_NATIVE_VULKAN_SPIRV=ON \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON
+          ninja -C $B -j24
+          ninja -C $B -j24 build_tests
+
+      - name: check.py on Arc B570
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        env:
+          VK_ICD_FILENAMES: ${{ env.ICD }}/intel_icd.json
+          GPU: b570
+        run: |
+          B=$BUILD_ROOT/build
+          # Regenerate the known-failure lists for this GPU's host key.
+          CHIP_KNOWN_FAILURES_HOST=chipstar-vk-$GPU cmake $B > /dev/null
+          vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|driverName'
+          cd $B && rm -f checkpy_*.txt Testing/Temporary/LastTest.log
+          ulimit -c 0
+          rc=0; $GITHUB_WORKSPACE/scripts/check.py ./ dgpu vulkan --num-threads 4 --timeout 600 || rc=$?
+          mkdir -p logs/$GPU && cp checkpy_*.txt Testing/Temporary/LastTest.log logs/$GPU/ 2>/dev/null
+          exit $rc
+
+      - name: check.py on Radeon Pro W6400
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        env:
+          VK_ICD_FILENAMES: ${{ env.ICD }}/radeon_icd.json
+          GPU: w6400
+        run: |
+          B=$BUILD_ROOT/build
+          # Regenerate the known-failure lists for this GPU's host key.
+          CHIP_KNOWN_FAILURES_HOST=chipstar-vk-$GPU cmake $B > /dev/null
+          vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|driverName'
+          cd $B && rm -f checkpy_*.txt Testing/Temporary/LastTest.log
+          ulimit -c 0
+          rc=0; $GITHUB_WORKSPACE/scripts/check.py ./ dgpu vulkan --num-threads 4 --timeout 600 || rc=$?
+          mkdir -p logs/$GPU && cp checkpy_*.txt Testing/Temporary/LastTest.log logs/$GPU/ 2>/dev/null
+          exit $rc
+
+      - name: check.py on GTX 1650
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        env:
+          VK_ICD_FILENAMES: ${{ env.ICD }}/nvidia_icd.json
+          GPU: gtx1650
+        run: |
+          B=$BUILD_ROOT/build
+          # Regenerate the known-failure lists for this GPU's host key.
+          CHIP_KNOWN_FAILURES_HOST=chipstar-vk-$GPU cmake $B > /dev/null
+          vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|driverName'
+          cd $B && rm -f checkpy_*.txt Testing/Temporary/LastTest.log
+          ulimit -c 0
+          rc=0; $GITHUB_WORKSPACE/scripts/check.py ./ dgpu vulkan --num-threads 4 --timeout 600 || rc=$?
+          mkdir -p logs/$GPU && cp checkpy_*.txt Testing/Temporary/LastTest.log logs/$GPU/ 2>/dev/null
+          exit $rc
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-check-logs
+          path: ${{ env.BUILD_ROOT }}/build/logs
+          if-no-files-found: ignore
