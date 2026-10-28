@@ -2267,7 +2267,7 @@ void CHIPQueueOpenCL::finish() {
   // The Mali-G52 OpenCL driver deadlocks when one queue waits on events from
   // another queue that hasn't been flushed. This ensures all pending commands
   // are submitted to the device before we wait.
-  // Note: We use getQueuesNoLock() because the caller (e.g., hipDeviceSynchronize)
+  // Note: We use getQueuesNoLockCopy() because the caller (e.g., hipDeviceSynchronize)
   // may already hold QueueAddRemoveMtx.
   {
     auto *Dev = static_cast<CHIPDeviceOpenCL *>(ChipDevice_);

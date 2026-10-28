@@ -1407,7 +1407,8 @@ protected:
   chipstar::Context *Ctx_;
 
   /// List of user created queues.
-  std::unordered_set<chipstar::Queue *> UserQueues_;
+  std::vector<chipstar::Queue *> UserQueues_;
+  std::unordered_set<chipstar::Queue *> UserQueueSet_;
 
   std::once_flag PropsPopulated_;
 
@@ -1445,10 +1446,11 @@ public:
   std::mutex DeviceMtx;
   std::mutex QueueAddRemoveMtx;
 
-  const std::unordered_set<chipstar::Queue *>& getQueuesNoLock() { return UserQueues_; }
+  const std::vector<chipstar::Queue *> &getQueuesNoLock() { return UserQueues_; }
   // copy for loops that erase or run without QueueAddRemoveMtx
-  std::vector<chipstar::Queue *> getQueuesNoLockCopy() {
-    return {UserQueues_.begin(), UserQueues_.end()};
+  std::vector<chipstar::Queue *> getQueuesNoLockCopy() { return UserQueues_; }
+  bool hasUserQueue(chipstar::Queue *Queue) const {
+    return UserQueueSet_.find(Queue) != UserQueueSet_.end();
   }
   /// Return the number of user created queues.
   size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
