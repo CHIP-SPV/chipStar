@@ -132,12 +132,13 @@ EXPORT /* long */ long int __chip_mul64hi(/* long */ long int x,
 }
 
 EXPORT unsigned int __chip_sad(int x, int y, unsigned int z) {
-  return abs_diff(x, y) + z;
+  return (x > y ? (unsigned int)x - (unsigned int)y
+                : (unsigned int)y - (unsigned int)x) + z;
 }
 
 EXPORT unsigned int __chip_usad(unsigned int x, unsigned int y,
                                 unsigned int z) {
-  return abs_diff(x, y) + z;
+  return (x > y ? x - y : y - x) + z;
 }
 
 // optimization tries to use llvm intrinsics here, but we don't want that
