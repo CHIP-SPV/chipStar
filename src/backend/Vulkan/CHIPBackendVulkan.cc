@@ -2130,9 +2130,9 @@ void CHIPDeviceVulkan::resetImpl() {
 }
 
 chipstar::Module *CHIPDeviceVulkan::compile(const SPVModule &Src) {
-  auto *Mod = new CHIPModuleVulkan(Src);
+  auto Mod = std::make_unique<CHIPModuleVulkan>(Src);
   Mod->compile(this);
-  return Mod;
+  return Mod.release();
 }
 
 VkFence CHIPDeviceVulkan::acquireFence() {
