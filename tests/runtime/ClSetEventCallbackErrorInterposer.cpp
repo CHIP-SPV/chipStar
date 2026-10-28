@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 
 #include <cstdio>
+#include <cstdlib>
 
 extern "C" int clSetEventCallback(void *Event, int Type,
                                   void (*Fn)(void *, int, void *),
@@ -13,6 +14,7 @@ extern "C" int clSetEventCallback(void *Event, int Type,
   if (!Failed || !Real) {
     Failed = true;
     std::fprintf(stderr, "interposer: failing clSetEventCallback\n");
+    setenv("CLSETEVENTCALLBACK_FAILED", "1", 1);
     return -5; // CL_OUT_OF_RESOURCES
   }
   return Real(Event, Type, Fn, UserData);
