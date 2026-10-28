@@ -135,7 +135,7 @@ def pretty_print_known_failures(known_failures, total_tests):
 def generate_test_string(tests_map, output_dir):
     test_string_map = {}
     # platform agnostic way of getting hostname
-    hostname = platform.uname().node
+    hostname = os.environ.get("CHIP_KNOWN_FAILURES_HOST") or platform.uname().node
     target_llvm_major_version = args.target_llvm_major_version
 
     for category, tests in tests_map.get('ANY', {}).items(): # Use .get for safety
