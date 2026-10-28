@@ -45,7 +45,8 @@ fi
 
 # A test the wrapper cannot execute must not be reported as a pass. Without
 # this, mapping the spawn-failure arm to 0 goes undetected.
-cp ./fails ./noexec && chmod -x ./noexec
+# 1 MiB: the extractor's raw magic scan reads that far whatever the file size (#1613).
+printf '%1048576s\n' 'not a program' > ./noexec && chmod +x ./noexec
 "${EXTRACTOR}" --check-for-doubles ./noexec > noexec.log 2>&1; NOEXEC=$?
 echo "unrunnable wrapped exit=${NOEXEC}"
 if [ "${NOEXEC}" -eq 0 ]; then
