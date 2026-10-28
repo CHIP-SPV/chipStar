@@ -78,8 +78,7 @@ jobs:
           B=$BUILD_ROOT/build
           vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|driverName'
           cd $B
-          rc=0; $GITHUB_WORKSPACE/scripts/check.py ./ dgpu vulkan --num-threads 4 --timeout 600 || rc=$?
-          exit $rc
+          $GITHUB_WORKSPACE/scripts/check.py ./ dgpu vulkan --num-threads 4 --timeout 600
 
       - name: Upload test logs on failure
         if: failure()
