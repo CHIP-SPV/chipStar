@@ -1,0 +1,92 @@
+name: Unit tests (arm64 macOS native Vulkan)
+
+# pastrami: Apple M4 through Mesa KosmicKrisp (Vulkan on Metal). The LLVM
+# Vulkan fork (shared libLLVM, with libclc for spirv64-unknown-vulkan) is at
+# LLVM_PREFIX; the build dir lives on the external SSD, the internal disk is full.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: "docs/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: ${{ !github.event.pull_request.draft }}
+    name: Vulkan (macOS KosmicKrisp)
+    runs-on: [self-hosted, ARM64, MacOS]
+    timeout-minutes: 240
+    env:
+      LLVM_PREFIX: /Users/paulius/install/llvm/vulkan-2026-10
+      VK_ICD_FILENAMES: /Users/paulius/install/kosmickrisp/share/vulkan/icd.d/kosmickrisp_mesa_icd.aarch64.json
+      BUILD_ROOT: /Volumes/Untitled/ci-build-vulkan
+      CHIP_KNOWN_FAILURES_HOST: kosmickrisp-m4
+      CHIP_MODULE_CACHE_DIR: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup environment
+        shell: /bin/bash {0}
+        run: |
+          # Upstream clang has no built-in macOS sysroot.
+          echo "SDKROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
+          echo "PATH=/opt/homebrew/bin:$PATH" >> $GITHUB_ENV
+
+      # ninja cannot see a rebuilt toolchain or a new SDK, a new file shadowing an included one, nor a
+      # changed CMake default, which only seeds a fresh cache; any change wipes the build dir.
+      - name: Reset build dir on configuration change
+        shell: /bin/bash {0}
+        run: |
+          set -eo pipefail
+          STAMP=$(set -eo pipefail; { find -L $LLVM_PREFIX/bin $LLVM_PREFIX/lib -maxdepth 1 -type f -exec stat -f '%N %m' {} + | sort; echo $SDKROOT; cat .github/workflows/unit-tests-macos-vulkan.yml
+            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | shasum -a 256)
+          [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
+          mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
+          rm -rf $BUILD_ROOT/build/checkpy_*.txt $BUILD_ROOT/build/Testing/Temporary/LastTest.log
+
+      - name: Build chipStar (native Vulkan)
+        id: build
+        shell: /bin/bash {0}
+        run: |
+          set -e
+          unset LDFLAGS CPPFLAGS CPATH LIBRARY_PATH
+          B=$BUILD_ROOT/build
+          cmake -S . -B $B -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="$LLVM_PREFIX/bin/clang" \
+            -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++" \
+            -DLLVM_CONFIG_BIN="$LLVM_PREFIX/bin/llvm-config" \
+            -DCHIP_USE_NATIVE_VULKAN_SPIRV=ON \
+            -DCMAKE_LINK_DEPENDS_NO_SHARED=ON \
+            -DOpenCL_LIBRARY=/Users/paulius/install/ocl-icd-loader/lib/libOpenCL.dylib
+          ninja -C $B -j6
+          ninja -C $B -j6 build_tests
+
+      - name: check.py on Apple M4 (KosmicKrisp)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: /bin/bash {0}
+        run: |
+          B=$BUILD_ROOT/build
+          vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|driverName'
+          cd $B
+          rc=0; $GITHUB_WORKSPACE/scripts/check.py ./ dgpu vulkan --num-threads 4 --timeout 600 || rc=$?
+          exit $rc
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-vulkan-check-logs
+          path: |
+            ${{ env.BUILD_ROOT }}/build/checkpy_*.txt
+            ${{ env.BUILD_ROOT }}/build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
