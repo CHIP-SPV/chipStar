@@ -939,6 +939,27 @@ void CHIPModuleVulkan::compile(chipstar::Device *ChipDev) {
     }
   }
 
+  // VUID-VkShaderModuleCreateInfo-pCode-08740: capabilities must be enabled.
+  {
+    const auto *W = reinterpret_cast<const uint32_t *>(SrcBin.data());
+    for (size_t I = 5, N = SizeBytes / sizeof(uint32_t); I < N;) {
+      uint32_t Op = W[I] & 0xffff, Wc = W[I] >> 16;
+      if (Wc == 0)
+        break;
+      if (Op == 17 /*OpCapability*/ && Wc == 2 &&
+          ((W[I + 1] == 10 /*Float64*/ &&
+            !ChipDevice_->getFeatures().shaderFloat64) ||
+           (W[I + 1] == 5055 /*ShaderClockKHR*/ &&
+            !ChipDevice_->hasShaderClock())))
+        CHIPERR_LOG_AND_THROW(
+            "CHIPModuleVulkan::compile: module uses capability " +
+                std::string(W[I + 1] == 10 ? "Float64" : "ShaderClockKHR") +
+                ", which the device does not support",
+            hipErrorSharedObjectInitFailed);
+      I += Wc;
+    }
+  }
+
   // One shader module for every entry point.
   {
     std::vector<uint32_t> Words(SizeBytes / sizeof(uint32_t));
@@ -1876,6 +1897,7 @@ CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
   // For __builtin_readcyclecounter, which reads the subgroup clock.
   if (HasExt(VK_KHR_SHADER_CLOCK_EXTENSION_NAME) && Clock.shaderSubgroupClock) {
     DevExts.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
+    Dev->HasShaderClock_ = true;
     Clock.pNext = nullptr;
     Clock.shaderDeviceClock = VK_FALSE;
     *Tail = &Clock;
