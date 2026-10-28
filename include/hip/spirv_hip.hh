@@ -247,15 +247,6 @@ _wassert(const wchar_t *_msg, const wchar_t *_file, unsigned _line)
   // FIXME: Need `wchar_t` support to generate assertion message.
   abort();
 }
-#elif defined(__APPLE__)
-// On macOS, assert() expands to __assert_rtn instead of __assert_fail.
-__device__ __attribute__((noinline)) __attribute__((weak)) void
-__assert_rtn(const char *function, const char *file, int line,
-             const char *assertion) {
-  _cl_assert_fail_print(file, line, function, assertion);
-  __chipspv_record_assert_msg(file, line, function, assertion);
-  abort();
-}
 #elif defined(CHIP_USE_NATIVE_VULKAN_SPIRV)
 // Vulkan kernels cannot copy strings through generic pointers; printf records
 // constant ones.
@@ -268,7 +259,7 @@ __assert_fail(const char *assertion, const char *file, unsigned int line,
                     line, function, assertion);
   abort();
 }
-#else  // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
+#else
 __device__ __attribute__((noinline)) __attribute__((weak)) void
 __assert_fail(const char *assertion, const char *file, unsigned int line,
               const char *function) {
@@ -276,7 +267,16 @@ __assert_fail(const char *assertion, const char *file, unsigned int line,
   __chipspv_record_assert_msg(file, line, function, assertion);
   abort();
 }
-#endif // defined(_WIN32) || defined(_WIN64) || defined(__APPLE__)
+#endif // defined(_WIN32) || defined(_WIN64)
+
+#if defined(__APPLE__)
+// On macOS, assert() expands to __assert_rtn instead of __assert_fail.
+__device__ __attribute__((noinline)) __attribute__((weak)) void
+__assert_rtn(const char *function, const char *file, int line,
+             const char *assertion) {
+  __assert_fail(assertion, file, line, function);
+}
+#endif
 
 // Clang materialises a reference to __cxa_pure_virtual in the vtable of every
 // class that still has an unoverridden pure virtual member. The symbol has to
