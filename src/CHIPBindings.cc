@@ -1453,6 +1453,9 @@ hipError_t hipGraphDestroyNode(hipGraphNode_t node) {
   if (!node)
     RETURN(hipErrorInvalidValue);
 
+  if (auto *G = NODE(node)->getGraph())
+    G->removeNode(NODE(node));
+
   /**
    * have to resort to these shenanigans to call the proper derived destructor
    */

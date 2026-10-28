@@ -77,6 +77,7 @@ CHIPGraph::CHIPGraph(const CHIPGraph &OriginalGraph) {
    */
   for (CHIPGraphNode *OriginalNode : OriginalGraph.Nodes_) {
     CHIPGraphNode *CloneNode = OriginalNode->clone();
+    CloneNode->Graph_ = this;
     Nodes_.push_back(CloneNode);
     CloneMap_[OriginalNode] = CloneNode;
     logDebug("Adding to CloneMap: Original {} {} -> Clone {} {}",
@@ -336,6 +337,7 @@ void CHIPGraph::addNode(CHIPGraphNode *Node) {
   logDebug("{} CHIPGraph::addNode({})", (void *)this, (void *)Node);
   Node->Msg = "M" + std::to_string(NodeCounter);
   NodeCounter++;
+  Node->Graph_ = this;
   Nodes_.push_back(Node);
 }
 
@@ -349,6 +351,15 @@ void CHIPGraph::removeNode(CHIPGraphNode *Node) {
   } else {
     Nodes_.erase(Found);
   }
+  for (auto *Other : Nodes_) {
+    Other->Dependencies_.erase(std::remove(Other->Dependencies_.begin(),
+                                           Other->Dependencies_.end(), Node),
+                               Other->Dependencies_.end());
+    Other->Dependendants_.erase(std::remove(Other->Dependendants_.begin(),
+                                            Other->Dependendants_.end(), Node),
+                                Other->Dependendants_.end());
+  }
+  Node->Graph_ = nullptr;
 }
 
 void CHIPGraphExec::launch(chipstar::Queue *Queue) {

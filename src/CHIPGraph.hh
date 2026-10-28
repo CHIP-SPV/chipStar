@@ -48,11 +48,14 @@ class ExecItem;
 class CHIPGraph;
 
 class CHIPGraphNode : public hipGraphNode {
+  friend class CHIPGraph;
+
 protected:
   hipGraphNodeType Type_;
   /// hipGraphNodeSetEnabled switch. It is consulted on the nodes of a
   /// CHIPGraphExec's compiled graph: a disabled node is a no-op at launch.
   bool Enabled_ = true;
+  CHIPGraph *Graph_ = nullptr; // owning graph
   // nodes which depend on this node
   std::vector<CHIPGraphNode *> Dependendants_;
   // nodes on which this node depends
@@ -76,6 +79,7 @@ public:
         Dependencies_(Other.Dependencies_), Msg(Other.Msg) {}
 
   hipGraphNodeType getType() { return Type_; }
+  CHIPGraph *getGraph() const { return Graph_; }
   bool isEnabled() const { return Enabled_; }
   void setEnabled(bool Enabled) { Enabled_ = Enabled; }
   virtual CHIPGraphNode *clone() const = 0;
