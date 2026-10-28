@@ -1446,6 +1446,7 @@ public:
   std::mutex QueueAddRemoveMtx;
 
   const std::unordered_set<chipstar::Queue *>& getQueuesNoLock() { return UserQueues_; }
+  // copy for loops that erase or run without QueueAddRemoveMtx
   std::unordered_set<chipstar::Queue *> getQueuesNoLockCopy() { return UserQueues_; }
 
   /// Return the number of user created queues.

@@ -1577,7 +1577,7 @@ void CHIPContextOpenCL::mapManagedForHost() {
     if (Q && !Q->isEmptyQueue())
       static_cast<CHIPQueueOpenCL *>(Q)->enqueueIdleMarkers(Markers);
   };
-  for (auto *Q : ChipDevice_->getQueuesNoLock())
+  for (auto *Q : ChipDevice_->getQueuesNoLockCopy())
     AddMarkers(Q);
   AddMarkers(ChipDevice_->getLegacyDefaultQueue());
   if (ChipDevice_->isPerThreadStreamUsedNoLock())
@@ -2271,7 +2271,7 @@ void CHIPQueueOpenCL::finish() {
   // may already hold QueueAddRemoveMtx.
   {
     auto *Dev = static_cast<CHIPDeviceOpenCL *>(ChipDevice_);
-    for (auto &Q : Dev->getQueuesNoLock()) {
+    for (auto &Q : Dev->getQueuesNoLockCopy()) {
       auto *OclQueue = static_cast<CHIPQueueOpenCL *>(Q);
       if (OclQueue->ClRegularQueue_.get()) {
         cl_int FlushStatus = clFlush(OclQueue->ClRegularQueue_.get());
