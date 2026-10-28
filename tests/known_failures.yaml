@@ -597,7 +597,6 @@ ANY:
   VULKAN_GPU:
     CanarySitofpI1Backend: 'https://github.com/CHIP-SPV/chipStar/issues/2145'
     TestFix1770ExtractorFp64ExitStatus: 'https://github.com/CHIP-SPV/chipStar/issues/2146'
-    TestFix1781RhaddSad: 'https://github.com/CHIP-SPV/chipStar/issues/2134'
     TestFix315PlatformOutOfRange: 'https://github.com/CHIP-SPV/chipStar/issues/2135'
     Unit_hipGraphClone_Functional_GraphsTest1: 'https://github.com/CHIP-SPV/chipStar/issues/2137'
     Unit_hipManagedKeyword_SingleGpu_TypeQualifiers: 'https://github.com/CHIP-SPV/chipStar/issues/2138'
