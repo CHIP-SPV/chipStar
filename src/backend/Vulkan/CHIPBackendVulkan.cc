@@ -2408,8 +2408,9 @@ struct VulkanPendingStaging {
 };
 
 inline std::mutex &i8StagingMtx() {
-  static std::mutex Mtx;
-  return Mtx;
+  // Never destroyed: the device destructor locks it from exit handlers.
+  static auto *Mtx = new std::mutex;
+  return *Mtx;
 }
 
 inline std::vector<VulkanPendingStaging> &i8PendingStagings() {
