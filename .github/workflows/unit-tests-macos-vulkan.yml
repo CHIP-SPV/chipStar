@@ -2,7 +2,7 @@ name: Unit tests (arm64 macOS native Vulkan)
 
 # pastrami: Apple M4 through Mesa KosmicKrisp (Vulkan on Metal). The LLVM
 # Vulkan fork (shared libLLVM, with libclc for spirv64-unknown-vulkan) is at
-# LLVM_PREFIX; the build dir lives on the external SSD, the internal disk is full.
+# LLVM_PREFIX.
 
 on:
   pull_request:
@@ -23,7 +23,7 @@ jobs:
     env:
       LLVM_PREFIX: /Users/paulius/install/llvm/vulkan-2026-10
       VK_ICD_FILENAMES: /Users/paulius/install/kosmickrisp/share/vulkan/icd.d/kosmickrisp_mesa_icd.aarch64.json
-      BUILD_ROOT: /Volumes/Untitled/ci-build-vulkan
+      BUILD_ROOT: /Users/paulius/ci-build-vulkan
       CHIP_KNOWN_FAILURES_HOST: kosmickrisp-m4
       CHIP_MODULE_CACHE_DIR: ""
     steps:
