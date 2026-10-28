@@ -548,7 +548,7 @@ if(UNIX AND NOT APPLE)
   add_test(NAME TestFix2008ClSetEventCallbackErrorMap
     COMMAND TestFix2008ClSetEventCallbackErrorMap)
   set_tests_properties(TestFix2008ClSetEventCallbackErrorMap PROPERTIES
-    SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+    SKIP_RETURN_CODE ${CHIP_SKIP_TEST})
 endif()
 
 # A failed device-side assertion must report its message on stderr, where ROCm

@@ -11,8 +11,8 @@ int main() {
   hipError_t Err = hipStreamAddCallback(0, cb, nullptr, 0);
   bool Injected = getenv("CLSETEVENTCALLBACK_FAILED");
   if (Err == hipSuccess && !Injected) {
-    printf("HIP_SKIP_THIS_TEST\n"); // interposer not reached: not OpenCL
-    return 0;
+    printf("SKIP: interposer not reached, not the OpenCL backend\n");
+    return 77; // CHIP_SKIP_TEST
   }
   if (Err != hipErrorOutOfMemory || !Injected) {
     printf("FAIL: %s, injected=%d\n", hipGetErrorString(Err), Injected);
