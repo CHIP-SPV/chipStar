@@ -960,10 +960,12 @@ void CHIPModuleVulkan::compile(chipstar::Device *ChipDev) {
     Ci.pCode = Words.data();
     VkResult R =
         vkCreateShaderModule(Dev, &Ci, /*pAlloc=*/nullptr, &ShaderModule_);
-    if (R != VK_SUCCESS || ShaderModule_ == VK_NULL_HANDLE)
+    if (R != VK_SUCCESS || ShaderModule_ == VK_NULL_HANDLE) {
+      ShaderModule_ = VK_NULL_HANDLE;
       CHIPERR_LOG_AND_THROW(
           "CHIPModuleVulkan::compile: vkCreateShaderModule failed",
           hipErrorInitializationError);
+    }
   }
 
   // Per-kernel argument bindings, from the reflection.
