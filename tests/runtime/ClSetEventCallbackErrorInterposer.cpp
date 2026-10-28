@@ -1,5 +1,5 @@
-// LD_PRELOAD interposer for TestFix2008ClSetEventCallbackErrorMap: the first
-// clSetEventCallback call returns CL_OUT_OF_RESOURCES, the rest are chained.
+// Linked into TestFix2008ClSetEventCallbackErrorMap to override libOpenCL's
+// clSetEventCallback: the first call returns CL_OUT_OF_RESOURCES, the rest chain.
 #include <dlfcn.h>
 
 #include <cstdio>
