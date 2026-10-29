@@ -34,6 +34,14 @@ if [ "${NON_STD_INT_COUNT}" -gt 0 ]; then
     exit 1
 fi
 
+# Value check: each "; EXPECT-FOLDED: <text>" must appear after instcombine.
+if grep -q 'EXPECT-FOLDED:' "${INPUT_FILE}"; then
+    FOLDED=$(${LLVM_OPT} -passes=instcombine -S "${OUTPUT_BC}")
+    while IFS= read -r want; do
+        echo "${FOLDED}" | grep -qF -- "${want}" || { echo "ERROR: missing '${want}'"; exit 1; }
+    done < <(sed -n 's/^; EXPECT-FOLDED: //p' "${INPUT_FILE}")
+fi
+
 # Convert to SPIR-V to check validity
 ${LLVM_SPIRV} "${OUTPUT_BC}" ${SPIRV_OPTS} -o "${OUTPUT_SPV}" || exit 1
 
