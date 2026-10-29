@@ -1577,7 +1577,7 @@ void CHIPContextOpenCL::mapManagedForHost() {
     if (Q && !Q->isEmptyQueue())
       static_cast<CHIPQueueOpenCL *>(Q)->enqueueIdleMarkers(Markers);
   };
-  for (auto *Q : ChipDevice_->getQueuesNoLock())
+  for (auto *Q : ChipDevice_->getQueuesNoLockCopy())
     AddMarkers(Q);
   AddMarkers(ChipDevice_->getLegacyDefaultQueue());
   if (ChipDevice_->isPerThreadStreamUsedNoLock())
@@ -2267,11 +2267,11 @@ void CHIPQueueOpenCL::finish() {
   // The Mali-G52 OpenCL driver deadlocks when one queue waits on events from
   // another queue that hasn't been flushed. This ensures all pending commands
   // are submitted to the device before we wait.
-  // Note: We use getQueuesNoLock() because the caller (e.g., hipDeviceSynchronize)
+  // Note: We use getQueuesNoLockCopy() because the caller (e.g., hipDeviceSynchronize)
   // may already hold QueueAddRemoveMtx.
   {
     auto *Dev = static_cast<CHIPDeviceOpenCL *>(ChipDevice_);
-    for (auto &Q : Dev->getQueuesNoLock()) {
+    for (auto &Q : Dev->getQueuesNoLockCopy()) {
       auto *OclQueue = static_cast<CHIPQueueOpenCL *>(Q);
       if (OclQueue->ClRegularQueue_.get()) {
         cl_int FlushStatus = clFlush(OclQueue->ClRegularQueue_.get());
