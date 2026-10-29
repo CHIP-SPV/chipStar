@@ -454,12 +454,8 @@ jobs:
             *)  CHANGED=false ;;
           esac
 
-          # This job runs on every push to main, but the stage is produced by a
-          # *prior* pull_request run of this workflow. A version this merge did
-          # not touch is left alone even if some PR staged it. A version it
-          # *did* touch must have a stage: silently skipping there leaves main's
-          # toolchain older than the patches on main, and every later PR is
-          # then validated against a compiler that does not match the tree.
+          # The stage comes from a prior PR run; leave versions this merge did not
+          # touch alone, and require a stage for the ones it did.
           if [ "$CHANGED" != "true" ]; then
             echo "LLVM ${{ matrix.build-id }} unchanged by this merge; leaving $INSTALL_DIR untouched."
             echo "installed=false" >> "$GITHUB_OUTPUT"
