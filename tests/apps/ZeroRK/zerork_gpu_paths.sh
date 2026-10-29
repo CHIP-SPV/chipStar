@@ -53,7 +53,7 @@ run() {
   setYML "$zrk" analytic "$5"
   setYML "$zrk" n_reactors_max "$8"
   rm -f "$out/$name"_*.hist "$out/$name.log" "$out/$name.stdout"
-  ZERORK_REACTOR_USE_LU=$9 "$exe" "$in" > "$out/$name.stdout" 2>&1
+  ZERORK_REACTOR_USE_LU=$9 timeout -k 30 1800 "$exe" "$in" > "$out/$name.stdout" 2>&1
 }
 
 # Temperature (col 3) and pressure (col 4) row by row against the CPU reference;
