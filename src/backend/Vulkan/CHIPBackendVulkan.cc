@@ -40,6 +40,9 @@
 #include <array>
 #include <chrono>
 #include <cstring>
+#include <set>
+#include <spirv-tools/libspirv.h>
+#include <spirv-tools/optimizer.hpp>
 #include <unordered_set>
 #include <sys/mman.h>
 #include <sys/syscall.h>
@@ -648,6 +651,8 @@ CHIPModuleVulkan::~CHIPModuleVulkan() {
     vkDestroyPipelineCache(Dev, PipelineCache_, nullptr);
   if (ShaderModule_ != VK_NULL_HANDLE)
     vkDestroyShaderModule(Dev, ShaderModule_, nullptr);
+  for (auto &Kv : KernelModules_)
+    vkDestroyShaderModule(Dev, Kv.second, nullptr);
 }
 
 /// The module-cache artifact is this module's VkPipelineCache data, keyed by
@@ -898,6 +903,145 @@ dropUnsupportedFloatModes(std::vector<uint32_t> &W,
   W = std::move(Out);
 }
 
+// VUID-VkShaderModuleCreateInfo-pCode-08740: capabilities must be enabled.
+static const char *unsupportedCapability(const std::vector<uint32_t> &W,
+                                         const CHIPDeviceVulkan &Dev) {
+  for (size_t I = 5; I < W.size() && (W[I] >> 16);) {
+    if ((W[I] & 0xffff) == 17 /*OpCapability*/ && (W[I] >> 16) == 2) {
+      if (W[I + 1] == 10 /*Float64*/ && !Dev.getFeatures().shaderFloat64)
+        return "Float64";
+      if (W[I + 1] == 5055 /*ShaderClockKHR*/ && !Dev.hasShaderClock())
+        return "ShaderClockKHR";
+    }
+    I += W[I] >> 16;
+  }
+  return nullptr;
+}
+
+VkShaderModule
+CHIPModuleVulkan::createShaderModule(const std::vector<uint32_t> &Words) {
+  VkShaderModuleCreateInfo Ci{};
+  Ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  Ci.codeSize = Words.size() * sizeof(uint32_t);
+  Ci.pCode = Words.data();
+  VkShaderModule M = VK_NULL_HANDLE;
+  if (vkCreateShaderModule(ChipDevice_->getLogicalDevice(), &Ci, nullptr, &M) !=
+          VK_SUCCESS ||
+      M == VK_NULL_HANDLE)
+    CHIPERR_LOG_AND_THROW("CHIPModuleVulkan: vkCreateShaderModule failed",
+                          hipErrorInitializationError);
+  return M;
+}
+
+// The optimizer keeps types and constants that nothing uses, which keeps their
+// capabilities alive; drop them, and the names and decorations that target them.
+static void dropUnusedTypes(std::vector<uint32_t> &W) {
+  struct Inst {
+    size_t Off, Len;
+    uint32_t Op, Result, Target;
+  };
+  struct State {
+    const uint32_t *Base;
+    std::vector<Inst> Insts;
+    std::unordered_map<uint32_t, int> Uses;
+  };
+  spv_context Ctx = spvContextCreate(SPV_ENV_VULKAN_1_3);
+  for (bool Changed = true; Changed;) {
+    Changed = false;
+    State St{W.data(), {}, {}};
+    spvBinaryParse(
+        Ctx, &St, W.data(), W.size(), nullptr,
+        [](void *U, const spv_parsed_instruction_t *P) {
+          auto &S = *static_cast<State *>(U);
+          Inst I{static_cast<size_t>(P->words - S.Base), P->num_words,
+                 P->opcode, P->result_id, 0};
+          bool Debug = I.Op == 5 || I.Op == 6 || I.Op == 71 || I.Op == 72;
+          for (uint16_t K = 0; K < P->num_operands; ++K) {
+            const auto &O = P->operands[K];
+            if (O.type != SPV_OPERAND_TYPE_ID &&
+                O.type != SPV_OPERAND_TYPE_TYPE_ID &&
+                O.type != SPV_OPERAND_TYPE_OPTIONAL_ID &&
+                O.type != SPV_OPERAND_TYPE_SCOPE_ID &&
+                O.type != SPV_OPERAND_TYPE_MEMORY_SEMANTICS_ID)
+              continue;
+            if (Debug && K == 0)
+              I.Target = P->words[O.offset];
+            else
+              ++S.Uses[P->words[O.offset]];
+          }
+          S.Insts.push_back(I);
+          return SPV_SUCCESS;
+        },
+        nullptr);
+    std::set<uint32_t> Dead;
+    for (const Inst &I : St.Insts) {
+      bool Decl = I.Op == 1 /*OpUndef*/ || (I.Op >= 19 && I.Op < 39) ||
+                  (I.Op >= 41 && I.Op <= 52) ||
+                  (I.Op == 59 && W[I.Off + 3] != 7 /*Function*/);
+      if (Decl && I.Result && !St.Uses.count(I.Result))
+        Dead.insert(I.Result);
+    }
+    std::vector<uint32_t> Out(W.begin(), W.begin() + 5);
+    for (const Inst &I : St.Insts) {
+      if (Dead.count(I.Result) || (I.Target && Dead.count(I.Target)))
+        Changed = true;
+      else
+        Out.insert(Out.end(), W.begin() + I.Off, W.begin() + I.Off + I.Len);
+    }
+    W = std::move(Out);
+  }
+  spvContextDestroy(Ctx);
+}
+
+// Keeps only this kernel's entry point and what it reaches, so capabilities
+// used by the module's other kernels are not declared.
+VkShaderModule CHIPModuleVulkan::createKernelModule(const std::string &Name) {
+  std::vector<uint32_t> Words(KeptWords_.begin(), KeptWords_.begin() + 5);
+  std::set<uint32_t> Dropped;
+  for (size_t I = 5; I < KeptWords_.size() && (KeptWords_[I] >> 16);
+       I += KeptWords_[I] >> 16)
+    if ((KeptWords_[I] & 0xffff) == 15 /*OpEntryPoint*/ &&
+        Name != reinterpret_cast<const char *>(&KeptWords_[I + 3]))
+      Dropped.insert(KeptWords_[I + 2]);
+  for (size_t I = 5; I < KeptWords_.size() && (KeptWords_[I] >> 16);
+       I += KeptWords_[I] >> 16) {
+    uint32_t Op = KeptWords_[I] & 0xffff;
+    bool Drop = (Op == 15 && Dropped.count(KeptWords_[I + 2])) ||
+                ((Op == 16 || Op == 331) && Dropped.count(KeptWords_[I + 1]));
+    if (!Drop)
+      Words.insert(Words.end(), KeptWords_.begin() + I,
+                   KeptWords_.begin() + I + (KeptWords_[I] >> 16));
+  }
+  std::vector<uint32_t> Out;
+  auto Run = [&](auto Register, std::vector<uint32_t> &In) {
+    spvtools::Optimizer Opt(SPV_ENV_VULKAN_1_3);
+    Register(Opt);
+    if (!Opt.Run(In.data(), In.size(), &Out))
+      CHIPERR_LOG_AND_THROW("CHIPModuleVulkan: trimming kernel " + Name +
+                                " failed",
+                            hipErrorSharedObjectInitFailed);
+  };
+  Run(
+      [](spvtools::Optimizer &O) {
+        O.RegisterPass(spvtools::CreateEliminateDeadFunctionsPass())
+            .RegisterPass(spvtools::CreateDeadVariableEliminationPass());
+      },
+      Words);
+  dropUnusedTypes(Out);
+  Words = Out;
+  Run(
+      [](spvtools::Optimizer &O) {
+        O.RegisterPass(spvtools::CreateTrimCapabilitiesPass());
+      },
+      Words);
+  if (const char *Cap = unsupportedCapability(Out, *ChipDevice_))
+    CHIPERR_LOG_AND_THROW("CHIPModuleVulkan: kernel " + Name +
+                              " uses capability " + Cap +
+                              ", which the device does not support",
+                          hipErrorSharedObjectInitFailed);
+  return createShaderModule(Out);
+}
+
 void CHIPModuleVulkan::compile(chipstar::Device *ChipDev) {
   logTrace("CHIPModuleVulkan::compile()");
   std::lock_guard<std::mutex> Lock(ModuleMtx_);
@@ -964,16 +1108,11 @@ void CHIPModuleVulkan::compile(chipstar::Device *ChipDev) {
          I += Words[I] >> 16)
       if ((Words[I] & 0xffff) == 54 /*OpFunction*/ && (Words[I] >> 16) >= 5)
         Words[I + 3] &= ~2u /*DontInline*/;
-    VkShaderModuleCreateInfo Ci{};
-    Ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    Ci.codeSize = Words.size() * sizeof(uint32_t);
-    Ci.pCode = Words.data();
-    VkResult R =
-        vkCreateShaderModule(Dev, &Ci, /*pAlloc=*/nullptr, &ShaderModule_);
-    if (R != VK_SUCCESS || ShaderModule_ == VK_NULL_HANDLE)
-      CHIPERR_LOG_AND_THROW(
-          "CHIPModuleVulkan::compile: vkCreateShaderModule failed",
-          hipErrorInitializationError);
+    if (unsupportedCapability(Words, *ChipDevice_)) {
+      KeptWords_ = std::move(Words); // getOrCreatePipeline trims it per kernel
+    } else {
+      ShaderModule_ = createShaderModule(Words);
+    }
   }
 
   // Per-kernel argument bindings, from the reflection.
@@ -1226,11 +1365,19 @@ VkPipeline CHIPModuleVulkan::getOrCreatePipeline(const std::string &KernelName,
   if (It != Pipelines_.end())
     return It->second;
 
-  if (ChipDevice_ == nullptr || ShaderModule_ == VK_NULL_HANDLE)
+  if (ChipDevice_ == nullptr ||
+      (ShaderModule_ == VK_NULL_HANDLE && KeptWords_.empty()))
     CHIPERR_LOG_AND_THROW(
         "CHIPModuleVulkan::getOrCreatePipeline: module not compiled",
         hipErrorInitializationError);
   VkDevice Dev = ChipDevice_->getLogicalDevice();
+  VkShaderModule Module = ShaderModule_;
+  if (Module == VK_NULL_HANDLE) {
+    VkShaderModule &Slot = KernelModules_[KernelName];
+    if (Slot == VK_NULL_HANDLE)
+      Slot = createKernelModule(KernelName);
+    Module = Slot;
+  }
 
   // The compiler declares the workgroup size as LocalSizeId of
   // specialization constants 0, 1, 2; fill them with the block size.
@@ -1252,7 +1399,7 @@ VkPipeline CHIPModuleVulkan::getOrCreatePipeline(const std::string &KernelName,
   VkPipelineShaderStageCreateInfo Stage{};
   Stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   Stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-  Stage.module = ShaderModule_;
+  Stage.module = Module;
   Stage.pName = KernelName.c_str();
   Stage.pSpecializationInfo = &SpecInfo;
   VkPipelineShaderStageRequiredSubgroupSizeCreateInfo SgReq{};
@@ -1886,6 +2033,7 @@ CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
   // For __builtin_readcyclecounter, which reads the subgroup clock.
   if (HasExt(VK_KHR_SHADER_CLOCK_EXTENSION_NAME) && Clock.shaderSubgroupClock) {
     DevExts.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
+    Dev->HasShaderClock_ = true;
     Clock.pNext = nullptr;
     Clock.shaderDeviceClock = VK_FALSE;
     *Tail = &Clock;

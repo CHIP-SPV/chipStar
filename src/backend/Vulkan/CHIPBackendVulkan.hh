@@ -175,6 +175,12 @@ class CHIPModuleVulkan : public chipstar::Module {
   CHIPDeviceVulkan *ChipDevice_ = nullptr;
 
   VkShaderModule ShaderModule_ = VK_NULL_HANDLE;
+  /// Processed SPIR-V of a module the device cannot take whole; empty otherwise.
+  std::vector<uint32_t> KeptWords_;
+  /// Per-kernel shader modules built from KeptWords_.
+  std::unordered_map<std::string, VkShaderModule> KernelModules_;
+  VkShaderModule createShaderModule(const std::vector<uint32_t> &Words);
+  VkShaderModule createKernelModule(const std::string &Name);
 
   /// This module's pipelines; its data is the module-cache artifact.
   VkPipelineCache PipelineCache_ = VK_NULL_HANDLE;
@@ -373,6 +379,7 @@ class CHIPDeviceVulkan : public chipstar::Device {
 
   bool HasShaderInt8_ = false;
   bool HasShaderInt64_ = false;
+  bool HasShaderClock_ = false;
 
   /// Timeline semaphores export and import as opaque fds (IPC events).
   bool HasIpcSemaphore_ = false;
@@ -414,6 +421,7 @@ public:
   uint32_t getComputeQueueFamilyIndex() const { return ComputeQueueFamilyIndex_; }
   const VkPhysicalDeviceProperties &getProperties() const { return Properties_; }
   const VkPhysicalDeviceFeatures &getFeatures() const { return Features_; }
+  bool hasShaderClock() const { return HasShaderClock_; }
   const VkPhysicalDeviceSubgroupProperties &getSubgroupProperties() const {
     return SubgroupProperties_;
   }
