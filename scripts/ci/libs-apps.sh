@@ -45,9 +45,11 @@ wants() { case ,$PHASES, in *,$1,*) return 0 ;; esac; return 1; }
 note() { echo "$*" | tee -a "$SUMMARY"; }
 result() { [ "$2" -eq 0 ] && note "PASS  $1" || { note "FAIL  $1 (rc=$2, $3)"; FAILED=$((FAILED + 1)); }; }
 cursor() { journalctl -k -b -n0 --show-cursor -q --no-pager | sed -n 's/^-- cursor: //p'; }
-# Fatal: the driver gave up on the GPU (wedged) or the journal is unreadable so the GPU cannot be watched. Sticky.
+# i915 wedges without saying so after these (intel_reset.c); the word reset also appears in recoverable lines.
+FATAL_MSG="wedged|GPU reset not supported|Failed to reset chip|Failed to initialise HW following reset|timed out, cancelling all in-flight rendering"
+# Fatal: the driver gave up on the GPU (FATAL_MSG) or the journal is unreadable so the GPU cannot be watched. Sticky.
 gpu_faults() {
-  local j p="$DRV $GPU_PCI.*wedged|^Failed|^No journal"
+  local j p="$DRV $GPU_PCI.*($FATAL_MSG)|^Failed|^No journal"
   [ -e "$LOGS/fault" ] && { echo 1; return; }
   j=$(journalctl -k -b -q --no-pager --after-cursor="$CURSOR" 2>&1) || j="Failed: journalctl exit $?
 $j"
@@ -58,11 +60,11 @@ $j"
 
 # gpu_step NAME LOG CMD...; CMD gets its own session so a fault kills all of it.
 gpu_step() {
-  local name=$1 log=$2 pid="" f rc c resets; shift 2
+  local name=$1 log=$2 pid="" f rc sc resets; shift 2
   [ $GPU_DEAD -eq 0 ] || { note "SKIP  $name"; return; }
   while f=$(gpu_faults) && [ "$f" -eq 0 ] && fuser "$RENDER" > /dev/null 2>&1; do echo "[gpu] $RENDER busy, waiting"; sleep 60; done
   if [ "$f" -eq 0 ]; then
-    c=$(cursor) && [ -n "$c" ] && CURSOR=$c
+    sc=$(cursor)
     setsid "$@" > "$log" 2>&1 < /dev/null &
     pid=$! STEP=$!
     while kill -0 $pid 2>/dev/null && f=$(gpu_faults) && [ "$f" -eq 0 ]; do sleep 1; done
@@ -76,7 +78,10 @@ gpu_step() {
   wait $pid; rc=$?
   pkill -KILL -s $pid 2>/dev/null
   # A reset the driver recovered from: the hung test fails by itself, the rest keep running.
-  resets=$(journalctl -k -b -q --no-pager --after-cursor="$CURSOR" 2>&1 | grep -iE "$DRV $GPU_PCI.*(reset|timedout|hang)")
+  if [ -z "$sc" ] || ! resets=$(journalctl -k -b -q --no-pager --after-cursor="$sc" 2>&1); then
+    note "NOTE  journal unreadable after $name, cannot rule out a GPU reset"; resets=""; [ $rc -ne 0 ] || rc=1
+  fi
+  resets=$(grep -iE "$DRV $GPU_PCI.*(reset|timedout|hang)" <<< "$resets" | grep -viE "$DRV $GPU_PCI.*($FATAL_MSG)")
   [ -z "$resets" ] || { echo "$resets" > "$log.gpu-faults"; note "NOTE  GPU reset during $name, see $log.gpu-faults"; [ $rc -ne 0 ] || rc=1; }
   result "$name" $rc "$log"; STEP=""
 }
@@ -172,8 +177,8 @@ wants libs || wants apps || BACKENDS=""
 rm -f "$LOGS/fault"
 CURSOR=$(cursor)
 [ -z "$BACKENDS" ] || [ -n "$CURSOR" ] || { note "FAIL  kernel journal unreadable, cannot watch the GPU"; exit 1; }
-[ -z "$BACKENDS" ] || { n=$(journalctl -k -b -q --no-pager | grep -ciE "$DRV $GPU_PCI.*wedged"; echo "${PIPESTATUS[0]}"); [ "$(echo $n)" = "0 0" ]; } ||
-  { note "FAIL  $GPU_PCI was declared wedged earlier in this boot, or the kernel journal is unreadable"; exit 1; }
+[ -z "$BACKENDS" ] || { n=$(journalctl -k -b -q --no-pager | grep -ciE "$DRV $GPU_PCI.*($FATAL_MSG)"; echo "${PIPESTATUS[0]}"); [ "$(echo $n)" = "0 0" ]; } ||
+  { note "FAIL  $GPU_PCI was declared wedged or failed to reset earlier in this boot, or the kernel journal is unreadable"; exit 1; }
 [ -z "$BACKENDS" ] || command -v fuser > /dev/null || { note "FAIL  fuser not found, cannot see other GPU users"; exit 1; }
 for be in $BACKENDS; do
   mkdir -p "$LOGS/$be" && export CHIP_BE=$be
