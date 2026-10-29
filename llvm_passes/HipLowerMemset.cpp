@@ -33,6 +33,7 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Passes/PassBuilder.h>
+#include <llvm/TargetParser/Triple.h>
 #include "PassPluginCompat.h"
 #include "chipStarConfig.hh"
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
@@ -50,12 +51,15 @@ static constexpr bool ExpandAll = false;
 
 static bool lowerMemsets(Function &F) {
   SmallPtrSet<MemSetInst *, 8> WorkList;
+  // Vulkan's logical pointers cannot take a memset; expand them all.
+  bool All = ExpandAll || Triple(F.getParent()->getTargetTriple())
+                                  .getEnvironmentName() == "shadervulkan";
   for (auto &BB : F)
     for (auto &I : BB)
       if (auto *MemSet = dyn_cast<MemSetInst>(&I)) {
         // Small constant memsets are lowered natively by the SPIR-V producer.
         auto *Len = dyn_cast<ConstantInt>(MemSet->getLength());
-        if (ExpandAll || MemSet->getIntrinsicID() != Intrinsic::memset ||
+        if (All || MemSet->getIntrinsicID() != Intrinsic::memset ||
             !isa<ConstantInt>(MemSet->getValue()) || !Len ||
             Len->getValue().ugt(256) || Len->isZero())
           WorkList.insert(MemSet);
