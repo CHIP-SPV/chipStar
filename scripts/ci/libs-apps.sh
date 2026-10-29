@@ -72,6 +72,8 @@ gpu_step() {
     [ "$f" -gt 0 ] || {
       wait $pid; rc=$?
       pkill -KILL -s $pid 2>/dev/null
+      # journald ingests kernel messages asynchronously: let a reset logged at the end of the step reach the journal.
+      sleep 2
       # A reset the driver recovered from: the hung test fails by itself, the rest keep running.
       if [ -z "$sc" ] || ! resets=$(journalctl -k -b -q --no-pager --after-cursor="$sc" 2>&1); then
         note "NOTE  journal unreadable after $name, cannot rule out a GPU reset"; resets=""; [ $rc -ne 0 ] || rc=1
