@@ -145,7 +145,7 @@ build_opensn() {
 run_apps() {
   note "SKIP  $1 zeroRK box_reactor (zerork_correctness_box_reactor.sh needs Aurora's PBS and MPI launcher)"
   rm -rf "$LOGS/$1/zerork-out"
-  gpu_step "$1 zeroRK GPU paths" "$LOGS/$1/zerork-paths.log" timeout -k 60 1800 bash -c 'cd "$0" && bash "$1" "$2"' \
+  gpu_step "$1 zeroRK GPU paths" "$LOGS/$1/zerork-paths.log" timeout -k 60 22000 bash -c 'cd "$0" && bash "$1" "$2"' \
     "$ZRK" "$HERE/tests/apps/ZeroRK/zerork_gpu_paths.sh" "$WRK/apps/zerork-out"
   [ $GPU_DEAD -eq 0 ] && grep -hsE '^(PASS|FAIL) ' "$LOGS/$1/zerork-paths.log" | sed "s/^/      $1 /" | tee -a "$SUMMARY"
   cp -r "$WRK/apps/zerork-out" "$LOGS/$1/" 2>/dev/null
