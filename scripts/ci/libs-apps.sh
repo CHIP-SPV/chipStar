@@ -1,8 +1,8 @@
 #!/bin/bash
 # Build chipStar plus every downstream library with its tests, then run each
 # library's ctest suite and the zeroRK and OpenSn checks on one Intel GPU per
-# backend. Waits while another process holds the GPU and stops all GPU work at
-# the first reset or wedge the kernel logs for it. Results go to summary.txt.
+# backend. Waits while another process holds the GPU and stops all GPU work only
+# when the kernel declares it wedged. Results go to summary.txt.
 #
 #   scripts/ci/libs-apps.sh -w WORK_DIR [-s CHIPSTAR_SRC] [-j JOBS] [-b "level0 opencl"] [-p build,libs,apps]
 set -o pipefail
@@ -44,9 +44,10 @@ trap '[ -n "$STEP" ] && { kill -KILL "$STEP"; pkill -KILL -s "$STEP"; } 2>/dev/n
 wants() { case ,$PHASES, in *,$1,*) return 0 ;; esac; return 1; }
 note() { echo "$*" | tee -a "$SUMMARY"; }
 result() { [ "$2" -eq 0 ] && note "PASS  $1" || { note "FAIL  $1 (rc=$2, $3)"; FAILED=$((FAILED + 1)); }; }
-# A journal read error counts as a fault: the GPU cannot be watched. Sticky, so a transient error is not forgotten.
+cursor() { journalctl -k -b -n0 --show-cursor -q --no-pager | sed -n 's/^-- cursor: //p'; }
+# Fatal: the driver gave up on the GPU (wedged) or the journal is unreadable so the GPU cannot be watched. Sticky.
 gpu_faults() {
-  local j p="$DRV $GPU_PCI.*(reset|wedged|timedout|hang)|^Failed|^No journal"
+  local j p="$DRV $GPU_PCI.*wedged|^Failed|^No journal"
   [ -e "$LOGS/fault" ] && { echo 1; return; }
   j=$(journalctl -k -b -q --no-pager --after-cursor="$CURSOR" 2>&1) || j="Failed: journalctl exit $?
 $j"
@@ -57,10 +58,11 @@ $j"
 
 # gpu_step NAME LOG CMD...; CMD gets its own session so a fault kills all of it.
 gpu_step() {
-  local name=$1 log=$2 pid="" f rc; shift 2
+  local name=$1 log=$2 pid="" f rc c resets; shift 2
   [ $GPU_DEAD -eq 0 ] || { note "SKIP  $name"; return; }
   while f=$(gpu_faults) && [ "$f" -eq 0 ] && fuser "$RENDER" > /dev/null 2>&1; do echo "[gpu] $RENDER busy, waiting"; sleep 60; done
   if [ "$f" -eq 0 ]; then
+    c=$(cursor) && [ -n "$c" ] && CURSOR=$c
     setsid "$@" > "$log" 2>&1 < /dev/null &
     pid=$! STEP=$!
     while kill -0 $pid 2>/dev/null && f=$(gpu_faults) && [ "$f" -eq 0 ]; do sleep 1; done
@@ -68,11 +70,14 @@ gpu_step() {
   fi
   if [ "$f" -gt 0 ]; then
     [ -n "$pid" ] && { kill -KILL $pid; pkill -KILL -s $pid; } 2>/dev/null; GPU_DEAD=1
-    note "STOP  GPU reset, wedge or journal error at $name $(grep -so 'Start *[0-9]*: [^ ]*' "$log" | tail -1), see logs/fault"
+    note "STOP  GPU wedged or journal error at $name $(grep -so 'Start *[0-9]*: [^ ]*' "$log" | tail -1), see logs/fault"
     result "$name" 137 "$log"; STEP=""; return
   fi
   wait $pid; rc=$?
   pkill -KILL -s $pid 2>/dev/null
+  # A reset the driver recovered from: the hung test fails by itself, the rest keep running.
+  resets=$(journalctl -k -b -q --no-pager --after-cursor="$CURSOR" 2>&1 | grep -iE "$DRV $GPU_PCI.*(reset|timedout|hang)")
+  [ -z "$resets" ] || { echo "$resets" > "$log.gpu-faults"; note "NOTE  GPU reset during $name, see $log.gpu-faults"; [ $rc -ne 0 ] || rc=1; }
   result "$name" $rc "$log"; STEP=""
 }
 
@@ -165,7 +170,7 @@ if wants apps; then
 fi
 wants libs || wants apps || BACKENDS=""
 rm -f "$LOGS/fault"
-CURSOR=$(journalctl -k -b -n0 --show-cursor -q --no-pager | sed -n 's/^-- cursor: //p')
+CURSOR=$(cursor)
 [ -z "$BACKENDS" ] || [ -n "$CURSOR" ] || { note "FAIL  kernel journal unreadable, cannot watch the GPU"; exit 1; }
 [ -z "$BACKENDS" ] || { n=$(journalctl -k -b -q --no-pager | grep -ciE "$DRV $GPU_PCI.*wedged"; echo "${PIPESTATUS[0]}"); [ "$(echo $n)" = "0 0" ]; } ||
   { note "FAIL  $GPU_PCI was declared wedged earlier in this boot, or the kernel journal is unreadable"; exit 1; }
