@@ -69,20 +69,24 @@ gpu_step() {
     pid=$! STEP=$!
     while kill -0 $pid 2>/dev/null && f=$(gpu_faults) && [ "$f" -eq 0 ]; do sleep 1; done
     [ "$f" -gt 0 ] || f=$(gpu_faults)
+    [ "$f" -gt 0 ] || {
+      wait $pid; rc=$?
+      pkill -KILL -s $pid 2>/dev/null
+      # A reset the driver recovered from: the hung test fails by itself, the rest keep running.
+      if [ -z "$sc" ] || ! resets=$(journalctl -k -b -q --no-pager --after-cursor="$sc" 2>&1); then
+        note "NOTE  journal unreadable after $name, cannot rule out a GPU reset"; resets=""; [ $rc -ne 0 ] || rc=1
+      fi
+      resets=$(grep -iE "$DRV $GPU_PCI.*(reset|timedout|hang)" <<< "$resets" | grep -viE "$DRV $GPU_PCI.*($FATAL_MSG)")
+      [ -z "$resets" ] || { echo "$resets" > "$log.gpu-faults"; note "NOTE  GPU reset during $name, see $log.gpu-faults"; [ $rc -ne 0 ] || rc=1; }
+      # A fatal line logged after the last poll is still fatal.
+      f=$(gpu_faults)
+    }
   fi
   if [ "$f" -gt 0 ]; then
     [ -n "$pid" ] && { kill -KILL $pid; pkill -KILL -s $pid; } 2>/dev/null; GPU_DEAD=1
     note "STOP  GPU wedged or journal error at $name $(grep -so 'Start *[0-9]*: [^ ]*' "$log" | tail -1), see logs/fault"
     result "$name" 137 "$log"; STEP=""; return
   fi
-  wait $pid; rc=$?
-  pkill -KILL -s $pid 2>/dev/null
-  # A reset the driver recovered from: the hung test fails by itself, the rest keep running.
-  if [ -z "$sc" ] || ! resets=$(journalctl -k -b -q --no-pager --after-cursor="$sc" 2>&1); then
-    note "NOTE  journal unreadable after $name, cannot rule out a GPU reset"; resets=""; [ $rc -ne 0 ] || rc=1
-  fi
-  resets=$(grep -iE "$DRV $GPU_PCI.*(reset|timedout|hang)" <<< "$resets" | grep -viE "$DRV $GPU_PCI.*($FATAL_MSG)")
-  [ -z "$resets" ] || { echo "$resets" > "$log.gpu-faults"; note "NOTE  GPU reset during $name, see $log.gpu-faults"; [ $rc -ne 0 ] || rc=1; }
   result "$name" $rc "$log"; STEP=""
 }
 
