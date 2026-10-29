@@ -260,6 +260,10 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Fails the day the backend stops forcing ContractionOff. Read its header.
   add_shell_test(CanaryFPContractionOff.bash)
 endif()
+# HipVerify must validate with the backend's producer, not llvm-spirv (#2100).
+if(CHIP_HIPVERIFY_BACKEND_EXT)
+  add_shell_test(TestFix2100VerifyProducer.bash)
+endif()
 # Fail the day the SPIR-V backend fixes the bug behind a native Vulkan
 # workaround (#1738, #1742). Read their headers before acting.
 if(CHIP_USE_NATIVE_VULKAN_SPIRV)
