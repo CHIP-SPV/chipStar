@@ -49,9 +49,9 @@ jobs:
       - name: Reset build dirs on configuration change
         run: |
           set -eo pipefail
-          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-x86-pocl.yml
+          STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-x86-pocl.yml cmake/SpirvToolsExternal.cmake host_math_funcs/CMakeLists.txt
             git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
-            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat | grep -E 'option\(|CACHE|find_'; } | sha256sum)
           [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
           mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
 

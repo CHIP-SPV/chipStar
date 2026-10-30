@@ -69,9 +69,9 @@ jobs:
         shell: bash
         run: |
           set -eo pipefail
-          STAMP=$(set -eo pipefail; { find -L $LLVM_PREFIX/bin $LLVM_PREFIX/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-amd-rusticl.yml
+          STAMP=$(set -eo pipefail; { find -L $LLVM_PREFIX/bin $LLVM_PREFIX/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-amd-rusticl.yml cmake/SpirvToolsExternal.cmake host_math_funcs/CMakeLists.txt
             git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
-            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat | grep -E 'option\(|CACHE|find_'; } | sha256sum)
           [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
           mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
           rm -f $BUILD_ROOT/build/checkpy_*.txt $BUILD_ROOT/build/Testing/Temporary/LastTest.log
