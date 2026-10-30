@@ -73,8 +73,8 @@ jobs:
           module load oneapi/2025.0.4 llvm/23.0 level-zero/dgpu
           LLVM_DIR=$(llvm-config --prefix)
           STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -printf '%P %T@\n' | sort; cat .github/workflows/unit-tests-x86-intel.yml
-            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
-            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | sha256sum)
+            git ls-files --recurse-submodules -- '*.h' '*.hh' '*.hpp' '*.inc' '*.cuh'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat | grep -E 'option\(|CACHE'; } | sha256sum)
           [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
           mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
 

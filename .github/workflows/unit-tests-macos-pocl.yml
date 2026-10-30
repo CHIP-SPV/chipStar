@@ -82,8 +82,8 @@ jobs:
         run: |
           set -eo pipefail
           STAMP=$(set -eo pipefail; { find -L $LLVM_DIR/bin $LLVM_DIR/lib -maxdepth 1 -type f -exec stat -f '%N %m' {} + | sort; echo $SDKROOT; cat .github/workflows/unit-tests-macos-pocl.yml
-            git ls-files --recurse-submodules | grep -vE '\.(c|cc|cpp|cxx|hip|cu|md|rst)$'
-            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat; } | shasum -a 256)
+            git ls-files --recurse-submodules -- '*.h' '*.hh' '*.hpp' '*.inc' '*.cuh'
+            git ls-files -z --recurse-submodules -- '*CMakeLists.txt' '*.cmake' | xargs -0 cat | grep -E 'option\(|CACHE'; } | shasum -a 256)
           [ "$(cat $BUILD_ROOT/stamp 2>/dev/null)" = "$STAMP" ] || rm -rf $BUILD_ROOT
           mkdir -p $BUILD_ROOT && echo "$STAMP" > $BUILD_ROOT/stamp
           rm -f $BUILD_ROOT/*/checkpy_*.txt $BUILD_ROOT/*/Testing/Temporary/LastTest.log
