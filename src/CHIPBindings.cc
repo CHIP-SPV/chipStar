@@ -4546,7 +4546,7 @@ hipError_t hipHostGetDevicePointer(void **DevPtr, void *HostPtr,
   LOCK(ApiMtx);
   CHIPInitialize();
 
-  if (!DevPtr)
+  if (!DevPtr || Flags)
     RETURN(hipErrorInvalidValue);
 
   if (!HostPtr)
