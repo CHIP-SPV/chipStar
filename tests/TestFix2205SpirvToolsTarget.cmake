@@ -4,7 +4,8 @@
 #
 # Invoked as:
 #   cmake -DCHIPSTAR_SOURCE_DIR=<chipStar source> -DLLVM_CONFIG_BIN=<llvm-config>
-#         -DGENERATOR=<generator> [-DOPENCL_LIBRARY=<libOpenCL>]
+#         -DGENERATOR=<generator> [-DOpenCL_LIBRARY=.. -DOpenCL_INCLUDE_DIR=..
+#         -DLevelZero_LIBRARY=.. -DCHIP_USE_NATIVE_VULKAN_SPIRV=.. -DCMAKE_MAKE_PROGRAM=..]
 #         -P TestFix2205SpirvToolsTarget.cmake
 
 if(NOT CHIPSTAR_SOURCE_DIR)
@@ -12,6 +13,9 @@ if(NOT CHIPSTAR_SOURCE_DIR)
 endif()
 if(NOT GENERATOR)
   set(GENERATOR "Ninja")
+endif()
+if(NOT CMAKE_MAKE_PROGRAM)
+  set(CMAKE_MAKE_PROGRAM ninja)
 endif()
 
 if(NOT EXISTS "${LLVM_CONFIG_BIN}")
@@ -32,8 +36,7 @@ set(SCRATCH_DIR "${SCRATCH_DIR}/chipstar-spirv-tools-target-${SUFFIX}")
 file(REMOVE_RECURSE "${SCRATCH_DIR}")
 file(MAKE_DIRECTORY "${SCRATCH_DIR}")
 
-# A package shaped like upstream SPIRV-Tools: only the -static and -shared
-# targets, no plain SPIRV-Tools target.
+# Fake package defining only SPIRV-Tools-static, with no plain SPIRV-Tools target.
 set(PREFIX "${SCRATCH_DIR}/fake-spirv-tools")
 set(BUILD "${SCRATCH_DIR}/build")
 file(WRITE "${PREFIX}/lib/libSPIRV-Tools.a" "")
@@ -50,9 +53,13 @@ file(WRITE "${PREFIX}/lib/cmake/SPIRV-Tools/SPIRV-ToolsConfig.cmake"
 set(ARGS -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_CONFIG_BIN=${LLVM_CONFIG_BIN}
          -DCHIP_BUILD_TESTS=OFF -DCHIP_BUILD_SHARED_LIBS=OFF
          -DCMAKE_PREFIX_PATH=${PREFIX})
-if(OPENCL_LIBRARY)
-  list(APPEND ARGS -DOpenCL_LIBRARY=${OPENCL_LIBRARY})
-endif()
+# Forward the outer backend configuration; leave a variable undefined when empty.
+foreach(VAR OpenCL_LIBRARY OpenCL_INCLUDE_DIR LevelZero_LIBRARY
+            CHIP_USE_NATIVE_VULKAN_SPIRV CMAKE_MAKE_PROGRAM)
+  if(${VAR})
+    list(APPEND ARGS -D${VAR}=${${VAR}})
+  endif()
+endforeach()
 execute_process(
   COMMAND ${CMAKE_COMMAND} ${ARGS} -S "${CHIPSTAR_SOURCE_DIR}" -B "${BUILD}"
   RESULT_VARIABLE RC OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
@@ -65,7 +72,7 @@ endif()
 set(FAILURES "")
 function(commands_must_contain TARGET NEEDLE WHAT)
   execute_process(
-    COMMAND ninja -C "${BUILD}" -t commands ${TARGET}
+    COMMAND ${CMAKE_MAKE_PROGRAM} -C "${BUILD}" -t commands ${TARGET}
     RESULT_VARIABLE RC OUTPUT_VARIABLE CMDS ERROR_VARIABLE CERR)
   if(NOT RC EQUAL 0)
     set(FAILURES "${FAILURES}\n  ninja -t commands ${TARGET} failed: ${CERR}" PARENT_SCOPE)
@@ -74,12 +81,11 @@ function(commands_must_contain TARGET NEEDLE WHAT)
   endif()
 endfunction()
 
-set(P "${SCRATCH_DIR}/fake-spirv-tools")
-commands_must_contain(spirv-extractor "${P}[^ ]*/lib/libSPIRV-Tools\\.a"
+commands_must_contain(spirv-extractor "${PREFIX}[^ ]*/lib/libSPIRV-Tools\\.a"
   "does not link the package's libSPIRV-Tools.a")
-commands_must_contain(spirv-extractor "(-I|-isystem )${P}[^ ]*/include"
+commands_must_contain(spirv-extractor "(-I|-isystem )${PREFIX}[^ ]*/include"
   "does not compile with the package's include directory")
-commands_must_contain(CHIP "(-I|-isystem )${P}[^ ]*/include"
+commands_must_contain(CHIP "(-I|-isystem )${PREFIX}[^ ]*/include"
   "does not compile with the package's include directory")
 
 file(GLOB_RECURSE EXPORTS "${BUILD}/CMakeFiles/Export/*CHIPTargets.cmake")
