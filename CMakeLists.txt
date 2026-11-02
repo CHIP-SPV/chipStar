@@ -940,17 +940,27 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
 
 if(NOT CHIP_BUILD_SHARED_LIBS)
   # libCHIP.a has no link dependencies of its own; hipcc must link them after it.
-  # Library paths go through -Wl, or clang would compile a *.so given with -xhip.
-  set(_chip_static_deps ${OpenCL_LIBRARY} ${LevelZero_LIBRARY} ${Vulkan_LIBRARY})
-  list(TRANSFORM _chip_static_deps PREPEND "-Wl,")
-  list(APPEND _chip_static_deps -lSPIRV-Tools -pthread)
+  # -Wl, stops clang compiling a *.so under -xhip or unbundling an archive under -fgpu-rdc.
+  set(_chip_static_deps -Wl,-lSPIRV-Tools -pthread)
+  foreach(_lib OpenCL_LIBRARY LevelZero_LIBRARY Vulkan_LIBRARY)
+    if(${_lib})
+      list(APPEND _chip_static_deps -Wl,${${_lib}})
+    endif()
+  endforeach()
   if(HAS_EXPERIMENTAL_FILESYSTEM)
-    list(APPEND _chip_static_deps -lstdc++fs)
+    list(APPEND _chip_static_deps -Wl,-lstdc++fs)
+  endif()
+  if(OpenCL_LIBRARY AND CHIP_SET_RPATH_OCL)
+    list(APPEND _chip_static_deps -Wl,-rpath,${OpenCL_DIR})
+  endif()
+  if(LevelZero_LIBRARY AND CHIP_SET_RPATH_L0)
+    list(APPEND _chip_static_deps -Wl,-rpath,${LevelZeroLib_DIR})
   endif()
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ ${_chip_static_deps})
-  if(SPIRV_TOOLS_INSTALL_DIR) # built from source: only its archive is needed, from lib/
+  if(NOT SPIRV-Tools_FOUND) # built from source: only its archive is needed
     list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ -L${SPIRV_TOOLS_INSTALL_DIR}/lib)
-    install(FILES ${SPIRV_TOOLS_INSTALL_DIR}/lib/libSPIRV-Tools.a DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(FILES $<TARGET_FILE:SPIRV-Tools> DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    target_link_directories(CHIP INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
   endif()
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ ${_chip_static_deps})
 endif()
