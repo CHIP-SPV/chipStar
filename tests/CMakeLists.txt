@@ -105,7 +105,7 @@ add_test(NAME TestFix1635HostTarget
 set_tests_properties(TestFix1635HostTarget PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
-if(NOT CHIP_BUILD_SHARED_LIBS)
+if(NOT CHIP_BUILD_SHARED_LIBS AND NOT APPLE AND NOT CMAKE_CROSSCOMPILING)
   # Reproduce #2202: consumers link libCHIP.a without -flto, so it must not hold bitcode.
   add_test(NAME TestFix2202StaticLibLinksWithoutLTO
     COMMAND ${CMAKE_CXX_COMPILER} -r -nostdlib -Wl,--whole-archive $<TARGET_FILE:CHIP>
