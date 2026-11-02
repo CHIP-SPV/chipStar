@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <unistd.h>
 
 #define CHECK(cmd)                                                             \
   {                                                                            \
@@ -100,6 +101,9 @@ int main() {
   std::cout << "Kernel launched successfully\n";
 
   CHECK(hipEventRecord(stop));
+
+  // Model a descheduled host thread.
+  sleep(40);
 
   assert(hipEventQuery(stop) == hipErrorNotReady);
 
