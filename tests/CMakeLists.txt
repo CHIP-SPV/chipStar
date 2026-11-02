@@ -85,6 +85,17 @@ add_test(NAME TestFix2082SpirvToolsPinned
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2082SpirvToolsPinned.cmake)
 set_tests_properties(TestFix2082SpirvToolsPinned PROPERTIES TIMEOUT 300)
 
+# Reproduce #2205: find_package(SPIRV-Tools) left no SPIRV-Tools target, so CHIP linked a bare -lSPIRV-Tools.
+add_test(NAME TestFix2205SpirvToolsTarget
+  COMMAND ${CMAKE_COMMAND}
+    -DCHIPSTAR_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -DLLVM_CONFIG_BIN=${LLVM_CONFIG_BIN}
+    -DGENERATOR=${CMAKE_GENERATOR}
+    -DOPENCL_LIBRARY=${OpenCL_LIBRARY}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2205SpirvToolsTarget.cmake)
+set_tests_properties(TestFix2205SpirvToolsTarget PROPERTIES TIMEOUT 300
+  SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
+
 # Reproduce #1632: a build directory reconfigured with a different
 # LLVM_CONFIG_BIN kept the first LLVM's tools, packages and compilers.
 add_test(NAME TestFix1632LlvmConfigChanged
