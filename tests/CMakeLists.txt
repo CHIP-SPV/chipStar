@@ -105,6 +105,13 @@ add_test(NAME TestFix1635HostTarget
 set_tests_properties(TestFix1635HostTarget PROPERTIES
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
+if(NOT CHIP_BUILD_SHARED_LIBS)
+  # Reproduce #2202: consumers link libCHIP.a without -flto, so it must not hold bitcode.
+  add_test(NAME TestFix2202StaticLibLinksWithoutLTO
+    COMMAND ${CMAKE_CXX_COMPILER} -r -nostdlib -Wl,--whole-archive $<TARGET_FILE:CHIP>
+      -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix2202StaticLibLinksWithoutLTO.o)
+endif()
+
 if(CHIP_BUILD_SHARED_LIBS AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
 # Reproduce #2042: CMake's CUDA language and find_package(CUDAToolkit) must
 # work with the installed cucc, with or without the toolchain file.
