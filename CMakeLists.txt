@@ -764,6 +764,16 @@ target_compile_definitions(
 
 target_link_libraries(CHIP PRIVATE SPIRV-Tools)
 
+if(NOT CHIP_BUILD_SHARED_LIBS)
+  # Consumers of libCHIP.a link -lSPIRV-Tools themselves, so ship it beside libCHIP.a.
+  if(TARGET SPIRV-Tools-static)
+    install(FILES $<TARGET_FILE:SPIRV-Tools-static> DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  elseif(TARGET SPIRV-Tools)
+    install(FILES $<TARGET_FILE:SPIRV-Tools> DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  endif()
+  target_link_directories(CHIP INTERFACE "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_LIBDIR}>")
+endif()
+
 target_link_libraries(CHIP PUBLIC ${CHIP_INTERFACE_LIBS})
 
 if(HAS_EXPERIMENTAL_FILESYSTEM)
