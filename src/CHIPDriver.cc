@@ -51,7 +51,8 @@ bool UsingDefaultBackend;
 chipstar::Backend *Backend = nullptr;
 std::atomic_ulong CHIPNumRegisteredFatBinaries;
 
-EnvVars ChipEnvVars;
+// Before default priority: the application's module constructor needs it.
+__attribute__((init_priority(101))) EnvVars ChipEnvVars;
 
 // Opt-in: allow a single allocation larger than the device's reported
 // maxMemAllocSize (e.g. the 4 GiB cap on Intel Arc / Data Center GPUs) to
