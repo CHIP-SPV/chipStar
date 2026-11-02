@@ -537,6 +537,17 @@ EventMonitorVulkan::~EventMonitorVulkan() {
 /// Every 200us: update event status, run ready callbacks, drop finished events.
 void EventMonitorVulkan::monitor() {
   logTrace("EventMonitorVulkan::monitor() started");
+  // After a hard error the status is left for the waiting API call to report.
+  bool PollFailed = false;
+  auto Poll = [&PollFailed](chipstar::Event *Ev) {
+    if (PollFailed)
+      return;
+    try {
+      Ev->updateFinishStatus(false);
+    } catch (const CHIPError &) { // Already logged by the throw site.
+      PollFailed = true;
+    }
+  };
   while (true) {
     std::this_thread::sleep_for(std::chrono::microseconds(200));
 
@@ -550,7 +561,7 @@ void EventMonitorVulkan::monitor() {
           if (Ev->getEventStatus() == EVENT_STATUS_RECORDED)
             continue;
           LOCK(Ev->EventMtx);
-          Ev->updateFinishStatus(false);
+          Poll(Ev.get());
         }
       }
     }
@@ -567,7 +578,7 @@ void EventMonitorVulkan::monitor() {
           bool Ready = false;
           if (CbData && CbData->GpuReady) {
             LOCK(CbData->GpuReady->EventMtx);
-            CbData->GpuReady->updateFinishStatus(false);
+            Poll(CbData->GpuReady.get());
             Ready = (CbData->GpuReady->getEventStatus() ==
                      EVENT_STATUS_RECORDED);
           } else if (CbData) {
