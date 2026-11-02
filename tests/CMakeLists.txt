@@ -140,6 +140,14 @@ if(NOT CHIP_BUILD_SHARED_LIBS AND NOT APPLE AND NOT CMAKE_CROSSCOMPILING)
       -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix2202StaticLibLinksWithoutLTO.o)
 endif()
 
+# Reproduce #2200: concurrent installs from one build tree must each get
+# their own .hipInfo.
+add_test(NAME TestFix2200ConcurrentInstallHipInfo
+  COMMAND ${CMAKE_COMMAND}
+    -DBUILD_DIR=${CMAKE_BINARY_DIR}
+    -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2200ConcurrentInstallHipInfo
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2200ConcurrentInstallHipInfo.cmake)
+
 if(CHIP_BUILD_SHARED_LIBS AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
 # Reproduce #2042: CMake's CUDA language and find_package(CUDAToolkit) must
 # work with the installed cucc, with or without the toolchain file.
