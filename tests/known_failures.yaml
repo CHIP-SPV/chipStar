@@ -408,7 +408,6 @@ ANY:
     Unit_Device___half22float2_Accuracy_Positive_MathsTest: 'kernel cast to the wrong signature overflows the output buffer and can reset the GPU (#1783)'
   LEVEL0_GPU:
     Unit_hipMemset_SetMemoryWithOffset: 'Flaky, needs investigation'
-    hipKernelLaunchIsNonBlocking: 'zeEventQueryStatus took 100us, exceeded 100us threshold'
     Unit_Device_Complex_Binary_Device_Sanity_Positive - hipFloatComplex_ComplexTest: 'Failed'
     Unit_coalesced_groups_metagrp_basic_coopGrpTest: 'Timeout'
     Unit_deviceFunctions_CompileTest_UnitDeviceTests: 'Timeout'
