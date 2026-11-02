@@ -456,7 +456,8 @@ include(CheckIPOSupported)
 check_ipo_supported(RESULT SUPPORTS_IPO OUTPUT IPO_ERROR)
 message(STATUS "Interprocedural optimizations (IPO): ${SUPPORTS_IPO}.")
 if(SUPPORTS_IPO)
-  set_property(TARGET CHIP PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  # A static libCHIP.a would hold bitcode that consumers link without LTO.
+  set_property(TARGET CHIP PROPERTY INTERPROCEDURAL_OPTIMIZATION ${CHIP_BUILD_SHARED_LIBS})
 else()
   message(NOTICE "To enable IPO with clang you may need to re-configure \
   LLVM/Clang with -DLLVM_BINUTILS_INCDIR for locating plugin-api.h from \
