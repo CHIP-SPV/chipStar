@@ -836,12 +836,16 @@ chipstar::Context *chipstar::Device::getContext() { return Ctx_; }
 int chipstar::Device::getDeviceId() { return Idx_; }
 
 chipstar::DeviceVar *chipstar::Device::getStatGlobalVar(const void *Ptr) {
-  if (DeviceVarLookup_.count(Ptr)) {
-    auto *Var = DeviceVarLookup_[Ptr];
-    assert(Var->getDevAddr() && "Missing device pointer.");
-    return Var;
+  auto It = DeviceVarLookup_.find(Ptr);
+  if (It == DeviceVarLookup_.end())
+    return nullptr;
+  auto *Var = It->second;
+  if (Var->getSrcVar()->Parent != getSPVRegister().getSource(HostPtr(Ptr))) {
+    DeviceVarLookup_.erase(It); // Stale: Ptr was unregistered or reused.
+    return nullptr;
   }
-  return nullptr;
+  assert(Var->getDevAddr() && "Missing device pointer.");
+  return Var;
 }
 
 chipstar::DeviceVar *chipstar::Device::getGlobalVar(const void *HostPtr) {
@@ -1351,7 +1355,7 @@ void chipstar::Device::registerModuleVariables(chipstar::Module *ChipModule,
     }
     auto *Var = new chipstar::DeviceVar(&Info);
     ChipModule->addDeviceVariable(Var);
-    DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
+    DeviceVarLookup_[Info.Ptr] = Var;
   }
 
   // hipRTC and hipModuleLoadData code objects have no host registration at
@@ -1380,14 +1384,19 @@ void chipstar::Device::deallocateDeviceVariables() {
 /// Get compiled module associated with the host pointer 'Ptr'. Return
 /// nullptr if 'Ptr' is not associated with any module.
 chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
+  // May finalize the source, so keep it outside DeviceVarMtx.
+  auto *SrcMod = getSPVRegister().getSource(Ptr);
   {
     LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
-    if (HostPtrToCompiledMod_.count(Ptr))
-      return HostPtrToCompiledMod_[Ptr];
+    auto It = HostPtrToCompiledMod_.find(Ptr);
+    if (It != HostPtrToCompiledMod_.end()) {
+      if (&It->second->getSourceModule() == SrcMod)
+        return It->second;
+      HostPtrToCompiledMod_.erase(It); // Stale: Ptr was unregistered or reused.
+    }
   }
 
   // The module, which the 'Ptr' is member of, might not be compiled yet.
-  auto *SrcMod = getSPVRegister().getSource(Ptr);
   if (!SrcMod) // Client gave an invalid pointer?
     return nullptr;
 
@@ -1430,7 +1439,7 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
     auto *Var = new chipstar::DeviceVar(&Info);
     Mod->addDeviceVariable(Var);
 
-    DeviceVarLookup_.insert(std::make_pair(Info.Ptr, Var));
+    DeviceVarLookup_[Info.Ptr] = Var;
     LOCK(DeviceVarMtx); // chipstar::Device::HostPtrToCompiledMod_
     HostPtrToCompiledMod_[Info.Ptr] = Mod;
   }

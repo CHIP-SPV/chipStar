@@ -143,15 +143,14 @@ void SPVRegister::bindVariable(SPVRegister::Handle Handle, HostPtr Ptr,
   HostPtrLookup_.emplace(std::make_pair(Ptr, &SrcMod->Variables.back()));
 }
 
-/// Unregisters the given source module. References to it and the
-/// associated SPVModule and its SPV* objects are invalid after the
-/// call.
+/// Unregisters a fat binary's source; the SPVModule is kept so its address is
+/// never reused.
 void SPVRegister::unregisterSource(SPVRegister::Handle Handle) {
-  unregisterSource(reinterpret_cast<SPVModule *>(Handle.Module));
+  unregisterSource(reinterpret_cast<SPVModule *>(Handle.Module), true);
 }
 
-/// Same as unregisterSource(SPVRegister::Handle)
-void SPVRegister::unregisterSource(const SPVModule *ConstSrcMod) {
+/// Unregisters the source and frees it unless Keep.
+void SPVRegister::unregisterSource(const SPVModule *ConstSrcMod, bool Keep) {
   LOCK(Mtx_); // SPVRegister::Sources_
   auto *SrcMod = const_cast<SPVModule *>(ConstSrcMod);
 
@@ -164,7 +163,10 @@ void SPVRegister::unregisterSource(const SPVModule *ConstSrcMod) {
   for (auto &V : SrcMod->Variables)
     HostPtrLookup_.erase(V.Ptr);
 
-  Sources_.erase(SrcIt);
+  if (Keep)
+    Unregistered_.push_back(std::move(Sources_.extract(SrcIt).value()));
+  else
+    Sources_.erase(SrcIt);
 }
 
 /// Get finalized source module associated with the given host pointer.
