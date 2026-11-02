@@ -140,8 +140,7 @@ if(NOT CHIP_BUILD_SHARED_LIBS AND NOT APPLE AND NOT CMAKE_CROSSCOMPILING)
       -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix2202StaticLibLinksWithoutLTO.o)
 endif()
 
-# Reproduce #2200: concurrent installs from one build tree must each get
-# their own .hipInfo.
+# Reproduce #2200: concurrent installs must each keep their own .hipInfo.
 add_test(NAME TestFix2200ConcurrentInstallHipInfo
   COMMAND ${CMAKE_COMMAND}
     -DBUILD_DIR=${CMAKE_BINARY_DIR}

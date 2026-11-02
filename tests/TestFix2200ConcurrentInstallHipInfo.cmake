@@ -1,5 +1,5 @@
-# Runs install B between install A's .hipInfo configure and copy; each prefix
-# must still get its own HIP_PATH.
+cmake_minimum_required(VERSION 3.20)
+# Runs install B between install A's .hipInfo configure and copy.
 file(REMOVE_RECURSE "${WORK_DIR}")
 set(ENV{DESTDIR} "${WORK_DIR}/stage")
 set(A "${WORK_DIR}/a")
