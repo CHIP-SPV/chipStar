@@ -1269,6 +1269,10 @@ install(FILES "${PROJECT_BINARY_DIR}/include/rocm-core/rocm_version.h"
 string(REPLACE "$<INSTALL_PREFIX>" "@CHIP_INSTALL_PREFIX@" _hipInfo_install "${_hipInfo_install}")
 file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo_install.in" ${_hipInfo_install})
 file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/share/.hipInfo" CONTENT "@_hipInfo_build@" @ONLY)
+# file(INSTALL) does not read CMAKE_INSTALL_MESSAGE, install(FILES) generates the option from it.
+if(CMAKE_INSTALL_MESSAGE MATCHES "^(ALWAYS|LAZY|NEVER)$")
+  set(_hipInfoMessage MESSAGE_${CMAKE_INSTALL_MESSAGE})
+endif()
 # Substitute the prefix given to `cmake --install`, not the configure-time one.
 # hipcc pastes the .hipInfo flags into a shell command, so escape spaces.
 # One generated file per prefix, so concurrent installs do not overwrite each other.
@@ -1276,7 +1280,7 @@ install(CODE "string(REPLACE \" \" \"\\\\ \" CHIP_INSTALL_PREFIX \"\${CMAKE_INST
   string(MD5 _prefix_hash \"\${CMAKE_INSTALL_PREFIX}\")
   set(_hipInfo \"${PROJECT_BINARY_DIR}/share/hipInfo_install/\${_prefix_hash}/.hipInfo\")
   configure_file(\"${PROJECT_BINARY_DIR}/share/.hipInfo_install.in\" \"\${_hipInfo}\" @ONLY)
-  file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${SHARE_INSTALL_DIR}\" TYPE FILE FILES \"\${_hipInfo}\")")
+  file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${SHARE_INSTALL_DIR}\" TYPE FILE ${_hipInfoMessage} FILES \"\${_hipInfo}\")")
 
 # Copy hipconfig, hipvars, etc to bin
 install(FILES ${CMAKE_BINARY_DIR}/bin/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
