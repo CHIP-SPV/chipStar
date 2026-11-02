@@ -23,11 +23,11 @@
 
 #include "hip/hip_runtime.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <unistd.h>
 
 #define CHECK(cmd)                                                             \
   {                                                                            \
@@ -84,41 +84,36 @@ int main() {
   CHECK(hipStreamCreateWithFlags(&q, flags));
 
   size_t sharedMem = 0;
-  hipEvent_t start, stop;
   int count = 1000;
 
-  CHECK(hipEventCreate(&start));
-  CHECK(hipEventCreate(&stop));
-  assert(hipEventQuery(stop) == hipErrorNotReady);
-  assert(hipEventQuery(start) == hipErrorNotReady);
+  using Clock = std::chrono::steady_clock;
+  bool NonBlocking = false;
+  // Retried because the first launch also compiles the kernel.
+  for (int Attempt = 0; Attempt < 3 && !NonBlocking; ++Attempt) {
+    auto Start = Clock::now();
+    std::cout << "Launching kernel\n";
+    hipLaunchKernelGGL(addCountReverse, dim3(numBlocks), dim3(dimBlocks),
+                       sharedMem, 0, A_d, C_d, NUM, count);
+    CHECK(hipGetLastError());
+    std::cout << "Kernel launched successfully\n";
+    auto Launched = Clock::now();
 
-  CHECK(hipEventRecord(start));
+    // Leave no kernel in flight at exit.
+    CHECK(hipStreamSynchronize(0));
+    auto Done = Clock::now();
 
-  std::cout << "Launching kernel\n";
-  hipLaunchKernelGGL(addCountReverse, dim3(numBlocks), dim3(dimBlocks),
-                     sharedMem, 0, A_d, C_d, NUM, count);
-  CHECK(hipGetLastError());
-  std::cout << "Kernel launched successfully\n";
+    std::chrono::duration<double> InLaunch = Launched - Start,
+                                  AfterLaunch = Done - Launched;
+    std::cout << "In launch " << InLaunch.count() << "s, after launch "
+              << AfterLaunch.count() << "s\n";
+    NonBlocking = InLaunch < AfterLaunch;
+  }
 
-  CHECK(hipEventRecord(stop));
-
-  // Model a descheduled host thread.
-  sleep(40);
-
-  assert(hipEventQuery(stop) == hipErrorNotReady);
-
-  float t;
-  hipError_t notReady = hipEventElapsedTime(&t, start, stop);
-  std::cout << "Kernel time: " << t << "s\n";
-
-  // Leave no kernel in flight at exit.
-  CHECK(hipEventSynchronize(stop));
-
-  if (notReady == hipErrorNotReady) {
+  if (NonBlocking) {
     std::cout << "PASSED!" << std::endl;
   } else {
     std::cout << "FAILED!" << std::endl;
   }
 
-  return !(notReady == hipErrorNotReady);
+  return !NonBlocking;
 }
