@@ -23,6 +23,7 @@
 
 #include "hip/hip_runtime.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -87,27 +88,31 @@ int main() {
   int count = 1000;
 
   using Clock = std::chrono::steady_clock;
-  bool NonBlocking = false;
-  // Retried because the first launch also compiles the kernel.
-  for (int Attempt = 0; Attempt < 3 && !NonBlocking; ++Attempt) {
-    auto Start = Clock::now();
+  std::chrono::duration<double> MinInLaunch = Clock::duration::max(),
+                                MinTotal = Clock::duration::max();
+  // Minimums, because a host stall or the first launch's compile can only
+  // inflate these.
+  for (int Attempt = 0; Attempt < 3; ++Attempt) {
     std::cout << "Launching kernel\n";
+    auto Start = Clock::now();
     hipLaunchKernelGGL(addCountReverse, dim3(numBlocks), dim3(dimBlocks),
                        sharedMem, 0, A_d, C_d, NUM, count);
+    auto Launched = Clock::now();
     CHECK(hipGetLastError());
     std::cout << "Kernel launched successfully\n";
-    auto Launched = Clock::now();
 
     // Leave no kernel in flight at exit.
     CHECK(hipStreamSynchronize(0));
     auto Done = Clock::now();
 
     std::chrono::duration<double> InLaunch = Launched - Start,
-                                  AfterLaunch = Done - Launched;
-    std::cout << "In launch " << InLaunch.count() << "s, after launch "
-              << AfterLaunch.count() << "s\n";
-    NonBlocking = InLaunch < AfterLaunch;
+                                  Total = Done - Start;
+    std::cout << "In launch " << InLaunch.count() << "s of " << Total.count()
+              << "s\n";
+    MinInLaunch = std::min(MinInLaunch, InLaunch);
+    MinTotal = std::min(MinTotal, Total);
   }
+  const bool NonBlocking = MinInLaunch < MinTotal / 2;
 
   if (NonBlocking) {
     std::cout << "PASSED!" << std::endl;
