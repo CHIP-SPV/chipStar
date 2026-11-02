@@ -959,12 +959,16 @@ if(NOT CHIP_BUILD_SHARED_LIBS)
   if(LevelZero_LIBRARY AND CHIP_SET_RPATH_L0)
     list(APPEND _chip_static_deps -Wl,-rpath,${LevelZeroLib_DIR})
   endif()
-  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ ${_chip_static_deps})
-  if(NOT SPIRV-Tools_FOUND) # built from source: only its archive is needed
+  if(SPIRV-Tools_FOUND) # the package lives in <libdir>/cmake/SPIRV-Tools
+    get_filename_component(_spirv_lib_dir "${SPIRV-Tools_DIR}/../.." ABSOLUTE)
+    list(APPEND _chip_static_deps -L${_spirv_lib_dir} -Wl,-rpath,${_spirv_lib_dir})
+    target_link_directories(CHIP INTERFACE ${_spirv_lib_dir})
+  else() # built from source: only its archive is needed
     list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ -L${SPIRV_TOOLS_INSTALL_DIR}/lib)
     install(FILES $<TARGET_FILE:SPIRV-Tools> DESTINATION ${CMAKE_INSTALL_LIBDIR})
     target_link_directories(CHIP INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
   endif()
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ ${_chip_static_deps})
   list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ ${_chip_static_deps})
 endif()
 
