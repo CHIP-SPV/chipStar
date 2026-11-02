@@ -105,6 +105,9 @@ private:
 
   std::set<std::unique_ptr<SPVModule>, PointerCmp<SPVModule>> Sources_;
   std::unordered_map<const void *, SPVGlobalObject *> HostPtrLookup_;
+  /// Keeps unregistered fat binary sources so their addresses, which device
+  /// caches key on, are never reused.
+  std::vector<std::unique_ptr<SPVModule>> Unregistered_;
 
 public:
   // the PowerVR OpenCL implementation for some reason demangles SPIR-V function
@@ -127,7 +130,7 @@ public:
                     size_t Size);
 
   void unregisterSource(Handle Src);
-  void unregisterSource(const SPVModule *Src);
+  void unregisterSource(const SPVModule *Src, bool Keep = false);
 
   const SPVModule *getSource(Handle Src);
   const SPVModule *getSource(HostPtr Ptr);
