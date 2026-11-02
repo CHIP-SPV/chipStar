@@ -23,7 +23,6 @@
 
 #include "hip/hip_runtime.h"
 
-#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -88,11 +87,10 @@ int main() {
   int count = 1000;
 
   using Clock = std::chrono::steady_clock;
-  std::chrono::duration<double> MinInLaunch = Clock::duration::max(),
-                                MinTotal = Clock::duration::max();
-  // Minimums, because a host stall or the first launch's compile can only
-  // inflate these.
-  for (int Attempt = 0; Attempt < 3; ++Attempt) {
+  int NonBlockingVotes = 0;
+  // A majority, because a host stall or the first launch's compile spoils only
+  // one attempt.
+  for (int Attempt = 0; Attempt < 3 && NonBlockingVotes < 2; ++Attempt) {
     std::cout << "Launching kernel\n";
     auto Start = Clock::now();
     hipLaunchKernelGGL(addCountReverse, dim3(numBlocks), dim3(dimBlocks),
@@ -109,10 +107,9 @@ int main() {
                                   Total = Done - Start;
     std::cout << "In launch " << InLaunch.count() << "s of " << Total.count()
               << "s\n";
-    MinInLaunch = std::min(MinInLaunch, InLaunch);
-    MinTotal = std::min(MinTotal, Total);
+    NonBlockingVotes += InLaunch < Total / 2;
   }
-  const bool NonBlocking = MinInLaunch < MinTotal / 2;
+  const bool NonBlocking = NonBlockingVotes >= 2;
 
   if (NonBlocking) {
     std::cout << "PASSED!" << std::endl;
