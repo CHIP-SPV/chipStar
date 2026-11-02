@@ -709,6 +709,11 @@ if (NOT SPIRV-Tools_FOUND)
   set(CHIP_SPIRV_VAL "${SPIRV_TOOLS_INSTALL_DIR}/bin/spirv-val")
 else()
   message(STATUS "spirv-tools: ${SPIRV-Tools_FOUND}")
+  if(NOT TARGET SPIRV-Tools AND TARGET SPIRV-Tools-static)
+    # An ALIAS would export as -lSPIRV-Tools-static to consumers of a static CHIP.
+    add_library(SPIRV-Tools INTERFACE IMPORTED)
+    target_link_libraries(SPIRV-Tools INTERFACE SPIRV-Tools-static)
+  endif()
   # spirv-val is not part of the SPIRV-Tools package; look beside that package.
   find_program(CHIP_SPIRV_VAL spirv-val HINTS "${SPIRV-Tools_DIR}/../../../bin")
 endif()
