@@ -940,7 +940,10 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
 
 if(NOT CHIP_BUILD_SHARED_LIBS)
   # libCHIP.a has no link dependencies of its own; hipcc must link them after it.
-  # -Wl, stops clang compiling a *.so under -xhip or unbundling an archive under -fgpu-rdc.
+  # -Wl, stops clang compiling a *.so under -xhip or unbundling an archive under -fgpu-rdc,
+  # which includes libCHIP.a itself.
+  list(TRANSFORM HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ REPLACE "^-lCHIP$" "-Wl,-lCHIP")
+  list(TRANSFORM HIP_OFFLOAD_LINK_OPTIONS_BUILD_ REPLACE "^-lCHIP$" "-Wl,-lCHIP")
   set(_chip_static_deps -Wl,-lSPIRV-Tools -pthread)
   foreach(_lib OpenCL_LIBRARY LevelZero_LIBRARY Vulkan_LIBRARY)
     if(${_lib})
