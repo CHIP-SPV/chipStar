@@ -40,8 +40,10 @@ static void onAlarm(int) {
 int main() {
   char In[64], Out[64] = {};
   memset(In, 0x5a, sizeof(In));
-  void *D;
-  EXPECT(hipMalloc(&D, sizeof(In)) == hipSuccess, "hipMalloc");
+  void *D, *D2;
+  EXPECT(hipMalloc(&D, sizeof(In)) == hipSuccess &&
+             hipMalloc(&D2, sizeof(In)) == hipSuccess,
+         "hipMalloc");
   EXPECT(hipMemcpy(D, In, sizeof(In), hipMemcpyHostToDevice) == hipSuccess,
          "warmup copy");
   if (Submits == 0) {
@@ -52,7 +54,7 @@ int main() {
   alarm(60);
 
   FailSubmit = 1;
-  EXPECT(hipMemcpy(D, In, sizeof(In), hipMemcpyHostToDevice) != hipSuccess,
+  EXPECT(hipMemcpy(D2, D, sizeof(In), hipMemcpyDeviceToDevice) != hipSuccess,
          "injected copy succeeded");
   EXPECT(!FailSubmit, "copy did not reach vkQueueSubmit");
   (void)hipGetLastError();
