@@ -96,6 +96,51 @@ int main() {
   if (verify("SetParams (1,2,4)", E, 0x33, H))
     return 1;
 
+  // Changing and restoring the geometry of the graph node keeps the depth.
+  CHECK(hipGraphMemsetNodeGetParams(Node, &MP));
+  MP.width = 2;
+  CHECK(hipGraphMemsetNodeSetParams(Node, &MP));
+  MP.width = 1;
+  CHECK(hipGraphMemsetNodeSetParams(Node, &MP));
+  hipGraphExec_t Fresh;
+  CHECK(hipGraphInstantiate(&Fresh, G, nullptr, nullptr, 0));
+  CHECK(zero());
+  if (launch(Fresh))
+    return 1;
+  if (verify("restored (1,2,4)", E, 0x5a, H))
+    return 1;
+
+  // A SetParams that widens elementSize replays the 2-byte pattern.
+  E = make_hipExtent(8, 1, 1);
+  if (capture(E, G, X))
+    return 1;
+  N = 1;
+  CHECK(hipGraphGetNodes(G, &Node, &N));
+  CHECK(hipGraphMemsetNodeGetParams(Node, &MP));
+  MP.elementSize = 2;
+  MP.value = 0x1234;
+  CHECK(hipGraphExecMemsetNodeSetParams(X, Node, &MP));
+  CHECK(zero());
+  if (launch(X))
+    return 1;
+  for (size_t I = 0; I < 8; I++) {
+    unsigned char Want = I % 2 ? 0x12 : 0x34;
+    if (H[I] != Want) {
+      std::cout << "FAIL: elementSize 2 offset " << I << " is " << (int)H[I]
+                << " expected " << (int)Want << "\n";
+      return 1;
+    }
+  }
+
+  // A height below the allocation's ysize still strides by ysize.
+  E = make_hipExtent(1, 1, Slices);
+  if (capture(E, G, X))
+    return 1;
+  if (launch(X))
+    return 1;
+  if (verify("captured (1,1,4)", E, 0x5a, H))
+    return 1;
+
   // A zero depth must change nothing.
   E = make_hipExtent(1, Rows, 0);
   if (capture(E, G, X))

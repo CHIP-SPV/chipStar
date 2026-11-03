@@ -393,6 +393,7 @@ public:
 class CHIPGraphNodeMemset : public CHIPGraphNode {
 private:
   hipMemsetParams Params_;
+  hipMemsetParams Captured_{};
   // hipMemsetParams cannot carry the depth or ysize of a hipMemset3DAsync.
   bool Is3D_ = false;
   size_t Depth_ = 0;
@@ -400,15 +401,16 @@ private:
 
 public:
   CHIPGraphNodeMemset(const CHIPGraphNodeMemset &Other)
-      : CHIPGraphNode(Other), Params_(Other.Params_), Is3D_(Other.Is3D_),
-        Depth_(Other.Depth_), YSize_(Other.YSize_) {}
+      : CHIPGraphNode(Other), Params_(Other.Params_),
+        Captured_(Other.Captured_), Is3D_(Other.Is3D_), Depth_(Other.Depth_),
+        YSize_(Other.YSize_) {}
 
   CHIPGraphNodeMemset(const hipMemsetParams Params)
       : CHIPGraphNode(hipGraphNodeTypeMemset), Params_(Params) {}
 
   CHIPGraphNodeMemset(const hipMemsetParams Params, size_t Depth, size_t YSize)
-      : CHIPGraphNode(hipGraphNodeTypeMemset), Params_(Params), Is3D_(true),
-        Depth_(Depth), YSize_(YSize) {}
+      : CHIPGraphNode(hipGraphNodeTypeMemset), Params_(Params),
+        Captured_(Params), Is3D_(true), Depth_(Depth), YSize_(YSize) {}
 
   CHIPGraphNodeMemset(const hipMemsetParams *Params)
       : CHIPGraphNode(hipGraphNodeTypeMemset), Params_(*Params) {}
