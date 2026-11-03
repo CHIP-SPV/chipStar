@@ -130,6 +130,10 @@ if(CHIP_USE_NATIVE_VULKAN_SPIRV)
     TestSubwordAtomics.hip TestAlignAttrRuntime.hip
     TestNegativeHasNoIGBAs2.hip TestFixRuntimeWarpSize.hip)
 endif()
+# Vulkan does not support initializing from native handles.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2259ReinitModuleLifetime.hip)
+endif()
 # Checks the native Vulkan lowering of division, which Vulkan does not round.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip)
