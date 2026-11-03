@@ -164,6 +164,13 @@ set_tests_properties(TestFix2046CMakeCudaRdc PROPERTIES TIMEOUT 900 RESOURCE_LOC
 endif()
 endif()
 
+add_test(NAME TestFix2047InstallPrefixSpace
+  COMMAND ${CMAKE_COMMAND}
+    -DBUILD_DIR=${CMAKE_BINARY_DIR}
+    -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2047InstallPrefixSpace
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2047InstallPrefixSpace.cmake)
+set_tests_properties(TestFix2047InstallPrefixSpace PROPERTIES RESOURCE_LOCK chipStarInstall)
+
 if(CHIP_USE_NATIVE_VULKAN_SPIRV)
 # Reproduce #2216: find_package(hip) must find Vulkan::Vulkan, which hip::CHIP links.
 add_test(NAME TestFix2216VulkanConsumer
