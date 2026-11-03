@@ -123,6 +123,9 @@ class CHIPEventVulkan : public chipstar::Event {
   int IpcShmFd_ = -1;
   bool IpcOpened_ = false;
 
+  /// Whether a hard fence error was already logged for this event.
+  bool HardErrorLogged_ = false;
+
 public:
   CHIPEventVulkan(chipstar::Context *Ctx,
                   chipstar::EventFlags Flags = chipstar::EventFlags());
