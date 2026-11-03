@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+# Each block picks the generator its build tool needs.
+unset CMAKE_GENERATOR
 
 CXX=@CMAKE_CXX_COMPILER@
 
