@@ -633,7 +633,8 @@ static GlobalVariable *emitIndirectGlobalVariable(Module &M,
       /*isExternallyInitialized=*/true);
   // Original GVars emitted by HIP-Clang are hidden. Make new GVars hidden too
   // for consistency.
-  NewGVar->setVisibility(GlobalValue::HiddenVisibility);
+  if (!NewGVar->hasLocalLinkage())
+    NewGVar->setVisibility(GlobalValue::HiddenVisibility);
 
   // Transfer debug info.
   SmallVector<DIGlobalVariableExpression *, 1> DIExprs;
