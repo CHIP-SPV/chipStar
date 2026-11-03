@@ -201,6 +201,8 @@ set_tests_properties(TestFix1524GetEdgesCapacity PROPERTIES
 # The eager JIT build error must be replayed at launch.
 set_tests_properties(TestFix2025EagerJitBuildError PROPERTIES
   ENVIRONMENT "CHIP_LAZY_JIT=0" FAIL_REGULAR_EXPRESSION "")
+set_tests_properties(TestFix2026MissingKernelEagerJit PROPERTIES
+  ENVIRONMENT "CHIP_LAZY_JIT=0")
 
 # Names that the Test* glob does not match.
 add_hip_runtime_test(RegressionTest302.hip)
