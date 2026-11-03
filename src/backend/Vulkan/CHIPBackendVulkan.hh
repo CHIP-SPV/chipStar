@@ -342,6 +342,7 @@ class CHIPDeviceVulkan : public chipstar::Device {
   VkPhysicalDevice PhysicalDevice_ = VK_NULL_HANDLE;
 
   VkDevice LogicalDevice_ = VK_NULL_HANDLE;
+  std::atomic<bool> TimelineSignalFailed_{false};
 
   /// The one VkQueue every stream of the device submits to.
   VkQueue ComputeQueue_ = VK_NULL_HANDLE;
@@ -427,6 +428,12 @@ public:
   VkQueryPool getTimestampQueryPool() const { return TimestampQueryPool_; }
 
 
+  /// A signal failed on some queue: work behind it never finishes.
+  void setTimelineSignalFailed() { TimelineSignalFailed_ = true; }
+  bool timelineSignalFailed() const { return TimelineSignalFailed_; }
+  /// vkWaitForFences without blocking forever once a signal has failed.
+  VkResult waitFence(VkFence F);
+
   VkFence acquireFence();
   void releaseFence(VkFence F);
   /// A timestamp slot, or -1 when the pool is exhausted.
@@ -471,6 +478,8 @@ class CHIPQueueVulkan : public chipstar::Queue {
   /// Signalled with an incremented value by every submit.
   VkSemaphore TimelineSemaphore_ = VK_NULL_HANDLE;
   uint64_t TimelineValue_ = 0;
+  /// A vkSignalSemaphore on the monitor thread failed; some value never lands.
+  std::atomic<bool> TimelineSignalFailed_{false};
 
   /// Signalled by submits that have no event fence.
   VkFence FinishFence_ = VK_NULL_HANDLE;
@@ -529,6 +538,9 @@ public:
   /// Later submits on this queue wait for the value until it is signaled.
   uint64_t reserveTimelineValue();
   void signalTimelineValue(uint64_t Value);
+  /// Wait for this queue's timeline to reach Value; throws if a signal failed.
+  void waitTimelineValue(uint64_t Value);
+  void throwIfSignalFailed() const;
   virtual bool query() override;
   virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor)
