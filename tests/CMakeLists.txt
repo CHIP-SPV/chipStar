@@ -118,13 +118,12 @@ add_test(NAME TestFix2042CMakeCuda
 set_tests_properties(TestFix2042CMakeCuda PROPERTIES TIMEOUT 900)
 endif()
 
-if(CHIP_BUILD_SHARED_LIBS AND CHIP_USE_NATIVE_VULKAN_SPIRV)
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
 # Reproduce #2216: find_package(hip) must find Vulkan::Vulkan, which hip::CHIP links.
 add_test(NAME TestFix2216VulkanConsumer
   COMMAND ${CMAKE_COMMAND}
     -DBUILD_DIR=${CMAKE_BINARY_DIR}
     -DGENERATOR=${CMAKE_GENERATOR}
-    -DCXX_COMPILER=${CMAKE_CXX_COMPILER}
     -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2216VulkanConsumer
     -DCONSUMER_DIR=${CMAKE_CURRENT_SOURCE_DIR}/post-install/HipHostTarget
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2216VulkanConsumer.cmake)
