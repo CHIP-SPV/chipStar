@@ -3855,8 +3855,10 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
     for (auto Q : Dev->getQueuesNoLock())
       if (Q->getQueueFlags().isBlocking() && !Q->isEmptyQueue())
         Q->finish();
-    auto *PT = chipstar::Device::PerThreadDefaultQueue.get();
-    if (PT && PT->getDevice() == Dev && !PT->isEmptyQueue())
+    auto *PT = Dev->isPerThreadStreamUsedNoLock()
+                   ? Dev->getPerThreadDefaultQueueNoLock()
+                   : nullptr;
+    if (PT && !PT->isEmptyQueue())
       PT->finish();
   }
 
