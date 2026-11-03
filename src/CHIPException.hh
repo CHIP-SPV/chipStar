@@ -90,22 +90,27 @@ public:
 // This is used to prevent the main thread from exiting before all other threads have finished
 extern std::atomic<int> GlobalActiveThreads;
 
-// Function to track thread entry  
+// Trivially destructible, so still readable after the tracker's destructor ran.
+inline thread_local bool ThreadSeen = false;
+inline thread_local bool ThreadCounted = false;
+
 inline void trackThreadEntry() {
+  if (ThreadSeen)
+    return;
+  ThreadSeen = true;
+  ThreadCounted = true;
+  GlobalActiveThreads.fetch_add(1, std::memory_order_relaxed);
   thread_local static struct ThreadTracker {
-    bool counted = false;
     ~ThreadTracker() {
-      if (counted) {
-        GlobalActiveThreads.fetch_sub(1, std::memory_order_relaxed);
-      }
+      ThreadCounted = false;
+      GlobalActiveThreads.fetch_sub(1, std::memory_order_relaxed);
     }
   } tracker;
-  
-  if (!tracker.counted) {
-    GlobalActiveThreads.fetch_add(1, std::memory_order_relaxed);
-    tracker.counted = true;
-  }
+  (void)tracker;
 }
+
+// For runtime threads joined only after waitForThreadExit, which must not wait for them.
+inline void excludeThreadFromTracking() { ThreadSeen = true; }
 
 #define CHIP_TRY try { trackThreadEntry();
 #define CHIP_CATCH                                                             \
