@@ -254,7 +254,10 @@ add_shell_test(TestFix1577PointerVectors.bash)
 # A constant zero length copy must not reach SPIR-V emission.
 add_shell_test(TestFix1634ZeroLengthCopy.bash)
 add_shell_test(TestFix2110GlobalVarUsedList.bash)
-add_shell_test(TestFix2217LocalHolderVisibility.bash)
+# With the option OFF the pass removes the holder, so there is nothing to inspect.
+if(CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS)
+  add_shell_test(TestFix2217LocalHolderVisibility.bash)
+endif()
 add_shell_test(TestFix1640AggregateInitGlobalAddress.bash)
 if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   add_shell_test(TestFix1654FPContract.bash)
