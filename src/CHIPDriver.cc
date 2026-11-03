@@ -229,6 +229,49 @@ extern void CHIPInitialize() {
   std::call_once(Initialized, &CHIPInitializeCallOnce);
 }
 
+static void teardownBackend() {
+  // Synchronize all devices before cleanup to ensure any pending operations
+  // (especially JIT compilation) complete before tearing down resources
+  for (auto Dev : Backend->getDevices()) {
+    // Sync all user queues
+    {
+      std::lock_guard<std::mutex> Lock(Dev->QueueAddRemoveMtx);
+      for (auto Q : Dev->getQueuesNoLock()) {
+        Q->finish();
+      }
+    }
+    // Sync default queues
+    auto LegacyQueue = Dev->getLegacyDefaultQueue();
+    if (LegacyQueue) {
+      LegacyQueue->finish();
+    }
+    // Note: the per-thread default queue is deliberately NOT synced here.
+    // PerThreadDefaultQueue is a thread_local unique_ptr whose destructor
+    // may already have run by the time this atexit handler executes (TLS
+    // destruction order versus atexit order is implementation-defined).
+    // Reading destroyed TLS is UB and segfaults with some compilers (e.g.
+    // clang 23). A null check cannot help: it reads the same destroyed
+    // storage.
+    //
+    // Nothing else syncs it either. ~Queue() is empty, ~CHIPQueueOpenCL()
+    // only releases its poll marker, and ~CHIPQueueLevel0() skips finish()
+    // on purpose because the Level Zero context may already be gone. So
+    // in-flight work on a per-thread stream is not awaited at exit. Fixing
+    // that needs a non-TLS registry of the per-thread queues; see issue
+    // #1439.
+  }
+
+  // call deallocateDeviceVariables on all devices.
+
+  for (auto Dev : Backend->getDevices()) {
+    Dev->deallocateDeviceVariables();
+  }
+
+  Backend->uninitialize();
+  delete Backend;
+  Backend = nullptr;
+}
+
 void CHIPUninitializeCallOnce() {
   logDebug("Uninitializing CHIP...");
   if (ChipEnvVars.getSkipUninit()) {
@@ -241,46 +284,7 @@ void CHIPUninitializeCallOnce() {
       logInfo("Unloaded module count: {}", getSPVRegister().getNumSources());
     }
 
-    // Synchronize all devices before cleanup to ensure any pending operations
-    // (especially JIT compilation) complete before tearing down resources
-    for (auto Dev : Backend->getDevices()) {
-      // Sync all user queues
-      {
-        std::lock_guard<std::mutex> Lock(Dev->QueueAddRemoveMtx);
-        for (auto Q : Dev->getQueuesNoLock()) {
-          Q->finish();
-        }
-      }
-      // Sync default queues
-      auto LegacyQueue = Dev->getLegacyDefaultQueue();
-      if (LegacyQueue) {
-        LegacyQueue->finish();
-      }
-      // Note: the per-thread default queue is deliberately NOT synced here.
-      // PerThreadDefaultQueue is a thread_local unique_ptr whose destructor
-      // may already have run by the time this atexit handler executes (TLS
-      // destruction order versus atexit order is implementation-defined).
-      // Reading destroyed TLS is UB and segfaults with some compilers (e.g.
-      // clang 23). A null check cannot help: it reads the same destroyed
-      // storage.
-      //
-      // Nothing else syncs it either. ~Queue() is empty, ~CHIPQueueOpenCL()
-      // only releases its poll marker, and ~CHIPQueueLevel0() skips finish()
-      // on purpose because the Level Zero context may already be gone. So
-      // in-flight work on a per-thread stream is not awaited at exit. Fixing
-      // that needs a non-TLS registry of the per-thread queues; see issue
-      // #1439.
-    }
-
-    // call deallocateDeviceVariables on all devices.
-
-    for (auto Dev : Backend->getDevices()) {
-      Dev->deallocateDeviceVariables();
-    }
-
-    Backend->uninitialize();
-    delete Backend;
-    Backend = nullptr;
+    teardownBackend();
   }
 }
 
@@ -292,16 +296,8 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles) {
   logDebug("CHIPDriver REInitialize");
 
-  // chipstar::Kernel compilation may have already taken place so we need save
-  // these modules and pass them to re-initialization function
-  auto ModuleState = Backend->getActiveDevice()->getModuleState();
-
-  if (Backend) {
-    logDebug("uninitializing existing Backend object.");
-    Backend->uninitialize();
-    delete Backend;
-    Backend = nullptr;
-  }
+  if (Backend)
+    teardownBackend();
 
   createBackendObject();
 
@@ -314,7 +310,6 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   }
 
   Backend->initializeFromNative(NativeHandles, NumHandles);
-  Backend->getActiveDevice()->addFromModuleState(ModuleState);
   Backend->setReinitializeFlag(true);
 
   return hipSuccess;

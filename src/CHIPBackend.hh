@@ -1383,14 +1383,6 @@ public:
  */
 class Device {
 
-  // A bundle for CHIPReinitialize.
-  class ModuleState {
-    friend class Device;
-    std::unordered_map<const SPVModule *, chipstar::Module *>
-        SrcModToCompiledMod_;
-    std::unordered_map<const void *, chipstar::Module *> HostPtrToCompiledMod_;
-  };
-
   /// Modules compiled so far.
   std::unordered_map<const SPVModule *, chipstar::Module *>
       SrcModToCompiledMod_;
@@ -1546,20 +1538,6 @@ public:
    * @return std::vector<Kernel*>&
    */
   std::vector<chipstar::Kernel *> getKernels();
-
-  ModuleState getModuleState() const {
-    ModuleState State;
-    State.SrcModToCompiledMod_ = SrcModToCompiledMod_;
-    State.HostPtrToCompiledMod_ = HostPtrToCompiledMod_;
-    return State;
-  }
-
-  void addFromModuleState(ModuleState &State) {
-    for (auto &kv : State.SrcModToCompiledMod_)
-      SrcModToCompiledMod_.insert(kv);
-    for (auto &kv : State.HostPtrToCompiledMod_)
-      HostPtrToCompiledMod_.insert(kv);
-  }
 
   /**
    * @brief Use a backend to populate device properties such as memory
