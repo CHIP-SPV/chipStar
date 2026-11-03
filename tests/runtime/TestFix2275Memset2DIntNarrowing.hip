@@ -3,6 +3,7 @@
 #include <cstdio>
 
 static int Failed = 0;
+static char Buf[64];
 
 static void check(const char *Name, bool Ok) {
   if (!Ok) {
@@ -76,6 +77,20 @@ int main() {
   hipFree(Q);
   hipFree(R);
   hipFree(Z);
+
+  void *D;
+  if (hipHostRegister(Buf, 64, 0) == hipSuccess &&
+      hipHostGetDevicePointer(&D, Buf, 0) == hipSuccess) {
+    check("j) registered host range, fill runs past the end",
+          hipMemset2D(Buf + 1, 16, 0xAB, 7, 5) == hipErrorInvalidValue);
+    check("j) registered device range, fill runs past the end",
+          hipMemset2D((char *)D + 1, 16, 0xAB, 7, 5) == hipErrorInvalidValue);
+    check("j) registered device range, fill fits",
+          hipMemset2D((char *)D + 1, 16, 0xAB, 7, 4) == hipSuccess);
+    hipHostUnregister(Buf);
+  } else {
+    printf("SKIP j: hipHostRegister or hipHostGetDevicePointer failed\n");
+  }
 
   hipError_t Err = hipMalloc(&Big, size_t(1) << 31);
   if (Err != hipSuccess) {
