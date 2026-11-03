@@ -236,11 +236,13 @@ set_tests_properties(TestFix2312Memset3DSlicePitchTruncation PROPERTIES
   ENVIRONMENT "CHIP_UNRESTRICTED_ALLOC_SIZE=1" RUN_SERIAL TRUE)
 
 # The interposers rely on ELF symbol interposition, so native Vulkan on ELF only.
-if(CHIP_USE_NATIVE_VULKAN_SPIRV AND NOT APPLE)
+if(CHIP_USE_NATIVE_VULKAN_SPIRV AND NOT APPLE AND CHIP_BUILD_SHARED_LIBS)
   add_hip_runtime_test(TestFix2261VulkanTeardown.hip MODES reinit exit)
   # Exports its interposers so libCHIP binds to them.
   set_target_properties(TestFix2261VulkanTeardown PROPERTIES ENABLE_EXPORTS ON)
   target_link_libraries(TestFix2261VulkanTeardown ${CMAKE_DL_LIBS})
+  set_tests_properties(TestFix2261VulkanTeardown_reinit TestFix2261VulkanTeardown_exit
+                       PROPERTIES TIMEOUT 120)
 endif()
 
 # The staleness probe needs several work-groups to make progress against each
