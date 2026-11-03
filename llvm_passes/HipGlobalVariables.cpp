@@ -631,9 +631,10 @@ static GlobalVariable *emitIndirectGlobalVariable(Module &M,
       ConstantInt::get(I64Ty, 0), NewGVarName, (GlobalVariable *)nullptr,
       GVar->getThreadLocalMode(), SpirvCrossWorkGroupAS,
       /*isExternallyInitialized=*/true);
-  // Original GVars emitted by HIP-Clang are hidden. Make new GVars hidden too
-  // for consistency.
-  NewGVar->setVisibility(GlobalValue::HiddenVisibility);
+  // Mirror HIP-Clang's hidden visibility; LLVM requires default on local
+  // linkage.
+  if (!NewGVar->hasLocalLinkage())
+    NewGVar->setVisibility(GlobalValue::HiddenVisibility);
 
   // Transfer debug info.
   SmallVector<DIGlobalVariableExpression *, 1> DIExprs;
