@@ -615,8 +615,11 @@ void EventMonitorVulkan::monitor() {
     {
       LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
       if (Stop) {
-        logTrace("EventMonitorVulkan::monitor() exiting on Stop");
-        return;
+        LOCK(Backend->CallbackQueueMtx);
+        if (Backend->CallbackQueue.empty()) {
+          logTrace("EventMonitorVulkan::monitor() exiting on Stop");
+          return;
+        }
       }
     }
   }
@@ -3873,9 +3876,7 @@ void CHIPBackendVulkan::uninitialize() {
   // Detached threads may still be in HIP calls using the VkDevice.
   waitForThreadExit();
 
-  // Flag before locking, so a queue destructor waiting on the lock sees it.
-  ShuttingDown_.store(true, std::memory_order_release);
-  std::lock_guard<std::recursive_mutex> TeardownLock(TeardownMtx_);
+  // Before the lock: a draining callback may destroy a stream.
   if (EventMonitor_) {
     {
       LOCK(EventMonitor_->EventMonitorMtx);
@@ -3884,6 +3885,10 @@ void CHIPBackendVulkan::uninitialize() {
     EventMonitor_->join();
     EventMonitor_ = nullptr;
   }
+
+  // Flag before locking, so a queue destructor waiting on the lock sees it.
+  ShuttingDown_.store(true, std::memory_order_release);
+  std::lock_guard<std::recursive_mutex> TeardownLock(TeardownMtx_);
 
   // Devices go before the VkInstance; ~Backend deletes the contexts.
   for (auto *Ctx : ChipContexts) {
