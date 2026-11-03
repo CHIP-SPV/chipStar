@@ -480,12 +480,16 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
     "-emit-obj",
     "-mllvm", "-spirv-ext=" CHIP_HIPVERIFY_BACKEND_EXT,
 #else
-    "--spirv-max-version=1.2",
     "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add",
 #endif
     "-o", SPVTempFile,
     BCTempFile
   };
+#ifndef CHIP_HIPVERIFY_BACKEND_EXT
+  // llvm-spirv rejects a version cap below a versioned triple.
+  if (Triple(M.getTargetTriple()).getSubArch() == Triple::NoSubArch)
+    Args.insert(Args.begin() + 1, "--spirv-max-version=1.2");
+#endif
   
   // DEBUG: Print the full command being executed
   // errs() << "HipVerify: Executing:";
