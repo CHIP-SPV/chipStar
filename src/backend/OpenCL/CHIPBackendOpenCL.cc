@@ -30,7 +30,6 @@
 #include <algorithm>
 #include <chrono>
 #include <map>
-#include <unordered_set>
 #include <thread>
 #include <fstream>
 #include <unistd.h>
@@ -1308,12 +1307,10 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(clCreateKernelsInProgram);
 
   logTrace("Kernels in CHIPModuleOpenCL: {} \n", Kernels.size());
-  std::unordered_set<std::string> BuiltKernelNames;
   for (auto &Krnl : Kernels) {
     std::string HostFName;
     clStatus = Krnl.getInfo(CL_KERNEL_FUNCTION_NAME, &HostFName);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(clGetKernelInfo);
-    BuiltKernelNames.insert(HostFName);
     auto *FuncInfo = findFunctionInfo(HostFName);
     if (!FuncInfo) {
       continue;
@@ -1323,26 +1320,6 @@ void CHIPModuleOpenCL::compile(chipstar::Device *ChipDev) {
     addKernel(ChipKernel);
   }
 
-  // A successful build is not proof that every kernel of the source module
-  // made it into the program: the Arm Mali driver accepts a module with an
-  // unresolved function import, reports CL_SUCCESS with an empty build log,
-  // and leaves out the kernels that call the import. The host side later
-  // binds every registered __global__ function of the source module to a
-  // program kernel by name, so a program lacking one is a module that failed
-  // to load, not a module with a faulting kernel.
-  std::string MissingKernels;
-  for (const auto &Info : Src_->Kernels)
-    if (!BuiltKernelNames.count(Info.Name))
-      MissingKernels += (MissingKernels.empty() ? "" : ", ") + Info.Name;
-  if (!MissingKernels.empty())
-    CHIPERR_LOG_AND_THROW(
-        "Built program lacks kernel(s) of the source module (unresolved "
-        "device function?): " +
-            MissingKernels,
-        hipErrorSharedObjectInitFailed);
-
-  // Persist only a program known to hold every kernel; a cached copy of an
-  // incomplete one would fail the same check on every later process anyway.
   if (!cached)
     storeProgram(Program_, *ChipDevOcl, CacheKey);
 
