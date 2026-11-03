@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <unistd.h>
 
 #define N 16512
 
@@ -25,6 +26,11 @@
            hipGetErrorString(e));                                              \
     passed &= ok;                                                              \
   } while (0)
+
+static void slow_overwrite(hipStream_t, hipError_t, void *p) {
+  usleep(200000);
+  memset(p, 0x88, N);
+}
 
 __global__ void read_val(unsigned char *out, unsigned char *in, int i) {
   *out = in[i];
@@ -48,29 +54,34 @@ int main() {
   STEP("hipMemset3D", hipMemset3D(make_hipPitchedPtr(host, 128, 128, 1), 0x66, make_hipExtent(1, 1, 100)), host[0] == 0x66 && host[99 * 128] == 0x66 && host[1] == 0);
   hipStream_t s;
   e = hipStreamCreate(&s);
-  passed &= e == hipSuccess;
+  if (e != hipSuccess) {
+    printf("hipStreamCreate: %s\n", hipGetErrorString(e));
+    return 1;
+  }
 
-  // An async copy into the host buffer is queued before the fill on the stream.
-  unsigned char *src;
-  e = hipMalloc(&src, N);
-  passed &= e == hipSuccess;
-  hipMemset(src, 0x88, N);
-  e = hipMemcpyAsync(host, src, N, hipMemcpyDeviceToHost, s);
-  passed &= e == hipSuccess;
+  // A callback that overwrites the host buffer with 0x88 after a delay must
+  // complete before a later fill, on the same stream or from the default stream.
+  hipStreamAddCallback(s, slow_overwrite, host, 0);
   e = hipMemsetAsync(host, 0x99, N, s);
-  passed &= e == hipSuccess;
-  e = hipStreamSynchronize(s);
-  bool ordered = e == hipSuccess;
+  bool same = e == hipSuccess && hipStreamSynchronize(s) == hipSuccess;
   for (int i = 0; i < N; i++)
-    ordered &= host[i] == 0x99;
-  printf("%-20s %s\n", "fill after memcpy", ordered ? "PASSED" : "FAILED");
-  passed &= ordered;
-  hipFree(src);
+    same &= host[i] == 0x99;
+  printf("%-20s %s\n", "fill same stream", same ? "PASSED" : "FAILED");
+  passed &= same;
+
+  hipStreamAddCallback(s, slow_overwrite, host, 0);
+  e = hipMemset(host, 0x9A, N);
+  bool cross = e == hipSuccess && hipStreamSynchronize(s) == hipSuccess;
+  for (int i = 0; i < N; i++)
+    cross &= host[i] == 0x9A;
+  printf("%-20s %s\n", "fill cross stream", cross ? "PASSED" : "FAILED");
+  passed &= cross;
 
   REJECT("memset N+1", hipMemset(host, 0, N + 1));
   REJECT("memset -1", hipMemset(host, 0, (size_t)-1));
   REJECT("memset3D range", hipMemset3D(make_hipPitchedPtr(host, 256, 256, 1), 0, make_hipExtent(1, 1, 66)));
   REJECT("memset2D range", hipMemset2D(host + 16000, 1024, 0, 64, 2));
+  REJECT("memset3D 2^56", hipMemset3D(make_hipPitchedPtr(host, 128, 1, size_t(1) << 56), 0, make_hipExtent(1, 1, 3)));
 
   memset(host, 0, N);
   e = hipMemsetAsync(host, 0x77, N, s);
