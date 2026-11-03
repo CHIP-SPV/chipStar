@@ -5312,7 +5312,7 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
     return hipSuccess;
 
-  if (Extent.height * Extent.width * Extent.depth == 0)
+  if (Extent.height == 0 || Extent.width == 0 || Extent.depth == 0)
     return hipSuccess;
 
   if (Extent.height > PitchedDevPtr.ysize ||
@@ -5338,10 +5338,10 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
       AllocInfo->Size - (P - (P >= Dev && P < Dev + AllocInfo->Size
                                   ? Dev
                                   : static_cast<char *>(AllocInfo->HostPtr)));
-  size_t SlicePitch = PitchedDevPtr.pitch * PitchedDevPtr.ysize;
-  if (Depth - 1 > Avail / SlicePitch ||
-      (Depth - 1) * SlicePitch + (Height - 1) * PitchedDevPtr.pitch + Width >
-          Avail)
+  // Rows that can start past the first one with Width bytes still in range.
+  size_t Rows = Width <= Avail ? (Avail - Width) / PitchedDevPtr.pitch : 0;
+  if (Width > Avail || Height - 1 > Rows ||
+      Depth - 1 > (Rows - (Height - 1)) / PitchedDevPtr.ysize)
     CHIPERR_LOG_AND_THROW("Extent exceeds allocation", hipErrorInvalidValue);
 
   if (PitchedDevPtr.pitch == Extent.width)

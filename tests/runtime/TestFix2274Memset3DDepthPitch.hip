@@ -42,6 +42,20 @@ int main() {
     Ok &= check("memset3DAsync over", hipMemset3DAsync(P, 1, Big, S),
                 hipErrorInvalidValue);
   }
+  // Overflowing extent (2,1,2^63) on a (2,1,1) allocation.
+  hipPitchedPtr Q;
+  Ok = Ok && check("malloc3D small", hipMalloc3D(&Q, make_hipExtent(2, 1, 1)),
+                   hipSuccess);
+  Ok = Ok && check("memset3D wrap",
+                   hipMemset3D(Q, 1, make_hipExtent(2, 1, 1ull << 63)),
+                   hipErrorInvalidValue);
+  // pitch * ysize wraps to zero.
+  hipPitchedPtr W = P;
+  W.ysize = 1ull << 57;
+  Ok = Ok &&
+       check("memset3D ysize wrap", hipMemset3D(W, 1, E), hipErrorInvalidValue);
+  Ok = Ok && check("memset3DAsync ysize wrap", hipMemset3DAsync(W, 1, E, S),
+                   hipErrorInvalidValue);
   std::printf("%s\n", Ok ? "PASS" : "FAIL");
   return !Ok;
 }
