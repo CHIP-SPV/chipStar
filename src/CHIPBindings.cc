@@ -5316,7 +5316,7 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
     return hipSuccess;
 
   if (Extent.height > PitchedDevPtr.ysize ||
-      Extent.width > PitchedDevPtr.xsize || Extent.depth > PitchedDevPtr.pitch)
+      Extent.width > PitchedDevPtr.xsize || Extent.width > PitchedDevPtr.pitch)
     CHIPERR_LOG_AND_THROW("Extent exceeds allocation", hipErrorInvalidValue);
 
   // Check if pointer inside allocation range
@@ -5327,11 +5327,22 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
     CHIPERR_LOG_AND_THROW("PitchedDevPointer not found in allocation ranges",
                           hipErrorInvalidValue);
 
-  // Check if extents don't overextend the allocation?
-
   size_t Width = Extent.width;
   size_t Height = Extent.height;
   size_t Depth = Extent.depth;
+
+  // The fill must fit in the allocation using the pitch * ysize slice layout.
+  char *P = static_cast<char *>(PitchedDevPtr.ptr);
+  char *Dev = static_cast<char *>(AllocInfo->DevPtr);
+  size_t Avail =
+      AllocInfo->Size - (P - (P >= Dev && P < Dev + AllocInfo->Size
+                                  ? Dev
+                                  : static_cast<char *>(AllocInfo->HostPtr)));
+  size_t SlicePitch = PitchedDevPtr.pitch * PitchedDevPtr.ysize;
+  if (Depth - 1 > Avail / SlicePitch ||
+      (Depth - 1) * SlicePitch + (Height - 1) * PitchedDevPtr.pitch + Width >
+          Avail)
+    CHIPERR_LOG_AND_THROW("Extent exceeds allocation", hipErrorInvalidValue);
 
   if (PitchedDevPtr.pitch == Extent.width)
     ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
@@ -5355,7 +5366,7 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
     RETURN(hipErrorInvalidValue);
 
   if (Extent.height > PitchedDevPtr.ysize ||
-      Extent.width > PitchedDevPtr.xsize || Extent.depth > PitchedDevPtr.pitch)
+      Extent.width > PitchedDevPtr.xsize || Extent.width > PitchedDevPtr.pitch)
     RETURN(hipErrorInvalidValue);
 
   RETURN(hipMemset3DAsyncInternal(PitchedDevPtr, Value, Extent, Stream));
@@ -5372,7 +5383,7 @@ hipError_t hipMemset3D(hipPitchedPtr PitchedDevPtr, int Value,
     RETURN(hipErrorInvalidValue);
 
   if (Extent.height > PitchedDevPtr.ysize ||
-      Extent.width > PitchedDevPtr.xsize || Extent.depth > PitchedDevPtr.pitch)
+      Extent.width > PitchedDevPtr.xsize || Extent.width > PitchedDevPtr.pitch)
     RETURN(hipErrorInvalidValue);
 
   auto ChipQueue = Backend->getActiveDevice()->getDefaultQueue();
