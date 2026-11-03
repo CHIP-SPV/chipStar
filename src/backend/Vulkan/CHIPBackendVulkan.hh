@@ -525,7 +525,6 @@ public:
   void drainDevicePrintf();
   /// Block until all work this queue must follow has finished.
   void waitSubmitted();
-  bool Draining_ = false;
   /// Later submits on this queue wait for the value until it is signaled.
   uint64_t reserveTimelineValue();
   void signalTimelineValue(uint64_t Value);
