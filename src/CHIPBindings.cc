@@ -3827,7 +3827,15 @@ hipError_t hipStreamQuery(hipStream_t Stream) {
   CHIP_CATCH
 }
 
-static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
+static inline hipError_t
+hipStreamSynchronizeInternal(hipStream_t Stream,
+                             std::unique_lock<std::mutex> *ApiLock = nullptr) {
+  auto Finish = [ApiLock](chipstar::Queue *Q) {
+    if (ApiLock)
+      Q->finishUnlockingApiMtx(*ApiLock);
+    else
+      Q->finish();
+  };
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
 
   if (ChipQueue->getCaptureStatus() != hipStreamCaptureStatusNone) {
@@ -3842,9 +3850,9 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
       !ChipQueue->isDefaultLegacyQueue() &&
       !ChipQueue->isDefaultPerThreadQueue()) {
     auto Dev = Backend->getActiveDevice();
-    Dev->getLegacyDefaultQueue()->finish();
+    Finish(Dev->getLegacyDefaultQueue());
     if (Dev->isPerThreadStreamUsed()) {
-      Dev->getPerThreadDefaultQueue()->finish();
+      Finish(Dev->getPerThreadDefaultQueue());
     }
   }
 
@@ -3860,15 +3868,15 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
       PT->finish();
   }
 
-  ChipQueue->finish();
+  Finish(ChipQueue);
   return hipSuccess;
 }
 
 hipError_t hipStreamSynchronize(hipStream_t Stream) {
   CHIP_TRY
-  LOCK(ApiMtx);
+  std::unique_lock<std::mutex> ApiLock(ApiMtx);
   CHIPInitialize();
-  RETURN(hipStreamSynchronizeInternal(Stream));
+  RETURN(hipStreamSynchronizeInternal(Stream, &ApiLock));
   CHIP_CATCH
 }
 
