@@ -136,6 +136,10 @@ if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2263VulkanCallbackTeardownHang.hip
     TestFix2231VulkanEventFreedContext.hip)
 endif()
+# OpenCL's hipStreamAddCallback blocks until the callback returns (https://github.com/CHIP-SPV/chipStar/issues/1966).
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2314VulkanSyncCallbackApiMtx.hip)
+endif()
 # Native Vulkan only: its lowering of division, and the #2264 teardown path.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip
