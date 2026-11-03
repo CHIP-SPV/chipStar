@@ -3517,6 +3517,8 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
         CBAI.commandPool = CommandPool_;
         CBAI.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         CBAI.commandBufferCount = 1;
+        CmdBufferRing_.reserve(CmdBufferRing_.size() + 1);
+        RingSlotValue_.reserve(RingSlotValue_.size() + 1);
         VkCommandBuffer New;
         checkVk(vkAllocateCommandBuffers(Dev, &CBAI, &New),
                 "vkAllocateCommandBuffers (ring growth) failed", hipErrorTbd);
@@ -3545,8 +3547,10 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
 
 void CHIPQueueVulkan::noteRingSubmit(VkCommandBuffer Cb, uint64_t Val) {
   for (uint32_t I = 0; I < CmdBufferRing_.size(); ++I)
-    if (CmdBufferRing_[I] == Cb)
+    if (CmdBufferRing_[I] == Cb) {
       RingSlotValue_[I] = Val;
+      break;
+    }
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
