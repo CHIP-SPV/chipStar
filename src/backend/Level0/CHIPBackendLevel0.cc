@@ -2188,11 +2188,11 @@ void CHIPQueueLevel0::finishNoLock() {
   ZeFenceLast_ = nullptr;
 }
 
-void CHIPQueueLevel0::finishWithoutEventsMtx() {
+bool CHIPQueueLevel0::finishWithoutEventsMtx() {
   // Handle the fence cleanup (EventsMtx is already held)
   if (ZeFenceLast_) {
     finishNoLock();
-    return;
+    return true;
   }
 
   // Handle command queue synchronization
@@ -2203,7 +2203,7 @@ void CHIPQueueLevel0::finishWithoutEventsMtx() {
                                       "zeCommandQueueSynchronize timeout out");
   }
 
-  return;
+  return true;
 }
 
 bool CHIPQueueLevel0::query() {

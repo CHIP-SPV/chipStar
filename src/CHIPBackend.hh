@@ -2583,7 +2583,8 @@ public:
    * @brief Wait for this queue to finish, assuming EventsMtx is already held
    * Default implementation just calls finish()
    */
-  virtual void finishWithoutEventsMtx() { finish(); }
+  // false means not finished yet, call again.
+  virtual bool finishWithoutEventsMtx() { finish(); return true; }
   /**
    * @brief Check if the queue is still actively executing
    *
