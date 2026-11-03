@@ -9,7 +9,10 @@
 #include <cstring>
 
 int main() {
-  (void)hipStreamSynchronize(hipStreamPerThread);
+  if (hipStreamSynchronize(hipStreamPerThread) != hipSuccess) {
+    printf("FAIL: first hipStreamSynchronize\n");
+    return 1;
+  }
 
   uintptr_t h[8] = {};
   int n = 0;

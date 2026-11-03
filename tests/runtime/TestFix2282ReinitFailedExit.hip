@@ -13,7 +13,10 @@ static void printPass() {
 }
 
 int main() {
-  (void)hipStreamSynchronize(hipStreamPerThread);
+  if (hipStreamSynchronize(hipStreamPerThread) != hipSuccess) {
+    printf("FAIL: first hipStreamSynchronize\n");
+    return 1;
+  }
   if (hipInitFromNativeHandles(nullptr, 0) != hipErrorInitializationError) {
     printf("FAIL: expected hipErrorInitializationError\n");
     return 1;
