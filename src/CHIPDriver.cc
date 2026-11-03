@@ -227,6 +227,9 @@ void CHIPInitializeCallOnce() {
 
 extern void CHIPInitialize() {
   std::call_once(Initialized, &CHIPInitializeCallOnce);
+  if (!Backend)
+    CHIPERR_LOG_AND_THROW("Backend not initialized",
+                          hipErrorInitializationError);
 }
 
 void CHIPUninitializeCallOnce() {
@@ -313,7 +316,13 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                           hipErrorInitializationError);
   }
 
-  Backend->initializeFromNative(NativeHandles, NumHandles);
+  try {
+    Backend->initializeFromNative(NativeHandles, NumHandles);
+  } catch (...) {
+    delete Backend;
+    Backend = nullptr;
+    throw;
+  }
   Backend->getActiveDevice()->addFromModuleState(ModuleState);
   Backend->setReinitializeFlag(true);
 
