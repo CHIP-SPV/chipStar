@@ -4,12 +4,13 @@
 
 #include <atomic>
 #include <chrono>
+#include <climits>
 #include <cstdio>
 #include <dlfcn.h>
 #include <unistd.h>
 
 static std::atomic<bool> CallbackRan{false}, Hold{false};
-static std::atomic<long long> ReleaseNs{0};
+static std::atomic<long long> ReleaseNs{LLONG_MAX};
 
 static long long nowNs() {
   return std::chrono::steady_clock::now().time_since_epoch().count();
@@ -44,10 +45,10 @@ int main() {
   hipStream_t S;
   (void)hipStreamCreate(&S);
   kernel<<<1, 1, 0, S>>>();
-  ReleaseNs = nowNs() + 1000000000LL;
   Hold = true;
   (void)hipStreamAddCallback(S, CB, nullptr, 0);
   kernel<<<1, 1, 0, S>>>(); // Waits on the callback's timeline value.
+  ReleaseNs = nowNs() + 1000000000LL;
   uintptr_t Handles[4] = {};
   (void)hipInitFromNativeHandles(Handles, 4); // Tears the backend down.
   printf(CallbackRan ? "PASS\n" : "FAIL: callback never ran\n");
