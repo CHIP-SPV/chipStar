@@ -1742,6 +1742,12 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
     return;
   }
 
+  // dstSlicePitch of zeCommandListAppendMemoryCopyRegion is uint32_t.
+  if (Pitch * PitchedDevPtr.ysize > UINT32_MAX) {
+    chipstar::Queue::memFillAsync3D(PitchedDevPtr, Value, Extent);
+    return;
+  }
+
   // For non-contiguous memory, use 3D region copy strategy using pattern buffer
   // Ensure pattern buffer is allocated
   ensurePatternBufferAllocated();
