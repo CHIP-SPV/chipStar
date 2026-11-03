@@ -116,11 +116,11 @@ set_tests_properties(TestFix1632LlvmConfigChanged PROPERTIES TIMEOUT 300
   SKIP_REGULAR_EXPRESSION "HIP_SKIP_THIS_TEST")
 
 # https://github.com/CHIP-SPV/chipStar/issues/2212 (logDebug is compiled out of non-Debug builds)
-if(NOT CHIP_BUILD_SHARED_LIBS AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+if(NOT CHIP_BUILD_SHARED_LIBS AND CHIP_DEBUG_BUILD)
   add_test(NAME TestFix2212StaticEnvReadBeforeBackend COMMAND ${CMAKE_BINARY_DIR}/hipInfo)
   set_tests_properties(TestFix2212StaticEnvReadBeforeBackend PROPERTIES
     ENVIRONMENT "CHIP_BE=default;CHIP_LOGLEVEL=debug"
-    PASS_REGULAR_EXPRESSION "CHIP_BE = default.*CHIPBE=" TIMEOUT 120)
+    PASS_REGULAR_EXPRESSION "CHIP_BE = default.*__hipRegisterFatBinary" TIMEOUT 120)
 endif()
 
 add_test(NAME TestFix1635HostTarget
