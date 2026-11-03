@@ -511,6 +511,8 @@ void CHIPEventVulkan::hostSignal() {
 // DoneValue.
 
 static thread_local bool InCallbackThread = false;
+// Set while this thread runs drainDevicePrintf; its submits skip event tracking.
+static thread_local bool InDrain = false;
 
 CHIPCallbackDataVulkan::CHIPCallbackDataVulkan(hipStreamCallback_t CallbackF,
                                                 void *CallbackArgs,
@@ -3308,7 +3310,7 @@ static void printDevicePrintfRecord(const uint32_t *W, uint32_t NW) {
 }
 
 void CHIPQueueVulkan::drainDevicePrintf() {
-  if (Draining_)
+  if (InDrain)
     return;
   auto *Dev = static_cast<CHIPDeviceVulkan *>(ChipDevice_);
   auto Buffers = Dev->getDevicePrintfBuffers();
@@ -3322,7 +3324,10 @@ void CHIPQueueVulkan::drainDevicePrintf() {
             "CHIPQueueVulkan::drainDevicePrintf: vkQueueWaitIdle failed",
             hipErrorTbd);
   }
-  Draining_ = true;
+  InDrain = true;
+  struct Reset {
+    ~Reset() { InDrain = false; }
+  } ResetDrain;
   bool Abort = false;
   for (auto *V : Buffers) {
     uint32_t Hdr[2] = {0, 0};
@@ -3355,7 +3360,6 @@ void CHIPQueueVulkan::drainDevicePrintf() {
   }
   fflush(stdout);
   fflush(stderr);
-  Draining_ = false;
   if (Abort && !getenv("CHIP_HOST_IGNORES_DEVICE_ABORT"))
     abort();
 }
@@ -3565,9 +3569,9 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
   }
   // Legacy default stream semantics: the default stream waits for every
   // blocking stream, and a blocking stream waits for the default stream.
-  // Draining runs inside finish(), whose callers may hold
+  // This thread's drain runs inside finish(), whose callers may hold
   // QueueAddRemoveMtx; its copies need no cross-stream ordering.
-  if (getQueueFlags().isBlocking() && !Draining_) {
+  if (getQueueFlags().isBlocking() && !InDrain) {
     std::lock_guard<std::mutex> QLock(ChipDevice_->QueueAddRemoveMtx);
     std::vector<chipstar::Queue *> Others;
     if (isDefaultLegacyQueue()) {
@@ -3636,7 +3640,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
     SignalVk->setRecording();
   // The event monitor frees it once its fence signals. A drain's events free
   // themselves: its callers hold QueueAddRemoveMtx, which orders after EventsMtx.
-  if (!Draining_) {
+  if (!InDrain) {
     LOCK(Backend->EventsMtx);
     Backend->trackEvent(SignalEvent);
   }
