@@ -170,7 +170,7 @@ hipcc ./hip_app.cpp -o hip_app
 chipStar provides several extra APIs which are not present in the AMD's HIP API for interoperability with its backends:
 
 * the hipGetBackendNativeHandles() function returns native object handles, but does not give up ownership of these objects (HIP will keep using them asynchronously with the application).
-* hipInitFromNativeHandles () creates HIP objects from native handles, but again does not take ownership (they're still usable from application).
+* hipInitFromNativeHandles () creates HIP objects from native handles, but again does not take ownership (they're still usable from application). It deletes the existing HIP backend objects, so graphs, graph execs and modules loaded with hipModuleLoad/hipModuleLoadData (and functions obtained from them) must be destroyed or unloaded first; otherwise it returns hipErrorIllegalState and changes nothing.
 
 Proper synchronization of context switching is left to the application.
 
