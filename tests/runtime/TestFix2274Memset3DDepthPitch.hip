@@ -56,6 +56,20 @@ int main() {
        check("memset3D ysize wrap", hipMemset3D(W, 1, E), hipErrorInvalidValue);
   Ok = Ok && check("memset3DAsync ysize wrap", hipMemset3DAsync(W, 1, E, S),
                    hipErrorInvalidValue);
+  Ok &= check("memset3DAsync wrap",
+              hipMemset3DAsync(Q, 1, make_hipExtent(2, 1, 1ull << 63), S),
+              hipErrorInvalidValue);
+  // Validation must happen before the memset is captured into a graph.
+  hipStream_t C;
+  hipGraph_t G;
+  Ok = Ok && check("capture stream", hipStreamCreate(&C), hipSuccess) &&
+       check("begin capture",
+             hipStreamBeginCapture(C, hipStreamCaptureModeGlobal), hipSuccess);
+  Big.depth = SIZE_MAX;
+  Ok = Ok && check("captured over", hipMemset3DAsync(P, 1, Big, C),
+                   hipErrorInvalidValue);
+  Ok = Ok && check("captured valid", hipMemset3DAsync(P, 1, E, C), hipSuccess);
+  Ok = Ok && check("end capture", hipStreamEndCapture(C, &G), hipSuccess);
   std::printf("%s\n", Ok ? "PASS" : "FAIL");
   return !Ok;
 }

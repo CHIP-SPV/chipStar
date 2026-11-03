@@ -5309,8 +5309,6 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
       /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for
                                           memset unsigned? */
       /* width */ Extent.width};
-  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
-    return hipSuccess;
 
   if (Extent.height == 0 || Extent.width == 0 || Extent.depth == 0)
     return hipSuccess;
@@ -5343,6 +5341,9 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   if (Width > Avail || Height - 1 > Rows ||
       Depth - 1 > (Rows - (Height - 1)) / PitchedDevPtr.ysize)
     CHIPERR_LOG_AND_THROW("Extent exceeds allocation", hipErrorInvalidValue);
+
+  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
+    return hipSuccess;
 
   if (PitchedDevPtr.pitch == Extent.width)
     ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
