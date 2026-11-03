@@ -2893,22 +2893,12 @@ void CHIPBackendOpenCL::uninitialize() {
   {
     LOCK(BackendMtx);
 
-    // A queue that cannot sync must not stop teardown.
-    auto FinishQueue = [](chipstar::Queue *Q) {
-      try {
-        Q->finish();
-      } catch (CHIPError &Err) {
-        logError("Queue synchronization failed during uninitialize: {}",
-                 Err.getMsgStr());
-      }
-    };
-
     // First ensure all devices finish their work completely
     for (auto Dev : getDevices()) {
       LOCK(Dev->QueueAddRemoveMtx);
-      FinishQueue(Dev->getLegacyDefaultQueue());
+      Dev->getLegacyDefaultQueue()->finish();
       for (auto &Queue : Dev->getQueuesNoLock()) {
-        FinishQueue(Queue);
+        Queue->finish();
       }
     }
 
