@@ -157,6 +157,11 @@ target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
 # Exports its vkCreatePipelineCache interposers so libCHIP binds to them.
 set_target_properties(TestFix2164VulkanFailedModuleLeak PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2164VulkanFailedModuleLeak ${CMAKE_DL_LIBS})
+# Exports its clFinish interposer so libCHIP binds to it.
+set_target_properties(TestFix2243OpenCLExitFinishError PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(TestFix2243OpenCLExitFinishError ${CMAKE_DL_LIBS})
+# The verdict must be the exit code: PASS would print before teardown.
+set_tests_properties(TestFix2243OpenCLExitFinishError PROPERTIES PASS_REGULAR_EXPRESSION "")
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
 if(TEST TestFixRuntimeWarpSize)
