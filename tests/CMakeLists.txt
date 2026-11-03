@@ -77,6 +77,25 @@ add_test(NAME TestFix1486SpirvToolsInstallPrefix
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix1486SpirvToolsInstallPrefix.cmake)
 set_tests_properties(TestFix1486SpirvToolsInstallPrefix PROPERTIES TIMEOUT 300)
 
+# Reproduce #2220: https://github.com/CHIP-SPV/chipStar/issues/2220 (CHIP_PLATFORM=0 reaches the OpenCL table call)
+if(UNIX AND NOT APPLE AND NOT CHIP_BUILD_SHARED_LIBS)
+  add_library(TestFix2220DriverError MODULE TestFix2220DriverError.cc)
+  add_dependencies(build_tests TestFix2220DriverError hipInfoBin)
+  set(TestFix2220_Level0 "hipErrorNotInitialized \\(ZE_RESULT_ERROR_DEVICE_LOST \\)")
+  set(TestFix2220_OpenCL "hipErrorInvalidDevice \\(CL_INVALID_PLATFORM \\)")
+  foreach(BE Level0 OpenCL)
+    string(TOUPPER ${BE} BE_UC)
+    string(TOLOWER ${BE} BE_LC)
+    if(HAVE_${BE_UC})
+      add_test(NAME TestFix2220StaticErrorTable${BE} COMMAND env -u CHIP_DEVICE_TYPE ${CMAKE_BINARY_DIR}/hipInfo)
+      set_tests_properties(TestFix2220StaticErrorTable${BE} PROPERTIES
+        ENVIRONMENT "CHIP_BE=${BE_LC};CHIP_PLATFORM=0;CHIP_LOGLEVEL=err;LD_PRELOAD=$<TARGET_FILE:TestFix2220DriverError>"
+        PASS_REGULAR_EXPRESSION "${TestFix2220_${BE}}"
+        SKIP_REGULAR_EXPRESSION "failed to initialize any devices" TIMEOUT 120)
+    endif()
+  endforeach()
+endif()
+
 # Reproduce #2082: SPIRV-Tools tracked the fork's main, so reused and fresh build dirs differed.
 add_test(NAME TestFix2082SpirvToolsPinned
   COMMAND ${CMAKE_COMMAND}
