@@ -130,6 +130,10 @@ if(CHIP_USE_NATIVE_VULKAN_SPIRV)
     TestSubwordAtomics.hip TestAlignAttrRuntime.hip
     TestNegativeHasNoIGBAs2.hip TestFixRuntimeWarpSize.hip)
 endif()
+# OpenCL's hipStreamAddCallback blocks until the callback returns (https://github.com/CHIP-SPV/chipStar/issues/1966).
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2314VulkanSyncCallbackApiMtx.hip)
+endif()
 # Checks the native Vulkan lowering of division, which Vulkan does not round.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip)
