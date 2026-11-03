@@ -998,9 +998,10 @@ target_link_options(deviceInternal INTERFACE ${HOST_ARCH})
 target_link_libraries(deviceInternal INTERFACE CHIP)
 
 add_library(device INTERFACE)
+# Offload flags only for CXX/HIP: non-offload compilers (gcc for C) reject them.
 target_compile_options(device INTERFACE
-  $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_}
-  ${NONRDC_EMITTER_OPTS})
+  $<$<COMPILE_LANGUAGE:CXX>:-xhip> ${HIP_ENABLE_SPIRV}
+  "$<$<COMPILE_LANGUAGE:CXX,HIP>:${HIP_OFFLOAD_COMPILE_OPTIONS_INSTALL_};${NONRDC_EMITTER_OPTS}>")
 target_link_options(device INTERFACE ${HOST_ARCH})
 target_link_libraries(device INTERFACE CHIP)
 
@@ -1020,7 +1021,7 @@ target_link_options(deviceRDCInternal INTERFACE
 target_link_libraries(deviceRDCInternal INTERFACE deviceInternal)
 
 add_library(deviceRDC INTERFACE)
-target_compile_options(deviceRDC INTERFACE -fgpu-rdc)
+target_compile_options(deviceRDC INTERFACE "$<$<COMPILE_LANGUAGE:CXX,HIP>:-fgpu-rdc>")
 target_link_options(deviceRDC INTERFACE
   -fgpu-rdc ${HIP_RDC_SUPPLEMENT_LINK_FLAGS_}
   $<$<BOOL:${USE_NEW_OFFLOAD_DRIVER}>:-Xoffload-compiler-${OFFLOAD_TRIPLE}>
