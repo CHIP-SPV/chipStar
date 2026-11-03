@@ -1754,7 +1754,11 @@ void chipstar::Backend::waitForThreadExit() {
       }
       for (auto &Queue : Dev->getQueuesNoLockCopy()) {
         logDebug("Destroying queue {}", (void *)Queue);
-        Queue->finishWithoutEventsMtx();
+        try {
+          Queue->finishWithoutEventsMtx();
+        } catch (CHIPError &Err) {
+          logError("Queue synchronization failed at exit: {}", Err.getMsgStr());
+        }
         Dev->removeQueue(Queue);
       }
     }

@@ -243,7 +243,7 @@ void CHIPUninitializeCallOnce() {
 
     // Synchronize all devices before cleanup to ensure any pending operations
     // (especially JIT compilation) complete before tearing down resources
-    // A lost device must not terminate from the library destructor.
+    // A queue that cannot sync must not stop teardown.
     auto FinishQueue = [](chipstar::Queue *Q) {
       try {
         Q->finish();
