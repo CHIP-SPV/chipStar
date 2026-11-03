@@ -8,17 +8,20 @@
 
 __global__ void K() { printf("x\n"); }
 
+#define REQUIRE(C) if (!(C)) { printf("FAIL: %s\n", #C); fflush(stdout); _exit(1); }
+
 int main() {
   hipStream_t S;
-  hipStreamCreate(&S); // never destroyed, so the timeout path finishes it
+  REQUIRE(hipStreamCreate(&S) == hipSuccess); // never destroyed, so the timeout path finishes it
   K<<<1, 1, 0, S>>>();
-  hipStreamSynchronize(S);
+  REQUIRE(hipStreamSynchronize(S) == hipSuccess);
+  REQUIRE(hipGetLastError() == hipSuccess);
   std::atomic<bool> Up{false};
-  std::thread([&] { int N; hipGetDeviceCount(&N); Up = true; for (;;) pause(); }).detach();
+  std::thread([&] { int N; REQUIRE(hipGetDeviceCount(&N) == hipSuccess); Up = true; for (;;) pause(); }).detach();
   while (!Up) usleep(1000);
   alarm(30); // SIGALRM kills the process if the lock is taken twice
   uintptr_t H[4] = {};
-  hipInitFromNativeHandles(H, 4);
+  REQUIRE(hipInitFromNativeHandles(H, 4) == hipErrorNotSupported);
   printf("PASS\n");
   fflush(stdout);
   _exit(0);
