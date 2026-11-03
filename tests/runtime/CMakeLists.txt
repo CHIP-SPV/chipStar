@@ -190,6 +190,9 @@ if(CHIP_USE_NATIVE_VULKAN_SPIRV AND NOT APPLE)
   set_target_properties(TestFix2263VulkanCallbackTeardownHang PROPERTIES ENABLE_EXPORTS ON)
   target_link_libraries(TestFix2263VulkanCallbackTeardownHang ${CMAKE_DL_LIBS})
 endif()
+# Exports its Vulkan interposers so libCHIP binds to them.
+set_target_properties(TestFix2242VulkanLostDeviceStagingLeak PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(TestFix2242VulkanLostDeviceStagingLeak ${CMAKE_DL_LIBS})
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
 if(TEST TestFixRuntimeWarpSize)
