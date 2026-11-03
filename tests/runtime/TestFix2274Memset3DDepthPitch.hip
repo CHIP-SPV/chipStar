@@ -56,9 +56,9 @@ int main() {
        check("memset3D ysize wrap", hipMemset3D(W, 1, E), hipErrorInvalidValue);
   Ok = Ok && check("memset3DAsync ysize wrap", hipMemset3DAsync(W, 1, E, S),
                    hipErrorInvalidValue);
-  Ok &= check("memset3DAsync wrap",
-              hipMemset3DAsync(Q, 1, make_hipExtent(2, 1, 1ull << 63), S),
-              hipErrorInvalidValue);
+  Ok = Ok && check("memset3DAsync wrap",
+                   hipMemset3DAsync(Q, 1, make_hipExtent(2, 1, 1ull << 63), S),
+                   hipErrorInvalidValue);
   // Validation must happen before the memset is captured into a graph.
   hipStream_t C;
   hipGraph_t G;

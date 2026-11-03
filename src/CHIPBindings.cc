@@ -5333,7 +5333,7 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   char *P = static_cast<char *>(PitchedDevPtr.ptr);
   char *Dev = static_cast<char *>(AllocInfo->DevPtr);
   size_t Avail =
-      AllocInfo->Size - (P - (P >= Dev && P < Dev + AllocInfo->Size
+      AllocInfo->Size - (P - (Dev && P >= Dev && P < Dev + AllocInfo->Size
                                   ? Dev
                                   : static_cast<char *>(AllocInfo->HostPtr)));
   // Rows that can start past the first one with Width bytes still in range.
