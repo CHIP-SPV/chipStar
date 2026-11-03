@@ -1972,6 +1972,9 @@ public:
   // uninitialize() left this alive for threads still in HIP; do not delete it.
   bool Abandoned = false;
 
+  // Whether CHIPReinitialize may tear this backend down now.
+  virtual bool canReinitialize() const { return true; }
+
 protected:
   bool ReinitializeFlag_ = false;
   chipstar::EventMonitor *EventMonitor_ = nullptr;

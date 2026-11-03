@@ -303,6 +303,14 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles) {
   logDebug("CHIPDriver REInitialize");
 
+  if (!Backend)
+    CHIPERR_LOG_AND_THROW("Backend not initialized",
+                          hipErrorInitializationError);
+  if (!Backend->canReinitialize())
+    CHIPERR_LOG_AND_THROW("Cannot reinitialize while other HIP threads are "
+                          "active",
+                          hipErrorNotSupported);
+
   // chipstar::Kernel compilation may have already taken place so we need save
   // these modules and pass them to re-initialization function
   auto ModuleState = Backend->getActiveDevice()->getModuleState();
@@ -310,8 +318,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   if (Backend) {
     logDebug("uninitializing existing Backend object.");
     Backend->uninitialize();
-    if (!Backend->Abandoned)
-      delete Backend;
+    delete Backend;
     Backend = nullptr;
   }
 

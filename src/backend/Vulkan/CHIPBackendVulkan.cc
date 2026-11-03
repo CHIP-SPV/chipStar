@@ -4016,7 +4016,7 @@ void CHIPBackendVulkan::uninitialize() {
 
   // Threads still in HIP would use freed objects; leave everything to exit.
   if (int Others = otherActiveThreads(); Others > 0) {
-    logWarn("{} HIP threads still active; not destroying the backend", Others);
+    logDebug("{} HIP threads still active; not destroying the backend", Others);
     Abandoned = true;
     return;
   }
