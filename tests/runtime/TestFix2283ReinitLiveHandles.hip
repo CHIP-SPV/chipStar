@@ -25,6 +25,11 @@ int main() {
   hipGetBackendNativeHandles(0, nullptr, &N);
   std::vector<uintptr_t> H(N);
   hipGetBackendNativeHandles(0, H.data(), nullptr);
+  bool OpenCL = !strcmp(reinterpret_cast<const char *>(H[0]), "opencl");
+  // The new backend adopts the context without retaining it.
+  if (OpenCL)
+    CHECK(clRetainContext(reinterpret_cast<void *>(H[3])) == 0,
+          "clRetainContext");
 
   hipGraph_t Graph;
   CHECK(hipGraphCreate(&Graph, 0) == hipSuccess, "hipGraphCreate");
@@ -37,6 +42,12 @@ int main() {
   hipGraphExec_t Exec;
   CHECK(hipGraphInstantiate(&Exec, Graph, nullptr, nullptr, 0) == hipSuccess,
         "hipGraphInstantiate");
+  CHECK(hipInitFromNativeHandles(&H[1], 4) == hipErrorIllegalState,
+        "reinit with a live graph and exec");
+  CHECK(hipGraphLaunch(Exec, nullptr) == hipSuccess,
+        "graph unusable after rejected reinit");
+  CHECK(hipStreamSynchronize(nullptr) == hipSuccess,
+        "graph unusable after rejected reinit");
   CHECK(hipGraphDestroy(Graph) == hipSuccess, "hipGraphDestroy");
   CHECK(hipInitFromNativeHandles(&H[1], 4) == hipErrorIllegalState,
         "reinit with a live graph exec");
@@ -55,14 +66,9 @@ int main() {
 
   // Level Zero's old backend destroys its own context and queue, so a
   // backend's own handles cannot be reinitialized from there.
-  if (strcmp(reinterpret_cast<const char *>(H[0]), "opencl")) {
-    printf("PASS\n");
-    return 0;
-  }
-  // The new backend adopts the context without retaining it.
-  clRetainContext(reinterpret_cast<void *>(H[3]));
-  CHECK(hipInitFromNativeHandles(&H[1], 4) == hipSuccess,
-        "reinit after everything was destroyed");
+  if (OpenCL)
+    CHECK(hipInitFromNativeHandles(&H[1], 4) == hipSuccess,
+          "reinit after everything was destroyed");
   printf("PASS\n");
   return 0;
 }
