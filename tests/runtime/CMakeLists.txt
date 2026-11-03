@@ -162,6 +162,9 @@ set_target_properties(TestFix2243OpenCLExitFinishError PROPERTIES ENABLE_EXPORTS
 target_link_libraries(TestFix2243OpenCLExitFinishError ${CMAKE_DL_LIBS})
 # The verdict must be the exit code: PASS would print before teardown.
 set_tests_properties(TestFix2243OpenCLExitFinishError PROPERTIES PASS_REGULAR_EXPRESSION "")
+# Exports its Vulkan interposers so libCHIP binds to them.
+set_target_properties(TestFix2242VulkanLostDeviceStagingLeak PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(TestFix2242VulkanLostDeviceStagingLeak ${CMAKE_DL_LIBS})
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
 if(TEST TestFixRuntimeWarpSize)
