@@ -1476,6 +1476,8 @@ public:
    */
   chipstar::Queue *getPerThreadDefaultQueue();
   chipstar::Queue *getPerThreadDefaultQueueNoLock();
+  /// Finish and destroy the calling thread's per thread default queue.
+  void destroyPerThreadDefaultQueue();
 
   bool isPerThreadStreamUsed();
   bool isPerThreadStreamUsedNoLock();
