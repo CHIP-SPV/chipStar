@@ -46,7 +46,7 @@ echo "### Check legacy FindHIP cmake integration on SPIR-V platform (run_hipcc.c
 # branch, not the nvcc branch. The nvcc branch inserts '--compiler-options -fPIC'
 # which clang does not understand, causing compilation to fail.
 setup-test-dir
-cmake @CMAKE_CURRENT_SOURCE_DIR@/FindHIPLegacySpirvTarget \
+cmake -G Ninja @CMAKE_CURRENT_SOURCE_DIR@/FindHIPLegacySpirvTarget \
       -DCMAKE_PREFIX_PATH=@CMAKE_INSTALL_PREFIX@ \
       -DCMAKE_MODULE_PATH=@CMAKE_INSTALL_PREFIX@/lib/cmake/hip \
       -DCMAKE_CXX_COMPILER=${CXX}
@@ -76,7 +76,7 @@ unset HIP_CLANG_PATH
 # is clang++, FindHIP.cmake derives HIP_CLANG_PATH from its real path and the bug
 # does not trigger. With g++, FindHIP falls back to "$HIP_PATH/../llvm/bin".
 HIP_PATH=@CMAKE_INSTALL_PREFIX@ \
-cmake @CMAKE_CURRENT_SOURCE_DIR@/FindHIPLegacySpirvTarget \
+cmake -G Ninja @CMAKE_CURRENT_SOURCE_DIR@/FindHIPLegacySpirvTarget \
       -DCMAKE_PREFIX_PATH=@CMAKE_INSTALL_PREFIX@ \
       -DCMAKE_MODULE_PATH=@CMAKE_INSTALL_PREFIX@/lib/cmake/hip \
       -DCMAKE_CXX_COMPILER=g++
