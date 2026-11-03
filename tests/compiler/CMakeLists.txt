@@ -312,6 +312,10 @@ endif()
 add_shell_test(TestDeadVTableVirtualBase.bash)
 # Program-scope variable init kernels must use their work items (#582).
 add_shell_test(TestFix582VarInitWorkItems.bash)
+# HipVerify's llvm-spirv list must accept cache control decorations (#2246).
+if(NOT CHIP_LLVM_USE_INTERGRATED_SPIRV AND NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestFix2246VerifyCacheControls.bash)
+endif()
 add_hipcc_test(TestFix1647ShadowKernelNames.hip HIPCC_OPTIONS -c)
 add_hipcc_test(TestHostSideHIPVectors.hip HIPCC_OPTIONS -fsyntax-only)
 add_hipcc_test(TestAlignAttr.hip HIPCC_OPTIONS -fsyntax-only)
