@@ -8,7 +8,9 @@
 using cl_hip_error_map_t = std::unordered_map<cl_int, hipError_t>;
 
 // Map of OpenCL API calls to error conversion maps
-const std::unordered_map<void *, cl_hip_error_map_t> CL_HIP_ERROR_MAPS = {
+// Never destroyed: module destructors may run after a static's destructor.
+inline const std::unordered_map<void *, cl_hip_error_map_t> &clHipErrorMaps() {
+  static const auto *Maps = new std::unordered_map<void *, cl_hip_error_map_t>{
     {(void *)&clGetPlatformIDs,
      {{CL_SUCCESS, hipSuccess},
       {CL_INVALID_VALUE, hipErrorInvalidValue},
@@ -502,13 +504,16 @@ const std::unordered_map<void *, cl_hip_error_map_t> CL_HIP_ERROR_MAPS = {
       {CL_INVALID_VALUE, hipErrorInvalidValue},
       {CL_OUT_OF_RESOURCES, hipErrorOutOfMemory},
       {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
-};
+  };
+  return *Maps;
+}
 
 // Function converting cl_int into hipError_t based on provided map
 template <typename FuncPtr>
 inline hipError_t hip_convert_error(cl_int clStatus, FuncPtr func) {
-  auto it = CL_HIP_ERROR_MAPS.find((void *)func);
-  if (it != CL_HIP_ERROR_MAPS.end()) {
+  auto &Maps = clHipErrorMaps();
+  auto it = Maps.find((void *)func);
+  if (it != Maps.end()) {
     auto &errorMap = it->second;
     auto errorIt = errorMap.find(clStatus);
     if (errorIt != errorMap.end()) {
