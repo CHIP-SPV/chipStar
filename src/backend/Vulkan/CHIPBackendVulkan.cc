@@ -3652,6 +3652,11 @@ std::recursive_mutex CHIPBackendVulkan::TeardownMtx_;
 CHIPBackendVulkan::CHIPBackendVulkan() = default;
 
 CHIPBackendVulkan::~CHIPBackendVulkan() {
+  // Events still tracked go before ~Backend frees the contexts.
+  {
+    LOCK(EventsMtx);
+    Events.clear();
+  }
   // In case uninitialize() was not called.
   if (DebugMessenger_ != VK_NULL_HANDLE && Instance_ != VK_NULL_HANDLE) {
     auto Destroy = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
@@ -3883,6 +3888,21 @@ void CHIPBackendVulkan::uninitialize() {
     }
     EventMonitor_->join();
     EventMonitor_ = nullptr;
+  }
+
+  // Fences of events only Events holds go back to the pool before devices go.
+  // Release outside EventsMtx: ~CHIPEventVulkan can wait on a fence.
+  chipstar::SharedEventVector Tracked;
+  {
+    LOCK(EventsMtx);
+    Tracked.swap(Events);
+  }
+  for (size_t I = Tracked.size(); I-- > 0;)
+    if (Tracked[I].use_count() == 1)
+      Tracked.erase(Tracked.begin() + I);
+  {
+    LOCK(EventsMtx);
+    Events.insert(Events.end(), Tracked.begin(), Tracked.end());
   }
 
   // Devices go before the VkInstance; ~Backend deletes the contexts.
