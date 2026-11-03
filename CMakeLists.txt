@@ -1459,4 +1459,8 @@ endif()
 include(cmake/docker.cmake)
 
 add_subdirectory(host_math_funcs)
-target_link_libraries(CHIP PUBLIC ocml_host_math_funcs)
+# -Wl keeps this host-only archive out of clang's static device library handling in -fgpu-rdc links.
+add_dependencies(CHIP ocml_host_math_funcs)
+target_link_libraries(CHIP PUBLIC
+  "$<BUILD_INTERFACE:-Wl,$<TARGET_FILE:ocml_host_math_funcs>>"
+  "$<INSTALL_INTERFACE:-Wl,$<INSTALL_PREFIX>/${CMAKE_INSTALL_LIBDIR}/libocml_host_math_funcs.a>")
