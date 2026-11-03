@@ -163,6 +163,11 @@ endif()
 # Required for Threads::Threads target used by hip::CHIP
 find_dependency(Threads)
 
+# Required for Vulkan::Vulkan target used by hip::CHIP
+if("@HAVE_VULKAN@")
+  find_dependency(Vulkan)
+endif()
+
 set( hip_LIBRARIES hip::host hip::device)
 set( hip_LIBRARY ${hip_LIBRARIES})
 
