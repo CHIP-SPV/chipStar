@@ -40,6 +40,7 @@
 #include <array>
 #include <chrono>
 #include <cstring>
+#include <list>
 #include <unordered_set>
 #include <sys/mman.h>
 #include <sys/syscall.h>
@@ -2440,9 +2441,9 @@ inline std::mutex &i8StagingMtx() {
   return *Mtx;
 }
 
-inline std::vector<VulkanPendingStaging> &i8PendingStagings() {
+inline std::list<VulkanPendingStaging> &i8PendingStagings() {
   // Never destroyed: the device destructor drains it from exit handlers.
-  static auto *List = new std::vector<VulkanPendingStaging>;
+  static auto *List = new std::list<VulkanPendingStaging>;
   return *List;
 }
 
@@ -2466,13 +2467,27 @@ inline void i8DrainCompletedStagings(VkDevice Dev) {
   }
 }
 
-inline void i8RecordPendingStaging(VmaAllocator Allocator, VkBuffer Buffer,
-                                   VmaAllocation Allocation,
-                                   std::shared_ptr<chipstar::Event> Event) {
-  std::lock_guard<std::mutex> Lock(i8StagingMtx());
-  i8PendingStagings().push_back(
-      {Allocator, Buffer, Allocation, std::move(Event)});
-}
+// Owns a staging buffer until handed to the pending list; the handover cannot
+// allocate.
+struct StagingGuard {
+  std::list<VulkanPendingStaging> Node{1};
+  void own(VmaAllocator Allocator, VkBuffer Buffer, VmaAllocation Allocation) {
+    auto &N = Node.front();
+    N.Allocator = Allocator;
+    N.Buffer = Buffer;
+    N.Allocation = Allocation;
+  }
+  void handOver(std::shared_ptr<chipstar::Event> Event) {
+    Node.front().SignalEvent = std::move(Event);
+    std::lock_guard<std::mutex> Lock(i8StagingMtx());
+    i8PendingStagings().splice(i8PendingStagings().end(), Node);
+  }
+  ~StagingGuard() {
+    if (!Node.empty() && Node.front().Buffer != VK_NULL_HANDLE)
+      vmaDestroyBuffer(Node.front().Allocator, Node.front().Buffer,
+                       Node.front().Allocation);
+  }
+};
 
 // A persistently mapped, host coherent staging buffer.
 inline bool i8AllocateStagingBuffer(VmaAllocator Allocator, size_t Size,
@@ -2677,11 +2692,13 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
   VkBufferUsageFlags UsageFlags = (Kind == hipMemcpyHostToDevice)
                                       ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT
                                       : VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+  StagingGuard Guard;
   if (!i8AllocateStagingBuffer(Allocator, Size, UsageFlags, Staging,
                                StagingAlloc, StagingMapped))
     CHIPERR_LOG_AND_THROW(
         "memCopyAsync: failed to allocate host-visible staging buffer",
         hipErrorOutOfMemory);
+  Guard.own(Allocator, Staging, StagingAlloc);
 
   if (Kind == hipMemcpyHostToDevice) {
     std::memcpy(StagingMapped, Src, Size);
@@ -2692,7 +2709,7 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     vkCmdCopyBuffer(Cmd, Staging, DstBuf, 1, &Region);
     i8EndCmdBuffer(Cmd);
     auto Ev = submitWithEvent(Cmd, {});
-    i8RecordPendingStaging(Allocator, Staging, StagingAlloc, Ev);
+    Guard.handOver(Ev);
     logTrace("CHIPQueueVulkan::memCopyAsync H2D {} -> {} / {} B (staged)", Src,
              Dst, Size);
     return Ev;
@@ -2712,14 +2729,17 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     VkFence F = EvVk ? EvVk->getFence() : VK_NULL_HANDLE;
     if (F != VK_NULL_HANDLE && VkDev != VK_NULL_HANDLE) {
       VkResult WaitRes = vkWaitForFences(VkDev, 1, &F, VK_TRUE, UINT64_MAX);
-      if (WaitRes != VK_SUCCESS)
+      if (WaitRes != VK_SUCCESS) {
+        // Only device loss ends the device's use of the buffer.
+        if (WaitRes != VK_ERROR_DEVICE_LOST)
+          Guard.handOver(Ev);
         CHIPERR_LOG_AND_THROW(
             std::string("memCopyAsync D2H: vkWaitForFences failed VkResult=") +
                 std::to_string(static_cast<int>(WaitRes)),
             hipErrorRuntimeMemory);
+      }
     }
     std::memcpy(Dst, StagingMapped, Size);
-    vmaDestroyBuffer(Allocator, Staging, StagingAlloc);
     logTrace("CHIPQueueVulkan::memCopyAsync D2H {} -> {} / {} B (staged)", Src,
              Dst, Size);
     return Ev;
@@ -2793,11 +2813,13 @@ CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   VkBuffer Staging = VK_NULL_HANDLE;
   VmaAllocation StagingAlloc = VK_NULL_HANDLE;
   void *StagingMapped = nullptr;
+  StagingGuard Guard;
   if (!i8AllocateStagingBuffer(Allocator, Size,
                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT, Staging,
                                StagingAlloc, StagingMapped))
     CHIPERR_LOG_AND_THROW("memFillAsync: failed to allocate staging buffer",
                           hipErrorOutOfMemory);
+  Guard.own(Allocator, Staging, StagingAlloc);
 
   i8TilePattern(StagingMapped, Size, Pattern, PatternSize);
   VkBufferCopy Region{};
@@ -2807,7 +2829,7 @@ CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   vkCmdCopyBuffer(Cmd, Staging, DstBuf, 1, &Region);
   i8EndCmdBuffer(Cmd);
   auto Ev = submitWithEvent(Cmd, {});
-  i8RecordPendingStaging(Allocator, Staging, StagingAlloc, Ev);
+  Guard.handOver(Ev);
   logTrace(
       "CHIPQueueVulkan::memFillAsync staged-tile {} / {} B (PatternSize={})",
       Dst, Size, PatternSize);
@@ -2885,11 +2907,13 @@ void CHIPQueueVulkan::memFillAsync2D(void *Dst, size_t Pitch, int Value,
   VkBuffer Staging = VK_NULL_HANDLE;
   VmaAllocation StagingAlloc = VK_NULL_HANDLE;
   void *StagingMapped = nullptr;
+  StagingGuard Guard;
   if (!i8AllocateStagingBuffer(Allocator, Width,
                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT, Staging,
                                StagingAlloc, StagingMapped))
     CHIPERR_LOG_AND_THROW("memFillAsync2D: failed to allocate staging buffer",
                           hipErrorOutOfMemory);
+  Guard.own(Allocator, Staging, StagingAlloc);
   unsigned char Byte = static_cast<unsigned char>(Value);
   std::memset(StagingMapped, Byte, Width);
 
@@ -2906,7 +2930,7 @@ void CHIPQueueVulkan::memFillAsync2D(void *Dst, size_t Pitch, int Value,
                   Regions.data());
   i8EndCmdBuffer(Cmd);
   auto Ev = submitWithEvent(Cmd, {});
-  i8RecordPendingStaging(Allocator, Staging, StagingAlloc, Ev);
+  Guard.handOver(Ev);
   Ev->Msg = "memFillAsync2D";
 }
 
@@ -2989,11 +3013,13 @@ void CHIPQueueVulkan::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   VkBuffer Staging = VK_NULL_HANDLE;
   VmaAllocation StagingAlloc = VK_NULL_HANDLE;
   void *StagingMapped = nullptr;
+  StagingGuard Guard;
   if (!i8AllocateStagingBuffer(Allocator, Width,
                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT, Staging,
                                StagingAlloc, StagingMapped))
     CHIPERR_LOG_AND_THROW("memFillAsync3D: failed to allocate staging buffer",
                           hipErrorOutOfMemory);
+  Guard.own(Allocator, Staging, StagingAlloc);
   unsigned char Byte = static_cast<unsigned char>(Value);
   std::memset(StagingMapped, Byte, Width);
 
@@ -3011,7 +3037,7 @@ void CHIPQueueVulkan::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
                   Regions.data());
   i8EndCmdBuffer(Cmd);
   auto Ev = submitWithEvent(Cmd, {});
-  i8RecordPendingStaging(Allocator, Staging, StagingAlloc, Ev);
+  Guard.handOver(Ev);
   Ev->Msg = "memFillAsync3D";
 }
 
@@ -3667,9 +3693,13 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
   {
     // vkQueueSubmit requires external synchronization of the VkQueue.
     std::lock_guard<std::mutex> SubmitLock(ChipDevice_->getSubmitMtx());
-    checkVk(vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
-                          SignalFence),
-            "CHIPQueueVulkan::submitWithEvent: vkQueueSubmit failed",
+    VkResult Res =
+        vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit, SignalFence);
+    // A lost submit still counts as pending, so its resources stay in use until
+    // waited on.
+    if (Res == VK_ERROR_DEVICE_LOST)
+      (void)vkQueueWaitIdle(ChipDevice_->getComputeQueue());
+    checkVk(Res, "CHIPQueueVulkan::submitWithEvent: vkQueueSubmit failed",
             hipErrorTbd);
   }
 
@@ -3678,9 +3708,15 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
     SignalVk->setRecording();
   // The event monitor frees it once its fence signals. A drain's events free
   // themselves: its callers hold QueueAddRemoveMtx, which orders after EventsMtx.
+  // Tracking can fail after a successful submit; that must not fail the call.
   if (!InDrain) {
-    LOCK(Backend->EventsMtx);
-    Backend->trackEvent(SignalEvent);
+    try {
+      LOCK(Backend->EventsMtx);
+      Backend->trackEvent(SignalEvent);
+    } catch (const std::exception &E) {
+      logError("CHIPQueueVulkan::submitWithEvent: event not tracked: {}",
+               E.what());
+    }
   }
   return SignalEvent;
 }
