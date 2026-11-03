@@ -18,7 +18,7 @@ static thread_local bool IsWorker, StallNext;
 static bool ExitMode;
 
 static void fail(const char *What) {
-  printf("FAIL: %s while a HIP thread was in flight\n", What);
+  printf("FAIL: %s\n", What);
   fflush(stdout);
   _exit(1);
 }
@@ -72,6 +72,28 @@ extern "C" void vkDestroyDevice(void *Dev, const void *A) {
   Real(Dev, A);
 }
 
+static bool ExitCheck;
+
+// Runs after __hip_module_dtor (atexit is LIFO): resumes the worker past teardown.
+static void afterTeardown() {
+  if (!ExitCheck)
+    return;
+  Resume = true;
+  for (int I = 0; I < 20000 && !WorkerDone; I++)
+    usleep(1000);
+  if (!WorkerDone)
+    fail("worker did not finish");
+  if (WorkerErr == hipSuccess)
+    fail("callback accepted after teardown");
+  if (WorkerErr != hipErrorInitializationError)
+    fail("worker's HIP calls failed");
+  printf("PASS\n");
+  fflush(stdout);
+}
+__attribute__((constructor(101))) static void registerAfterTeardown() {
+  atexit(afterTeardown);
+}
+
 __global__ void kernel() {}
 
 int main(int argc, char **argv) {
@@ -97,7 +119,12 @@ int main(int argc, char **argv) {
     IsWorker = true;
     Armed = true;
     int E = hipMemcpyAsync(DA, DB, 16, hipMemcpyDeviceToDevice, Stream);
-    if (!ExitMode && E == hipSuccess)
+    if (E != hipSuccess)
+      E = hipErrorUnknown; // Keeps a memcpy failure apart from the expected error.
+    else if (ExitMode)
+      E = hipStreamAddCallback(Stream, [](hipStream_t, hipError_t, void *) {},
+                               nullptr, 0);
+    else
       E = hipStreamSynchronize(Stream);
     WorkerErr = E;
     WorkerDone = true;
@@ -122,9 +149,11 @@ int main(int argc, char **argv) {
     if (WorkerErr != hipSuccess)
       fail("worker's HIP calls failed");
   }
+  if (ExitMode) {
+    ExitCheck = true;
+    return 0; // Teardown runs on the normal exit path.
+  }
   printf("PASS\n");
   fflush(stdout);
-  if (!ExitMode)
-    _exit(0);
-  return 0; // Teardown runs on the normal exit path.
+  _exit(0);
 }
