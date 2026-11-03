@@ -117,6 +117,7 @@ set_tests_properties(TestFix1632LlvmConfigChanged PROPERTIES TIMEOUT 300
 
 # https://github.com/CHIP-SPV/chipStar/issues/2212 (logDebug is compiled out of non-Debug builds)
 if(NOT CHIP_BUILD_SHARED_LIBS AND CHIP_DEBUG_BUILD)
+  add_dependencies(build_tests hipInfoBin)
   add_test(NAME TestFix2212StaticEnvReadBeforeBackend COMMAND ${CMAKE_BINARY_DIR}/hipInfo)
   set_tests_properties(TestFix2212StaticEnvReadBeforeBackend PROPERTIES
     ENVIRONMENT "CHIP_BE=default;CHIP_LOGLEVEL=debug"
