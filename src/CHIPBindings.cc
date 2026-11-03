@@ -7505,6 +7505,7 @@ int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
 
 int hipInitFromNativeHandles(const uintptr_t *NativeHandles, int NumHandles) {
   CHIP_TRY
+  CHIPInitialize();
   logDebug("hipInitFromNativeHandles");
   RETURN(CHIPReinitialize(NativeHandles, NumHandles));
   CHIP_CATCH
