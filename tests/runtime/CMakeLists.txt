@@ -163,6 +163,9 @@ if(TEST TestFixRuntimeWarpSize)
   set_tests_properties(TestFixRuntimeWarpSize PROPERTIES
     ENVIRONMENT "IGC_ForceOCLSIMDWidth=16;CHIP_LAZY_JIT=1")
 endif()
+# Allocates over 8 GiB, so it must not run beside other tests.
+set_tests_properties(TestFix2312Memset3DSlicePitchTruncation PROPERTIES
+  ENVIRONMENT "CHIP_UNRESTRICTED_ALLOC_SIZE=1" RUN_SERIAL TRUE)
 
 # The staleness probe needs several work-groups to make progress against each
 # other and skips on a device that cannot run it, for instance where Mesa
