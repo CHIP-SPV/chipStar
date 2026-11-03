@@ -3885,6 +3885,13 @@ void CHIPBackendVulkan::uninitialize() {
     EventMonitor_ = nullptr;
   }
 
+  // Threads still in HIP would use freed objects; leave everything to exit.
+  if (int Others = otherActiveThreads(); Others > 0) {
+    logWarn("{} HIP threads still active; not destroying the backend", Others);
+    Abandoned = true;
+    return;
+  }
+
   // Devices go before the VkInstance; ~Backend deletes the contexts.
   for (auto *Ctx : ChipContexts) {
     if (auto *Dev = Ctx ? Ctx->getDevice() : nullptr) {

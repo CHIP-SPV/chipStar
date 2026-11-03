@@ -1968,6 +1968,10 @@ public:
  * @brief Primary object to interact with the backend
  */
 class Backend {
+public:
+  // uninitialize() left this alive for threads still in HIP; do not delete it.
+  bool Abandoned = false;
+
 protected:
   bool ReinitializeFlag_ = false;
   chipstar::EventMonitor *EventMonitor_ = nullptr;
