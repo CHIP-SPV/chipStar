@@ -5232,6 +5232,14 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_CATCH
 }
 
+static void checkDeferredFootprint(const chipstar::AllocationInfo *Info,
+                                   const void *Dst, size_t Footprint) {
+  if (Info->isDeferredRegistration() &&
+      Footprint > Info->Size - ((const char *)Dst - (const char *)Info->HostPtr))
+    CHIPERR_LOG_AND_THROW("Fill runs past the registered range",
+                          hipErrorInvalidValue);
+}
+
 static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
                                                   int Value, size_t Width,
                                                   size_t Height,
@@ -5255,6 +5263,8 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
   if (Height > TrueHeight)
     CHIPERR_LOG_AND_THROW("Height requested exceeds allocations!",
                           hipErrorInvalidValue);
+  if (Width && Height)
+    checkDeferredFootprint(AllocInfo, Dst, Pitch * (Height - 1) + Width);
 
   const hipMemsetParams Params = {
       /* Dst */ Dst,
@@ -5336,6 +5346,10 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("PitchedDevPointer not found in allocation ranges",
                           hipErrorInvalidValue);
+  checkDeferredFootprint(
+      AllocInfo, PitchedDevPtr.ptr,
+      (Extent.depth - 1) * PitchedDevPtr.pitch * PitchedDevPtr.ysize +
+          (Extent.height - 1) * PitchedDevPtr.pitch + Extent.width);
 
   // Check if extents don't overextend the allocation?
 
@@ -5346,7 +5360,7 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   if (PitchedDevPtr.pitch == Extent.width)
     ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
                             1);
-  else if (!AllocInfo->DevPtr) // deferred record: the base version host-fills
+  else if (AllocInfo->isDeferredRegistration()) // deferred record: the base version host-fills
     ChipQueue->chipstar::Queue::memFillAsync3D(PitchedDevPtr, Value, Extent);
   else
     ChipQueue->memFillAsync3D(PitchedDevPtr, Value, Extent);
@@ -5417,7 +5431,7 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
                                                          &CharVal, 1);
 
   // A deferred record has no device side; memFill wrote the host range.
-  if (!AllocInfo->DevPtr)
+  if (AllocInfo->isDeferredRegistration())
     return hipSuccess;
 
   if (AllocInfo->HostPtr) {

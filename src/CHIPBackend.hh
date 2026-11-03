@@ -505,6 +505,8 @@ struct AllocationInfo {
   bool isMappedHostAllocation() const {
     return MemoryType == hipMemoryTypeHost && Flags.isMapped();
   }
+
+  bool isDeferredRegistration() const { return IsHostRegistered && !DevPtr; }
 };
 
 /**

@@ -2113,11 +2113,12 @@ bool chipstar::Queue::fillDeferredHostRegistration(void *Dst, size_t Size,
                                                    const void *Pattern,
                                                    size_t PatternSize) {
   auto *Info = getDevice()->AllocTracker->getAllocInfo(Dst);
-  if (!Info || !Info->HostPtr || Info->DevPtr)
+  if (!Info || !Info->isDeferredRegistration())
     return false;
-  if ((char *)Dst + Size > (char *)Info->HostPtr + Info->Size)
+  if (Size > Info->Size - ((char *)Dst - (char *)Info->HostPtr))
     CHIPERR_LOG_AND_THROW("Fill runs past the registered range",
                           hipErrorInvalidValue);
+  finish(); // earlier work on this stream may target the host buffer
   for (size_t i = 0; i < Size; i++)
     ((unsigned char *)Dst)[i] = ((const unsigned char *)Pattern)[i % PatternSize];
   return true;
