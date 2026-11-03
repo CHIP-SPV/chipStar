@@ -5233,9 +5233,10 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
 }
 
 static void checkDeferredFootprint(const chipstar::AllocationInfo *Info,
-                                   const void *Dst, size_t Footprint) {
+                                   const void *Dst, double Footprint) {
+  // double cannot wrap and is exact below 2^53.
   if (Info->isDeferredRegistration() &&
-      Footprint > Info->Size - ((const char *)Dst - (const char *)Info->HostPtr))
+      Footprint > (double)(Info->Size - ((const char *)Dst - (const char *)Info->HostPtr)))
     CHIPERR_LOG_AND_THROW("Fill runs past the registered range",
                           hipErrorInvalidValue);
 }
@@ -5264,7 +5265,7 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     CHIPERR_LOG_AND_THROW("Height requested exceeds allocations!",
                           hipErrorInvalidValue);
   if (Width && Height)
-    checkDeferredFootprint(AllocInfo, Dst, Pitch * (Height - 1) + Width);
+    checkDeferredFootprint(AllocInfo, Dst, (double)Pitch * (Height - 1) + Width);
 
   const hipMemsetParams Params = {
       /* Dst */ Dst,
@@ -5278,7 +5279,10 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     return hipSuccess;
   }
 
-  ChipQueue->memFillAsync2D(Dst, Pitch, Value, Width, Height);
+  if (AllocInfo->isDeferredRegistration()) // the base version host-fills
+    ChipQueue->chipstar::Queue::memFillAsync2D(Dst, Pitch, Value, Width, Height);
+  else
+    ChipQueue->memFillAsync2D(Dst, Pitch, Value, Width, Height);
 
   return hipSuccess;
 }
@@ -5348,8 +5352,8 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
                           hipErrorInvalidValue);
   checkDeferredFootprint(
       AllocInfo, PitchedDevPtr.ptr,
-      (Extent.depth - 1) * PitchedDevPtr.pitch * PitchedDevPtr.ysize +
-          (Extent.height - 1) * PitchedDevPtr.pitch + Extent.width);
+      (double)(Extent.depth - 1) * PitchedDevPtr.pitch * PitchedDevPtr.ysize +
+          (double)(Extent.height - 1) * PitchedDevPtr.pitch + Extent.width);
 
   // Check if extents don't overextend the allocation?
 
