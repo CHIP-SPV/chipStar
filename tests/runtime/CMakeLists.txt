@@ -371,6 +371,15 @@ add_test(NAME TestFix315PlatformOutOfRange
 set_tests_properties(TestFix315PlatformOutOfRange PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
 
+if(OpenCL_LIBRARY)
+  # A bad allocation strategy must fail initialization, not crash in cleanup.
+  add_test(NAME TestFix2258OpenCLInitFailure
+    COMMAND env CHIP_BE=opencl CHIP_OCL_USE_ALLOC_STRATEGY=bogus
+      $<TARGET_FILE:TestFix315PlatformOutOfRange>)
+  set_tests_properties(TestFix2258OpenCLInitFailure PROPERTIES
+    PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
+endif()
+
 ######################################
 # Extra ctest invocations of already-registered executables.
 ######################################
