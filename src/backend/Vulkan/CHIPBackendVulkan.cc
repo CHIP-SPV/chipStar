@@ -1649,10 +1649,13 @@ inline void i8DrainCompletedStagings(VkDevice Dev);
 CHIPDeviceVulkan::~CHIPDeviceVulkan() {
   // create() can fail partway, and the query pool is optional.
   if (LogicalDevice_ != VK_NULL_HANDLE) {
-    vkDeviceWaitIdle(LogicalDevice_);
+    VkResult Idle = vkDeviceWaitIdle(LogicalDevice_);
     // Buffers still alive at exit, which VMA requires freed first.
     if (Allocator_ != VK_NULL_HANDLE) {
-      i8DrainCompletedStagings(LogicalDevice_);
+      // Idle or lost, the device no longer uses them; a lost device's fence
+      // may not say so.
+      bool NotInUse = Idle == VK_SUCCESS || Idle == VK_ERROR_DEVICE_LOST;
+      i8DrainCompletedStagings(NotInUse ? VK_NULL_HANDLE : LogicalDevice_);
       static_cast<CHIPContextVulkan *>(getContext())->freeAll(Allocator_);
     }
 
