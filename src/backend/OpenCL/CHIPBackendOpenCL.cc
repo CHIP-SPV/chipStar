@@ -3153,7 +3153,7 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
 
   cl::Context Ctx(CtxId, true);
   cl::Platform Plat(PlatId);
-  cl::Device *Dev = new cl::Device(DevId);
+  cl::Device *Dev = new cl::Device(DevId, true);
 
   CHIPContextOpenCL *ChipContext = new CHIPContextOpenCL(Ctx, *Dev, Plat);
   addContext(ChipContext);
