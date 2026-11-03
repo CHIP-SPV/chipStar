@@ -1269,11 +1269,12 @@ string(REPLACE "$<INSTALL_PREFIX>" "@CHIP_INSTALL_PREFIX@" _hipInfo_install "${_
 file(WRITE "${PROJECT_BINARY_DIR}/share/.hipInfo_install.in" ${_hipInfo_install})
 file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/share/.hipInfo" CONTENT "@_hipInfo_build@" @ONLY)
 # Substitute the prefix given to `cmake --install`, not the configure-time one.
+# One generated file per prefix, so concurrent installs do not overwrite each other.
 install(CODE "set(CHIP_INSTALL_PREFIX \"\${CMAKE_INSTALL_PREFIX}\")
-  configure_file(\"${PROJECT_BINARY_DIR}/share/.hipInfo_install.in\"
-    \"${PROJECT_BINARY_DIR}/share/.hipInfo_install\" @ONLY)")
-install(FILES ${PROJECT_BINARY_DIR}/share/.hipInfo_install
-  DESTINATION ${SHARE_INSTALL_DIR} RENAME .hipInfo)
+  string(MD5 _prefix_hash \"\${CMAKE_INSTALL_PREFIX}\")
+  set(_hipInfo \"${PROJECT_BINARY_DIR}/share/hipInfo_install/\${_prefix_hash}/.hipInfo\")
+  configure_file(\"${PROJECT_BINARY_DIR}/share/.hipInfo_install.in\" \"\${_hipInfo}\" @ONLY)
+  file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${SHARE_INSTALL_DIR}\" TYPE FILE FILES \"\${_hipInfo}\")")
 
 # Copy hipconfig, hipvars, etc to bin
 install(FILES ${CMAKE_BINARY_DIR}/bin/hipcc.bin DESTINATION ${BIN_INSTALL_DIR} RENAME hipcc PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
