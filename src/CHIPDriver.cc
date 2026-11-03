@@ -278,7 +278,12 @@ void CHIPUninitializeCallOnce() {
       Dev->deallocateDeviceVariables();
     }
 
-    Backend->uninitialize();
+    // Exit has no caller to report to, and teardown must still run.
+    try {
+      Backend->uninitialize();
+    } catch (CHIPError &Err) {
+      logError("Backend uninitialize failed at exit: {}", Err.getMsgStr());
+    }
     delete Backend;
     Backend = nullptr;
   }
