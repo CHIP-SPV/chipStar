@@ -1,6 +1,6 @@
 // Reproducer for https://github.com/CHIP-SPV/chipStar/issues/2231: a tracked
-// event whose fence never completes must hand its fence back before the
-// device is destroyed. Fails if the kernel's fence is not destroyed by then.
+// event still recording when the monitor stops must hand its fence back before
+// the device is destroyed. Fails if the kernel's fence is not destroyed then.
 #include <hip/hip_runtime.h>
 #include <hip/hip_interop.h>
 

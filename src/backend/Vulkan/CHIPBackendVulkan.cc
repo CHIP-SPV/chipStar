@@ -3652,7 +3652,7 @@ std::recursive_mutex CHIPBackendVulkan::TeardownMtx_;
 CHIPBackendVulkan::CHIPBackendVulkan() = default;
 
 CHIPBackendVulkan::~CHIPBackendVulkan() {
-  // Events tracked after uninitialize() must not outlive the contexts.
+  // Events still tracked go before ~Backend frees the contexts.
   {
     LOCK(EventsMtx);
     Events.clear();
