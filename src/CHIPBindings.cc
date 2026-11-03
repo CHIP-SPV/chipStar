@@ -5336,6 +5336,8 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   if (PitchedDevPtr.pitch == Extent.width)
     ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
                             1);
+  else if (!AllocInfo->DevPtr) // deferred record: the base version host-fills
+    ChipQueue->chipstar::Queue::memFillAsync3D(PitchedDevPtr, Value, Extent);
   else
     ChipQueue->memFillAsync3D(PitchedDevPtr, Value, Extent);
 
@@ -5404,6 +5406,10 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
                                                          &CharVal, 1);
 
+  // A deferred record has no device side; memFill wrote the host range.
+  if (!AllocInfo->DevPtr)
+    return hipSuccess;
+
   if (AllocInfo->HostPtr) {
     logDebug("DevPtr {} is associated with HostPtr {}", AllocInfo->DevPtr,
              AllocInfo->HostPtr);
@@ -5417,12 +5423,10 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
           AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
       memset(AllocInfo->HostPtr, Value, SizeBytes);
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
-    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged && AllocInfo->DevPtr) {
+    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged) {
       // For managed memory (from hipHostRegister), we need to memset both
       // device and host sides. Device memset is already done above.
       // Host memset ensures the host-accessible memory is also updated.
-      // DevPtr will be null if hipHostGetDevicePointer was never called, in
-      // which case there is no device backing and only the host side exists.
       logDebug("AllocInfo->MemoryType == hipMemoryTypeManaged - executing "
                "memset on host");
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
