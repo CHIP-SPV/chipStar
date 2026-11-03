@@ -324,7 +324,6 @@ bool MemoryManager::pointerInfo(void *Ptr, void **Base, size_t *Size) {
 }
 
 void MemoryManager::clear() {
-  Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
   Allocations_.clear();
 }
 
