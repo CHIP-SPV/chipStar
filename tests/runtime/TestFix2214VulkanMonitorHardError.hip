@@ -1,6 +1,5 @@
 // Reproducer for https://github.com/CHIP-SPV/chipStar/issues/2214: a hard
-// vkGetFenceStatus error must not terminate the process from the event monitor
-// thread, and must not be polled again once seen.
+// vkGetFenceStatus error must not terminate the event monitor thread.
 #include <hip/hip_runtime.h>
 
 #include <atomic>
@@ -11,6 +10,8 @@
 
 static std::atomic<bool> Fail{false};
 static std::atomic<int> Hits{0};
+static std::atomic<int> WaitHits{0};
+static std::atomic<bool> Ran{false};
 static const int VkErrorDeviceLost = -4;
 
 extern "C" int vkGetFenceStatus(void *Dev, void *Fence) {
@@ -27,48 +28,63 @@ extern "C" int vkWaitForFences(void *Dev, unsigned N, const void *Fences,
   static auto Real = (int (*)(void *, unsigned, const void *, unsigned,
                               unsigned long long))dlsym(RTLD_NEXT,
                                                         "vkWaitForFences");
+  WaitHits++;
   if (Fail)
     return VkErrorDeviceLost;
   return Real(Dev, N, Fences, WaitAll, Timeout);
 }
 
-__global__ void kernel(int *P) { *P = 1; }
+static void Callback(hipStream_t, hipError_t, void *) { Ran = true; }
+
+#define CHECK(X)                                                               \
+  if ((X) != hipSuccess) {                                                     \
+    Fail = false;                                                              \
+    printf("FAIL: %s\n", #X);                                                  \
+    return 1;                                                                  \
+  }
 
 int main() {
-  int *P;
-  (void)hipMalloc(&P, sizeof(int));
   Fail = true;
-  kernel<<<1, 1>>>(P);
   hipEvent_t E;
-  (void)hipEventCreate(&E);
-  (void)hipEventRecord(E, 0);
+  CHECK(hipEventCreate(&E));
+  CHECK(hipEventRecord(E, 0));
+  CHECK(hipStreamAddCallback(0, Callback, nullptr, 0));
 
-  for (int I = 0; I < 1000 && Hits == 0; ++I)
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  if (Hits == 0) {
+  float Ms;
+  hipError_t ElapsedErr = hipEventElapsedTime(&Ms, E, E);
+  hipError_t Err = hipEventSynchronize(E);
+
+  if (WaitHits == 0) {
     Fail = false;
-    printf("HIP_SKIP_THIS_TEST: vkGetFenceStatus was never called\n");
+    printf("HIP_SKIP_THIS_TEST: not the Vulkan backend\n");
     return CHIP_SKIP_TEST;
   }
-
-  // A monitor that keeps polling would hit this thousands of times.
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  if (Hits != 1) {
-    printf("FAIL: vkGetFenceStatus polled %d times after a hard error\n",
-           Hits.load());
+  if (Err != hipErrorTbd) {
+    Fail = false;
+    printf("FAIL: hipEventSynchronize returned %d\n", (int)Err);
     return 1;
   }
-  if (hipEventSynchronize(E) == hipSuccess) {
-    printf("FAIL: hipEventSynchronize did not report the fence error\n");
+  if (ElapsedErr != hipErrorTbd) {
+    Fail = false;
+    printf("FAIL: hipEventElapsedTime returned %d\n", (int)ElapsedErr);
+    return 1;
+  }
+
+  int H = Hits;
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  if (Hits == H) {
+    Fail = false;
+    printf("FAIL: the monitor stopped polling after a hard error\n");
     return 1;
   }
 
   Fail = false;
-  if (hipDeviceSynchronize() != hipSuccess) {
-    printf("FAIL: hipDeviceSynchronize failed after the error cleared\n");
+  CHECK(hipDeviceSynchronize());
+  if (!Ran) {
+    printf("FAIL: the callback never ran\n");
     return 1;
   }
-  (void)hipEventDestroy(E);
+  CHECK(hipEventDestroy(E));
   printf("PASS\n");
   return 0;
 }
