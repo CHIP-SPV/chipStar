@@ -32,6 +32,18 @@ else
     echo "Skip: clang++ or g++ is required"
 fi
 echo
+echo "### Check hip::deviceRDC link has no data layout warning (#525)"
+setup-test-dir
+cmake @CMAKE_CURRENT_SOURCE_DIR@/HipDeviceRDCDataLayout \
+      -DCMAKE_PREFIX_PATH=@CMAKE_INSTALL_PREFIX@ \
+      -DCMAKE_CXX_COMPILER=${CXX}
+make VERBOSE=1 > build.log 2>&1 || { cat build.log; exit 1; }
+if grep -q "different data layouts" build.log; then
+    echo "FAIL: hip::deviceRDC link warns about different data layouts (#525)"
+    exit 1
+fi
+echo "Success"
+echo
 echo "### Check hip::device with mixed C/C++ sources (#1001)"
 setup-test-dir
 cmake @CMAKE_CURRENT_SOURCE_DIR@/HipDeviceCSource \
