@@ -615,8 +615,11 @@ void EventMonitorVulkan::monitor() {
     {
       LOCK(EventMonitorMtx); // chipstar::EventMonitor::Stop
       if (Stop) {
-        logTrace("EventMonitorVulkan::monitor() exiting on Stop");
-        return;
+        LOCK(Backend->CallbackQueueMtx);
+        if (Backend->CallbackQueue.empty()) {
+          logTrace("EventMonitorVulkan::monitor() exiting on Stop");
+          return;
+        }
       }
     }
   }
@@ -3875,7 +3878,7 @@ void CHIPBackendVulkan::uninitialize() {
 
   // Flag before locking, so a queue destructor waiting on the lock sees it.
   ShuttingDown_.store(true, std::memory_order_release);
-  std::lock_guard<std::recursive_mutex> TeardownLock(TeardownMtx_);
+  // Before the lock: a draining callback may destroy a stream.
   if (EventMonitor_) {
     {
       LOCK(EventMonitor_->EventMonitorMtx);
@@ -3884,6 +3887,8 @@ void CHIPBackendVulkan::uninitialize() {
     EventMonitor_->join();
     EventMonitor_ = nullptr;
   }
+
+  std::lock_guard<std::recursive_mutex> TeardownLock(TeardownMtx_);
 
   // Devices go before the VkInstance; ~Backend deletes the contexts.
   for (auto *Ctx : ChipContexts) {
@@ -3933,7 +3938,9 @@ chipstar::CallbackData *
 CHIPBackendVulkan::createCallbackData(hipStreamCallback_t Callback,
                                       void *UserData,
                                       chipstar::Queue *ChipQ) {
-  if (Callback == nullptr || ChipQ == nullptr)
+  // No new callbacks in teardown, so the monitor's drain ends.
+  if (Callback == nullptr || ChipQ == nullptr ||
+      ShuttingDown_.load(std::memory_order_acquire))
     return nullptr;
   return new CHIPCallbackDataVulkan(Callback, UserData, ChipQ);
 }
