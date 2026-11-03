@@ -114,6 +114,19 @@ std::string CHIPGraphNodeKernel::getKernelName() const {
 CHIPGraphNodeKernel::~CHIPGraphNodeKernel() { delete ExecItem_; }
 
 void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
+  if (Is3D_) {
+    if (!Params_.width || !Params_.height || !Depth_)
+      return;
+    hipPitchedPtr Ptr;
+    Ptr.ptr = Params_.dst;
+    Ptr.pitch = Params_.pitch;
+    Ptr.xsize = Params_.width;
+    Ptr.ysize = YSize_;
+    Queue->memFillAsync3D(
+        Ptr, (int)Params_.value,
+        make_hipExtent(Params_.width, Params_.height, Depth_));
+    return;
+  }
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);
   size_t Width = std::max<size_t>(1, Params_.width);
