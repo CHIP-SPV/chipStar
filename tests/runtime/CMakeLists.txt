@@ -145,6 +145,10 @@ if(NOT CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_S
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestPointerSelection.hip
     TestSharedFloatAtomicAdd.hip)
 endif()
+# Stalls vkQueueWaitIdle through an interposer; Apple has no symbol interposition.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2307VulkanTimeoutSyncLockOrder.hip)
+endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
 list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
@@ -162,6 +166,10 @@ set_target_properties(TestFix2243OpenCLExitFinishError PROPERTIES ENABLE_EXPORTS
 target_link_libraries(TestFix2243OpenCLExitFinishError ${CMAKE_DL_LIBS})
 # The verdict must be the exit code: PASS would print before teardown.
 set_tests_properties(TestFix2243OpenCLExitFinishError PROPERTIES PASS_REGULAR_EXPRESSION "")
+if(TARGET TestFix2307VulkanTimeoutSyncLockOrder)
+  set_target_properties(TestFix2307VulkanTimeoutSyncLockOrder PROPERTIES ENABLE_EXPORTS ON)
+  target_link_libraries(TestFix2307VulkanTimeoutSyncLockOrder ${CMAKE_DL_LIBS})
+endif()
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
 if(TEST TestFixRuntimeWarpSize)
