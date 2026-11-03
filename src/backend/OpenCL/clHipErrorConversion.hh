@@ -37,6 +37,15 @@ inline const std::unordered_map<void *, cl_hip_error_map_t> &clHipErrorMaps() {
       {CL_INVALID_VALUE, hipErrorInvalidValue},
       {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
 
+    {(void *)&clCreateCommandQueueWithProperties,
+     {{CL_SUCCESS, hipSuccess},
+      {CL_INVALID_CONTEXT, hipErrorInvalidResourceHandle},
+      {CL_INVALID_DEVICE, hipErrorInvalidDevice},
+      {CL_INVALID_VALUE, hipErrorInvalidValue},
+      {CL_INVALID_QUEUE_PROPERTIES, hipErrorInvalidValue},
+      {CL_OUT_OF_RESOURCES, hipErrorOutOfMemory},
+      {CL_OUT_OF_HOST_MEMORY, hipErrorOutOfMemory}}},
+
     {(void *)&clCreateBuffer,
      {{CL_SUCCESS, hipSuccess},
       {CL_INVALID_CONTEXT, hipErrorInvalidResourceHandle},
