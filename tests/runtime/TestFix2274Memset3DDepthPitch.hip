@@ -1,0 +1,47 @@
+// Reproducer for https://github.com/CHIP-SPV/chipStar/issues/2274:
+// hipMemset3D rejects a depth larger than the row pitch.
+#include <hip/hip_runtime.h>
+#include <cstdint>
+#include <cstdio>
+
+static bool check(const char *What, hipError_t Got, hipError_t Want) {
+  std::printf("%s: err=%d want=%d %s\n", What, (int)Got, (int)Want,
+              Got == Want ? "ok" : "FAIL");
+  return Got == Want;
+}
+
+int main() {
+  hipPitchedPtr P;
+  hipStream_t S;
+  hipExtent E = make_hipExtent(1, 1, 129), Big = E;
+  bool Ok = check("malloc3D", hipMalloc3D(&P, E), hipSuccess) &&
+            check("stream", hipStreamCreate(&S), hipSuccess);
+  unsigned char H = 0;
+  Ok = Ok && check("memset3D", hipMemset3D(P, 0x11, E), hipSuccess);
+  Ok = Ok && check("read",
+                   hipMemcpy(&H, (char *)P.ptr + P.pitch * 128, 1,
+                             hipMemcpyDeviceToHost),
+                   hipSuccess);
+  std::printf("memset3D last slice byte=%#x %s\n", H,
+              H == 0x11 ? "ok" : "FAIL");
+  Ok = Ok && H == 0x11;
+  Ok =
+      Ok && check("memset3DAsync", hipMemset3DAsync(P, 0x22, E, S), hipSuccess);
+  Ok = Ok && check("sync", hipStreamSynchronize(S), hipSuccess);
+  Ok = Ok && check("read",
+                   hipMemcpy(&H, (char *)P.ptr + P.pitch * 128, 1,
+                             hipMemcpyDeviceToHost),
+                   hipSuccess);
+  std::printf("memset3DAsync last slice byte=%#x %s\n", H,
+              H == 0x22 ? "ok" : "FAIL");
+  Ok = Ok && H == 0x22;
+  for (size_t D : {(size_t)130, (size_t)SIZE_MAX}) {
+    Big.depth = D;
+    std::printf("depth=%zu\n", D);
+    Ok &= check("memset3D over", hipMemset3D(P, 1, Big), hipErrorInvalidValue);
+    Ok &= check("memset3DAsync over", hipMemset3DAsync(P, 1, Big, S),
+                hipErrorInvalidValue);
+  }
+  std::printf("%s\n", Ok ? "PASS" : "FAIL");
+  return !Ok;
+}
