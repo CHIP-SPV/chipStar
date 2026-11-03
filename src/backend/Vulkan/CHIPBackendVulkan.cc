@@ -2302,6 +2302,8 @@ CHIPQueueVulkan::~CHIPQueueVulkan() {
     vkDestroyFence(Dev, FinishFence_, nullptr);
     FinishFence_ = VK_NULL_HANDLE;
   }
+  // Wait out a monitor thread still inside vkSignalSemaphore.
+  { std::lock_guard<std::mutex> SignalDone(QueueOpMtx_); }
   if (TimelineSemaphore_ != VK_NULL_HANDLE) {
     vkDestroySemaphore(Dev, TimelineSemaphore_, nullptr);
     TimelineSemaphore_ = VK_NULL_HANDLE;
@@ -3478,6 +3480,7 @@ uint64_t CHIPQueueVulkan::reserveTimelineValue() {
 }
 
 void CHIPQueueVulkan::signalTimelineValue(uint64_t Value) {
+  std::lock_guard<std::mutex> Lock(QueueOpMtx_);
   VkSemaphoreSignalInfo SI{};
   SI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
   SI.semaphore = TimelineSemaphore_;
