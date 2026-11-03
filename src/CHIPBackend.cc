@@ -28,6 +28,11 @@
 // Definition of thread_local static member (required when not using 'inline')
 thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefaultQueue;
 
+// Trivially destructible, so it stays readable after PerThreadDefaultQueue's TLS
+// destructor ran at exit; a null check on the queue would recreate it there.
+// Left set when the queue is reset on reinitialize; the Device ctor rearms it.
+static thread_local bool PerThreadQueueCreated = false;
+
 // Global counter for threads that have called HIP APIs
 std::atomic<int> GlobalActiveThreads{0};
 
@@ -726,6 +731,7 @@ chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
     : Ctx_(Ctx), Idx_(DeviceIdx) {
   LegacyDefaultQueue = nullptr;
   PerThreadDefaultQueue = nullptr;
+  PerThreadQueueCreated = false;
   // Avoid indeterminate values.
   std::memset(&HipDeviceProps_, 0, sizeof(HipDeviceProps_));
 }
@@ -785,10 +791,6 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
   return getPerThreadDefaultQueueNoLock();
 }
 
-// Trivially destructible, so it stays readable after PerThreadDefaultQueue's TLS
-// destructor ran at exit; a null check on the queue would recreate it there.
-static thread_local bool PerThreadQueueCreated = false;
-
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
   if (!PerThreadQueueCreated) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
@@ -801,15 +803,6 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
   }
 
   return PerThreadDefaultQueue.get();
-}
-
-void chipstar::Device::destroyPerThreadDefaultQueue() {
-  if (PerThreadDefaultQueue) {
-    PerThreadDefaultQueue->finish();
-    PerThreadDefaultQueue.reset();
-  }
-  PerThreadQueueCreated = false;
-  PerThreadStreamUsed_ = false;
 }
 
 std::vector<chipstar::Kernel *> chipstar::Device::getKernels() {
