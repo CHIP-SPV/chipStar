@@ -3855,9 +3855,7 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
     for (auto Q : Dev->getQueuesNoLock())
       if (Q->getQueueFlags().isBlocking() && !Q->isEmptyQueue())
         Q->finish();
-    auto *PT = Dev->isPerThreadStreamUsedNoLock()
-                   ? Dev->getPerThreadDefaultQueueNoLock()
-                   : nullptr;
+    auto *PT = Dev->findPerThreadQueue();
     if (PT && !PT->isEmptyQueue())
       PT->finish();
   }

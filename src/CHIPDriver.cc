@@ -294,9 +294,10 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
 
   if (Backend) {
     logDebug("uninitializing existing Backend object.");
-    for (auto Dev : Backend->getDevices())
-      Dev->finishPerThreadQueues();
     Backend->uninitialize();
+    for (auto Dev : Backend->getDevices())
+      if (Dev) // Vulkan's uninitialize deletes its devices.
+        Dev->destroyCallerPerThreadQueue();
     delete Backend;
     Backend = nullptr;
   }

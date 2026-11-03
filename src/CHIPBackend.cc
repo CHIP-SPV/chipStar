@@ -29,6 +29,41 @@
 // Global counter for threads that have called HIP APIs
 std::atomic<int> GlobalActiveThreads{0};
 
+namespace {
+// Destroys the exiting thread's queues; ThreadExited guards late getter calls.
+thread_local bool ThreadExited = false;
+std::unique_ptr<chipstar::Queue>
+takeCallerQueue(chipstar::Device::PerThreadQueues &P) {
+  std::unique_ptr<chipstar::Queue> Taken;
+  std::lock_guard<std::mutex> Lock(P.Mtx);
+  auto It = P.Map.find(std::this_thread::get_id());
+  if (It != P.Map.end()) {
+    Taken = std::move(It->second);
+    P.Map.erase(It);
+  }
+  return Taken;
+}
+struct PerThreadQueueRetirer {
+  std::vector<std::weak_ptr<chipstar::Device::PerThreadQueues>> Owners;
+  ~PerThreadQueueRetirer() {
+    ThreadExited = true;
+    for (auto &W : Owners)
+      if (auto P = W.lock()) {
+        // Destroyed outside Mtx: Vulkan's ~Queue takes TeardownMtx_, which is
+        // held across ~Device (which takes Mtx).
+        auto Dying = takeCallerQueue(*P);
+      }
+  }
+};
+thread_local PerThreadQueueRetirer Retirer;
+// Constructs the retirer as early as a thread_local member would, so it
+// outlives thread_locals the app constructs later.
+void touchRetirer() {
+  if (!ThreadExited)
+    Retirer.Owners.reserve(0);
+}
+} // namespace
+
 /// Queue a kernel for retrieving information about the device variable.
 static void queueKernel(chipstar::Queue *Q, chipstar::Kernel *K,
                         void *Args[] = nullptr, dim3 GridDim = dim3(1),
@@ -723,6 +758,7 @@ chipstar::Queue *chipstar::ExecItem::getQueue() { return ChipQueue_; }
 chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
     : Ctx_(Ctx), Idx_(DeviceIdx) {
   LegacyDefaultQueue = nullptr;
+  touchRetirer();
   // Avoid indeterminate values.
   std::memset(&HipDeviceProps_, 0, sizeof(HipDeviceProps_));
 }
@@ -741,9 +777,15 @@ chipstar::Device::~Device() {
 
     delete LegacyDefaultQueue;
     LegacyDefaultQueue = nullptr;
+  }
 
-    std::lock_guard<std::mutex> PTLock(PerThreadQueuesMtx_);
-    PerThreadQueues_.clear();
+  {
+    std::lock_guard<std::mutex> Lock(PerThreadQueues_->Mtx);
+    // Anything left belongs to a thread still running, and its queue's
+    // destructor needs backend state that is gone.
+    for (auto &E : PerThreadQueues_->Map)
+      E.second.release();
+    PerThreadQueues_->Map.clear();
   }
 
   // Then handle device variables with DeviceVarMtx
@@ -785,31 +827,36 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
   return getPerThreadDefaultQueueNoLock();
 }
 
+chipstar::Queue *chipstar::Device::findPerThreadQueue() {
+  touchRetirer();
+  std::lock_guard<std::mutex> Lock(PerThreadQueues_->Mtx);
+  auto It = PerThreadQueues_->Map.find(std::this_thread::get_id());
+  return It == PerThreadQueues_->Map.end() ? nullptr : It->second.get();
+}
+
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
-  auto Id = std::this_thread::get_id();
-  {
-    std::lock_guard<std::mutex> Lock(PerThreadQueuesMtx_);
-    auto It = PerThreadQueues_.find(Id);
-    if (It != PerThreadQueues_.end())
-      return It->second.get();
-  }
+  // This thread's queues are already retired.
+  if (ThreadExited)
+    return getLegacyDefaultQueue();
+  if (auto *Found = findPerThreadQueue())
+    return Found;
   logDebug("Per-thread queue is missing.. Creating a new queue.");
   std::unique_ptr<chipstar::Queue> Q(::Backend->createCHIPQueue(this));
   Q->setDefaultPerThreadQueue(true);
-  std::lock_guard<std::mutex> Lock(PerThreadQueuesMtx_);
+  auto *Raw = Q.get();
+  std::lock_guard<std::mutex> Lock(PerThreadQueues_->Mtx);
   PerThreadStreamUsed_ = true;
-  return (PerThreadQueues_[Id] = std::move(Q)).get();
+  PerThreadQueues_->Map[std::this_thread::get_id()] = std::move(Q);
+  auto &Owners = Retirer.Owners;
+  Owners.erase(std::remove_if(Owners.begin(), Owners.end(),
+                              [](auto &W) { return W.expired(); }),
+               Owners.end());
+  Owners.push_back(PerThreadQueues_);
+  return Raw;
 }
 
-void chipstar::Device::finishPerThreadQueues() {
-  std::vector<chipstar::Queue *> Queues;
-  {
-    std::lock_guard<std::mutex> Lock(PerThreadQueuesMtx_);
-    for (auto &[Id, Q] : PerThreadQueues_)
-      Queues.push_back(Q.get());
-  }
-  for (auto *Q : Queues)
-    Q->finish();
+void chipstar::Device::destroyCallerPerThreadQueue() {
+  takeCallerQueue(*PerThreadQueues_);
 }
 
 std::vector<chipstar::Kernel *> chipstar::Device::getKernels() {

@@ -129,8 +129,7 @@ if(CHIP_USE_NATIVE_VULKAN_SPIRV)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestIndirectCall.hip
     TestDeviceVirtualDispatch.hip TestFix1691SharedAddrLocalInit.hip
     TestSubwordAtomics.hip TestAlignAttrRuntime.hip
-    TestNegativeHasNoIGBAs2.hip TestFixRuntimeWarpSize.hip
-    TestFix2284PerThreadStreamReinit.hip)
+    TestNegativeHasNoIGBAs2.hip TestFixRuntimeWarpSize.hip)
 endif()
 # The interposers rely on ELF symbol interposition, so native Vulkan on ELF only.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)

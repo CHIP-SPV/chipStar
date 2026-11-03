@@ -1437,9 +1437,16 @@ protected:
   // initializer. may call virtual methods
   void init();
   bool PerThreadStreamUsed_ = false;
-  std::unordered_map<std::thread::id, std::unique_ptr<chipstar::Queue>>
-      PerThreadQueues_;
-  std::mutex PerThreadQueuesMtx_;
+
+public:
+  struct PerThreadQueues {
+    std::mutex Mtx;
+    std::unordered_map<std::thread::id, std::unique_ptr<chipstar::Queue>> Map;
+  };
+
+private:
+  std::shared_ptr<PerThreadQueues> PerThreadQueues_ =
+      std::make_shared<PerThreadQueues>();
 
 public:
   // atomic int for counting number of threads that were created
@@ -1462,8 +1469,10 @@ public:
   size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
 
   chipstar::Queue *LegacyDefaultQueue;
-  /// Wait for every per-thread queue of this device.
-  void finishPerThreadQueues();
+  /// Destroy the calling thread's per-thread queue.
+  void destroyCallerPerThreadQueue();
+  /// The calling thread's per-thread queue, or null; never creates one.
+  chipstar::Queue *findPerThreadQueue();
 
   /**
    * @brief Get the Legacy Default Queue object.
@@ -2347,7 +2356,7 @@ protected:
 
       // Create marker for per-thread default stream if used
       if (ChipDevice_->isPerThreadStreamUsedNoLock()) {
-        auto PerThreadDefaultQueue = ChipDevice_->getPerThreadDefaultQueueNoLock();
+        auto PerThreadDefaultQueue = ChipDevice_->findPerThreadQueue();
         if (PerThreadDefaultQueue && !PerThreadDefaultQueue->isEmptyQueue() ) {
           std::shared_ptr<chipstar::Event> ChipMarkerEvent;
           EventHandle handle = CreateMarkerInQueue(PerThreadDefaultQueue, ChipMarkerEvent);
