@@ -381,6 +381,15 @@ add_test(NAME TestDefaultBackend_NoBE
 set_tests_properties(TestDefaultBackend_NoBE PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS")
 
+# An empty CHIP_LOGLEVEL leaves the compiled-in default, which must not log at debug in non-Debug builds.
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+  add_test(NAME TestFix2237DefaultLogLevel
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/TestDefaultBackend)
+  set_tests_properties(TestFix2237DefaultLogLevel PROPERTIES
+    ENVIRONMENT "CHIP_LOGLEVEL="
+    FAIL_REGULAR_EXPRESSION "CHIP (trace|debug|info) ")
+endif()
+
 # Regression test for https://github.com/CHIP-SPV/chipStar/issues/1199
 # hipGetBackendNativeHandles must return "opencl" or "level0" in NativeHandles[0],
 # never "default", even when CHIP_BE is unset.
