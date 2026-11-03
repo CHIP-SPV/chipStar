@@ -3634,8 +3634,9 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
   IsEmptyQueue_.store(false);
   if (SignalVk)
     SignalVk->setRecording();
-  // The event monitor frees it once its fence signals.
-  {
+  // The event monitor frees it once its fence signals. A drain's events free
+  // themselves: its callers hold QueueAddRemoveMtx, which orders after EventsMtx.
+  if (!Draining_) {
     LOCK(Backend->EventsMtx);
     Backend->trackEvent(SignalEvent);
   }
