@@ -81,12 +81,12 @@ int main() {
   void *D;
   if (hipHostRegister(Buf, 64, 0) == hipSuccess &&
       hipHostGetDevicePointer(&D, Buf, 0) == hipSuccess) {
-    check("j) registered host range, fill runs past the end",
-          hipMemset2D(Buf + 1, 16, 0xAB, 7, 5) == hipErrorInvalidValue);
-    check("j) registered device range, fill runs past the end",
-          hipMemset2D((char *)D + 1, 16, 0xAB, 7, 5) == hipErrorInvalidValue);
-    check("j) registered device range, fill fits",
-          hipMemset2D((char *)D + 1, 16, 0xAB, 7, 4) == hipSuccess);
+    check("j) registered host range, offset 1 leaves 63 bytes",
+          hipMemset2D(Buf + 1, 16, 0xAB, 16, 4) == hipErrorInvalidValue);
+    check("j) registered device range, offset 1 leaves 63 bytes",
+          hipMemset2D((char *)D + 1, 16, 0xAB, 16, 4) == hipErrorInvalidValue);
+    check("j) registered device range, 63 bytes fit exactly",
+          hipMemset2D((char *)D + 1, 16, 0xAB, 15, 4) == hipSuccess);
     hipHostUnregister(Buf);
   } else {
     printf("SKIP j: hipHostRegister or hipHostGetDevicePointer failed\n");
