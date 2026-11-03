@@ -3652,6 +3652,11 @@ std::recursive_mutex CHIPBackendVulkan::TeardownMtx_;
 CHIPBackendVulkan::CHIPBackendVulkan() = default;
 
 CHIPBackendVulkan::~CHIPBackendVulkan() {
+  // Events tracked after uninitialize() must not outlive the contexts.
+  {
+    LOCK(EventsMtx);
+    Events.clear();
+  }
   // In case uninitialize() was not called.
   if (DebugMessenger_ != VK_NULL_HANDLE && Instance_ != VK_NULL_HANDLE) {
     auto Destroy = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
