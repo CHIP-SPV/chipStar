@@ -1969,8 +1969,8 @@ public:
  */
 class Backend {
 public:
-  // uninitialize() left this alive for threads still in HIP; do not delete it.
-  bool Abandoned = false;
+  // Left alive by uninitialize() for threads in HIP; new work gets an error.
+  std::atomic<bool> Abandoned{false};
 
   // Whether CHIPReinitialize may tear this backend down now.
   virtual bool canReinitialize() const { return true; }

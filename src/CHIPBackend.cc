@@ -1814,7 +1814,8 @@ chipstar::Context *chipstar::Backend::getActiveContext() {
 };
 
 chipstar::Device *chipstar::Backend::getActiveDevice() {
-  if (!::Backend) {
+  // A backend abandoned at teardown takes no new work: same error as a null one.
+  if (!::Backend || ::Backend->Abandoned) {
     CHIPERR_LOG_AND_THROW("Backend not initialized",
                           hipErrorInitializationError);
   }
