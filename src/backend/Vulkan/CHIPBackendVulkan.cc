@@ -3876,6 +3876,8 @@ void CHIPBackendVulkan::uninitialize() {
   // Detached threads may still be in HIP calls using the VkDevice.
   waitForThreadExit();
 
+  // Flag before locking, so a queue destructor waiting on the lock sees it.
+  ShuttingDown_.store(true, std::memory_order_release);
   // Before the lock: a draining callback may destroy a stream.
   if (EventMonitor_) {
     {
@@ -3886,8 +3888,6 @@ void CHIPBackendVulkan::uninitialize() {
     EventMonitor_ = nullptr;
   }
 
-  // Flag before locking, so a queue destructor waiting on the lock sees it.
-  ShuttingDown_.store(true, std::memory_order_release);
   std::lock_guard<std::recursive_mutex> TeardownLock(TeardownMtx_);
 
   // Devices go before the VkInstance; ~Backend deletes the contexts.
@@ -3938,7 +3938,9 @@ chipstar::CallbackData *
 CHIPBackendVulkan::createCallbackData(hipStreamCallback_t Callback,
                                       void *UserData,
                                       chipstar::Queue *ChipQ) {
-  if (Callback == nullptr || ChipQ == nullptr)
+  // No new callbacks in teardown, so the monitor's drain ends.
+  if (Callback == nullptr || ChipQ == nullptr ||
+      ShuttingDown_.load(std::memory_order_acquire))
     return nullptr;
   return new CHIPCallbackDataVulkan(Callback, UserData, ChipQ);
 }
