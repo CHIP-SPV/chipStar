@@ -117,8 +117,11 @@ void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);
   size_t Width = std::max<size_t>(1, Params_.width);
-  size_t Size = Height * Width; //  TODO Graphs Pitch?
-  Queue->memFillAsync(Params_.dst, Size, (void *)&Val, Params_.elementSize);
+  // 1D fills record pitch 1 and hipGraphAddMemsetNode callers may leave it 0.
+  size_t Pitch = std::max(Params_.pitch, Width);
+  char *Dst = static_cast<char *>(Params_.dst);
+  for (size_t Row = 0; Row < Height; ++Row)
+    Queue->memFillAsync(Dst + Row * Pitch, Width, &Val, Params_.elementSize);
 }
 
 void CHIPGraphNodeMemcpy::execute(chipstar::Queue *Queue) const {
