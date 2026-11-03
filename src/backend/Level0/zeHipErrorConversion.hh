@@ -30,7 +30,9 @@
 using ze_hip_error_map_t = std::unordered_map<ze_result_t, hipError_t>;
 
 // Map of Level Zero API calls to error conversion maps
-const std::unordered_map<void *, ze_hip_error_map_t> ZE_HIP_ERROR_MAPS = {
+// Never destroyed: module destructors may run after a static's destructor.
+inline const std::unordered_map<void *, ze_hip_error_map_t> &zeHipErrorMaps() {
+  static const auto *Maps = new std::unordered_map<void *, ze_hip_error_map_t>{
     {(void *)&zeInit,
      {{ZE_RESULT_SUCCESS, hipSuccess},
       {ZE_RESULT_ERROR_UNINITIALIZED, hipErrorNotInitialized},
@@ -352,12 +354,15 @@ const std::unordered_map<void *, ze_hip_error_map_t> ZE_HIP_ERROR_MAPS = {
       {ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT, hipErrorInvalidValue},
       {ZE_RESULT_ERROR_INVALID_SIZE, hipErrorInvalidValue},
       {ZE_RESULT_ERROR_INVALID_ARGUMENT, hipErrorInvalidValue}}}};
+  return *Maps;
+}
 
 // function converting ze_result_t into hipError_t based on provided map
 template <typename FuncPtr>
 inline hipError_t hip_convert_error(ze_result_t zeStatus, FuncPtr func) {
-  auto it = ZE_HIP_ERROR_MAPS.find((void *)func);
-  if (it != ZE_HIP_ERROR_MAPS.end()) {
+  auto &Maps = zeHipErrorMaps();
+  auto it = Maps.find((void *)func);
+  if (it != Maps.end()) {
     auto &errorMap = it->second;
     auto errorIt = errorMap.find(zeStatus);
     if (errorIt != errorMap.end()) {
