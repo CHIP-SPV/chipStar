@@ -90,13 +90,23 @@ public:
 // This is used to prevent the main thread from exiting before all other threads have finished
 extern std::atomic<int> GlobalActiveThreads;
 
+// Trivially destructible, so it stays readable after TLS destructors ran.
+inline thread_local bool ThisThreadCounted = false;
+
+// Threads other than the caller that have called HIP APIs and not yet exited.
+inline int otherActiveThreads() {
+  return GlobalActiveThreads.load(std::memory_order_acquire) -
+         (ThisThreadCounted ? 1 : 0);
+}
+
 // Function to track thread entry  
 inline void trackThreadEntry() {
   thread_local static struct ThreadTracker {
     bool counted = false;
     ~ThreadTracker() {
       if (counted) {
-        GlobalActiveThreads.fetch_sub(1, std::memory_order_relaxed);
+        ThisThreadCounted = false;
+        GlobalActiveThreads.fetch_sub(1, std::memory_order_release);
       }
     }
   } tracker;
@@ -104,6 +114,7 @@ inline void trackThreadEntry() {
   if (!tracker.counted) {
     GlobalActiveThreads.fetch_add(1, std::memory_order_relaxed);
     tracker.counted = true;
+    ThisThreadCounted = true;
   }
 }
 

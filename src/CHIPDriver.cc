@@ -279,6 +279,8 @@ void CHIPUninitializeCallOnce() {
     }
 
     Backend->uninitialize();
+    if (Backend->Abandoned)
+      return;
     delete Backend;
     Backend = nullptr;
   }
@@ -299,7 +301,8 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   if (Backend) {
     logDebug("uninitializing existing Backend object.");
     Backend->uninitialize();
-    delete Backend;
+    if (!Backend->Abandoned)
+      delete Backend;
     Backend = nullptr;
   }
 
