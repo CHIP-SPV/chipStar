@@ -2348,16 +2348,10 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
           "CHIPQueueVulkan::recordEvent: vkEndCommandBuffer failed",
           hipErrorTbd);
 
-  uint64_t WaitTimelineVal, SignalTimelineVal;
-  {
-    std::lock_guard<std::mutex> Lock(QueueOpMtx_);
-    WaitTimelineVal = TimelineValue_;
-    SignalTimelineVal = ++TimelineValue_;
-    noteRingSubmit(Cb, SignalTimelineVal);
-  }
+  uint64_t WaitTimelineVal = 0, SignalTimelineVal = 0;
   // An exported IPC event also signals its own semaphore.
   VkSemaphore SignalSems[2] = {TimelineSemaphore_, EvVk->getIpcSemaphore()};
-  uint64_t SignalVals[2] = {SignalTimelineVal, 0};
+  uint64_t SignalVals[2] = {0, 0};
   uint32_t NumSignals = 1;
   if (SignalSems[1] != VK_NULL_HANDLE) {
     SignalVals[1] = EvVk->nextIpcValue();
@@ -2366,7 +2360,7 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
 
   // Waits for the previous value, which may be a pending stream callback's.
   VkPipelineStageFlags WaitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-  uint32_t NumWaits = WaitTimelineVal > 0 ? 1 : 0;
+  uint32_t NumWaits = 1;
   VkTimelineSemaphoreSubmitInfo TsSubmit{};
   TsSubmit.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
   TsSubmit.waitSemaphoreValueCount = NumWaits;
@@ -2392,11 +2386,17 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
   }
 
   {
+    std::lock_guard<std::mutex> Lock(QueueOpMtx_);
+    WaitTimelineVal = TimelineValue_;
+    SignalTimelineVal = TimelineValue_ + 1;
+    SignalVals[0] = SignalTimelineVal;
     // vkQueueSubmit requires external synchronization of the VkQueue.
     std::lock_guard<std::mutex> SubmitLock(ChipDevice_->getSubmitMtx());
-    checkVk(vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
-                          SignalFence),
-            "CHIPQueueVulkan::recordEvent: vkQueueSubmit failed", hipErrorTbd);
+    VkResult R = vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
+                               SignalFence);
+    noteSubmit(R, Cb, SignalTimelineVal);
+    checkVk(R, "CHIPQueueVulkan::recordEvent: vkQueueSubmit failed",
+            hipErrorTbd);
   }
   if (NumSignals == 2)
     EvVk->publishIpcValue(SignalVals[1]);
@@ -3524,7 +3524,11 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
   return Cb;
 }
 
-void CHIPQueueVulkan::noteRingSubmit(VkCommandBuffer Cb, uint64_t Val) {
+void CHIPQueueVulkan::noteSubmit(VkResult R, VkCommandBuffer Cb,
+                                 uint64_t Val) {
+  if (R != VK_SUCCESS && R != VK_ERROR_DEVICE_LOST)
+    return;
+  TimelineValue_ = Val;
   for (uint32_t I = 0; I < RingCapacity_; ++I)
     if (CmdBufferRing_[I] == Cb)
       RingSlotValue_[I] = Val;
@@ -3547,22 +3551,12 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
     }
   }
 
-  uint64_t WaitTimelineVal;
-  uint64_t SignalTimelineVal;
-  {
-    std::lock_guard<std::mutex> Lock(QueueOpMtx_);
-    WaitTimelineVal = TimelineValue_;
-    SignalTimelineVal = ++TimelineValue_;
-    noteRingSubmit(Buf, SignalTimelineVal);
-  }
+  uint64_t SignalTimelineVal = 0;
 
-  // Waiting on the previous submit's value also makes its writes visible.
-  std::vector<VkSemaphore> WaitSems;
-  std::vector<uint64_t> WaitVals;
-  if (WaitTimelineVal > 0) {
-    WaitSems.push_back(TimelineSemaphore_);
-    WaitVals.push_back(WaitTimelineVal);
-  }
+  // Waiting on the previous submit's value also makes its writes visible;
+  // WaitVals[0] is filled in under the lock and 0 is trivially satisfied.
+  std::vector<VkSemaphore> WaitSems{TimelineSemaphore_};
+  std::vector<uint64_t> WaitVals{0};
   // Legacy default stream semantics: the default stream waits for every
   // blocking stream, and a blocking stream waits for the default stream.
   // Draining runs inside finish(), whose callers may hold
@@ -3623,11 +3617,15 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
   }
 
   {
+    std::lock_guard<std::mutex> Lock(QueueOpMtx_);
+    WaitVals[0] = TimelineValue_;
+    SignalTimelineVal = TimelineValue_ + 1;
     // vkQueueSubmit requires external synchronization of the VkQueue.
     std::lock_guard<std::mutex> SubmitLock(ChipDevice_->getSubmitMtx());
-    checkVk(vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
-                          SignalFence),
-            "CHIPQueueVulkan::submitWithEvent: vkQueueSubmit failed",
+    VkResult R = vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
+                               SignalFence);
+    noteSubmit(R, Buf, SignalTimelineVal);
+    checkVk(R, "CHIPQueueVulkan::submitWithEvent: vkQueueSubmit failed",
             hipErrorTbd);
   }
 
