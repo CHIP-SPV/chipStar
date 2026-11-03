@@ -43,7 +43,7 @@ int main() {
   }
 
   unsigned After = refs(C1);
-  if (After != Before) {
+  if (Before < 2 || After != Before) {
     printf("FAIL: C1 refcount %u before adoption, %u after teardown\n", Before,
            After);
     return 1;
