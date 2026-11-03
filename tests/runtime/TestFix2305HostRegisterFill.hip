@@ -17,6 +17,15 @@
     passed &= ok;                                                              \
   } while (0)
 
+#define REJECT(label, call)                                                    \
+  do {                                                                         \
+    hipError_t e = (call);                                                     \
+    bool ok = e == hipErrorInvalidValue;                                       \
+    printf("%-20s %s (%s)\n", label, ok ? "PASSED" : "FAILED",                 \
+           hipGetErrorString(e));                                              \
+    passed &= ok;                                                              \
+  } while (0)
+
 __global__ void read_val(unsigned char *out, unsigned char *in, int i) {
   *out = in[i];
 }
@@ -38,8 +47,38 @@ int main() {
   // Slice stride is pitch * ysize = 128; chipStar rejects depth > pitch.
   STEP("hipMemset3D", hipMemset3D(make_hipPitchedPtr(host, 128, 128, 1), 0x66, make_hipExtent(1, 1, 100)), host[0] == 0x66 && host[99 * 128] == 0x66 && host[1] == 0);
   hipStream_t s;
-  hipStreamCreate(&s);
-  STEP("hipMemsetAsync", (hipMemsetAsync(host, 0x77, N, s), hipStreamSynchronize(s)), host[0] == 0x77 && host[N - 1] == 0x77);
+  e = hipStreamCreate(&s);
+  passed &= e == hipSuccess;
+
+  // An async copy into the host buffer is queued before the fill on the stream.
+  unsigned char *src;
+  e = hipMalloc(&src, N);
+  passed &= e == hipSuccess;
+  hipMemset(src, 0x88, N);
+  e = hipMemcpyAsync(host, src, N, hipMemcpyDeviceToHost, s);
+  passed &= e == hipSuccess;
+  e = hipMemsetAsync(host, 0x99, N, s);
+  passed &= e == hipSuccess;
+  e = hipStreamSynchronize(s);
+  bool ordered = e == hipSuccess;
+  for (int i = 0; i < N; i++)
+    ordered &= host[i] == 0x99;
+  printf("%-20s %s\n", "fill after memcpy", ordered ? "PASSED" : "FAILED");
+  passed &= ordered;
+  hipFree(src);
+
+  REJECT("memset N+1", hipMemset(host, 0, N + 1));
+  REJECT("memset -1", hipMemset(host, 0, (size_t)-1));
+  REJECT("memset3D range", hipMemset3D(make_hipPitchedPtr(host, 256, 256, 1), 0, make_hipExtent(1, 1, 66)));
+  REJECT("memset2D range", hipMemset2D(host + 16000, 1024, 0, 64, 2));
+
+  memset(host, 0, N);
+  e = hipMemsetAsync(host, 0x77, N, s);
+  bool asyncOk = e == hipSuccess;
+  asyncOk &= hipStreamSynchronize(s) == hipSuccess;
+  asyncOk &= host[0] == 0x77 && host[N - 1] == 0x77;
+  printf("%-20s %s\n", "hipMemsetAsync", asyncOk ? "PASSED" : "FAILED");
+  passed &= asyncOk;
   hipStreamDestroy(s);
 
   // The last fill (0x77) must reach the device.
