@@ -300,10 +300,8 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
     logDebug("uninitializing existing Backend object.");
     // Its destructor needs the context and Backend still alive.
     if (auto &Q = chipstar::Device::PerThreadDefaultQueue) {
-      {
-        LOCK(ApiMtx);
-        Q->finish();
-      }
+      LOCK(ApiMtx);
+      Q->finish();
       Q.reset();
     }
     try {
