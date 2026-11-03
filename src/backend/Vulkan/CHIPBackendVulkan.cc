@@ -341,8 +341,15 @@ bool CHIPEventVulkan::updateFinishStatus(bool ThrowErrorIfNotReady) {
       CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
     return false;
   }
-  CHIPERR_LOG_AND_THROW("vkGetFenceStatus returned a hard error",
-                        hipErrorTbd);
+  if (ThrowErrorIfNotReady)
+    checkVk(Status, "vkGetFenceStatus returned a hard error", hipErrorTbd);
+  // Polled every 200us, so logged once; a waiting API call reports the error.
+  if (!HardErrorLogged_) {
+    HardErrorLogged_ = true;
+    logError("vkGetFenceStatus returned a hard error VkResult={}",
+             static_cast<int>(Status));
+  }
+  return false;
 }
 
 bool CHIPEventVulkan::wait() {
@@ -405,9 +412,9 @@ float CHIPEventVulkan::getElapsedTime(chipstar::Event *OtherIn) {
         hipErrorTbd);
 
   if (this->getEventStatus() == EVENT_STATUS_RECORDING)
-    this->updateFinishStatus(false);
+    this->updateFinishStatus();
   if (Other != this && Other->getEventStatus() == EVENT_STATUS_RECORDING)
-    Other->updateFinishStatus(false);
+    Other->updateFinishStatus();
 
   if (!this->isFinished() || !Other->isFinished())
     CHIPERR_LOG_AND_THROW("one of the events hasn't finished",
