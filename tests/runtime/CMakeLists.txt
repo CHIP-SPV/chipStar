@@ -109,7 +109,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1600ExtractorArgvBoundaries.hip # compiled by TestFix1600ExtractorArgvBoundaries.bash, not a test
   TestFix1693StringTableOffset.hip # needs program-scope globals, registered below
   TestFix1703ByteOffsetTable.hip # needs program-scope globals, registered below
-  TestFix2269BackendDtorDoubleDelete.cpp # host-only, built without -xhip so no real backend starts
+  TestFix2269BackendDtorDeleteOnce.cpp # host-only, built without -xhip so no real backend starts
 
   TestFixVolatileLoadLowering.hip # compiled by TestFixVolatileLoadLoweringSPIRV.bash, not a test
   TestFixKokkosUnorderedMapInsert.hip # reference idiom only, see the comment below
@@ -154,12 +154,12 @@ foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
   add_hip_runtime_test(${RUNTIME_TEST_SOURCE})
 endforeach()
 # Built without deviceInternal: a fat binary would start a real backend before main.
-add_executable(TestFix2269BackendDtorDoubleDelete TestFix2269BackendDtorDoubleDelete.cpp)
-target_link_libraries(TestFix2269BackendDtorDoubleDelete CHIP)
-target_include_directories(TestFix2269BackendDtorDoubleDelete
+add_executable(TestFix2269BackendDtorDeleteOnce TestFix2269BackendDtorDeleteOnce.cpp)
+target_link_libraries(TestFix2269BackendDtorDeleteOnce CHIP)
+target_include_directories(TestFix2269BackendDtorDeleteOnce
   PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
-add_test(NAME TestFix2269BackendDtorDoubleDelete COMMAND TestFix2269BackendDtorDoubleDelete)
-set_tests_properties(TestFix2269BackendDtorDoubleDelete PROPERTIES
+add_test(NAME TestFix2269BackendDtorDeleteOnce COMMAND TestFix2269BackendDtorDeleteOnce)
+set_tests_properties(TestFix2269BackendDtorDeleteOnce PROPERTIES
   PASS_REGULAR_EXPRESSION "PASS" FAIL_REGULAR_EXPRESSION "FAIL")
 # The fold to sitofp i1 that #1891 miscompiles only happens with optimization.
 target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
