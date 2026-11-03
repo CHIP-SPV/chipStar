@@ -7,22 +7,20 @@
 static bool Armed = false;
 static bool Injected = false;
 static int Hits = 0;
-// Plain array: exe statics with destructors are gone before libCHIP's destructor runs.
-static void *Seen[16];
-static int NumSeen = 0;
+// Plain pointer: exe statics with destructors are gone before libCHIP's destructor runs.
+static void *First;
 
 // CHIPUninitializeCallOnce finishes each queue once, uninitialize repeats it: fail the repeat.
 extern "C" int clFinish(void *Q) {
   static auto Real = (int (*)(void *))dlsym(RTLD_NEXT, "clFinish");
   Hits++;
   if (Armed) {
-    for (int I = 0; I < NumSeen; I++)
-      if (Seen[I] == Q) {
-        Injected = true;
-        return -5; // CL_OUT_OF_RESOURCES
-      }
-    if (NumSeen < 16)
-      Seen[NumSeen++] = Q;
+    if (!First) {
+      First = Q;
+    } else if (Q == First) {
+      Injected = true;
+      return -5; // CL_OUT_OF_RESOURCES
+    }
   }
   return Real(Q);
 }
