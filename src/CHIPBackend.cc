@@ -31,7 +31,7 @@ thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefault
 // Trivially destructible, so it stays readable after PerThreadDefaultQueue's TLS
 // destructor ran at exit; a null check on the queue would recreate it there.
 // Left set when the queue is reset on reinitialize; the Device ctor rearms it.
-static thread_local bool PerThreadQueueCreated = false;
+thread_local bool chipstar::Device::PerThreadQueueCreated = false;
 
 // Global counter for threads that have called HIP APIs
 std::atomic<int> GlobalActiveThreads{0};

@@ -306,7 +306,13 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
       }
       Q.reset();
     }
-    Backend->uninitialize();
+    try {
+      Backend->uninitialize();
+    } catch (...) {
+      // The old Backend stays installed, so its next per thread use must recreate the queue.
+      chipstar::Device::PerThreadQueueCreated = false;
+      throw;
+    }
     delete Backend;
     Backend = nullptr;
   }
