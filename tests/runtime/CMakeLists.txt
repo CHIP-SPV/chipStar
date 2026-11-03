@@ -148,6 +148,10 @@ endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
 list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
+# Waits on the Vulkan timeline semaphore in the thread-exit timeout path.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2280VulkanTimeoutCallbackWait.hip)
+endif()
 
 foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
   add_hip_runtime_test(${RUNTIME_TEST_SOURCE})
