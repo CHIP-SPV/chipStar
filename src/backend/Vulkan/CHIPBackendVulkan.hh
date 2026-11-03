@@ -521,8 +521,11 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void finish() override;
+  virtual void
+  finishUnlockingApiMtx(std::unique_lock<std::mutex> &ApiLock) override;
   /// Print and clear device printf records; aborts on a device-side abort.
   void drainDevicePrintf();
+  void waitTimeline(uint64_t Target);
   /// Block until all work this queue must follow has finished.
   void waitSubmitted();
   bool Draining_ = false;
