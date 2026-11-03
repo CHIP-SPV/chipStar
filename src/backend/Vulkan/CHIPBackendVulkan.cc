@@ -3891,11 +3891,18 @@ void CHIPBackendVulkan::uninitialize() {
   }
 
   // Fences of events only Events holds go back to the pool before devices go.
+  // Release outside EventsMtx: ~CHIPEventVulkan can wait on a fence.
+  chipstar::SharedEventVector Tracked;
   {
     LOCK(EventsMtx);
-    for (size_t I = Events.size(); I-- > 0;)
-      if (Events[I].use_count() == 1)
-        Events.erase(Events.begin() + I);
+    Tracked.swap(Events);
+  }
+  for (size_t I = Tracked.size(); I-- > 0;)
+    if (Tracked[I].use_count() == 1)
+      Tracked.erase(Tracked.begin() + I);
+  {
+    LOCK(EventsMtx);
+    Events.insert(Events.end(), Tracked.begin(), Tracked.end());
   }
 
   // Devices go before the VkInstance; ~Backend deletes the contexts.
