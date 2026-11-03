@@ -469,7 +469,8 @@ class CHIPQueueVulkan : public chipstar::Queue {
   uint32_t RingHead_ = 0;
   /// Timeline value signalled by each ring slot's last submit.
   std::vector<uint64_t> RingSlotValue_ = std::vector<uint64_t>(RingCapacity_);
-  /// Advance the timeline to Val for Cb's submit, unless out of memory left it untouched.
+  /// Advance the timeline to Val for Cb's submit if it succeeded or the device
+  /// was lost.
   void noteSubmit(VkResult R, VkCommandBuffer Cb, uint64_t Val);
 
   /// Signalled with an incremented value by every submit.

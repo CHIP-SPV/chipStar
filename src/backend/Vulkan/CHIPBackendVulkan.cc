@@ -3603,7 +3603,7 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
 }
 
 void CHIPQueueVulkan::noteSubmit(VkResult R, VkCommandBuffer Cb, uint64_t Val) {
-  if (R == VK_ERROR_OUT_OF_HOST_MEMORY || R == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+  if (R != VK_SUCCESS && R != VK_ERROR_DEVICE_LOST)
     return;
   TimelineValue_ = Val;
   for (uint32_t I = 0; I < CmdBufferRing_.size(); ++I)
