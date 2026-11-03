@@ -243,18 +243,26 @@ void CHIPUninitializeCallOnce() {
 
     // Synchronize all devices before cleanup to ensure any pending operations
     // (especially JIT compilation) complete before tearing down resources
+    // A lost device must not terminate from the library destructor.
+    auto FinishQueue = [](chipstar::Queue *Q) {
+      try {
+        Q->finish();
+      } catch (CHIPError &Err) {
+        logError("Queue synchronization failed at exit: {}", Err.getMsgStr());
+      }
+    };
     for (auto Dev : Backend->getDevices()) {
       // Sync all user queues
       {
         std::lock_guard<std::mutex> Lock(Dev->QueueAddRemoveMtx);
         for (auto Q : Dev->getQueuesNoLock()) {
-          Q->finish();
+          FinishQueue(Q);
         }
       }
       // Sync default queues
       auto LegacyQueue = Dev->getLegacyDefaultQueue();
       if (LegacyQueue) {
-        LegacyQueue->finish();
+        FinishQueue(LegacyQueue);
       }
       // Note: the per-thread default queue is deliberately NOT synced here.
       // PerThreadDefaultQueue is a thread_local unique_ptr whose destructor
