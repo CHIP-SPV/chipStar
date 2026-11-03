@@ -8,15 +8,16 @@
 #include <dlfcn.h>
 #include <unistd.h>
 
-static void *SubmitFence, *DestroyedFence;
+static void *SubmitFence;
 static bool DeviceDestroyed, FenceDestroyedEarly;
 
 extern "C" int vkQueueSubmit(void *Q, unsigned N, const void *Info, void *F) {
   static auto Real = (int (*)(void *, unsigned, const void *, void *))dlsym(
       RTLD_NEXT, "vkQueueSubmit");
-  if (F)
+  int R = Real(Q, N, Info, F);
+  if (R == 0 && F)
     SubmitFence = F;
-  return Real(Q, N, Info, F);
+  return R;
 }
 
 // Keeps the event tracked and RECORDING until the backend stops.
