@@ -4014,6 +4014,13 @@ void CHIPBackendVulkan::uninitialize() {
     EventMonitor_ = nullptr;
   }
 
+  // Threads still in HIP would use freed objects; leave everything to exit.
+  if (int Others = otherActiveThreads(); Others > 0) {
+    logWarn("{} HIP threads still active; not destroying the backend", Others);
+    Abandoned = true;
+    return;
+  }
+
   std::lock_guard<std::recursive_mutex> TeardownLock(TeardownMtx_);
 
   // Fences of events only Events holds go back to the pool before devices go.

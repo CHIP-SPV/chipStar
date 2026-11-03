@@ -285,6 +285,8 @@ void CHIPUninitializeCallOnce() {
     // Exit has no caller to report to; the OS reclaims what a failed teardown leaves.
     try {
       Backend->uninitialize();
+      if (Backend->Abandoned)
+        return;
       delete Backend;
       Backend = nullptr;
     } catch (CHIPError &Err) {
@@ -308,7 +310,8 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   if (Backend) {
     logDebug("uninitializing existing Backend object.");
     Backend->uninitialize();
-    delete Backend;
+    if (!Backend->Abandoned)
+      delete Backend;
     Backend = nullptr;
   }
 
