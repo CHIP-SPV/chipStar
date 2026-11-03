@@ -130,6 +130,10 @@ if(CHIP_USE_NATIVE_VULKAN_SPIRV)
     TestSubwordAtomics.hip TestAlignAttrRuntime.hip
     TestNegativeHasNoIGBAs2.hip TestFixRuntimeWarpSize.hip)
 endif()
+# The interposers rely on ELF symbol interposition, so native Vulkan on ELF only.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2263VulkanCallbackTeardownHang.hip)
+endif()
 # Checks the native Vulkan lowering of division, which Vulkan does not round.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip)
@@ -157,6 +161,10 @@ target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
 # Exports its vkCreatePipelineCache interposers so libCHIP binds to them.
 set_target_properties(TestFix2164VulkanFailedModuleLeak PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2164VulkanFailedModuleLeak ${CMAKE_DL_LIBS})
+if(CHIP_USE_NATIVE_VULKAN_SPIRV AND NOT APPLE)
+  set_target_properties(TestFix2263VulkanCallbackTeardownHang PROPERTIES ENABLE_EXPORTS ON)
+  target_link_libraries(TestFix2263VulkanCallbackTeardownHang ${CMAKE_DL_LIBS})
+endif()
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
 if(TEST TestFixRuntimeWarpSize)
