@@ -11,3 +11,5 @@ find_package(HIP CONFIG REQUIRED)
 # A mixed C+HIP executable that links against hip::device.
 add_executable(hip_c_source main.cpp helper.c)
 target_link_libraries(hip_c_source PRIVATE hip::device)
+add_executable(hip_c_source_rdc main.cpp helper.c)
+target_link_libraries(hip_c_source_rdc PRIVATE hip::deviceRDC)

@@ -36,7 +36,8 @@ echo "### Check hip::device with mixed C/C++ sources (#1001)"
 setup-test-dir
 cmake @CMAKE_CURRENT_SOURCE_DIR@/HipDeviceCSource \
       -DCMAKE_PREFIX_PATH=@CMAKE_INSTALL_PREFIX@ \
-      -DCMAKE_CXX_COMPILER=${CXX}
+      -DCMAKE_CXX_COMPILER=${CXX} \
+      -DCMAKE_C_COMPILER=gcc
 make VERBOSE=1
 echo "Success"
 echo
