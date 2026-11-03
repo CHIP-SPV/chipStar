@@ -2094,7 +2094,7 @@ public:
    * atomically and each Queue destructor decrementing it.
    *
    */
-  void waitForThreadExit();
+  void waitForThreadExit(bool RemoveQueuesOnTimeout = true);
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.

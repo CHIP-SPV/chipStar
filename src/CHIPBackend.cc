@@ -1708,7 +1708,7 @@ void chipstar::Backend::trackEvent(
   Event->markTracked();
 }
 
-void chipstar::Backend::waitForThreadExit() {
+void chipstar::Backend::waitForThreadExit(bool RemoveQueuesOnTimeout) {
   // Check if any threads called HIP APIs
   usleep(100000);
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
@@ -1745,7 +1745,7 @@ void chipstar::Backend::waitForThreadExit() {
       activeThreads - 1);
 
   // Cleanup all queues
-  {
+  if (RemoveQueuesOnTimeout) {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
     LOCK(::Backend->EventsMtx);  // CHIPBackend::Events
     for (auto Dev : ::Backend->getDevices()) {
