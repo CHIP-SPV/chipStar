@@ -1460,6 +1460,7 @@ public:
   // symbol export in shared libraries. Define in CHIPBackend.cc instead.
   static thread_local std::unique_ptr<chipstar::Queue>
       PerThreadDefaultQueue;
+  static thread_local bool PerThreadQueueCreated;
 
   /**
    * @brief Get the Legacy Default Queue object.
