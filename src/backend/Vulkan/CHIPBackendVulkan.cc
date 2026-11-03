@@ -3381,6 +3381,13 @@ void CHIPQueueVulkan::finish() {
   IsEmptyQueue_.store(true);
 }
 
+void CHIPQueueVulkan::finishWithoutEventsMtx() {
+  // drainDevicePrintf would track its copies' events under EventsMtx.
+  Draining_ = true;
+  finish();
+  Draining_ = false;
+}
+
 uint64_t CHIPQueueVulkan::reserveTimelineValue() {
   std::lock_guard<std::mutex> Lock(QueueOpMtx_);
   return ++TimelineValue_;
