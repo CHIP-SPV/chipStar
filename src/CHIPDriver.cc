@@ -301,7 +301,7 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
     // Its destructor needs the context and Backend still alive.
     if (auto &Q = chipstar::Device::PerThreadDefaultQueue) {
       {
-        LOCK(Q->getDevice()->QueueAddRemoveMtx);
+        LOCK(ApiMtx);
         Q->finish();
       }
       Q.reset();
