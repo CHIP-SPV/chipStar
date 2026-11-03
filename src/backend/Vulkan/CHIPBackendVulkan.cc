@@ -3885,6 +3885,12 @@ void CHIPBackendVulkan::uninitialize() {
     EventMonitor_ = nullptr;
   }
 
+  // Event fences go back to the device pool before the devices are deleted.
+  {
+    LOCK(EventsMtx);
+    Events.clear();
+  }
+
   // Devices go before the VkInstance; ~Backend deletes the contexts.
   for (auto *Ctx : ChipContexts) {
     if (auto *Dev = Ctx ? Ctx->getDevice() : nullptr) {
