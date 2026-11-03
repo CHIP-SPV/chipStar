@@ -247,7 +247,7 @@ static void teardownBackend() {
     }
     // Note: the per-thread default queue is deliberately NOT synced here.
     // PerThreadDefaultQueue is a thread_local unique_ptr whose destructor
-    // may already have run by the time this atexit handler executes (TLS
+    // may already have run when this runs from the atexit handler (TLS
     // destruction order versus atexit order is implementation-defined).
     // Reading destroyed TLS is UB and segfaults with some compilers (e.g.
     // clang 23). A null check cannot help: it reads the same destroyed
