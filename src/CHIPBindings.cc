@@ -5025,19 +5025,10 @@ hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
   if (!PitchedDevPtr)
     RETURN(hipErrorInvalidValue);
 
-  // ERROR_IF((Extent.width == 0 || Extent.height == 0), hipErrorInvalidValue);
-
-  // Zero height arrays are allowed for 1D arrays
-  if ((Extent.width == 0) || (Extent.height == 0 && Extent.depth > 0))
-    RETURN(hipErrorInvalidValue);
-
-  size_t Pitch;
+  size_t Pitch = 0;
 
   hipError_t HipStatus = hipMallocPitch3DInternal(
       &PitchedDevPtr->ptr, &Pitch, Extent.width, Extent.height, Extent.depth);
-
-  if (Pitch == 0)
-    RETURN(hipErrorInvalidValue);
 
   if (HipStatus == hipSuccess) {
     PitchedDevPtr->pitch = Pitch;
