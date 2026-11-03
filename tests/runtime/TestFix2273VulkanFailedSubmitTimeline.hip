@@ -56,6 +56,7 @@ int main() {
          "injected copy succeeded");
   EXPECT(!FailSubmit, "copy did not reach vkQueueSubmit");
   (void)hipGetLastError();
+  memset(In, 0xa5, sizeof(In));
   EXPECT(hipMemcpy(D, In, sizeof(In), hipMemcpyHostToDevice) == hipSuccess,
          "copy after failed copy");
   EXPECT(hipMemcpy(Out, D, sizeof(In), hipMemcpyDeviceToHost) == hipSuccess,
