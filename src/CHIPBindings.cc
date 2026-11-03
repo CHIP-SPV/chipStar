@@ -5333,7 +5333,9 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   size_t Height = Extent.height;
   size_t Depth = Extent.depth;
 
-  if (PitchedDevPtr.pitch == Extent.width)
+  // Slices are adjacent only if depth is 1 or each slice is fully covered.
+  if (PitchedDevPtr.pitch == Extent.width &&
+      (Depth == 1 || Height == PitchedDevPtr.ysize))
     ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
                             1);
   else
