@@ -147,7 +147,7 @@ if(NOT CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_S
 endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
-list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
+list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2261VulkanTeardown.hip TestFix1508VolatileGlobalStaleness.hip)
 
 foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
   add_hip_runtime_test(${RUNTIME_TEST_SOURCE})
@@ -162,6 +162,14 @@ target_link_libraries(TestFix2164VulkanFailedModuleLeak ${CMAKE_DL_LIBS})
 if(TEST TestFixRuntimeWarpSize)
   set_tests_properties(TestFixRuntimeWarpSize PROPERTIES
     ENVIRONMENT "IGC_ForceOCLSIMDWidth=16;CHIP_LAZY_JIT=1")
+endif()
+
+# The interposers rely on ELF symbol interposition, so native Vulkan on ELF only.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV AND NOT APPLE)
+  add_hip_runtime_test(TestFix2261VulkanTeardown.hip MODES reinit exit)
+  # Exports its interposers so libCHIP binds to them.
+  set_target_properties(TestFix2261VulkanTeardown PROPERTIES ENABLE_EXPORTS ON)
+  target_link_libraries(TestFix2261VulkanTeardown ${CMAKE_DL_LIBS})
 endif()
 
 # The staleness probe needs several work-groups to make progress against each
