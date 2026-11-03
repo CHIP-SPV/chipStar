@@ -785,18 +785,31 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
   return getPerThreadDefaultQueueNoLock();
 }
 
+// Trivially destructible, so it stays readable after PerThreadDefaultQueue's TLS
+// destructor ran at exit; a null check on the queue would recreate it there.
+static thread_local bool PerThreadQueueCreated = false;
+
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
-  thread_local static std::once_flag PerThreadQueueFlag;
-  std::call_once(PerThreadQueueFlag, [this]() {
+  if (!PerThreadQueueCreated) {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
     PerThreadDefaultQueue =
         std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
-  });
+    PerThreadQueueCreated = true;
+  }
 
   return PerThreadDefaultQueue.get();
+}
+
+void chipstar::Device::destroyPerThreadDefaultQueue() {
+  if (PerThreadDefaultQueue) {
+    PerThreadDefaultQueue->finish();
+    PerThreadDefaultQueue.reset();
+  }
+  PerThreadQueueCreated = false;
+  PerThreadStreamUsed_ = false;
 }
 
 std::vector<chipstar::Kernel *> chipstar::Device::getKernels() {

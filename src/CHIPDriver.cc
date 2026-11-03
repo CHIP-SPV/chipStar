@@ -298,6 +298,8 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
 
   if (Backend) {
     logDebug("uninitializing existing Backend object.");
+    for (auto Dev : Backend->getDevices())
+      Dev->destroyPerThreadDefaultQueue();
     Backend->uninitialize();
     delete Backend;
     Backend = nullptr;
