@@ -128,5 +128,5 @@ add_test(NAME TestFix2216VulkanConsumer
     -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2216VulkanConsumer
     -DCONSUMER_DIR=${CMAKE_CURRENT_SOURCE_DIR}/post-install/HipHostTarget
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2216VulkanConsumer.cmake)
-set_tests_properties(TestFix2216VulkanConsumer PROPERTIES TIMEOUT 900)
+set_tests_properties(TestFix2216VulkanConsumer PROPERTIES RUN_SERIAL TRUE)
 endif()
