@@ -60,8 +60,11 @@ static bool deviceSync() {
   hipHostMalloc((void **)&H, sizeof(int) * N);
   for (int I = 0; I < N; ++I)
     H[I] = -1;
-  withHelper(H, [&] { hipDeviceSynchronize(); });
-  bool Ok = countBad(H) == 0;
+  bool Ok = false;
+  withHelper(H, [&] {
+    hipDeviceSynchronize();
+    Ok = countBad(H) == 0;
+  });
   hipHostFree(H);
   return Ok;
 }
