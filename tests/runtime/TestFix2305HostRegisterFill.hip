@@ -52,6 +52,7 @@ int main() {
   STEP("hipMemset2D", hipMemset2D(host, 64, 0x55, 64, 2), host[0] == 0x55 && host[127] == 0x55 && host[128] == 0);
   // Slice stride is pitch * ysize = 128; chipStar rejects depth > pitch.
   STEP("hipMemset3D", hipMemset3D(make_hipPitchedPtr(host, 128, 128, 1), 0x66, make_hipExtent(1, 1, 100)), host[0] == 0x66 && host[99 * 128] == 0x66 && host[1] == 0);
+  STEP("hipMemset3D slices", hipMemset3D(make_hipPitchedPtr(host, 128, 128, 4), 0x67, make_hipExtent(128, 2, 2)), host[0] == 0x67 && host[255] == 0x67 && host[256] == 0 && host[512] == 0x67 && host[767] == 0x67);
   hipStream_t s;
   e = hipStreamCreate(&s);
   if (e != hipSuccess) {

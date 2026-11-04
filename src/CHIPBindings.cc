@@ -5361,11 +5361,11 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   size_t Height = Extent.height;
   size_t Depth = Extent.depth;
 
-  if (PitchedDevPtr.pitch == Extent.width)
+  if (AllocInfo->isDeferredRegistration()) // the base version host-fills
+    ChipQueue->chipstar::Queue::memFillAsync3D(PitchedDevPtr, Value, Extent);
+  else if (PitchedDevPtr.pitch == Extent.width)
     ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
                             1);
-  else if (AllocInfo->isDeferredRegistration()) // deferred record: the base version host-fills
-    ChipQueue->chipstar::Queue::memFillAsync3D(PitchedDevPtr, Value, Extent);
   else
     ChipQueue->memFillAsync3D(PitchedDevPtr, Value, Extent);
 
