@@ -521,6 +521,8 @@ void CHIPEventVulkan::hostSignal() {
 static thread_local bool InCallbackThread = false;
 // Set while this thread runs drainDevicePrintf; its submits skip event tracking.
 static thread_local bool InDrain = false;
+// Callbacks registered and not yet signaled, across all streams.
+static std::atomic<int> CallbacksOutstanding{0};
 
 CHIPCallbackDataVulkan::CHIPCallbackDataVulkan(hipStreamCallback_t CallbackF,
                                                 void *CallbackArgs,
@@ -529,6 +531,7 @@ CHIPCallbackDataVulkan::CHIPCallbackDataVulkan(hipStreamCallback_t CallbackF,
   GpuReady = ChipQueue->enqueueMarkerImpl();
   // Later submits on the queue wait on the GPU until the callback has run.
   auto *QVk = static_cast<CHIPQueueVulkan *>(ChipQueue);
+  ++CallbacksOutstanding;
   DoneValue = QVk->reserveTimelineValue();
   if (GpuReady)
     GpuReady->Msg = "CallbackGpuReady";
@@ -598,6 +601,7 @@ void EventMonitorVulkan::monitor() {
         auto *Q = static_cast<CHIPQueueVulkan *>(CbData->ChipQueue);
         Q->signalTimelineValue(
             static_cast<CHIPCallbackDataVulkan *>(CbData)->DoneValue);
+        --CallbacksOutstanding;
         delete static_cast<CHIPCallbackDataVulkan *>(CbData);
       }
     }
@@ -3596,8 +3600,8 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
   uint64_t Pending;
   {
     std::lock_guard<std::mutex> Lock(QueueOpMtx_);
-    // A callback cannot wait: the slot may be gated on its own DoneValue.
-    if (InCallbackThread && RingSlotValue_[RingHead_] > 0 &&
+    // A waiter would hold the API lock against a callback gating this slot.
+    if (CallbacksOutstanding.load() > 0 && RingSlotValue_[RingHead_] > 0 &&
         TimelineSemaphore_ != VK_NULL_HANDLE) {
       auto Dev = ChipDevice_->getLogicalDevice();
       uint64_t Cur = 0;
