@@ -153,9 +153,10 @@ if(NOT CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_S
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestPointerSelection.hip
     TestSharedFloatAtomicAdd.hip)
 endif()
-# Stalls vkQueueWaitIdle through an interposer; Apple has no symbol interposition.
+# Stall a Vulkan call through an exported interposer; Apple has no symbol interposition.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
-  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2307VulkanTimeoutSyncLockOrder.hip)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2307VulkanTimeoutSyncLockOrder.hip
+    TestFix2337VulkanTimeoutCopyLockOrder.hip)
 endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
@@ -183,6 +184,10 @@ target_link_libraries(TestFix2333VulkanDrainThrow ${CMAKE_DL_LIBS})
 # Exports its vkCreatePipelineCache interposers so libCHIP binds to them.
 set_target_properties(TestFix2164VulkanFailedModuleLeak PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2164VulkanFailedModuleLeak ${CMAKE_DL_LIBS})
+if(TARGET TestFix2337VulkanTimeoutCopyLockOrder)
+  set_target_properties(TestFix2337VulkanTimeoutCopyLockOrder PROPERTIES ENABLE_EXPORTS ON)
+  target_link_libraries(TestFix2337VulkanTimeoutCopyLockOrder ${CMAKE_DL_LIBS})
+endif()
 # Exports its clFinish interposer so libCHIP binds to it.
 set_target_properties(TestFix2243OpenCLExitFinishError PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2243OpenCLExitFinishError ${CMAKE_DL_LIBS})
