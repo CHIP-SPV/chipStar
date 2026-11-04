@@ -267,6 +267,10 @@ endif()
 if(CHIP_HIPVERIFY_BACKEND_EXT)
   add_shell_test(TestFix2100VerifyProducer.bash)
 endif()
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 23 AND NOT CHIP_LLVM_USE_INTERGRATED_SPIRV
+   AND NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestFix2238VerifyVersionedTriple.bash)
+endif()
 # Fail the day the SPIR-V backend fixes the bug behind a native Vulkan
 # workaround (#1738, #1742). Read their headers before acting.
 if(CHIP_USE_NATIVE_VULKAN_SPIRV)
