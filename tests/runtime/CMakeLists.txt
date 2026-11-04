@@ -559,19 +559,11 @@ endif()
 # hipMemset on a hipHostRegister'ed pointer must not SVM map it on coarse grain
 # SVM (#2362); the test links an interposer that reports coarse-only SVM.
 if(UNIX AND NOT APPLE)
-  set_source_files_properties(TestFix2362CoarseMapHostPointer.hip
-    PROPERTIES LANGUAGE CXX)
-  add_executable(TestFix2362CoarseMapHostPointer
-    TestFix2362CoarseMapHostPointer.hip
+  add_hip_runtime_test(TestFix2362CoarseMapHostPointer.hip)
+  target_sources(TestFix2362CoarseMapHostPointer PRIVATE
     CoarseSvmMapInterposer.cpp)
-  target_link_libraries(TestFix2362CoarseMapHostPointer CHIP deviceInternal)
-  target_include_directories(TestFix2362CoarseMapHostPointer
-    PRIVATE $<TARGET_PROPERTY:CHIP,INCLUDE_DIRECTORIES>)
-
-  add_test(NAME TestFix2362CoarseMapHostPointer
-    COMMAND TestFix2362CoarseMapHostPointer)
+  target_link_libraries(TestFix2362CoarseMapHostPointer ${CMAKE_DL_LIBS})
   set_tests_properties(TestFix2362CoarseMapHostPointer PROPERTIES
-    SKIP_RETURN_CODE ${CHIP_SKIP_TEST}
     ENVIRONMENT "CHIP_OCL_USE_ALLOC_STRATEGY=svm")
 endif()
 
