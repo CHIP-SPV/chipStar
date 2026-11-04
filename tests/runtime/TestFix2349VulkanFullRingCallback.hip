@@ -15,9 +15,9 @@ static std::atomic<bool> CbDone{false};
 __global__ void add1(int *P) { *P += 1; }
 
 static void Cb(hipStream_t, hipError_t, void *) {
-  while (Launched < Ring)
+  while (Launched <= Ring)
     usleep(1000);
-  sleep(1); // main is now blocked at its next launch
+  sleep(1); // without the fix, main blocks at its next launch
   hipLaunchKernelGGL(add1, dim3(1), dim3(1), 0, S, P);
   CbDone = true;
 }
