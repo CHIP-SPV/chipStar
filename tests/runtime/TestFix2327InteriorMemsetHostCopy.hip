@@ -1,5 +1,4 @@
-// Reproduces https://github.com/CHIP-SPV/chipStar/issues/2327: hipMemset on an
-// interior pointer of a host-backed allocation also writes the host copy at the base.
+// Reproduces https://github.com/CHIP-SPV/chipStar/issues/2327: an interior hipMemset must write the host copy at Dst's offset.
 #include <hip/hip_runtime.h>
 #include <cstdio>
 #include <cstdlib>
@@ -42,6 +41,7 @@ static int check(const char *Name, unsigned char *Host, unsigned char *Dev,
   EXPECT(Name, Host[Off + Len - 1], New);
   EXPECT(Name, Host[Off + Len], Old);
   readByte<<<1, 1>>>(Dev + Off, DevOut);
+  CHECK(hipGetLastError());
   CHECK(hipDeviceSynchronize());
   unsigned char Got = 0;
   CHECK(hipMemcpy(&Got, DevOut, 1, hipMemcpyDeviceToHost));
