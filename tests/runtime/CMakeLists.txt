@@ -145,6 +145,10 @@ if(NOT CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_S
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestPointerSelection.hip
     TestSharedFloatAtomicAdd.hip)
 endif()
+# Interposes vkQueueSubmit; Apple has no symbol interposition.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2338VulkanTimeoutQueueLifetime.hip)
+endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
 list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
@@ -157,6 +161,10 @@ target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
 # Exports its vkCreatePipelineCache interposers so libCHIP binds to them.
 set_target_properties(TestFix2164VulkanFailedModuleLeak PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2164VulkanFailedModuleLeak ${CMAKE_DL_LIBS})
+if(TARGET TestFix2338VulkanTimeoutQueueLifetime)
+  set_target_properties(TestFix2338VulkanTimeoutQueueLifetime PROPERTIES ENABLE_EXPORTS ON)
+  target_link_libraries(TestFix2338VulkanTimeoutQueueLifetime ${CMAKE_DL_LIBS})
+endif()
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
 if(TEST TestFixRuntimeWarpSize)

@@ -742,7 +742,8 @@ chipstar::Device::~Device() {
     UserQueues_.clear();
     UserQueueSet_.clear();
 
-    delete LegacyDefaultQueue;
+    if (!LeakQueues)
+      delete LegacyDefaultQueue;
     LegacyDefaultQueue = nullptr;
   }
 
@@ -1701,7 +1702,7 @@ void chipstar::Backend::trackEvent(
   Event->markTracked();
 }
 
-void chipstar::Backend::waitForThreadExit() {
+void chipstar::Backend::waitForThreadExit(bool Leak) {
   // Check if any threads called HIP APIs
   usleep(100000);
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
@@ -1753,10 +1754,13 @@ void chipstar::Backend::waitForThreadExit() {
         logWarn("Removing user-created streams without calling a destructor");
       }
       for (auto &Queue : Dev->getQueuesNoLockCopy()) {
-        logDebug("Destroying queue {}", (void *)Queue);
+        logDebug("Finishing queue {}", (void *)Queue);
         Queue->finishWithoutEventsMtx();
-        Dev->removeQueue(Queue);
+        if (!Leak)
+          Dev->removeQueue(Queue);
       }
+      if (Leak)
+        Dev->leakQueuesNoLock();
     }
   }
 }
