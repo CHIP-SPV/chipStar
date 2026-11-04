@@ -158,6 +158,8 @@ public:
   virtual ~CHIPCallbackDataVulkan() override = default;
   /// Timeline value signaled once the callback has run.
   uint64_t DoneValue = 0;
+  /// DoneValue was signaled early by a blocking call; monitor thread only.
+  bool GateOpen = false;
 };
 
 /// Polls events and runs stream callbacks; Vulkan has no completion callbacks.

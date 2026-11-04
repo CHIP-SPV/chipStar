@@ -95,6 +95,49 @@ bool vkPropertyListContains(const std::vector<TProp> &Props, TName TProp::*Field
 }
 } // namespace
 
+static thread_local bool InCallbackThread = false;
+static thread_local CHIPCallbackDataVulkan *RunningCallback = nullptr;
+
+static bool gpuReadyDone(chipstar::CallbackData *Cb) {
+  if (!Cb->GpuReady)
+    return true;
+  LOCK(Cb->GpuReady->EventMtx);
+  Cb->GpuReady->updateFinishStatus(false);
+  return Cb->GpuReady->getEventStatus() == EVENT_STATUS_RECORDED;
+}
+
+static void openGate(CHIPCallbackDataVulkan *Cb) {
+  if (!Cb || Cb->GateOpen)
+    return;
+  auto *Q = static_cast<CHIPQueueVulkan *>(Cb->ChipQueue);
+  Q->signalTimelineValue(Cb->DoneValue);
+  Cb->GateOpen = true;
+}
+
+// A queued callback's gate opens only once its GpuReady is done, which keeps
+// the timeline signals in increasing order.
+static void openCallbackGates() {
+  openGate(RunningCallback);
+  LOCK(Backend->CallbackQueueMtx);
+  for (size_t I = Backend->CallbackQueue.size(); I > 0; --I) {
+    auto *Cb = Backend->CallbackQueue.front();
+    Backend->CallbackQueue.pop();
+    if (Cb && gpuReadyDone(Cb))
+      openGate(static_cast<CHIPCallbackDataVulkan *>(Cb));
+    Backend->CallbackQueue.push(Cb);
+  }
+}
+
+// On the callback thread the gate opens rather than the wait deadlocking on it.
+template <class F> static VkResult waitGated(F Wait) {
+  if (!InCallbackThread)
+    return Wait(UINT64_MAX);
+  VkResult R;
+  while ((R = Wait(1000000)) == VK_TIMEOUT)
+    openCallbackGates();
+  return R;
+}
+
 // ============================================================================
 // CHIPEventVulkan
 // ============================================================================
@@ -123,8 +166,10 @@ CHIPEventVulkan::~CHIPEventVulkan() {
       if (Fence_ != VK_NULL_HANDLE) {
         // A user event may be destroyed while its recording is pending.
         if (EventStatus_ == EVENT_STATUS_RECORDING)
-          vkWaitForFences(Dev->getLogicalDevice(), 1, &Fence_, VK_TRUE,
-                          UINT64_MAX);
+          waitGated([&](uint64_t T) {
+            return vkWaitForFences(Dev->getLogicalDevice(), 1, &Fence_,
+                                   VK_TRUE, T);
+          });
         Dev->releaseFence(Fence_);
         Fence_ = VK_NULL_HANDLE;
       }
@@ -377,8 +422,9 @@ bool CHIPEventVulkan::wait() {
     return true;
   }
 
-  VkResult Status =
-      vkWaitForFences(Dev->getLogicalDevice(), 1, &Fence_, VK_TRUE, UINT64_MAX);
+  VkResult Status = waitGated([&](uint64_t T) {
+    return vkWaitForFences(Dev->getLogicalDevice(), 1, &Fence_, VK_TRUE, T);
+  });
   if (Status != VK_SUCCESS) {
     CHIPERR_LOG_AND_THROW("vkWaitForFences failed", hipErrorTbd);
   }
@@ -510,8 +556,6 @@ void CHIPEventVulkan::hostSignal() {
 // The EventMonitor runs the callback once GpuReady completes, then signals
 // DoneValue.
 
-static thread_local bool InCallbackThread = false;
-
 CHIPCallbackDataVulkan::CHIPCallbackDataVulkan(hipStreamCallback_t CallbackF,
                                                 void *CallbackArgs,
                                                 chipstar::Queue *ChipQueue)
@@ -555,41 +599,34 @@ void EventMonitorVulkan::monitor() {
       }
     }
 
-    // Every ready callback, not one per tick, which falls behind.
-    {
-      std::vector<chipstar::CallbackData *> ToExecute;
+    // Every ready callback, not one per tick, which falls behind. A ready one
+    // stays queued until it starts so a running callback can open its gate.
+    while (true) {
+      chipstar::CallbackData *CbData = nullptr;
       {
         LOCK(Backend->CallbackQueueMtx);
-        size_t Pending = Backend->CallbackQueue.size();
-        for (size_t i = 0; i < Pending; ++i) {
-          chipstar::CallbackData *CbData = Backend->CallbackQueue.front();
+        for (size_t I = Backend->CallbackQueue.size(); I > 0; --I) {
+          auto *Cb = Backend->CallbackQueue.front();
           Backend->CallbackQueue.pop();
-          bool Ready = false;
-          if (CbData && CbData->GpuReady) {
-            LOCK(CbData->GpuReady->EventMtx);
-            CbData->GpuReady->updateFinishStatus(false);
-            Ready = (CbData->GpuReady->getEventStatus() ==
-                     EVENT_STATUS_RECORDED);
-          } else if (CbData) {
-            Ready = true;
-          }
-          if (CbData && Ready) {
-            ToExecute.push_back(CbData);
-          } else if (CbData) {
-            Backend->CallbackQueue.push(CbData);
-          }
+          if (!Cb)
+            continue;
+          if (!CbData && gpuReadyDone(Cb))
+            CbData = Cb;
+          else
+            Backend->CallbackQueue.push(Cb);
         }
       }
+      if (!CbData)
+        break;
       // Outside the lock: callbacks may enqueue callbacks.
-      for (auto *CbData : ToExecute) {
-        InCallbackThread = true;
-        CbData->execute(hipSuccess);
-        InCallbackThread = false;
-        auto *Q = static_cast<CHIPQueueVulkan *>(CbData->ChipQueue);
-        Q->signalTimelineValue(
-            static_cast<CHIPCallbackDataVulkan *>(CbData)->DoneValue);
-        delete static_cast<CHIPCallbackDataVulkan *>(CbData);
-      }
+      auto *V = static_cast<CHIPCallbackDataVulkan *>(CbData);
+      InCallbackThread = true;
+      RunningCallback = V;
+      CbData->execute(hipSuccess);
+      InCallbackThread = false;
+      RunningCallback = nullptr;
+      openGate(V);
+      delete V;
     }
 
     // Drop finished events nothing depends on, except user events.
@@ -2696,7 +2733,9 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     auto *EvVk = static_cast<CHIPEventVulkan *>(Ev.get());
     VkFence F = EvVk ? EvVk->getFence() : VK_NULL_HANDLE;
     if (F != VK_NULL_HANDLE && VkDev != VK_NULL_HANDLE) {
-      VkResult WaitRes = vkWaitForFences(VkDev, 1, &F, VK_TRUE, UINT64_MAX);
+      VkResult WaitRes = waitGated([&](uint64_t T) {
+        return vkWaitForFences(VkDev, 1, &F, VK_TRUE, T);
+      });
       if (WaitRes != VK_SUCCESS)
         CHIPERR_LOG_AND_THROW(
             std::string("memCopyAsync D2H: vkWaitForFences failed VkResult=") +
@@ -3080,7 +3119,7 @@ CHIPQueueVulkan::launchImpl(chipstar::ExecItem *ExecItem) {
       WI.semaphoreCount = 1;
       WI.pSemaphores = &TimelineSemaphore_;
       WI.pValues = &Target;
-      vkWaitSemaphores(Device, &WI, UINT64_MAX);
+      waitGated([&](uint64_t T) { return vkWaitSemaphores(Device, &WI, T); });
       vkResetDescriptorPool(Device, DescPool, 0);
       DescSet = VK_NULL_HANDLE;
       R = vkAllocateDescriptorSets(Device, &AllocInfo, &DescSet);
@@ -3420,8 +3459,10 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::enqueueBarrierImpl(
     auto *Ev = static_cast<CHIPEventVulkan *>(E.get());
     if (Ev && Ev->getFence() != VK_NULL_HANDLE) {
       VkFence Wf = Ev->getFence();
-      (void)vkWaitForFences(ChipDevice_->getLogicalDevice(), 1, &Wf,
-                            VK_TRUE, UINT64_MAX);
+      (void)waitGated([&](uint64_t T) {
+        return vkWaitForFences(ChipDevice_->getLogicalDevice(), 1, &Wf,
+                               VK_TRUE, T);
+      });
     }
   }
 
