@@ -117,11 +117,16 @@ void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);
   size_t Width = std::max<size_t>(1, Params_.width);
+  // Typed rows need width in elements, which CHIP-SPV/chipStar#2317 tracks.
+  if (Params_.elementSize != 1) {
+    Queue->memFillAsync(Params_.dst, Height * Width, &Val, Params_.elementSize);
+    return;
+  }
   // 1D fills record pitch 1 and hipGraphAddMemsetNode callers may leave it 0.
   size_t Pitch = std::max(Params_.pitch, Width);
   char *Dst = static_cast<char *>(Params_.dst);
   for (size_t Row = 0; Row < Height; ++Row)
-    Queue->memFillAsync(Dst + Row * Pitch, Width, &Val, Params_.elementSize);
+    Queue->memFillAsync(Dst + Row * Pitch, Width, &Val, 1);
 }
 
 void CHIPGraphNodeMemcpy::execute(chipstar::Queue *Queue) const {
