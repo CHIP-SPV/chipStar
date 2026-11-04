@@ -3381,9 +3381,42 @@ void CHIPQueueVulkan::finish() {
   IsEmptyQueue_.store(true);
 }
 
+bool CHIPQueueVulkan::finishWithoutEventsMtx() {
+  if (InCallbackThread || TimelineSemaphore_ == VK_NULL_HANDLE)
+    return true;
+  // The default stream is not in the queue list and shares the VkQueue.
+  auto *Def = static_cast<CHIPQueueVulkan *>(ChipDevice_->getLegacyDefaultQueue());
+  if (Def && Def != this && !Def->finishWithoutEventsMtx())
+    return false;
+  uint64_t Target;
+  {
+    std::lock_guard<std::mutex> Lock(QueueOpMtx_);
+    if (!TeardownTarget_)
+      TeardownTarget_ = TimelineValue_;
+    Target = TeardownTarget_;
+  }
+  VkSemaphoreWaitInfo WI{};
+  WI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+  WI.semaphoreCount = 1;
+  WI.pSemaphores = &TimelineSemaphore_;
+  WI.pValues = &Target;
+  VkResult R =
+      vkWaitSemaphores(ChipDevice_->getLogicalDevice(), &WI, 1000000);
+  if (R == VK_TIMEOUT)
+    return false;
+  checkVk(R, "CHIPQueueVulkan::finishWithoutEventsMtx: "
+             "vkWaitSemaphores failed",
+          hipErrorTbd);
+  IsEmptyQueue_.store(true);
+  return true;
+}
+
 uint64_t CHIPQueueVulkan::reserveTimelineValue() {
   std::lock_guard<std::mutex> Lock(QueueOpMtx_);
-  return ++TimelineValue_;
+  uint64_t Value = ++TimelineValue_;
+  if (TeardownTarget_) // a callback from any thread must finish before the queue goes
+    TeardownTarget_ = Value;
+  return Value;
 }
 
 void CHIPQueueVulkan::signalTimelineValue(uint64_t Value) {

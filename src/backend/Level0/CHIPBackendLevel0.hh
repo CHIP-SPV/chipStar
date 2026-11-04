@@ -514,7 +514,7 @@ public:
   virtual void finish() override;
   void finishNoLock(); // Helper that assumes EventsMtx is already held
 
-  virtual void finishWithoutEventsMtx() override;
+  virtual bool finishWithoutEventsMtx() override;
 
   void storeCrossQueueDeps(
       std::vector<std::shared_ptr<chipstar::Event>> Markers) override {

@@ -1737,12 +1737,21 @@ void chipstar::Backend::waitForThreadExit() {
       "waitForThreadExit: Timeout waiting for threads to exit (remaining: {})",
       activeThreads - 1);
 
-  // Cleanup all queues
-  {
+  // Cleanup all queues. Locks drop between passes (a queue's progress can need
+  // them); queues go together, as deleting one waits for the whole VkQueue.
+  for (bool Pending = true; Pending; usleep(1000)) {
+    Pending = false;
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
     LOCK(::Backend->EventsMtx);  // CHIPBackend::Events
     for (auto Dev : ::Backend->getDevices()) {
       LOCK(Dev->QueueAddRemoveMtx);
+      bool Done = true;
+      for (auto &Queue : Dev->getQueuesNoLockCopy())
+        Done &= Queue->finishWithoutEventsMtx();
+      if (!Done) {
+        Pending = true;
+        continue;
+      }
       int NumQueues = Dev->getQueuesNoLock().size();
       if (NumQueues) {
         logWarn("Not all user created streams have been destoyed... Queues "
@@ -1754,7 +1763,6 @@ void chipstar::Backend::waitForThreadExit() {
       }
       for (auto &Queue : Dev->getQueuesNoLockCopy()) {
         logDebug("Destroying queue {}", (void *)Queue);
-        Queue->finishWithoutEventsMtx();
         Dev->removeQueue(Queue);
       }
     }

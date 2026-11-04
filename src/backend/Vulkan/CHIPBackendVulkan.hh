@@ -476,6 +476,7 @@ class CHIPQueueVulkan : public chipstar::Queue {
   VkFence FinishFence_ = VK_NULL_HANDLE;
 
   std::atomic<bool> IsEmptyQueue_{true};
+  uint64_t TeardownTarget_ = 0; // timeline value finishWithoutEventsMtx waits for; 0 is unset
 
   /// Guards the ring, pools and semaphore.
   std::mutex QueueOpMtx_;
@@ -521,6 +522,7 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void finish() override;
+  virtual bool finishWithoutEventsMtx() override;
   /// Print and clear device printf records; aborts on a device-side abort.
   void drainDevicePrintf();
   /// Block until all work this queue must follow has finished.
