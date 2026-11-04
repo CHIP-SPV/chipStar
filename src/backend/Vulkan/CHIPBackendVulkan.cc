@@ -2410,9 +2410,14 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
   {
     // vkQueueSubmit requires external synchronization of the VkQueue.
     std::lock_guard<std::mutex> SubmitLock(ChipDevice_->getSubmitMtx());
-    checkVk(vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
-                          SignalFence),
-            "CHIPQueueVulkan::recordEvent: vkQueueSubmit failed", hipErrorTbd);
+    VkResult R = vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
+                               SignalFence);
+    if (R != VK_SUCCESS) {
+      ChipDevice_->releaseTimestampSlot(Slot);
+      EvVk->setTimestampSlot(-1);
+    }
+    checkVk(R, "CHIPQueueVulkan::recordEvent: vkQueueSubmit failed",
+            hipErrorTbd);
   }
   if (NumSignals == 2)
     EvVk->publishIpcValue(SignalVals[1]);
