@@ -1,6 +1,4 @@
-// Reproducer for https://github.com/CHIP-SPV/chipStar/issues/2333: a copy that
-// throws inside drainDevicePrintf must not leave Draining_ set, or later
-// kernel printf output is lost. Fails vkBeginCommandBuffer once inside a drain.
+// https://github.com/CHIP-SPV/chipStar/issues/2333: kernel printf survives a copy that throws inside a drain.
 #include <hip/hip_runtime.h>
 
 #include <atomic>
@@ -39,7 +37,7 @@ int main() {
   hipError_t E = hipDeviceSynchronize();
   (void)hipGetLastError();
   if (Begins == 0) {
-    printf("HIP_SKIP_THIS_TEST: no Vulkan command buffer was begun\n");
+    printf("HIP_SKIP_THIS_TEST: the Vulkan interposers were not called\n");
     return CHIP_SKIP_TEST;
   }
   if (!Injected || E == hipSuccess) {
