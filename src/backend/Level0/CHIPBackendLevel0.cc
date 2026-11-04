@@ -1732,16 +1732,6 @@ void CHIPQueueLevel0::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   auto Pitch = PitchedDevPtr.pitch;
   auto Dst = PitchedDevPtr.ptr;
 
-  // If the pitch equals width, we can fill the entire 3D region as one
-  // contiguous block
-  if (Pitch == Width) {
-    size_t TotalSize = Width * Height * Depth;
-    std::shared_ptr<chipstar::Event> ChipEvent =
-        memFillAsyncImpl(Dst, TotalSize, &Value, 1);
-    ChipEvent->Msg = "memFillAsync3D_contiguous";
-    return;
-  }
-
   // For non-contiguous memory, use 3D region copy strategy using pattern buffer
   // Ensure pattern buffer is allocated
   ensurePatternBufferAllocated();
