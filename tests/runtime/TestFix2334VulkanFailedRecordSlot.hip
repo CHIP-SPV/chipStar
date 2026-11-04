@@ -55,7 +55,7 @@ extern "C" int vkGetQueryPoolResults(void *Dev, void *Pool, uint32_t First,
                uint32_t))dlsym(RTLD_NEXT, "vkGetQueryPoolResults");
   if ((int)First == UnwrittenSlot) {
     ReadUnwritten = true;
-    return 5; // VK_NOT_READY instead of waiting forever
+    return 1; // VK_NOT_READY instead of the real blocking read
   }
   return Real(Dev, Pool, First, Count, Size, Data, Stride, Flags);
 }
