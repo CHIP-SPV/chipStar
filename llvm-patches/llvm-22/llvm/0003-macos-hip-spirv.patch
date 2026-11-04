@@ -9,20 +9,25 @@ CGCUDANV and in the assembly HIPUtility generates for fatbin embedding
 instead of ELF-style names, teach the Darwin driver toolchain to lazily
 initialize its target (ensureTargetInitialized) so using Darwin as a
 host toolchain for device offloading does not hit an uninitialized
-DarwinPlatformKind, and skip host-specific flags (aligned-alloc
-availability, sized deallocation) when compiling device code. Without
-this, hipcc on macOS hosts fails to build and link HIP SPIR-V binaries.
+DarwinPlatformKind (marking that guess TargetInitializedLazily so a
+deployment target computed later from SDKROOT, -isysroot,
+-mmacosx-version-min or MACOSX_DEPLOYMENT_TARGET may overwrite it
+instead of asserting "Target already initialized!"), and skip
+host-specific flags (aligned-alloc availability, sized deallocation)
+when compiling device code. Without this, hipcc on macOS hosts fails to
+build and link HIP SPIR-V binaries.
 
 Applies-to: LLVM release/22.x
 Upstream-status: upstreamed via llvm/llvm-project#183991 (264ac2d3af1b)
 and llvm/llvm-project#206902 (f90e121dde60), first shipping (partially)
 in LLVM 23; still needed on release/22.x.
 ---
- clang/lib/CodeGen/CGCUDANV.cpp             | 10 +++-
- clang/lib/Driver/ToolChains/Darwin.cpp     | 75 +++++++++++++++++++++-
- clang/lib/Driver/ToolChains/Darwin.h       |  9 +++
- clang/lib/Driver/ToolChains/HIPUtility.cpp | 13 ++--
- 4 files changed, 98 insertions(+), 9 deletions(-)
+ clang/lib/CodeGen/CGCUDANV.cpp                 | 10 ++-
+ clang/lib/Driver/ToolChains/Darwin.cpp         | 79 ++++++++++++++++++++-
+ clang/lib/Driver/ToolChains/Darwin.h           | 25 ++++++-
+ clang/lib/Driver/ToolChains/HIPUtility.cpp     | 13 ++--
+ clang/test/Driver/darwin-hip-spirv-version.hip | 33 +++++++++
+ 5 files changed, 149 insertions(+), 11 deletions(-)
 
 diff --git a/clang/lib/CodeGen/CGCUDANV.cpp b/clang/lib/CodeGen/CGCUDANV.cpp
 index e04da90..f08040d 100644
@@ -47,10 +52,10 @@ index e04da90..f08040d 100644
  
      if (CudaGpuBinary) {
 diff --git a/clang/lib/Driver/ToolChains/Darwin.cpp b/clang/lib/Driver/ToolChains/Darwin.cpp
-index fb75739..2eda9bd 100644
+index fb75739..1eb1be6 100644
 --- a/clang/lib/Driver/ToolChains/Darwin.cpp
 +++ b/clang/lib/Driver/ToolChains/Darwin.cpp
-@@ -1114,6 +1114,59 @@ VersionTuple MachO::getLinkerVersion(const llvm::opt::ArgList &Args) const {
+@@ -1114,6 +1114,63 @@ VersionTuple MachO::getLinkerVersion(const llvm::opt::ArgList &Args) const {
  
  Darwin::~Darwin() {}
  
@@ -105,12 +110,16 @@ index fb75739..2eda9bd 100644
 +  setTarget(Platform, Environment, OsVer.getMajor(),
 +            OsVer.getMinor().value_or(0), OsVer.getSubminor().value_or(0),
 +            VersionTuple());
++  // The version above is a guess from the triple alone; AddDeploymentTarget()
++  // may later derive a different deployment target from flags, environment
++  // variables, or the SDK, and overwrite this initialization.
++  TargetInitializedLazily = true;
 +}
 +
  AppleMachO::~AppleMachO() {}
  
  MachO::~MachO() {}
-@@ -1122,8 +1175,9 @@ std::string Darwin::ComputeEffectiveClangTriple(const ArgList &Args,
+@@ -1122,8 +1179,9 @@ std::string Darwin::ComputeEffectiveClangTriple(const ArgList &Args,
                                                  types::ID InputType) const {
    llvm::Triple Triple(ComputeLLVMTriple(Args, InputType));
  
@@ -122,7 +131,7 @@ index fb75739..2eda9bd 100644
    if (!isTargetInitialized())
      return Triple.getTriple();
  
-@@ -1185,6 +1239,11 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
+@@ -1185,6 +1243,11 @@ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
    CC1Args.push_back("-Werror=undef-prefix");
  
    // For modern targets, promote certain warnings to errors.
@@ -134,7 +143,7 @@ index fb75739..2eda9bd 100644
    if (isTargetWatchOSBased() || getTriple().isArch64Bit()) {
      // Always enable -Wdeprecated-objc-isa-usage and promote it
      // to an error.
-@@ -3273,6 +3332,12 @@ void Darwin::addClangTargetOptions(
+@@ -3273,6 +3336,12 @@ void Darwin::addClangTargetOptions(
  
    MachO::addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadKind);
  
@@ -147,7 +156,7 @@ index fb75739..2eda9bd 100644
    // Pass "-faligned-alloc-unavailable" only when the user hasn't manually
    // enabled or disabled aligned allocations.
    if (!DriverArgs.hasArgNoClaim(options::OPT_faligned_allocation,
-@@ -3776,6 +3841,9 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
+@@ -3776,6 +3845,9 @@ void Darwin::addStartObjectFileArgs(const ArgList &Args,
  }
  
  void Darwin::CheckObjCARC() const {
@@ -157,7 +166,7 @@ index fb75739..2eda9bd 100644
    if (isTargetIOSBased() || isTargetWatchOSBased() || isTargetXROS() ||
        (isTargetMacOSBased() && !isMacosxVersionLT(10, 6)))
      return;
-@@ -3795,6 +3863,9 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
+@@ -3795,6 +3867,9 @@ SanitizerMask Darwin::getSupportedSanitizers() const {
    Res |= SanitizerKind::FuzzerNoLink;
    Res |= SanitizerKind::ObjCCast;
  
@@ -168,10 +177,22 @@ index fb75739..2eda9bd 100644
    // C++11 support. The same is true of iOS prior to version 5. These OS'es are
    // incompatible with -fsanitize=vptr.
 diff --git a/clang/lib/Driver/ToolChains/Darwin.h b/clang/lib/Driver/ToolChains/Darwin.h
-index 4a3b75b..179a430 100644
+index 4a3b75b..bb35f1f 100644
 --- a/clang/lib/Driver/ToolChains/Darwin.h
 +++ b/clang/lib/Driver/ToolChains/Darwin.h
-@@ -387,6 +387,15 @@ public:
+@@ -355,6 +355,11 @@ public:
+   // the argument translation business.
+   mutable bool TargetInitialized;
+ 
++  /// Whether the target was lazily initialized from the triple by
++  /// ensureTargetInitialized() rather than by AddDeploymentTarget(). Such a
++  /// target is a best-effort guess that setTarget() may overwrite.
++  mutable bool TargetInitializedLazily = false;
++
+   enum DarwinPlatformKind {
+     MacOS,
+     IPhoneOS,
+@@ -387,6 +392,15 @@ public:
  private:
    void AddDeploymentTarget(llvm::opt::DerivedArgList &Args) const;
  
@@ -187,6 +208,26 @@ index 4a3b75b..179a430 100644
  public:
    Darwin(const Driver &D, const llvm::Triple &Triple,
           const llvm::opt::ArgList &Args);
+@@ -436,10 +450,17 @@ protected:
+     if (TargetInitialized && TargetPlatform == Platform &&
+         TargetEnvironment == Environment &&
+         (Environment == MacCatalyst ? OSTargetVersion : TargetVersion) ==
+-            VersionTuple(Major, Minor, Micro))
++            VersionTuple(Major, Minor, Micro)) {
++      TargetInitializedLazily = false;
+       return;
++    }
+ 
+-    assert(!TargetInitialized && "Target already initialized!");
++    // A lazily-initialized target (see ensureTargetInitialized()) is a
++    // best-effort guess from the triple alone; the authoritative
++    // initialization from AddDeploymentTarget() may overwrite it.
++    assert((!TargetInitialized || TargetInitializedLazily) &&
++           "Target already initialized!");
++    TargetInitializedLazily = false;
+     TargetInitialized = true;
+     TargetPlatform = Platform;
+     TargetEnvironment = Environment;
 diff --git a/clang/lib/Driver/ToolChains/HIPUtility.cpp b/clang/lib/Driver/ToolChains/HIPUtility.cpp
 index 1fcb36c..3bf0f23 100644
 --- a/clang/lib/Driver/ToolChains/HIPUtility.cpp
@@ -220,3 +261,42 @@ index 1fcb36c..3bf0f23 100644
        ObjStream << "  .protected " << PrimaryHipFatbinSymbol << "\n";
        ObjStream << "  .type " << PrimaryHipFatbinSymbol << ",@object\n";
        ObjStream << "  .section .hip_fatbin,\"a\",@progbits\n";
+diff --git a/clang/test/Driver/darwin-hip-spirv-version.hip b/clang/test/Driver/darwin-hip-spirv-version.hip
+new file mode 100644
+index 0000000..754c7a1
+--- /dev/null
++++ b/clang/test/Driver/darwin-hip-spirv-version.hip
+@@ -0,0 +1,33 @@
++// The HIP-SPIR-V offload path lazily initializes the Darwin host target from
++// the triple (ensureTargetInitialized) before AddDeploymentTarget() computes
++// the authoritative deployment target; a disagreement between the two used to
++// trip setTarget()'s "Target already initialized!" assertion.
++
++// REQUIRES: spirv-registered-target
++// UNSUPPORTED: system-windows, system-cygwin
++
++// A Darwin *kernel* version in the triple (darwin24.3.0) is recorded as the
++// macOS *product* version (macosx15) and the driver does not crash.
++// RUN: %clang -### -x hip --offload=spirv64 --target=arm64-apple-darwin24.3.0 \
++// RUN:   -nogpulib -nogpuinc %s 2>&1 | FileCheck %s
++// CHECK: "-triple" "arm64-apple-macosx15{{[0-9.]*}}"
++// CHECK-NOT: "-triple" "arm64-apple-darwin
++
++// A deployment target from the environment overrides the lazily-recorded
++// triple version instead of asserting.
++// RUN: env MACOSX_DEPLOYMENT_TARGET=14.0 %clang -### -x hip \
++// RUN:   --offload=spirv64 --target=arm64-apple-darwin24.3.0 \
++// RUN:   -nogpulib -nogpuinc %s 2>&1 | FileCheck --check-prefix=DEPLOY %s
++// DEPLOY: "-triple" "arm64-apple-macosx14.0.0"
++
++// Same for -mmacosx-version-min.
++// RUN: %clang -### -x hip --offload=spirv64 --target=arm64-apple-darwin24.3.0 \
++// RUN:   -mmacosx-version-min=14.0 -nogpulib -nogpuinc %s 2>&1 \
++// RUN:   | FileCheck --check-prefix=VERMIN %s
++// VERMIN: "-triple" "arm64-apple-macosx14.0.0"
++
++// An unversioned triple must not crash either; the version is inferred (and
++// on a macOS host may differ from the lazily-recorded default).
++// RUN: %clang -### -x hip --offload=spirv64 --target=arm64-apple-darwin \
++// RUN:   -nogpulib -nogpuinc %s 2>&1 | FileCheck --check-prefix=NOVER %s
++// NOVER: "-triple" "arm64-apple-macosx{{[0-9.]+}}"
