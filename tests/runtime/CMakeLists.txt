@@ -109,6 +109,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1600ExtractorArgvBoundaries.hip # compiled by TestFix1600ExtractorArgvBoundaries.bash, not a test
   TestFix1693StringTableOffset.hip # needs program-scope globals, registered below
   TestFix1703ByteOffsetTable.hip # needs program-scope globals, registered below
+  TestFix1841GraphNodeExecItemLeak.hip # finds libCHIP by dladdr, shared builds only
 
   TestFixVolatileLoadLowering.hip # compiled by TestFixVolatileLoadLoweringSPIRV.bash, not a test
   TestFixKokkosUnorderedMapInsert.hip # reference idiom only, see the comment below
@@ -167,6 +168,11 @@ set_tests_properties(TestFix2243OpenCLExitFinishError PROPERTIES PASS_REGULAR_EX
 if(TEST TestFixRuntimeWarpSize)
   set_tests_properties(TestFixRuntimeWarpSize PROPERTIES
     ENVIRONMENT "IGC_ForceOCLSIMDWidth=16;CHIP_LAZY_JIT=1")
+endif()
+
+if(CHIP_BUILD_SHARED_LIBS)
+  add_hip_runtime_test(TestFix1841GraphNodeExecItemLeak.hip)
+  target_link_libraries(TestFix1841GraphNodeExecItemLeak ${CMAKE_DL_LIBS})
 endif()
 
 # The staleness probe needs several work-groups to make progress against each
