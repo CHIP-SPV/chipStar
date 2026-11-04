@@ -1460,4 +1460,6 @@ endif()
 include(cmake/docker.cmake)
 
 add_subdirectory(host_math_funcs)
-target_link_libraries(CHIP PUBLIC ocml_host_math_funcs)
+# Consumers resolve __ocml_* through libCHIP instead of through a published archive.
+target_sources(CHIP PRIVATE $<TARGET_OBJECTS:ocml_host_math_objects>)
+add_dependencies(CHIP ocml_host_math_funcs)

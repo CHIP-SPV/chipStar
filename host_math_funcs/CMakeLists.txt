@@ -123,8 +123,9 @@ message(STATUS "OCML CL Sources: ${OCML_CL_SOURCES}")
 # Set the language for the target
 set_source_files_properties(${OCML_CL_SOURCES} PROPERTIES LANGUAGE C)
 
-# Add the library target
-add_library(ocml_host_math_funcs STATIC ${OCML_CL_SOURCES})
+# Add the library targets
+add_library(ocml_host_math_objects OBJECT ${OCML_CL_SOURCES})
+add_library(ocml_host_math_funcs STATIC $<TARGET_OBJECTS:ocml_host_math_objects>)
 set_target_properties(ocml_host_math_funcs PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
