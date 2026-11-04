@@ -128,3 +128,10 @@ add_test(NAME TestFix2046CMakeCudaRdc
 set_tests_properties(TestFix2046CMakeCudaRdc PROPERTIES TIMEOUT 900 RESOURCE_LOCK chipStarInstall)
 endif()
 endif()
+
+add_test(NAME TestFix2047InstallPrefixSpace
+  COMMAND ${CMAKE_COMMAND}
+    -DBUILD_DIR=${CMAKE_BINARY_DIR}
+    -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2047InstallPrefixSpace
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2047InstallPrefixSpace.cmake)
+set_tests_properties(TestFix2047InstallPrefixSpace PROPERTIES RESOURCE_LOCK chipStarInstall)
