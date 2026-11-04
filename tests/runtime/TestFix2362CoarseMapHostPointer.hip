@@ -13,12 +13,11 @@ extern int CoarseCapsRewritten, CoarseMapCalls;
 
 int main() {
   const size_t N = 4096;
-  void *Probe;
-  hipMalloc(&Probe, 16);
-  hipFree(Probe);
+  hipInit(0);
   if (!CoarseCapsRewritten) {
-    printf("SKIP: no coarse grain SVM device behind the OpenCL backend\n");
-    return 77; // CHIP_SKIP_TEST
+    printf("HIP_SKIP_THIS_TEST: no coarse grain SVM device behind the OpenCL "
+           "backend\n");
+    return CHIP_SKIP_TEST;
   }
 
   // Control: a mapped hipHostMalloc must go through clEnqueueSVMMap.
