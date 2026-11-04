@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <dlfcn.h>
 #include <thread>
 #include <unistd.h>
@@ -27,16 +28,24 @@ extern "C" int vkQueueSubmit(void *Q, uint32_t N, const void *S, void *F) {
   return R;
 }
 
-// Only ~CHIPQueueVulkan destroys a command pool during teardown.
-extern "C" void vkDestroyCommandPool(void *D, void *P, const void *A) {
-  static auto Real = (void (*)(void *, void *, const void *))dlsym(
-      RTLD_NEXT, "vkDestroyCommandPool");
-  if (Stalled) {
-    printf("FAIL: queue destroyed while a thread is inside it\n");
+static hipStream_t Stream;
+static std::atomic<bool> Done{false};
+
+// The stream is the queue the worker is inside; it must never be freed.
+static void checkFree(void *P) {
+  if (Stalled && P == (void *)Stream) {
+    printf("FAIL: queue freed while a thread is inside it\n");
     fflush(stdout);
     _exit(1);
   }
-  Real(D, P, A);
+}
+void operator delete(void *P) noexcept {
+  checkFree(P);
+  free(P);
+}
+void operator delete(void *P, size_t) noexcept {
+  checkFree(P);
+  free(P);
 }
 
 #define REQUIRE(C)                                                             \
@@ -48,19 +57,23 @@ extern "C" void vkDestroyCommandPool(void *D, void *P, const void *A) {
 
 int main() {
   alarm(60); // SIGALRM kills the process if teardown hangs
-  hipStream_t S;
-  REQUIRE(hipStreamCreateWithFlags(&S, hipStreamNonBlocking) == hipSuccess);
+  REQUIRE(hipStreamCreateWithFlags(&Stream, hipStreamNonBlocking) == hipSuccess);
   void *A, *B;
   REQUIRE(hipMalloc(&A, 64) == hipSuccess);
   REQUIRE(hipMalloc(&B, 64) == hipSuccess);
   std::thread([=] {
     Stall = true;
-    hipMemcpyAsync(A, B, 64, hipMemcpyDeviceToDevice, S);
+    hipMemcpyAsync(A, B, 64, hipMemcpyDeviceToDevice, Stream);
+    Done = true; // reached only where vkQueueSubmit is not the backend
     for (;;)
       pause();
   }).detach();
-  while (!Stalled)
+  while (!Stalled && !Done)
     usleep(1000);
+  if (!Stalled) {
+    printf("HIP_SKIP_THIS_TEST: not the Vulkan backend\n");
+    return CHIP_SKIP_TEST;
+  }
   uintptr_t H[4] = {};
   REQUIRE(hipInitFromNativeHandles(H, 4) == hipErrorNotSupported);
   printf("PASS\n");
