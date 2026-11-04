@@ -55,23 +55,23 @@ int main() {
   hipStream_t s;
   e = hipStreamCreate(&s);
   if (e != hipSuccess) {
-    printf("hipStreamCreate: %s\n", hipGetErrorString(e));
+    printf("hipStreamCreate FAILED (%s)\n", hipGetErrorString(e));
     return 1;
   }
 
   // A callback that overwrites the host buffer with 0x88 after a delay must
   // complete before a later fill, on the same stream or from the default stream.
-  hipStreamAddCallback(s, slow_overwrite, host, 0);
+  bool same = hipStreamAddCallback(s, slow_overwrite, host, 0) == hipSuccess;
   e = hipMemsetAsync(host, 0x99, N, s);
-  bool same = e == hipSuccess && hipStreamSynchronize(s) == hipSuccess;
+  same &= e == hipSuccess && hipStreamSynchronize(s) == hipSuccess;
   for (int i = 0; i < N; i++)
     same &= host[i] == 0x99;
   printf("%-20s %s\n", "fill same stream", same ? "PASSED" : "FAILED");
   passed &= same;
 
-  hipStreamAddCallback(s, slow_overwrite, host, 0);
+  bool cross = hipStreamAddCallback(s, slow_overwrite, host, 0) == hipSuccess;
   e = hipMemset(host, 0x9A, N);
-  bool cross = e == hipSuccess && hipStreamSynchronize(s) == hipSuccess;
+  cross &= e == hipSuccess && hipStreamSynchronize(s) == hipSuccess;
   for (int i = 0; i < N; i++)
     cross &= host[i] == 0x9A;
   printf("%-20s %s\n", "fill cross stream", cross ? "PASSED" : "FAILED");
