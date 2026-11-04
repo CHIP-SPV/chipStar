@@ -3874,6 +3874,11 @@ void CHIPBackendVulkan::uninitialize() {
 
   // Detached threads may still be in HIP calls using the VkDevice.
   waitForThreadExit(/*Leak=*/true);
+  // Work behind a callback needs the monitor, so drain before it stops.
+  for (auto *Dev : getDevices())
+    if (Dev->LeakQueues)
+      (void)vkQueueWaitIdle(
+          static_cast<CHIPDeviceVulkan *>(Dev)->getComputeQueue());
 
   // Flag before locking, so a queue destructor waiting on the lock sees it.
   ShuttingDown_.store(true, std::memory_order_release);
