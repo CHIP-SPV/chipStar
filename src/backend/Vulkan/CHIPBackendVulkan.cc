@@ -3575,9 +3575,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
         if (Q != this && Q->getQueueFlags().isBlocking())
           Others.push_back(Q);
       // The calling thread's per-thread default stream, which is not listed.
-      auto *PT = chipstar::Device::PerThreadDefaultQueue.get();
-      if (PT && PT->getDevice() == ChipDevice_)
-        Others.push_back(PT);
+      if (ChipDevice_->isPerThreadStreamUsedNoLock())
+        Others.push_back(ChipDevice_->getPerThreadDefaultQueueNoLock());
     } else if (auto *Def = ChipDevice_->getLegacyDefaultQueue()) {
       if (Def != this)
         Others.push_back(Def);

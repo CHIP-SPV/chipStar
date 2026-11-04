@@ -25,9 +25,6 @@
 #include <atomic>
 #include <algorithm>
 
-// Definition of thread_local static member (required when not using 'inline')
-thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefaultQueue;
-
 // Global counter for threads that have called HIP APIs
 std::atomic<int> GlobalActiveThreads{0};
 
@@ -725,7 +722,6 @@ chipstar::Queue *chipstar::ExecItem::getQueue() { return ChipQueue_; }
 chipstar::Device::Device(chipstar::Context *Ctx, int DeviceIdx)
     : Ctx_(Ctx), Idx_(DeviceIdx) {
   LegacyDefaultQueue = nullptr;
-  PerThreadDefaultQueue = nullptr;
   // Avoid indeterminate values.
   std::memset(&HipDeviceProps_, 0, sizeof(HipDeviceProps_));
 }
@@ -744,6 +740,9 @@ chipstar::Device::~Device() {
 
     delete LegacyDefaultQueue;
     LegacyDefaultQueue = nullptr;
+
+    std::lock_guard<std::mutex> PTLock(PerThreadQueuesMtx_);
+    PerThreadQueues_.clear();
   }
 
   // Then handle device variables with DeviceVarMtx
@@ -786,17 +785,30 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
 }
 
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
-  thread_local static std::once_flag PerThreadQueueFlag;
-  std::call_once(PerThreadQueueFlag, [this]() {
-    logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
-    PerThreadDefaultQueue =
-        std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
-    PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
-    PerThreadStreamUsed_ = true;
-    PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
-  });
+  auto Id = std::this_thread::get_id();
+  {
+    std::lock_guard<std::mutex> Lock(PerThreadQueuesMtx_);
+    auto It = PerThreadQueues_.find(Id);
+    if (It != PerThreadQueues_.end())
+      return It->second.get();
+  }
+  logDebug("Per-thread queue is missing.. Creating a new queue.");
+  std::unique_ptr<chipstar::Queue> Q(::Backend->createCHIPQueue(this));
+  Q->setDefaultPerThreadQueue(true);
+  std::lock_guard<std::mutex> Lock(PerThreadQueuesMtx_);
+  PerThreadStreamUsed_ = true;
+  return (PerThreadQueues_[Id] = std::move(Q)).get();
+}
 
-  return PerThreadDefaultQueue.get();
+void chipstar::Device::finishPerThreadQueues() {
+  std::vector<chipstar::Queue *> Queues;
+  {
+    std::lock_guard<std::mutex> Lock(PerThreadQueuesMtx_);
+    for (auto &[Id, Q] : PerThreadQueues_)
+      Queues.push_back(Q.get());
+  }
+  for (auto *Q : Queues)
+    Q->finish();
 }
 
 std::vector<chipstar::Kernel *> chipstar::Device::getKernels() {
