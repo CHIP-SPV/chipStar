@@ -3323,7 +3323,7 @@ void CHIPQueueVulkan::drainDevicePrintf() {
             hipErrorTbd);
   }
   Draining_ = true;
-  // Restores the flag when a copy below throws.
+  // Clears the flag on every exit, including a throwing copy.
   struct ResetDraining {
     bool &Flag;
     ~ResetDraining() { Flag = false; }
