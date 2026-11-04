@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -242,10 +243,29 @@ static void analyze(Value *V, TextureUseGroup &TexUseGroup,
   case Instruction::Select:
     VisitDefsAndUses(I, {1, 2});
     return;
+  case Instruction::Load:
+    // Look through local store+load pairs and fan out to avoid orphaned
+    // sibling calls
+    auto *LI = cast<LoadInst>(I);
+    Value *Ptr = LI->getPointerOperand();
+    if (isa<AllocaInst>(getUnderlyingObject(Ptr))) {
+      bool FoundStore = false;
+      for (auto *U : Ptr->users()) {
+        auto *SI = dyn_cast<StoreInst>(U);
+        if (!SI || SI->getPointerOperand() != Ptr)
+          continue;
+        FoundStore = true;
+        LLVM_DEBUG(dbgs() << "  Look through local store: " << *SI << "\n");
+        analyze(SI->getValueOperand(), TexUseGroup, TexUseGroupMap,
+                &SI->getOperandUse(0));
+      }
+      if (FoundStore) {
+        VisitUses(I);
+        return;
+      }
+    }
+    break;
   }
-
-  // TODO: Look through loads and stores of local variables? These cases would
-  // occur on -O0 (unless SROA pass is forced).
 
   // A texture object is received from or passed to an unrecognized
   // instruction.
