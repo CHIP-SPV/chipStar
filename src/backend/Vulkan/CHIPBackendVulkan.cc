@@ -3676,6 +3676,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
   // blocking stream, and a blocking stream waits for the default stream.
   // This thread's drain runs inside finish(), whose callers may hold
   // QueueAddRemoveMtx; its copies need no cross-stream ordering.
+  std::unique_lock<std::mutex> PTLock;
   if (getQueueFlags().isBlocking() && !InDrain) {
     std::lock_guard<std::mutex> QLock(ChipDevice_->QueueAddRemoveMtx);
     auto AddWait = [&](chipstar::Queue *Q) {
@@ -3694,9 +3695,10 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
       for (auto *Q : ChipDevice_->getQueuesNoLock())
         if (Q != this && Q->getQueueFlags().isBlocking())
           AddWait(Q);
-      // Every thread's per-thread default stream, read under the list mutex
-      // so an exiting thread cannot free its queue meanwhile.
-      ChipDevice_->forEachPerThreadQueue(AddWait);
+      // Held through the submit: an exiting thread destroys these semaphores.
+      PTLock = std::unique_lock<std::mutex>(ChipDevice_->PerThreadQueues_->Mtx);
+      for (auto *Q : ChipDevice_->PerThreadQueues_->Queues)
+        AddWait(Q);
     } else if (auto *Def = ChipDevice_->getLegacyDefaultQueue()) {
       if (Def != this)
         AddWait(Def);
@@ -3745,6 +3747,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
     checkVk(Res, "CHIPQueueVulkan::submitWithEvent: vkQueueSubmit failed",
             hipErrorTbd);
   }
+  if (PTLock)
+    PTLock.unlock();
 
   IsEmptyQueue_.store(false);
   if (SignalVk)
