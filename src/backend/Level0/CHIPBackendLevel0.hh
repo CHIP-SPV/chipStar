@@ -422,10 +422,15 @@ public:
   std::atomic<bool> IsEmptyQueue_{true};
   // Number of times work was submitted to this queue.
   std::atomic<uint64_t> SubmitCount_{0};
-  void markBusy() {
-    IsEmptyQueue_.store(false);
-    SubmitCount_.fetch_add(1);
-  }
+  // Callbacks on this stream not yet waited for by later work. Guarded by
+  // CmdListMtx_, as is CallbackDeps_ (keeps waited-on events alive until finish).
+  std::shared_ptr<chipstar::Event> PendingCallback_;
+  std::vector<std::shared_ptr<chipstar::Event>> CallbackDeps_;
+  // Caller holds CmdListMtx_; makes later work wait for a pending callback.
+  void markBusy();
+  // Caller holds CmdListMtx_.
+  bool callbackPendingNoLock();
+  void waitForCallbacks() override;
   // Tracks whether zeCommandListHostSynchronize has been called at least once
   // on this queue's command list(s). Intel Arc L0 driver requires one full
   // blocking sync to transition a command list to "idle" state that allows
@@ -457,6 +462,9 @@ public:
     // zeCommandListHostSynchronize() calls (see tests/benchmarks/manySmallKernels).
     if (IsEmptyQueue_.load(std::memory_order_relaxed))
       return true;
+    std::unique_lock<std::mutex> Lk(*CmdListMtx_, std::try_to_lock);
+    if (!Lk.owns_lock() || callbackPendingNoLock())
+      return false;
     return (zeCommandListHostSynchronize(ZeCmdListImm_, 0) == ZE_RESULT_SUCCESS);
 #else
     bool is_empty = IsEmptyQueue_.load(std::memory_order_relaxed);
@@ -467,6 +475,7 @@ public:
       return false;
     }
     // Re-check under lock (another thread may have just updated to true while waiting for the lock)
+    if (callbackPendingNoLock()) return false;
     is_empty = IsEmptyQueue_.load(std::memory_order_relaxed);
     if (is_empty) return true;
     is_empty = (zeCommandListHostSynchronize(ZeCmdListImm_, 0) == ZE_RESULT_SUCCESS);

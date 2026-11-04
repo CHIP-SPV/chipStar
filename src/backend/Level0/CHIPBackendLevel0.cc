@@ -769,22 +769,9 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
   auto [QueueSyncEvents, EventLocks] =
       ChipQueueLz->addDependenciesQueueSync(GpuReady);
   
-  // This will get triggered manually
+  // Signaled by the event monitor once the callback has returned.
   CpuCallbackComplete =
       BackendLz->createEventDedicated(ChipContextLz, "CpuCallbackComplete");
-  auto CpuCallbackCompleteLz =
-      std::static_pointer_cast<CHIPEventLevel0>(CpuCallbackComplete);
-
-  // This will get triggered when the CPU is done
-  GpuAck = BackendLz->createEventDedicated(ChipContextLz, "GpuAck");
-  auto GpuAckLz = std::static_pointer_cast<CHIPEventLevel0>(GpuAck);
-
-  // Need to create another event as GpuAck will be destroyed once callback is
-  // complete
-  auto CallbackComplete =
-      BackendLz->createEventDedicated(ChipContextLz, "CallbackComplete");
-  auto CallbackCompleteLz =
-      std::static_pointer_cast<CHIPEventLevel0>(CallbackComplete);
 
   // Workaround for Level Zero driver bug on Aurora: when using immediate
   // command lists, barriers may not see events signaled on other queues
@@ -808,19 +795,12 @@ CHIPCallbackDataLevel0::CHIPCallbackDataLevel0(hipStreamCallback_t CallbackF,
       QueueSyncEvents.data());
   CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
-  zeStatus =
-      zeCommandListAppendBarrier(CommandList, GpuAckLz->get(), 1,
-                                 &CpuCallbackCompleteLz->get());
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
 
-  zeStatus = zeCommandListAppendBarrier(CommandList,
-                                        CallbackCompleteLz->get(), 0, nullptr);
-  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
-  
   // Track GpuReady event so it can be properly monitored for completion
   Backend->trackEvent(GpuReady);
   
-  ChipQueueLz->executeCommandList(CommandList, CallbackComplete);
+  // Later work on this stream waits for the callback (see markBusy).
+  ChipQueueLz->PendingCallback_ = CpuCallbackComplete;
 }
 
 // End CHIPCallbackDataLevel0
@@ -860,7 +840,6 @@ void CHIPEventMonitorLevel0::checkCallbacks() {
 
   CbData->execute(hipSuccess);
   CbData->CpuCallbackComplete->hostSignal();
-  CbData->GpuAck->wait();
 
   delete CbData;
   pthread_yield();
@@ -1094,7 +1073,7 @@ CHIPQueueLevel0::addDependenciesQueueSync(
     // Signal this marker in the other queue's command list
     auto OtherQueue = static_cast<CHIPQueueLevel0 *>(q);
     LOCK(*OtherQueue->CmdListMtx_);
-    OtherQueue->IsEmptyQueue_.store(false);
+    OtherQueue->markBusy();
     auto OtherCommandList = OtherQueue->getCmdListImm();
 
     zeStatus = zeCommandListAppendSignalEvent(OtherCommandList, MarkerEventLz->peek());
@@ -1970,7 +1949,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueLevel0::enqueueMarkerImpl() {
   addDependenciesQueueSync(MarkerEvent);
   
   LOCK(*CmdListMtx_);
-  IsEmptyQueue_.store(false);
+  markBusy();
   auto CommandList = this->getCmdListImm();
   // The application must not call this function from
   // simultaneous threads with the same command list handle.
@@ -2134,6 +2113,8 @@ void CHIPQueueLevel0::finish() {
   // wait only after the first sync has already been performed.
   if (IsEmptyQueue_.load() && CmdListInitialized_.load()) return;
 
+  waitForCallbacks();
+
   if (zeCmdQOwnership_) {
     zeStatus = zeCommandQueueSynchronize(ZeCmdQ_, ChipEnvVars.getL0EventTimeout() * 1e9);
     CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandQueueSynchronize,
@@ -2164,7 +2145,9 @@ void CHIPQueueLevel0::finish() {
       std::getenv("CHIP_L0_TEST_RETAIN_CROSSQUEUE_DEPS") != nullptr;
   if (!RetainCrossQueueDepsForTest)
     PendingCrossQueueDeps_.clear();
-  IsEmptyQueue_.store(true);
+  CallbackDeps_.clear();
+  if (!PendingCallback_)
+    IsEmptyQueue_.store(true);
   CmdListInitialized_.store(true);
   return;
 }
@@ -2206,8 +2189,54 @@ void CHIPQueueLevel0::finishWithoutEventsMtx() {
   return;
 }
 
+void CHIPQueueLevel0::markBusy() {
+  IsEmptyQueue_.store(false);
+  SubmitCount_.fetch_add(1);
+  if (!PendingCallback_)
+    return;
+  auto Cb = std::move(PendingCallback_);
+  PendingCallback_.reset();
+  if (zeEventQueryStatus(std::static_pointer_cast<CHIPEventLevel0>(Cb)->get()) !=
+      ZE_RESULT_NOT_READY)
+    return;
+  zeStatus = zeCommandListAppendBarrier(
+      ZeCmdListImm_, nullptr, 1,
+      &std::static_pointer_cast<CHIPEventLevel0>(Cb)->get());
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeCommandListAppendBarrier);
+  CallbackDeps_.push_back(std::move(Cb));
+}
+
+bool CHIPQueueLevel0::callbackPendingNoLock() {
+  return PendingCallback_ &&
+         zeEventQueryStatus(
+             std::static_pointer_cast<CHIPEventLevel0>(PendingCallback_)
+                 ->get()) == ZE_RESULT_NOT_READY;
+}
+
+void CHIPQueueLevel0::waitForCallbacks() {
+  std::shared_ptr<chipstar::Event> Cb;
+  {
+    LOCK(*CmdListMtx_);
+    Cb = PendingCallback_;
+  }
+  if (!Cb)
+    return;
+  // Outside the lock so the callback can use other streams on a shared list.
+  zeStatus = zeEventHostSynchronize(
+      std::static_pointer_cast<CHIPEventLevel0>(Cb)->get(), UINT64_MAX);
+  CHIPERR_CHECK_LOG_AND_THROW_TABLE(zeEventHostSynchronize);
+  LOCK(*CmdListMtx_);
+  if (PendingCallback_ == Cb)
+    PendingCallback_.reset();
+}
+
 bool CHIPQueueLevel0::query() {
   if (NativeHandlesEscaped_) {
+    {
+      LOCK(*CmdListMtx_);
+      if (callbackPendingNoLock())
+        return false;
+    }
     zeStatus = zeCommandListHostSynchronize(ZeCmdListImm_, 0);
     if (zeStatus == ZE_RESULT_NOT_READY)
       return false;
@@ -2219,6 +2248,8 @@ bool CHIPQueueLevel0::query() {
   // waits for other streams sharing the command list.
   LOCK(*CmdListMtx_);
   uint64_t Submits = SubmitCount_.load();
+  if (callbackPendingNoLock())
+    return false;
   if (IsEmptyQueue_.load())
     return true;
 
