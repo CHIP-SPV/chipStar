@@ -1,27 +1,23 @@
-// Reproduces #2340: hipMemcpy3D stepped destination slices by the copied
-// height, not the destination height.
+// Reproduces #2340: hipMemcpy3D steps destination slices by the extent height.
 #include <hip/hip_runtime.h>
 #include <cstdio>
-#include <cstring>
 #include <vector>
 
 #define CHECK(X)                                                               \
   do {                                                                         \
-    hipError_t E = (X);                                                        \
-    if (E != hipSuccess) {                                                     \
-      printf("FAIL: %s returned %d\n", #X, (int)E);                            \
+    hipError_t Err_ = (X);                                                     \
+    if (Err_ != hipSuccess) {                                                  \
+      printf("FAIL: %s returned %d\n", #X, (int)Err_);                         \
       return 1;                                                                \
     }                                                                          \
   } while (0)
 
-// Copies Ext of S into D and checks every byte of D: 0x3C inside Ext, 0
-// outside.
+// Copies Ext of S into D and checks every byte of D against Ext.
 static int pitchedCase(const char *Name, hipPitchedPtr S, hipPitchedPtr D,
                        hipExtent Ext) {
   size_t DBytes = D.pitch * D.ysize * 2;
   CHECK(hipMemset(D.ptr, 0, DBytes));
-  hipMemcpy3DParms P;
-  memset(&P, 0, sizeof P);
+  hipMemcpy3DParms P = {};
   P.srcPtr = S;
   P.dstPtr = D;
   P.extent = Ext;
@@ -50,26 +46,25 @@ static int arrayCase(const char *Name, size_t CopyWidth) {
   const size_t W = 16, Hgt = 3, Dp = 2;
   hipChannelFormatDesc Desc = hipCreateChannelDesc<unsigned int>();
   hipArray_t A;
-  hipError_t E = hipMalloc3DArray(&A, &Desc, make_hipExtent(W, Hgt, Dp), 0);
-  if (E == hipErrorNotSupported)
+  hipError_t Err = hipMalloc3DArray(&A, &Desc, make_hipExtent(W, Hgt, Dp), 0);
+  if (Err == hipErrorNotSupported)
     return CHIP_SKIP_TEST;
-  CHECK(E);
+  CHECK(Err);
   size_t Pitch = W * sizeof(unsigned int), Bytes = Pitch * Hgt * Dp;
   std::vector<unsigned char> Src(Bytes, 0x3C), Zero(Bytes, 0), H(Bytes, 0xAA);
-  hipMemcpy3DParms P;
-  memset(&P, 0, sizeof P);
+  hipMemcpy3DParms P = {};
   P.srcPtr = make_hipPitchedPtr(Zero.data(), Pitch, W, Hgt);
   P.dstArray = A;
   P.extent = make_hipExtent(W, Hgt, Dp);
   P.kind = hipMemcpyHostToDevice;
   CHECK(hipMemcpy3D(&P));
-  memset(&P, 0, sizeof P);
+  P = {};
   P.srcPtr = make_hipPitchedPtr(Src.data(), Pitch, W, Hgt);
   P.dstArray = A;
   P.extent = make_hipExtent(CopyWidth, 1, Dp);
   P.kind = hipMemcpyHostToDevice;
   CHECK(hipMemcpy3D(&P));
-  memset(&P, 0, sizeof P);
+  P = {};
   P.srcArray = A;
   P.dstPtr = make_hipPitchedPtr(H.data(), Pitch, W, Hgt);
   P.extent = make_hipExtent(W, Hgt, Dp);
@@ -98,15 +93,15 @@ int main() {
   CHECK(hipMalloc3D(&D, make_hipExtent(128, 3, 2)));
   CHECK(hipMemset(S.ptr, 0x3C, S.pitch * S.ysize * 2));
 
-  int Fail = pitchedCase("row loop", S, D, make_hipExtent(127, 1, 2));
+  int Fail = pitchedCase("narrow", S, D, make_hipExtent(127, 1, 2));
   if (S.pitch == D.pitch)
-    Fail |= pitchedCase("flat path", S, D, make_hipExtent(D.pitch, 1, 2));
+    Fail |= pitchedCase("full width", S, D, make_hipExtent(D.pitch, 1, 2));
 
-  // Full-pitch width takes the flat path, narrower takes the row loop.
-  int R = arrayCase("array flat path", 16);
+  // Full width could take one flat copy, narrower needs a copy per row.
+  int R = arrayCase("array full width", 16);
   if (R != CHIP_SKIP_TEST) {
     Fail |= R;
-    Fail |= arrayCase("array row loop", 15);
+    Fail |= arrayCase("array narrow", 15);
   }
   if (Fail)
     return 1;
