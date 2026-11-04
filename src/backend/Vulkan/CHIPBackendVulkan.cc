@@ -3323,6 +3323,11 @@ void CHIPQueueVulkan::drainDevicePrintf() {
             hipErrorTbd);
   }
   Draining_ = true;
+  // Restores the flag when a copy below throws.
+  struct ResetDraining {
+    bool &Flag;
+    ~ResetDraining() { Flag = false; }
+  } Reset{Draining_};
   bool Abort = false;
   for (auto *V : Buffers) {
     uint32_t Hdr[2] = {0, 0};
@@ -3355,7 +3360,6 @@ void CHIPQueueVulkan::drainDevicePrintf() {
   }
   fflush(stdout);
   fflush(stderr);
-  Draining_ = false;
   if (Abort && !getenv("CHIP_HOST_IGNORES_DEVICE_ABORT"))
     abort();
 }
