@@ -5238,13 +5238,18 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     CHIPERR_LOG_AND_THROW("Invalid destination pointer!", hipErrorInvalidValue);
   if (Width > Pitch)
     CHIPERR_LOG_AND_THROW("Width exceeds pitch value!", hipErrorInvalidValue);
-  int size = Pitch * Height - Pitch - Width;
-  if (size > int(AllocInfo->Size))
+  if (!Width || !Height)
+    return hipSuccess;
+  // Dst may lie in either the host or the device range of the record.
+  char *D = static_cast<char *>(Dst);
+  char *Host = static_cast<char *>(AllocInfo->HostPtr);
+  bool InHost = Host && D >= Host && D < Host + AllocInfo->Size;
+  size_t Offset = D - (InHost ? Host : static_cast<char *>(AllocInfo->DevPtr));
+  size_t Extent;
+  if (__builtin_mul_overflow(Pitch, Height - 1, &Extent) ||
+      __builtin_add_overflow(Extent, Width, &Extent) ||
+      Extent > AllocInfo->Size - Offset)
     CHIPERR_LOG_AND_THROW("Out of bounds 2D memset!", hipErrorInvalidValue);
-  int TrueHeight = AllocInfo->Size / Pitch;
-  if (Height > TrueHeight)
-    CHIPERR_LOG_AND_THROW("Height requested exceeds allocations!",
-                          hipErrorInvalidValue);
 
   const hipMemsetParams Params = {
       /* Dst */ Dst,
