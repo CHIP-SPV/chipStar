@@ -63,7 +63,8 @@ int main() {
   REQUIRE(hipMalloc(&B, 64) == hipSuccess);
   std::thread([=] {
     Stall = true;
-    hipMemcpyAsync(A, B, 64, hipMemcpyDeviceToDevice, Stream);
+    REQUIRE(hipMemcpyAsync(A, B, 64, hipMemcpyDeviceToDevice, Stream) ==
+            hipSuccess);
     Done = true; // reached only where vkQueueSubmit is not the backend
     for (;;)
       pause();
