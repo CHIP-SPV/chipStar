@@ -2721,8 +2721,8 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 // ----------------------------------------------------------------------------
-// memFillAsyncImpl: vkCmdFillBuffer for an aligned 4-byte pattern, else a copy
-// from a staging buffer holding the repeated pattern.
+// memFillAsyncImpl: vkCmdFillBuffer for an aligned 1 or 4 byte pattern, else a
+// copy from a staging buffer holding the repeated pattern.
 // ----------------------------------------------------------------------------
 std::shared_ptr<chipstar::Event>
 CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
@@ -2768,9 +2768,14 @@ CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   VkCommandBuffer Cmd = i8BeginCmdBuffer(this);
 
   // vkCmdFillBuffer requires dstOffset and size to be multiples of 4.
-  if (PatternSize == 4 && (Size % 4) == 0 && (DstOffset % 4) == 0) {
+  if ((PatternSize == 4 || PatternSize == 1) && (Size % 4) == 0 &&
+      (DstOffset % 4) == 0) {
     uint32_t Value = 0;
-    std::memcpy(&Value, Pattern, sizeof(Value));
+    std::memcpy(&Value, Pattern, PatternSize);
+    if (PatternSize == 1) {
+      Value |= Value << 8;
+      Value |= Value << 16;
+    }
     vkCmdFillBuffer(Cmd, DstBuf, DstOffset, Size, Value);
     i8EndCmdBuffer(Cmd);
     auto Ev = submitWithEvent(Cmd, {});
