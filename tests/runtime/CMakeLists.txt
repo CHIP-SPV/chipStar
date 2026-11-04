@@ -179,6 +179,9 @@ target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
 set_target_properties(TestFix2335VulkanRecordMarkerFail PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2335VulkanRecordMarkerFail ${CMAKE_DL_LIBS})
 # Exports its vkBeginCommandBuffer/vkQueueWaitIdle interposers so libCHIP binds to them.
+set_target_properties(TestFix2344VulkanPrintfReplay PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(TestFix2344VulkanPrintfReplay ${CMAKE_DL_LIBS})
+# Exports its vkBeginCommandBuffer/vkQueueWaitIdle interposers so libCHIP binds to them.
 set_target_properties(TestFix2333VulkanDrainThrow PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2333VulkanDrainThrow ${CMAKE_DL_LIBS})
 # Exports its vkQueueSubmit, vkEndCommandBuffer and query pool interposers so libCHIP binds to them.
