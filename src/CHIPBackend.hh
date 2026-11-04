@@ -1450,6 +1450,12 @@ public:
   const std::vector<chipstar::Queue *> &getQueuesNoLock() { return UserQueues_; }
   // copy for loops that erase or run without QueueAddRemoveMtx
   std::vector<chipstar::Queue *> getQueuesNoLockCopy() { return UserQueues_; }
+  // Surviving threads can be inside these queues; they go at process exit.
+  void leakQueuesNoLock() {
+    UserQueues_.clear();
+    UserQueueSet_.clear();
+    LeakQueues = true;
+  }
   bool hasUserQueue(chipstar::Queue *Queue) const {
     return UserQueueSet_.find(Queue) != UserQueueSet_.end();
   }
@@ -2091,7 +2097,7 @@ public:
    * atomically and each Queue destructor decrementing it.
    *
    */
-  void waitForThreadExit();
+  void waitForThreadExit(bool Leak = false);
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.

@@ -737,16 +737,14 @@ chipstar::Device::~Device() {
   {
     LOCK(QueueAddRemoveMtx); // chipstar::Device::ChipQueues_
     
-    // Surviving threads can be inside these; they go at process exit.
-    if (!LeakQueues) {
-      for (auto *Queue : UserQueues_)
-        delete Queue;
-      UserQueues_.clear();
-      UserQueueSet_.clear();
+    for (auto *Queue : UserQueues_)
+      delete Queue;
+    UserQueues_.clear();
+    UserQueueSet_.clear();
 
+    if (!LeakQueues)
       delete LegacyDefaultQueue;
-      LegacyDefaultQueue = nullptr;
-    }
+    LegacyDefaultQueue = nullptr;
   }
 
   // Then handle device variables with DeviceVarMtx
@@ -1704,7 +1702,7 @@ void chipstar::Backend::trackEvent(
   Event->markTracked();
 }
 
-void chipstar::Backend::waitForThreadExit() {
+void chipstar::Backend::waitForThreadExit(bool Leak) {
   // Check if any threads called HIP APIs
   usleep(100000);
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
@@ -1758,8 +1756,11 @@ void chipstar::Backend::waitForThreadExit() {
       for (auto &Queue : Dev->getQueuesNoLockCopy()) {
         logDebug("Finishing queue {}", (void *)Queue);
         Queue->finishWithoutEventsMtx();
+        if (!Leak)
+          Dev->removeQueue(Queue);
       }
-      Dev->LeakQueues = true;
+      if (Leak)
+        Dev->leakQueuesNoLock();
     }
   }
 }
