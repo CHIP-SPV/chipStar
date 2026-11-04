@@ -2522,6 +2522,10 @@ public:
 
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
                             size_t PatternSize);
+
+  /// Host-fills a hipHostRegister record that has no device pointer yet.
+  bool fillDeferredHostRegistration(void *Dst, size_t Size,
+                                    const void *Pattern, size_t PatternSize);
   virtual void memFillAsync2D(void *Dst, size_t Pitch, int Value, size_t Width,
                               size_t Height);
   virtual void memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
