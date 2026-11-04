@@ -778,7 +778,8 @@ void CHIPQueueOpenCL::recordEvent(chipstar::Event *ChipEvent) {
 
   // Need profiling command queue for querying timestamps for possible
   // later hipEventElapsedTime() calls.
-  switchModeTo(Profiling);
+  if (!ChipEvent->getFlags().isDisableTiming())
+    switchModeTo(Profiling);
 
   ChipEventCL->recordEventCopy(enqueueMarker());
   ChipEventCL->setRecording();
