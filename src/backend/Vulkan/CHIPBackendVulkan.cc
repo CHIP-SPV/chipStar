@@ -2336,6 +2336,16 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
 
   int32_t Slot = ChipDevice_->acquireTimestampSlot();
   EvVk->setTimestampSlot(Slot);
+  // A failed record leaves nothing to write the slot; after device loss the
+  // submit still counts as pending, so the slot stays out of the free list.
+  auto CheckRecord = [&](VkResult R, const char *Msg) {
+    if (R != VK_SUCCESS) {
+      if (R != VK_ERROR_DEVICE_LOST)
+        ChipDevice_->releaseTimestampSlot(Slot);
+      EvVk->setTimestampSlot(-1);
+    }
+    checkVk(R, Msg, hipErrorTbd);
+  };
 
   // getElapsedTime() falls back to this without a timestamp slot.
   EvVk->getHostTimestamp() = static_cast<uint64_t>(
@@ -2347,9 +2357,8 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
   VkCommandBufferBeginInfo BI{};
   BI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   BI.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  checkVk(vkBeginCommandBuffer(Cb, &BI),
-          "CHIPQueueVulkan::recordEvent: vkBeginCommandBuffer failed",
-          hipErrorTbd);
+  CheckRecord(vkBeginCommandBuffer(Cb, &BI),
+              "CHIPQueueVulkan::recordEvent: vkBeginCommandBuffer failed");
 
   if (Slot >= 0 && ChipDevice_->getTimestampQueryPool() != VK_NULL_HANDLE) {
     // A query must be reset before vkCmdWriteTimestamp writes it.
@@ -2360,9 +2369,8 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
                         static_cast<uint32_t>(Slot));
   }
 
-  checkVk(vkEndCommandBuffer(Cb),
-          "CHIPQueueVulkan::recordEvent: vkEndCommandBuffer failed",
-          hipErrorTbd);
+  CheckRecord(vkEndCommandBuffer(Cb),
+              "CHIPQueueVulkan::recordEvent: vkEndCommandBuffer failed");
 
   uint64_t WaitTimelineVal, SignalTimelineVal;
   {
@@ -2410,14 +2418,9 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
   {
     // vkQueueSubmit requires external synchronization of the VkQueue.
     std::lock_guard<std::mutex> SubmitLock(ChipDevice_->getSubmitMtx());
-    VkResult R = vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
-                               SignalFence);
-    if (R != VK_SUCCESS) {
-      ChipDevice_->releaseTimestampSlot(Slot);
-      EvVk->setTimestampSlot(-1);
-    }
-    checkVk(R, "CHIPQueueVulkan::recordEvent: vkQueueSubmit failed",
-            hipErrorTbd);
+    CheckRecord(vkQueueSubmit(ChipDevice_->getComputeQueue(), 1, &Submit,
+                              SignalFence),
+                "CHIPQueueVulkan::recordEvent: vkQueueSubmit failed");
   }
   if (NumSignals == 2)
     EvVk->publishIpcValue(SignalVals[1]);
