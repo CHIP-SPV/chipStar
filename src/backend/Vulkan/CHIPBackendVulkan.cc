@@ -3520,7 +3520,9 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
         TimelineSemaphore_ != VK_NULL_HANDLE) {
       auto Dev = ChipDevice_->getLogicalDevice();
       uint64_t Cur = 0;
-      vkGetSemaphoreCounterValue(Dev, TimelineSemaphore_, &Cur);
+      checkVk(vkGetSemaphoreCounterValue(Dev, TimelineSemaphore_, &Cur),
+              "acquireCmdBuffer: vkGetSemaphoreCounterValue failed",
+              hipErrorTbd);
       if (Cur < RingSlotValue_[RingHead_]) {
         VkCommandBufferAllocateInfo CBAI{};
         CBAI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
