@@ -32,6 +32,19 @@ else
     echo "Skip: clang++ or g++ is required"
 fi
 echo
+echo "### Regression test (#2221): hip-config.cmake must not print a CMake deprecation warning"
+setup-test-dir
+cmake @CMAKE_CURRENT_SOURCE_DIR@/HipHostTarget \
+      -DCMAKE_PREFIX_PATH=@CMAKE_INSTALL_PREFIX@ \
+      -DCMAKE_CXX_COMPILER=${CXX} > configure.log 2>&1
+if grep -qE 'CMake Deprecation Warning at .*/hip-config[.]cmake' configure.log
+then
+    cat configure.log
+    echo "FAIL: hip-config.cmake printed a CMake deprecation warning"
+    exit 1
+fi
+echo "Success"
+echo
 echo "### Check hip::device with mixed C/C++ sources (#1001)"
 setup-test-dir
 cmake @CMAKE_CURRENT_SOURCE_DIR@/HipDeviceCSource \
