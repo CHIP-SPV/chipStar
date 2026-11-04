@@ -2587,8 +2587,9 @@ inline void i8EndCmdBuffer(VkCommandBuffer Cmd) {
 } // namespace
 
 // ----------------------------------------------------------------------------
-// memCopyAsyncImpl: host memory goes through a staging buffer, except when the
-// allocation is host mapped, which a plain memcpy reads or writes directly.
+// memCopyAsyncImpl: a copy between two VkBuffers runs on the GPU. Host side
+// copies are host to host and copies between a mapped allocation and
+// unregistered host memory, plus mapped to mapped on the callback thread.
 // ----------------------------------------------------------------------------
 void CHIPQueueVulkan::waitSubmitted() {
   // Through submitWithEvent, so the other streams' work this one must follow
@@ -2636,12 +2637,19 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     else
       Kind = hipMemcpyHostToHost;
   }
+  // H2D or D2H with both sides in VkBuffers: copy in stream order.
+  if (!InCallbackThread &&
+      (Kind == hipMemcpyHostToDevice || Kind == hipMemcpyDeviceToHost) &&
+      DstBuf != VK_NULL_HANDLE && SrcBuf != VK_NULL_HANDLE)
+    Kind = hipMemcpyDeviceToDevice;
 
-  // Copy on the host, and submit an empty command buffer for the event.
+  // Host side copy, then an empty command buffer for the event. The callback
+  // thread's finish() does not wait, so it also copies mapped to mapped here.
   if (Kind == hipMemcpyHostToHost ||
       (Kind == hipMemcpyHostToDevice && DstIsMapped) ||
       (Kind == hipMemcpyDeviceToHost && SrcIsMapped) ||
-      (Kind == hipMemcpyDeviceToDevice && DstIsMapped && SrcIsMapped)) {
+      (InCallbackThread && Kind == hipMemcpyDeviceToDevice && DstIsMapped &&
+       SrcIsMapped)) {
     logTrace("CHIPQueueVulkan::memCopyAsync host-side memcpy {} -> {} / {} B",
              Src, Dst, Size);
     waitSubmitted();
@@ -2780,8 +2788,8 @@ CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   VkBuffer DstBuf = i8LookupVkBuffer(Ctx, Dst, DstIsMapped, DstOffset);
   i8CheckFitsAllocation(Ctx, Dst, Size);
 
-  // A host mapped allocation's pointer is its host address.
-  if (DstBuf == VK_NULL_HANDLE || DstIsMapped) {
+  // Unregistered host memory, or mapped memory on the callback thread.
+  if (DstBuf == VK_NULL_HANDLE || (InCallbackThread && DstIsMapped)) {
     waitSubmitted();
     logTrace("CHIPQueueVulkan::memFillAsync host-side fill {} / {} B (pat {})",
              Dst, Size, PatternSize);
@@ -2878,7 +2886,7 @@ void CHIPQueueVulkan::memFillAsync2D(void *Dst, size_t Pitch, int Value,
   VkDeviceSize DstOffset = 0;
   VkBuffer DstBuf = i8LookupVkBuffer(Ctx, Dst, DstIsMapped, DstOffset);
 
-  if (DstBuf == VK_NULL_HANDLE || DstIsMapped) {
+  if (DstBuf == VK_NULL_HANDLE || (InCallbackThread && DstIsMapped)) {
     waitSubmitted();
     unsigned char Byte = static_cast<unsigned char>(Value);
     for (size_t R = 0; R < Height; ++R) {
@@ -2971,7 +2979,7 @@ void CHIPQueueVulkan::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   VkDeviceSize DstOffset = 0;
   VkBuffer DstBuf = i8LookupVkBuffer(Ctx, Dst, DstIsMapped, DstOffset);
 
-  if (DstBuf == VK_NULL_HANDLE || DstIsMapped) {
+  if (DstBuf == VK_NULL_HANDLE || (InCallbackThread && DstIsMapped)) {
     waitSubmitted();
     unsigned char Byte = static_cast<unsigned char>(Value);
     for (size_t S = 0; S < Depth; ++S)
