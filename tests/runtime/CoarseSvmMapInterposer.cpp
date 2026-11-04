@@ -7,7 +7,7 @@
 
 extern "C" {
 char *CoarseWatchBegin, *CoarseWatchEnd;
-int CoarseCapsRewritten, CoarseMapCalls;
+int CoarseMapCalls;
 }
 
 extern "C" int clGetDeviceInfo(void *Dev, unsigned Param, size_t Size,
@@ -20,7 +20,6 @@ extern "C" int clGetDeviceInfo(void *Dev, unsigned Param, size_t Size,
   if (Err == 0 && Param == CL_DEVICE_SVM_CAPABILITIES && Val &&
       Size >= sizeof(unsigned long) && (*(unsigned long *)Val & CoarseBuffer)) {
     *(unsigned long *)Val = CoarseBuffer;
-    CoarseCapsRewritten = 1;
   }
   return Err;
 }
