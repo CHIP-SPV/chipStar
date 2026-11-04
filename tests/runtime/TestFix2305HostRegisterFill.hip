@@ -62,6 +62,7 @@ int main() {
 
   // A callback that overwrites the host buffer with 0x88 after a delay must
   // complete before a later fill, on the same stream or from the default stream.
+  // OpenCL's hipStreamAddCallback returns after the callback (https://github.com/CHIP-SPV/chipStar/issues/1966), so only Level Zero can fail these.
   bool same = hipStreamAddCallback(s, slow_overwrite, host, 0) == hipSuccess;
   e = hipMemsetAsync(host, 0x99, N, s);
   same &= e == hipSuccess && hipStreamSynchronize(s) == hipSuccess;
