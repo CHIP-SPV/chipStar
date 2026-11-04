@@ -134,6 +134,10 @@ endif()
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip)
 endif()
+# Needs the native Vulkan callback monitor.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2348VulkanCallbackBlockingCalls.hip)
+endif()
 # Warp votes link the device library, and Mali's clLinkProgram fails (-59).
 if(CHIP_MALI_GPU_WORKAROUNDS)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestWarpVotePartialWarp.hip)
