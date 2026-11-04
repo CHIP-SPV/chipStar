@@ -5030,6 +5030,10 @@ hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
   hipError_t HipStatus = hipMallocPitch3DInternal(
       &PitchedDevPtr->ptr, &Pitch, Extent.width, Extent.height, Extent.depth);
 
+  // Width or height so large that the pitch or the size wrapped.
+  if (Pitch == 0 && Extent.width != 0 && Extent.height != 0)
+    RETURN(hipErrorInvalidValue);
+
   if (HipStatus == hipSuccess) {
     PitchedDevPtr->pitch = Pitch;
     PitchedDevPtr->xsize = Extent.width;
