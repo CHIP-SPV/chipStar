@@ -102,6 +102,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix2008ClSetEventCallbackErrorMap.hip # links an interposer
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
+  TestFix1918SyncReportsFailedCommand.hip # guarded on OpenCL_LIBRARY
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
   TestFix1601ExtractorMultiTUDoubles.hip # multi-TU, compiled by its .bash, not a test
   TestFixLlvmUsedAddrspace.hip    # not registered as a test
@@ -204,6 +205,7 @@ if(NOT APPLE)
 endif()
 if(OpenCL_LIBRARY) # Depends on OpenCL
   add_hip_runtime_test(TestBufferDevAddr.hip)
+  add_hip_runtime_test(TestFix1918SyncReportsFailedCommand.hip MODES stream device blocking)
 endif()
 if(LevelZero_LIBRARY) # Depends on Level Zero
   add_hip_runtime_test(TestFix1962PooledResidencyEviction.hip)
