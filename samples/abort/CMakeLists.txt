@@ -33,5 +33,20 @@ add_test(
   NAME abort2
   COMMAND "${CMAKE_COMMAND}" -P ${CMAKE_CURRENT_BINARY_DIR}/run-abort2.cmake)
 
+# A launch that fails on OpenCL must not be reported as an ignored abort (#1989).
+if(UNIX AND NOT APPLE)
+  add_library(ClFinishErrorInterposer MODULE ClFinishErrorInterposer.cpp)
+  target_link_libraries(ClFinishErrorInterposer ${CMAKE_DL_LIBS})
+  add_test(
+    NAME abort2LaunchError
+    COMMAND "${CMAKE_COMMAND}" -E env
+      "LD_PRELOAD=$<TARGET_FILE:ClFinishErrorInterposer>"
+      "${CMAKE_COMMAND}" -P ${CMAKE_CURRENT_BINARY_DIR}/run-abort2.cmake)
+  set_tests_properties(abort2LaunchError PROPERTIES
+    PASS_REGULAR_EXPRESSION "kernel launch failed"
+    FAIL_REGULAR_EXPRESSION "abort.. was ignored"
+    SKIP_REGULAR_EXPRESSION "PASSED") # interposer inert: no OpenCL clFinish
+endif()
+
 
 #add_chip_test(abort2 abort2 PASSED abort2.cc)
