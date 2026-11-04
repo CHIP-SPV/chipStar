@@ -3119,7 +3119,18 @@ CHIPQueueVulkan::launchImpl(chipstar::ExecItem *ExecItem) {
 
   VkDevice Device = ChipDevice_->getLogicalDevice();
 
-  auto CreateDescPool = [&] {
+  auto NextDescPool = [&] {
+    uint64_t Done = 0;
+    vkGetSemaphoreCounterValue(Device, TimelineSemaphore_, &Done);
+    auto Idle = std::find_if(
+        RetiredDescPools_.begin(), RetiredDescPools_.end(),
+        [&](const auto &Pool) { return Pool.second <= Done; });
+    if (Idle != RetiredDescPools_.end()) {
+      DescPool_ = Idle->first;
+      RetiredDescPools_.erase(Idle);
+      vkResetDescriptorPool(Device, DescPool_, 0);
+      return;
+    }
     VkDescriptorPoolSize PoolSize{};
     PoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     PoolSize.descriptorCount = 32 * 1024;
@@ -3134,7 +3145,7 @@ CHIPQueueVulkan::launchImpl(chipstar::ExecItem *ExecItem) {
     DescPool_ = NewPool;
   };
   if (DescPool_ == VK_NULL_HANDLE)
-    CreateDescPool();
+    NextDescPool();
   VkDescriptorSet DescSet = VK_NULL_HANDLE;
   {
     VkDescriptorSetAllocateInfo AllocInfo{};
@@ -3152,18 +3163,7 @@ CHIPQueueVulkan::launchImpl(chipstar::ExecItem *ExecItem) {
       }
       RetiredDescPools_.emplace_back(DescPool_, Target);
       DescPool_ = VK_NULL_HANDLE;
-      uint64_t Done = 0;
-      vkGetSemaphoreCounterValue(Device, TimelineSemaphore_, &Done);
-      auto Idle = std::find_if(
-          RetiredDescPools_.begin(), RetiredDescPools_.end(),
-          [&](const auto &Pool) { return Pool.second <= Done; });
-      if (Idle != RetiredDescPools_.end()) {
-        DescPool_ = Idle->first;
-        RetiredDescPools_.erase(Idle);
-        vkResetDescriptorPool(Device, DescPool_, 0);
-      } else {
-        CreateDescPool();
-      }
+      NextDescPool();
       AllocInfo.descriptorPool = DescPool_;
       DescSet = VK_NULL_HANDLE;
       R = vkAllocateDescriptorSets(Device, &AllocInfo, &DescSet);
