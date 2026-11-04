@@ -5975,6 +5975,10 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     }
   }
 
+  // An unset height, as on a layered array, means contiguous rows.
+  if (DstYSize == 0)
+    DstYSize = Height;
+
   if (YSize * XSize == 0)
     return hipSuccess;
   if (WidthInBytes == 0)
@@ -5987,7 +5991,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   size_t srcSlicePitch = SrcPitch * YSize;
   size_t dstSlicePitch = DstPitch * DstYSize;
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch) &&
-      Height == YSize && Height == DstYSize)
+      (Depth == 1 || (Height == YSize && Height == DstYSize)))
     ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth,
                             Params->kind);
   else {
