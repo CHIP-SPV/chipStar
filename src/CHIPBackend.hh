@@ -1457,7 +1457,8 @@ public:
 
   chipstar::Queue *LegacyDefaultQueue;
   // Live per-thread queues of this device, for work that must see every
-  // thread's queue. Shared-owned so a thread exiting after ~Device is safe.
+  // thread's queue. Shared ownership keeps the list alive through
+  // thread-local queue removal.
   struct PerThreadQueueList {
     std::mutex Mtx;
     std::vector<chipstar::Queue *> Queues;
