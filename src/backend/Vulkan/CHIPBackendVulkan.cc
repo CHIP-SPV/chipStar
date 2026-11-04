@@ -2539,6 +2539,16 @@ inline VkCommandBuffer i8BeginCmdBuffer(CHIPQueueVulkan *Q) {
 }
 
 inline void i8EndCmdBuffer(VkCommandBuffer Cmd) {
+  // Make transfer writes visible to the host and later commands on any stream.
+  VkMemoryBarrier Barrier{};
+  Barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  Barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  Barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT | VK_ACCESS_MEMORY_READ_BIT |
+                          VK_ACCESS_MEMORY_WRITE_BIT;
+  vkCmdPipelineBarrier(Cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT |
+                           VK_PIPELINE_STAGE_HOST_BIT,
+                       0, 1, &Barrier, 0, nullptr, 0, nullptr);
   VkResult R = vkEndCommandBuffer(Cmd);
   if (R != VK_SUCCESS)
     CHIPERR_LOG_AND_THROW(
