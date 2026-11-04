@@ -5425,7 +5425,7 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
       // which case there is no device backing and only the host side exists.
       logDebug("AllocInfo->MemoryType == hipMemoryTypeManaged - executing "
                "memset on host");
-      // No SVM map: HostPtr is the caller's memory, not SVM.
+      // No SVM map: HostPtr is host memory the caller registered.
       memset(AllocInfo->HostPtr, Value, SizeBytes);
     } else if (AllocInfo->MemoryType == hipMemoryTypeDevice) {
       CHIPERR_LOG_AND_THROW(
