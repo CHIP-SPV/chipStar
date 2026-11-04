@@ -3569,20 +3569,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
   // QueueAddRemoveMtx; its copies need no cross-stream ordering.
   if (getQueueFlags().isBlocking() && !Draining_) {
     std::lock_guard<std::mutex> QLock(ChipDevice_->QueueAddRemoveMtx);
-    std::vector<chipstar::Queue *> Others;
-    if (isDefaultLegacyQueue()) {
-      for (auto *Q : ChipDevice_->getQueuesNoLock())
-        if (Q != this && Q->getQueueFlags().isBlocking())
-          Others.push_back(Q);
-      // The calling thread's per-thread default stream, which is not listed.
-      auto *PT = chipstar::Device::PerThreadDefaultQueue.get();
-      if (PT && PT->getDevice() == ChipDevice_)
-        Others.push_back(PT);
-    } else if (auto *Def = ChipDevice_->getLegacyDefaultQueue()) {
-      if (Def != this)
-        Others.push_back(Def);
-    }
-    for (auto *Q : Others) {
+    auto AddWait = [&](chipstar::Queue *Q) {
       auto *QV = static_cast<CHIPQueueVulkan *>(Q);
       uint64_t V;
       {
@@ -3593,6 +3580,17 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
         WaitSems.push_back(QV->TimelineSemaphore_);
         WaitVals.push_back(V);
       }
+    };
+    if (isDefaultLegacyQueue()) {
+      for (auto *Q : ChipDevice_->getQueuesNoLock())
+        if (Q != this && Q->getQueueFlags().isBlocking())
+          AddWait(Q);
+      // Every thread's per-thread default stream, read under the list mutex
+      // so an exiting thread cannot free its queue meanwhile.
+      ChipDevice_->forEachPerThreadQueue(AddWait);
+    } else if (auto *Def = ChipDevice_->getLegacyDefaultQueue()) {
+      if (Def != this)
+        AddWait(Def);
     }
   }
   std::vector<VkPipelineStageFlags> WaitStages(
