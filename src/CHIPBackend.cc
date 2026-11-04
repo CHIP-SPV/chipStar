@@ -2118,14 +2118,19 @@ bool chipstar::Queue::fillDeferredHostRegistration(void *Dst, size_t Size,
   if (!PatternSize || Size > Info->Size - ((char *)Dst - (char *)Info->HostPtr))
     CHIPERR_LOG_AND_THROW("Fill runs past the registered range",
                           hipErrorInvalidValue);
-  { // earlier work on any stream may target the host buffer
+  { // wait for the streams this queue is implicitly ordered with
     auto *Dev = getDevice();
-    LOCK(Dev->QueueAddRemoveMtx);
-    for (auto *Q : Dev->getQueuesNoLock())
-      Q->finish();
-    Dev->getLegacyDefaultQueue()->finish();
-    if (Dev->isPerThreadStreamUsed())
-      Dev->getPerThreadDefaultQueue()->finish();
+    bool IsDefault = isDefaultLegacyQueue() || isDefaultPerThreadQueue();
+    if (IsDefault || getQueueFlags().isBlocking()) {
+      LOCK(Dev->QueueAddRemoveMtx);
+      if (IsDefault)
+        for (auto *Q : Dev->getQueuesNoLock())
+          if (Q->getQueueFlags().isBlocking())
+            Q->finish();
+      Dev->getLegacyDefaultQueue()->finish();
+      if (Dev->isPerThreadStreamUsed())
+        Dev->getPerThreadDefaultQueue()->finish();
+    }
   }
   finish();
   for (size_t i = 0; i < Size; i++)
