@@ -3337,13 +3337,7 @@ void CHIPQueueVulkan::drainDevicePrintf() {
       memCopyAsyncImpl(Data.data(),
                        static_cast<char *>(V->getDevAddr()) + sizeof(Hdr),
                        Used * sizeof(uint32_t), hipMemcpyDeviceToHost);
-    for (size_t I = 0; I < Used;) {
-      uint32_t NW = Data[I];
-      if (NW < 2 || I + NW > Used)
-        break;
-      printDevicePrintfRecord(&Data[I], NW);
-      I += NW;
-    }
+    // Clear first: a failed clear leaves the records for the next drain.
     Abort |= Hdr[1] != 0;
     static const uint32_t Zero[2] = {0, 0};
     auto Ev = memCopyAsyncImpl(V->getDevAddr(), Zero, sizeof(Zero),
@@ -3352,6 +3346,13 @@ void CHIPQueueVulkan::drainDevicePrintf() {
       if (VkFence F = EvVk->getFence())
         vkWaitForFences(ChipDevice_->getLogicalDevice(), 1, &F, VK_TRUE,
                         UINT64_MAX);
+    for (size_t I = 0; I < Used;) {
+      uint32_t NW = Data[I];
+      if (NW < 2 || I + NW > Used)
+        break;
+      printDevicePrintfRecord(&Data[I], NW);
+      I += NW;
+    }
   }
   fflush(stdout);
   fflush(stderr);
