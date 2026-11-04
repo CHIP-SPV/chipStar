@@ -3912,19 +3912,15 @@ hipError_t hipStreamWaitEventInternal(hipStream_t Stream, hipEvent_t Event,
 
   {
     LOCK(ChipEvent->DependsOnListMtx);
-    if (ChipEvent->getEventStatus() == EVENT_STATUS_RECORDING &&
-        ChipEvent->DependsOnList.empty()) {
-      logError("hipStreamWaitEventInternal: trying to enqueue a wait on an "
-               "event that is recording but has no dependencies",
-               (void *)ChipEvent);
-      std::abort();
-    }
-
     for (const auto &dep : ChipEvent->DependsOnList) {
       ChipEvent->isDeletedSanityCheck();
       EventsToWaitOn.push_back(dep);
     }
   }
+
+  // A failed hipEventRecord can leave a recording event with no deps.
+  if (EventsToWaitOn.empty())
+    ChipEvent->wait();
 
   auto BarrierEvent = ChipQueue->enqueueBarrier(EventsToWaitOn);
   BarrierEvent->Msg = "hipStreamWaitEvent-enqueueBarrier";
