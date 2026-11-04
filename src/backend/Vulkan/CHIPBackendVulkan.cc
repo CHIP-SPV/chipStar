@@ -1669,7 +1669,9 @@ CHIPDeviceVulkan::~CHIPDeviceVulkan() {
       vmaDestroyAllocator(Allocator_);
       Allocator_ = VK_NULL_HANDLE;
     }
-    vkDestroyDevice(LogicalDevice_, nullptr);
+    // Leaked queues still own child objects of the device.
+    if (!LeakQueues)
+      vkDestroyDevice(LogicalDevice_, nullptr);
     LogicalDevice_ = VK_NULL_HANDLE;
   }
 }
@@ -3886,8 +3888,10 @@ void CHIPBackendVulkan::uninitialize() {
   }
 
   // Devices go before the VkInstance; ~Backend deletes the contexts.
+  bool Leaked = false;
   for (auto *Ctx : ChipContexts) {
     if (auto *Dev = Ctx ? Ctx->getDevice() : nullptr) {
+      Leaked |= Dev->LeakQueues;
       delete Dev;
       Ctx->setDevice(nullptr);
     }
@@ -3900,10 +3904,10 @@ void CHIPBackendVulkan::uninitialize() {
       Destroy(Instance_, DebugMessenger_, nullptr);
     DebugMessenger_ = VK_NULL_HANDLE;
   }
-  if (Instance_ != VK_NULL_HANDLE) {
+  // A leaked device is still alive, and the instance outlives its children.
+  if (Instance_ != VK_NULL_HANDLE && !Leaked)
     vkDestroyInstance(Instance_, nullptr);
-    Instance_ = VK_NULL_HANDLE;
-  }
+  Instance_ = VK_NULL_HANDLE;
 }
 
 chipstar::Queue *
