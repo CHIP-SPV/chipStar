@@ -382,6 +382,7 @@ public:
   }
 
   static void *monitorWrapper(void *Arg) {
+    excludeThreadFromTracking();
     auto Monitor = (chipstar::EventMonitor *)Arg;
     Monitor->monitor();
     return 0;
