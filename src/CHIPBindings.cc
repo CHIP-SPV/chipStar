@@ -5226,7 +5226,7 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
                                                   int Value, size_t Width,
                                                   size_t Height,
                                                   hipStream_t Stream) {
-  if (!Stream || !Dst)
+  if (!Dst)
     RETURN(hipErrorInvalidValue);
 
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
@@ -5295,9 +5295,6 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   if (!PitchedDevPtr.ptr)
     RETURN(hipErrorInvalidValue);
 
-  if (!Stream)
-    RETURN(hipErrorInvalidValue);
-
   auto ChipQueue = Backend->findQueue(static_cast<chipstar::Queue *>(Stream));
   LOCK(ChipQueue->QueueMtx);
 
@@ -5349,9 +5346,6 @@ hipError_t hipMemset3DAsync(hipPitchedPtr PitchedDevPtr, int Value,
   CHIPInitialize();
 
   if (!PitchedDevPtr.ptr)
-    RETURN(hipErrorInvalidValue);
-
-  if (!Stream)
     RETURN(hipErrorInvalidValue);
 
   if (Extent.height > PitchedDevPtr.ysize ||
