@@ -42,6 +42,37 @@ int main() {
   }
   if (Bad)
     return 1;
+
+  // An exact fit must write every byte; rows past the allocation are rejected.
+  for (int Oob = 0; Oob < 2; ++Oob) {
+    CHECK(hipMemset(P, 0, 32));
+    hipMemsetParams M = {};
+    M.dst = P;
+    M.elementSize = 1;
+    M.height = 2;
+    M.width = M.pitch = Oob ? 32 : 16;
+    M.value = Oob ? 0xEF : 0xCD;
+    hipGraph_t G;
+    hipGraphNode_t N;
+    hipGraphExec_t X;
+    CHECK(hipGraphCreate(&G, 0));
+    CHECK(hipGraphAddMemsetNode(&N, G, nullptr, 0, &M));
+    CHECK(hipGraphInstantiate(&X, G, nullptr, nullptr, 0));
+    hipError_t E = hipGraphLaunch(X, S);
+    if (E != (Oob ? hipErrorInvalidValue : hipSuccess)) {
+      std::cout << "FAIL: oob=" << Oob << " launch -> " << hipGetErrorString(E)
+                << "\n";
+      return 1;
+    }
+    CHECK(hipStreamSynchronize(S));
+    CHECK(hipMemcpy(H, P, 32, hipMemcpyDeviceToHost));
+    for (int I = 0; I < 32; ++I)
+      if (H[I] != (Oob ? 0 : 0xCD)) {
+        std::cout << "FAIL: oob=" << Oob << " offset " << I << " is "
+                  << (int)H[I] << "\n";
+        return 1;
+      }
+  }
   std::cout << "PASS\n";
   return 0;
 }

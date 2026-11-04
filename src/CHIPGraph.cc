@@ -125,6 +125,15 @@ void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
   // 1D fills record pitch 1 and hipGraphAddMemsetNode callers may leave it 0.
   size_t Pitch = std::max(Params_.pitch, Width);
   char *Dst = static_cast<char *>(Params_.dst);
+  // A row past the allocation would be taken for host memory, so check them
+  // all.
+  auto *Tracker = Queue->getDevice()->AllocTracker;
+  const auto *Info = Tracker->getAllocInfo(Dst);
+  if (Info &&
+      (Width > Info->Size || Height - 1 > Info->Size / Pitch ||
+       Tracker->getAllocInfo(Dst + (Height - 1) * Pitch + Width - 1) != Info))
+    CHIPERR_LOG_AND_THROW("Memset node exceeds its allocation",
+                          hipErrorInvalidValue);
   for (size_t Row = 0; Row < Height; ++Row)
     Queue->memFillAsync(Dst + Row * Pitch, Width, &Val, 1);
 }
