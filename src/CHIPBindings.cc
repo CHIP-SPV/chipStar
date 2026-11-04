@@ -2013,6 +2013,8 @@ hipError_t hipGraphAddMemcpyNodeFromSymbol(hipGraphNode_t *pGraphNode,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!pGraphNode || !graph || (!pDependencies && numDependencies != 0))
+    RETURN(hipErrorInvalidValue);
   CHIPGraphNodeMemcpyFromSymbol *Node =
       new CHIPGraphNodeMemcpyFromSymbol(dst, symbol, count, offset, kind);
   *pGraphNode = Node;
@@ -2059,6 +2061,8 @@ hipError_t hipGraphAddMemcpyNodeToSymbol(hipGraphNode_t *pGraphNode,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!pGraphNode || !graph || (!pDependencies && numDependencies != 0))
+    RETURN(hipErrorInvalidValue);
   CHIPGraphNodeMemcpyToSymbol *Node = new CHIPGraphNodeMemcpyToSymbol(
       const_cast<void *>(src), symbol, count, offset, kind);
   *pGraphNode = Node;
@@ -2352,6 +2356,8 @@ hipError_t hipGraphAddEmptyNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   if (!pGraphNode)
     RETURN(hipErrorInvalidValue);
   if (!graph)
+    RETURN(hipErrorInvalidValue);
+  if (!pDependencies && numDependencies != 0)
     RETURN(hipErrorInvalidValue);
   CHIPGraphNodeEmpty *Node = new CHIPGraphNodeEmpty();
   Node->addDependencies(DECONST_NODES(pDependencies), numDependencies);
