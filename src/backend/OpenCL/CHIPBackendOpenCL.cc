@@ -3151,7 +3151,7 @@ void CHIPBackendOpenCL::initializeFromNative(const uintptr_t *NativeHandles,
   cl_device_id DevId = (cl_device_id)NativeHandles[1];
   cl_context CtxId = (cl_context)NativeHandles[2];
 
-  cl::Context Ctx(CtxId);
+  cl::Context Ctx(CtxId, true);
   cl::Platform Plat(PlatId);
   cl::Device *Dev = new cl::Device(DevId);
 
