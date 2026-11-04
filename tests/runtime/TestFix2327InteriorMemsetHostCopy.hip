@@ -2,7 +2,6 @@
 #include <hip/hip_runtime.h>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 
 constexpr size_t Size = 4096, Off = 1024, Len = 16;
 constexpr unsigned char Old = 0xAA, New = 0x55;
@@ -31,11 +30,12 @@ static int Failures = 0;
 
 static int check(const char *Name, unsigned char *Host, unsigned char *Dev,
                  bool UseD8, unsigned char *DevOut) {
-  memset(Host, Old, Size);
-  if (UseD8)
-    CHECK(hipMemsetD8((hipDeviceptr_t)(Dev + Off), New, Len));
-  else
-    CHECK(hipMemset(Dev + Off, New, Len));
+  auto Fill = [&](unsigned char *P, unsigned char V, size_t N) {
+    return UseD8 ? hipMemsetD8((hipDeviceptr_t)P, V, N) : hipMemset(P, V, N);
+  };
+  // Seed through the runtime: https://github.com/CHIP-SPV/chipStar/issues/2365 loses host stores.
+  CHECK(Fill(Dev, Old, Size));
+  CHECK(Fill(Dev + Off, New, Len));
   EXPECT(Name, Host[0], Old);
   EXPECT(Name, Host[Off], New);
   EXPECT(Name, Host[Off + Len - 1], New);
