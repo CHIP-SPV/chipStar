@@ -737,13 +737,16 @@ chipstar::Device::~Device() {
   {
     LOCK(QueueAddRemoveMtx); // chipstar::Device::ChipQueues_
     
-    for (auto *Queue : UserQueues_)
-      delete Queue;
-    UserQueues_.clear();
-    UserQueueSet_.clear();
+    // Surviving threads can be inside these; they go at process exit.
+    if (!LeakQueues) {
+      for (auto *Queue : UserQueues_)
+        delete Queue;
+      UserQueues_.clear();
+      UserQueueSet_.clear();
 
-    delete LegacyDefaultQueue;
-    LegacyDefaultQueue = nullptr;
+      delete LegacyDefaultQueue;
+      LegacyDefaultQueue = nullptr;
+    }
   }
 
   // Then handle device variables with DeviceVarMtx
@@ -1753,10 +1756,10 @@ void chipstar::Backend::waitForThreadExit() {
         logWarn("Removing user-created streams without calling a destructor");
       }
       for (auto &Queue : Dev->getQueuesNoLockCopy()) {
-        logDebug("Destroying queue {}", (void *)Queue);
+        logDebug("Finishing queue {}", (void *)Queue);
         Queue->finishWithoutEventsMtx();
-        Dev->removeQueue(Queue);
       }
+      Dev->LeakQueues = true;
     }
   }
 }

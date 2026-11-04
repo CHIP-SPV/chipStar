@@ -1445,6 +1445,7 @@ public:
   std::mutex DeviceVarMtx;
   std::mutex DeviceMtx;
   std::mutex QueueAddRemoveMtx;
+  bool LeakQueues = false;
 
   const std::vector<chipstar::Queue *> &getQueuesNoLock() { return UserQueues_; }
   // copy for loops that erase or run without QueueAddRemoveMtx
