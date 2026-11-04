@@ -285,6 +285,9 @@ if(NOT LLVM_SPIRV STREQUAL "NOT_NEEDED")
   add_shell_test(CanaryDuplicatePhiPredecessors.bash)
   # Fails once llvm-spirv carries KhronosGroup/SPIRV-LLVM-Translator#3918; read its header.
   add_shell_test(CanarySitofpI1Translator.bash)
+  add_shell_test(TestFix2247DeclBeforeDef.bash)
+  # Fails once llvm-spirv carries KhronosGroup/SPIRV-LLVM-Translator#4092; read its header.
+  add_shell_test(CanaryDeclAfterDefFnPtrInitializer.bash)
 endif()
 if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   # Fails once the backend carries llvm/llvm-project#209232; read its header.
