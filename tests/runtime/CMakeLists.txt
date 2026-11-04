@@ -133,6 +133,8 @@ endif()
 # Checks the native Vulkan lowering of division, which Vulkan does not round.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip)
+  # Native Vulkan only: it exercises that queue's waits on submitted work.
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2364VulkanCallbackWaits.hip)
 endif()
 # Warp votes link the device library, and Mali's clLinkProgram fails (-59).
 if(CHIP_MALI_GPU_WORKAROUNDS)
