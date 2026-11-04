@@ -26,6 +26,7 @@
 add_hip_test(TestHiprtcCPPKernels.cc)
 add_hip_test(TestHiprtcOptions.cc)
 add_hip_test(TestShellMetacharacters.cc)
+add_hip_test(TestFix1851ExtLaunchZeroLocalSize.cc)
 add_hip_test(TestConstantMemory.cc)
 add_hip_test(TestProjectionBasisKernel.cc)
 add_hip_test(TestFixHiprtcFp64Skip.cc)
