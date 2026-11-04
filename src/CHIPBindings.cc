@@ -5258,7 +5258,11 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     return hipSuccess;
   }
 
-  ChipQueue->memFillAsync2D(Dst, Pitch, Value, Width, Height);
+  if (AllocInfo->IsHostRegistered)
+    ChipQueue->chipstar::Queue::memFillAsync2D(Dst, Pitch, Value, Width,
+                                               Height);
+  else
+    ChipQueue->memFillAsync2D(Dst, Pitch, Value, Width, Height);
 
   return hipSuccess;
 }
@@ -5336,6 +5340,8 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   if (PitchedDevPtr.pitch == Extent.width)
     ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
                             1);
+  else if (AllocInfo->IsHostRegistered)
+    ChipQueue->chipstar::Queue::memFillAsync3D(PitchedDevPtr, Value, Extent);
   else
     ChipQueue->memFillAsync3D(PitchedDevPtr, Value, Extent);
 
@@ -5417,18 +5423,9 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
           AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
       memset(AllocInfo->HostPtr, Value, SizeBytes);
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
-    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged && AllocInfo->DevPtr) {
-      // For managed memory (from hipHostRegister), we need to memset both
-      // device and host sides. Device memset is already done above.
-      // Host memset ensures the host-accessible memory is also updated.
-      // DevPtr will be null if hipHostGetDevicePointer was never called, in
-      // which case there is no device backing and only the host side exists.
-      logDebug("AllocInfo->MemoryType == hipMemoryTypeManaged - executing "
-               "memset on host");
-      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
-      memset(AllocInfo->HostPtr, Value, SizeBytes);
-      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
+    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged &&
+               AllocInfo->DevPtr) {
+      // Queue::memFill already wrote both sides.
     } else if (AllocInfo->MemoryType == hipMemoryTypeDevice) {
       CHIPERR_LOG_AND_THROW(
           "hipMemoryTypeDevice can't have an associated HostPtr", hipErrorTbd);
