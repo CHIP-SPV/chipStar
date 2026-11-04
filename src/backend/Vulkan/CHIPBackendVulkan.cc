@@ -3369,16 +3369,45 @@ void CHIPQueueVulkan::finish() {
       std::lock_guard<std::mutex> Lock(QueueOpMtx_);
       Target = TimelineValue_;
     }
-    VkSemaphoreWaitInfo WI{};
-    WI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-    WI.semaphoreCount = 1;
-    WI.pSemaphores = &TimelineSemaphore_;
-    WI.pValues = &Target;
-    checkVk(vkWaitSemaphores(ChipDevice_->getLogicalDevice(), &WI, UINT64_MAX),
-            "CHIPQueueVulkan::finish: vkWaitSemaphores failed", hipErrorTbd);
+    waitTimeline(Target);
   }
   drainDevicePrintf();
   IsEmptyQueue_.store(true);
+}
+
+void CHIPQueueVulkan::waitTimeline(uint64_t Target) {
+  VkSemaphoreWaitInfo WI{};
+  WI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+  WI.semaphoreCount = 1;
+  WI.pSemaphores = &TimelineSemaphore_;
+  WI.pValues = &Target;
+  checkVk(vkWaitSemaphores(ChipDevice_->getLogicalDevice(), &WI, UINT64_MAX),
+          "CHIPQueueVulkan::finish: vkWaitSemaphores failed", hipErrorTbd);
+}
+
+void CHIPQueueVulkan::finishUnlockingApiMtx(
+    std::unique_lock<std::mutex> &ApiLock) {
+  if (InCallbackThread || TimelineSemaphore_ == VK_NULL_HANDLE) {
+    finish();
+    return;
+  }
+  uint64_t Target;
+  {
+    std::lock_guard<std::mutex> Lock(QueueOpMtx_);
+    Target = TimelineValue_;
+  }
+  ApiLock.unlock();
+  waitTimeline(Target);
+  ApiLock.lock();
+  bool Idle;
+  {
+    std::lock_guard<std::mutex> Lock(QueueOpMtx_);
+    Idle = TimelineValue_ == Target;
+  }
+  drainDevicePrintf();
+  // A callback may have submitted during the wait.
+  if (Idle)
+    IsEmptyQueue_.store(true);
 }
 
 uint64_t CHIPQueueVulkan::reserveTimelineValue() {
