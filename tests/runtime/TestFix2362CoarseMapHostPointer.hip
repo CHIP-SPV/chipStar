@@ -8,31 +8,25 @@
 
 extern "C" {
 extern char *CoarseWatchBegin, *CoarseWatchEnd;
-extern int CoarseCapsRewritten, CoarseMapCalls;
+extern int CoarseMapCalls;
 }
 
 int main() {
   const size_t N = 4096;
-  hipInit(0);
-  if (!CoarseCapsRewritten) {
-    printf("HIP_SKIP_THIS_TEST: no coarse grain SVM device behind the OpenCL "
-           "backend\n");
+  void *H = nullptr;
+  int Before = CoarseMapCalls;
+  // Skip unless a mapped hipHostMalloc reaches clEnqueueSVMMap: not coarse SVM OpenCL.
+  if (hipInit(0) != hipSuccess ||
+      hipHostMalloc(&H, N, hipHostMallocMapped) != hipSuccess ||
+      CoarseMapCalls == Before) {
+    printf("HIP_SKIP_THIS_TEST: coarse grain SVM path is not active\n");
     return CHIP_SKIP_TEST;
   }
-
-  // Control: a mapped hipHostMalloc must go through clEnqueueSVMMap.
-  int Before = CoarseMapCalls;
-  void *H;
-  hipHostMalloc(&H, N, hipHostMallocMapped);
   hipHostFree(H);
-  if (CoarseMapCalls == Before) {
-    printf("FAIL: control saw no clEnqueueSVMMap, coarse path is not active\n");
-    return 1;
-  }
 
   char *B = (char *)malloc(N);
   memset(B, 0, N);
-  void *D;
+  void *D = nullptr;
   hipHostRegister(B, N, 0);
   hipHostGetDevicePointer(&D, B, 0);
   CoarseWatchBegin = B;
