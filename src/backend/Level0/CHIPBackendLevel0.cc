@@ -1537,6 +1537,11 @@ CHIPQueueLevel0::launchImpl(chipstar::ExecItem *ExecItem) {
   }
 
   ExecItem->setupAllArgs();
+  // A queueless graph node uploads its spill buffer here, blocking.
+  if (!ExecItem->getQueue())
+    if (auto SpillBuf = ExecItem->getArgSpillBuffer())
+      memCopy(SpillBuf->getDeviceBuffer(), SpillBuf->getHostBuffer(),
+              SpillBuf->getSize(), hipMemcpyHostToDevice);
   auto X = ExecItem->getGrid().x;
   auto Y = ExecItem->getGrid().y;
   auto Z = ExecItem->getGrid().z;
@@ -3706,8 +3711,8 @@ void CHIPExecItemLevel0::setupAllArgs() {
   SPVFuncInfo *FuncInfo = ChipKernel_->getFuncInfo();
 
   if (FuncInfo->hasByRefArgs()) {
-    ArgSpillBuffer_ =
-        std::make_shared<chipstar::ArgSpillBuffer>(ChipQueue_->getContext());
+    ArgSpillBuffer_ = std::make_shared<chipstar::ArgSpillBuffer>(
+        ChipQueue_ ? ChipQueue_->getContext() : ::Backend->getActiveContext());
     ArgSpillBuffer_->computeAndReserveSpace(*FuncInfo);
   }
 
@@ -3793,7 +3798,7 @@ void CHIPExecItemLevel0::setupAllArgs() {
   };
   FuncInfo->visitKernelArgs(getArgs(), ArgVisitor);
 
-  if (FuncInfo->hasByRefArgs())
+  if (ChipQueue_ && FuncInfo->hasByRefArgs())
     ChipQueue_->memCopyAsync(ArgSpillBuffer_->getDeviceBuffer(),
                              ArgSpillBuffer_->getHostBuffer(),
                              ArgSpillBuffer_->getSize(), hipMemcpyHostToDevice);
