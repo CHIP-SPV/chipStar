@@ -87,6 +87,34 @@ static int arrayCase(const char *Name, size_t CopyWidth) {
   return 0;
 }
 
+// A layered array may have height 0, which allocates one row per layer.
+static int layeredCase() {
+  const size_t W = 16, Dp = 2, Pitch = W * sizeof(unsigned int);
+  hipChannelFormatDesc Desc = hipCreateChannelDesc<unsigned int>();
+  hipArray_t A;
+  CHECK(hipMalloc3DArray(&A, &Desc, make_hipExtent(W, 0, Dp), hipArrayLayered));
+  CHECK(hipMemset(A->data, 0, Pitch * Dp));
+  std::vector<unsigned char> Src(Pitch * Dp, 0x3C), H(Pitch * Dp, 0xAA);
+  hipMemcpy3DParms P = {};
+  P.srcPtr = make_hipPitchedPtr(Src.data(), Pitch, W, 1);
+  P.dstArray = A;
+  P.extent = make_hipExtent(W - 1, 1, Dp);
+  P.kind = hipMemcpyHostToDevice;
+  CHECK(hipMemcpy3D(&P));
+  CHECK(hipMemcpy(H.data(), A->data, H.size(), hipMemcpyDeviceToHost));
+  for (size_t Off = 0; Off < H.size(); Off++) {
+    unsigned char Want =
+        Off % Pitch < (W - 1) * sizeof(unsigned int) ? 0x3C : 0;
+    if (H[Off] != Want) {
+      printf("FAIL: layered: byte %zu (row %zu) = 0x%02x, expected 0x%02x\n",
+             Off, Off / Pitch, H[Off], Want);
+      return 1;
+    }
+  }
+  CHECK(hipFreeArray(A));
+  return 0;
+}
+
 int main() {
   hipPitchedPtr S, D;
   CHECK(hipMalloc3D(&S, make_hipExtent(128, 2, 2)));
@@ -102,6 +130,7 @@ int main() {
   if (R != CHIP_SKIP_TEST) {
     Fail |= R;
     Fail |= arrayCase("array narrow", 15);
+    Fail |= layeredCase();
   }
   if (Fail)
     return 1;
