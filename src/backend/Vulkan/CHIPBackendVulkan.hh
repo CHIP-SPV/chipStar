@@ -525,6 +525,7 @@ public:
   virtual std::shared_ptr<chipstar::Event>
   launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void finish() override;
+  void finishWithoutEventsMtx() override;
   /// Print and clear device printf records; aborts on a device-side abort.
   void drainDevicePrintf();
   /// Block until all work this queue must follow has finished.

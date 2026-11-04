@@ -3378,6 +3378,12 @@ void CHIPQueueVulkan::drainDevicePrintf() {
 }
 
 void CHIPQueueVulkan::finish() {
+  finishWithoutEventsMtx();
+  drainDevicePrintf();
+  IsEmptyQueue_.store(true);
+}
+
+void CHIPQueueVulkan::finishWithoutEventsMtx() {
   // Waits for this queue's submits and stream callbacks, unless called from a
   // callback, which would wait on itself.
   if (!InCallbackThread && TimelineSemaphore_ != VK_NULL_HANDLE) {
@@ -3394,7 +3400,6 @@ void CHIPQueueVulkan::finish() {
     checkVk(vkWaitSemaphores(ChipDevice_->getLogicalDevice(), &WI, UINT64_MAX),
             "CHIPQueueVulkan::finish: vkWaitSemaphores failed", hipErrorTbd);
   }
-  drainDevicePrintf();
   IsEmptyQueue_.store(true);
 }
 
