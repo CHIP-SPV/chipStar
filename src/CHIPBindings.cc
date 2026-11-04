@@ -6004,12 +6004,12 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
             (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
         unsigned char *Dst =
             (unsigned char *)DstPtr + i * DstYSize * DstPitch + j * DstPitch;
-        if (Params->kind == hipMemcpyHostToHost)
-          memcpy(Dst, Src, WidthInBytes);
-        else
-          ChipQueue->memCopyAsync(Dst, Src, WidthInBytes, Params->kind);
+        ChipQueue->memCopyAsync(Dst, Src, WidthInBytes, Params->kind);
       }
     }
+    // Host to host copies are complete on return, as in HIP.
+    if (Params->kind == hipMemcpyHostToHost)
+      ChipQueue->finish();
   }
   return hipSuccess;
 }
