@@ -5425,10 +5425,8 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
       // which case there is no device backing and only the host side exists.
       logDebug("AllocInfo->MemoryType == hipMemoryTypeManaged - executing "
                "memset on host");
-      Backend->getActiveDevice()->getDefaultQueue()->MemMap(
-          AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
+      // No SVM map: HostPtr is host memory the caller registered.
       memset(AllocInfo->HostPtr, Value, SizeBytes);
-      Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
     } else if (AllocInfo->MemoryType == hipMemoryTypeDevice) {
       CHIPERR_LOG_AND_THROW(
           "hipMemoryTypeDevice can't have an associated HostPtr", hipErrorTbd);
