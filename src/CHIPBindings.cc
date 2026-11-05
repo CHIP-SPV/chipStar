@@ -3841,6 +3841,20 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
     }
   }
 
+  // The null stream also waits for callbacks on blocking streams.
+  if (ChipQueue->isDefaultLegacyQueue() || ChipQueue->isDefaultPerThreadQueue()) {
+    std::vector<chipstar::Queue *> Blocking;
+    {
+      auto Dev = Backend->getActiveDevice();
+      LOCK(Dev->QueueAddRemoveMtx);
+      for (auto Q : Dev->getQueuesNoLock())
+        if (Q->getQueueFlags().isBlocking())
+          Blocking.push_back(Q);
+    }
+    for (auto Q : Blocking)
+      Q->waitForCallbacks();
+  }
+
   ChipQueue->finish();
   return hipSuccess;
 }
