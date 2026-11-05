@@ -459,7 +459,8 @@ class CHIPQueueVulkan : public chipstar::Queue {
   /// Descriptor sets of this queue's launches.
   VkDescriptorPool DescPool_ = VK_NULL_HANDLE;
 
-  /// Ring of command buffers, one per enqueued operation.
+  /// Ring of command buffers, one per enqueued operation; RingCapacity_ is the
+  /// initial size.
   static constexpr uint32_t RingCapacity_ = 16;
   std::vector<VkCommandBuffer> CmdBufferRing_;
   uint32_t RingHead_ = 0;

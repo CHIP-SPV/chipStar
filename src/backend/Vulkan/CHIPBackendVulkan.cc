@@ -3505,9 +3505,32 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
   uint64_t Pending;
   {
     std::lock_guard<std::mutex> Lock(QueueOpMtx_);
+    // A callback cannot wait: the slot may be gated on its own DoneValue.
+    if (InCallbackThread && RingSlotValue_[RingHead_] > 0 &&
+        TimelineSemaphore_ != VK_NULL_HANDLE) {
+      auto Dev = ChipDevice_->getLogicalDevice();
+      uint64_t Cur = 0;
+      checkVk(vkGetSemaphoreCounterValue(Dev, TimelineSemaphore_, &Cur),
+              "acquireCmdBuffer: vkGetSemaphoreCounterValue failed",
+              hipErrorTbd);
+      if (Cur < RingSlotValue_[RingHead_]) {
+        VkCommandBufferAllocateInfo CBAI{};
+        CBAI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        CBAI.commandPool = CommandPool_;
+        CBAI.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        CBAI.commandBufferCount = 1;
+        CmdBufferRing_.reserve(CmdBufferRing_.size() + 1);
+        RingSlotValue_.reserve(RingSlotValue_.size() + 1);
+        VkCommandBuffer New;
+        checkVk(vkAllocateCommandBuffers(Dev, &CBAI, &New),
+                "vkAllocateCommandBuffers (ring growth) failed", hipErrorTbd);
+        CmdBufferRing_.insert(CmdBufferRing_.begin() + RingHead_, New);
+        RingSlotValue_.insert(RingSlotValue_.begin() + RingHead_, 0);
+      }
+    }
     Cb = CmdBufferRing_[RingHead_];
     Pending = RingSlotValue_[RingHead_];
-    RingHead_ = (RingHead_ + 1) % RingCapacity_;
+    RingHead_ = (RingHead_ + 1) % CmdBufferRing_.size();
   }
   // Resetting a command buffer that is still pending drops its commands.
   if (Pending > 0 && TimelineSemaphore_ != VK_NULL_HANDLE) {
@@ -3525,9 +3548,11 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
 }
 
 void CHIPQueueVulkan::noteRingSubmit(VkCommandBuffer Cb, uint64_t Val) {
-  for (uint32_t I = 0; I < RingCapacity_; ++I)
-    if (CmdBufferRing_[I] == Cb)
+  for (uint32_t I = 0; I < CmdBufferRing_.size(); ++I)
+    if (CmdBufferRing_[I] == Cb) {
       RingSlotValue_[I] = Val;
+      break;
+    }
 }
 
 std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
