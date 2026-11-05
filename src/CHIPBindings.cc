@@ -2096,6 +2096,10 @@ hipError_t hipGraphExecMemcpyNodeSetParamsToSymbol(
   CHIP_CATCH
 }
 
+static bool isValidMemsetElementSize(unsigned int Size) {
+  return Size == 1 || Size == 2 || Size == 4;
+}
+
 hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
                                  const hipGraphNode_t *pDependencies,
                                  size_t numDependencies,
@@ -2116,8 +2120,7 @@ hipError_t hipGraphAddMemsetNode(hipGraphNode_t *pGraphNode, hipGraph_t graph,
   if (!pMemsetParams || !pMemsetParams->dst)
     RETURN(hipErrorInvalidValue);
 
-  if (pMemsetParams->elementSize != 1 && pMemsetParams->elementSize != 2 &&
-      pMemsetParams->elementSize != 4)
+  if (!isValidMemsetElementSize(pMemsetParams->elementSize))
     RETURN(hipErrorInvalidValue);
 
   if (pMemsetParams->height <= 0)
@@ -2149,6 +2152,8 @@ hipError_t hipGraphMemsetNodeSetParams(hipGraphNode_t node,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!isValidMemsetElementSize(pNodeParams->elementSize))
+    RETURN(hipErrorInvalidValue);
   static_cast<CHIPGraphNodeMemset *>(node)->setParams(pNodeParams);
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -2160,6 +2165,8 @@ hipError_t hipGraphExecMemsetNodeSetParams(hipGraphExec_t hGraphExec,
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (!isValidMemsetElementSize(pNodeParams->elementSize))
+    RETURN(hipErrorInvalidValue);
   static_cast<CHIPGraphNodeMemset *>(
       findExecNode(hGraphExec, node, hipGraphNodeTypeMemset))
       ->setParams(pNodeParams);
