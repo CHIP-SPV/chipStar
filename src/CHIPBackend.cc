@@ -26,7 +26,9 @@
 #include <algorithm>
 
 // Definition of thread_local static member (required when not using 'inline')
-thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefaultQueue;
+thread_local std::unique_ptr<chipstar::Queue,
+                             chipstar::Device::PerThreadQueueDeleter>
+    chipstar::Device::PerThreadDefaultQueue;
 
 // Global counter for threads that have called HIP APIs
 std::atomic<int> GlobalActiveThreads{0};
@@ -785,15 +787,27 @@ chipstar::Queue *chipstar::Device::getPerThreadDefaultQueue() {
   return getPerThreadDefaultQueueNoLock();
 }
 
+void chipstar::Device::PerThreadQueueDeleter::operator()(
+    chipstar::Queue *Q) const {
+  {
+    std::lock_guard<std::mutex> Lock(List->Mtx);
+    auto &V = List->Queues;
+    V.erase(std::remove(V.begin(), V.end(), Q), V.end());
+  }
+  delete Q;
+}
+
 chipstar::Queue *chipstar::Device::getPerThreadDefaultQueueNoLock() {
   thread_local static std::once_flag PerThreadQueueFlag;
   std::call_once(PerThreadQueueFlag, [this]() {
     logDebug("PerThreadDefaultQueue is null.. Creating a new queue.");
-    PerThreadDefaultQueue =
-        std::unique_ptr<chipstar::Queue>(::Backend->createCHIPQueue(this));
+    PerThreadDefaultQueue = std::unique_ptr<chipstar::Queue, PerThreadQueueDeleter>(
+        ::Backend->createCHIPQueue(this), PerThreadQueueDeleter{PerThreadQueues_});
     PerThreadDefaultQueue->setDefaultPerThreadQueue(true);
     PerThreadStreamUsed_ = true;
     PerThreadDefaultQueue.get()->PerThreadQueueForDevice = this;
+    std::lock_guard<std::mutex> Lock(PerThreadQueues_->Mtx);
+    PerThreadQueues_->Queues.push_back(PerThreadDefaultQueue.get());
   });
 
   return PerThreadDefaultQueue.get();

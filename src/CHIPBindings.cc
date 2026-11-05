@@ -3154,9 +3154,7 @@ static inline hipError_t hipDeviceSynchronizeInternal(void) {
     Q->finish();
 
   Backend->getActiveDevice()->getLegacyDefaultQueue()->finish();
-  if (Backend->getActiveDevice()->isPerThreadStreamUsed()) {
-    Backend->getActiveDevice()->getPerThreadDefaultQueue()->finish();
-  }
+  Dev->forEachPerThreadQueue([](chipstar::Queue *Q) { Q->finish(); });
 
   return hipSuccess;
 }
