@@ -145,6 +145,10 @@ if(NOT CHIP_ENABLE_DEVICE_PROGRAM_SCOPE_GLOBALS AND NOT CHIP_USE_NATIVE_VULKAN_S
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestPointerSelection.hip
     TestSharedFloatAtomicAdd.hip)
 endif()
+# Interposes zeEventHostReset; Apple has no symbol interposition.
+if(APPLE)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2361L0TimeoutQueueLifetime.hip)
+endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
 list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
@@ -162,6 +166,12 @@ set_target_properties(TestFix2243OpenCLExitFinishError PROPERTIES ENABLE_EXPORTS
 target_link_libraries(TestFix2243OpenCLExitFinishError ${CMAKE_DL_LIBS})
 # The verdict must be the exit code: PASS would print before teardown.
 set_tests_properties(TestFix2243OpenCLExitFinishError PROPERTIES PASS_REGULAR_EXPRESSION "")
+if(TARGET TestFix2361L0TimeoutQueueLifetime)
+  set_target_properties(TestFix2361L0TimeoutQueueLifetime PROPERTIES ENABLE_EXPORTS ON)
+  target_link_libraries(TestFix2361L0TimeoutQueueLifetime ${CMAKE_DL_LIBS})
+  # The verdict is the exit code; teardown must run.
+  set_tests_properties(TestFix2361L0TimeoutQueueLifetime PROPERTIES PASS_REGULAR_EXPRESSION "" ENVIRONMENT "CHIP_SKIP_UNINIT=0")
+endif()
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
 if(TEST TestFixRuntimeWarpSize)
