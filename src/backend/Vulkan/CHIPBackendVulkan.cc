@@ -2298,6 +2298,8 @@ CHIPQueueVulkan::~CHIPQueueVulkan() {
     vkDestroyDescriptorPool(Dev, DescPool_, nullptr);
     DescPool_ = VK_NULL_HANDLE;
   }
+  for (auto &Retired : RetiredDescPools_)
+    vkDestroyDescriptorPool(Dev, Retired.first, nullptr);
 }
 
 void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
@@ -2537,6 +2539,16 @@ inline VkCommandBuffer i8BeginCmdBuffer(CHIPQueueVulkan *Q) {
 }
 
 inline void i8EndCmdBuffer(VkCommandBuffer Cmd) {
+  // Make transfer writes visible to the host and later commands on any stream.
+  VkMemoryBarrier Barrier{};
+  Barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  Barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  Barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT | VK_ACCESS_MEMORY_READ_BIT |
+                          VK_ACCESS_MEMORY_WRITE_BIT;
+  vkCmdPipelineBarrier(Cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT |
+                           VK_PIPELINE_STAGE_HOST_BIT,
+                       0, 1, &Barrier, 0, nullptr, 0, nullptr);
   VkResult R = vkEndCommandBuffer(Cmd);
   if (R != VK_SUCCESS)
     CHIPERR_LOG_AND_THROW(
@@ -2548,8 +2560,9 @@ inline void i8EndCmdBuffer(VkCommandBuffer Cmd) {
 } // namespace
 
 // ----------------------------------------------------------------------------
-// memCopyAsyncImpl: host memory goes through a staging buffer, except when the
-// allocation is host mapped, which a plain memcpy reads or writes directly.
+// memCopyAsyncImpl: a copy between two VkBuffers runs on the GPU. Host side
+// copies are host to host and copies between a mapped allocation and
+// unregistered host memory, plus mapped to mapped on the callback thread.
 // ----------------------------------------------------------------------------
 void CHIPQueueVulkan::waitSubmitted() {
   // Through submitWithEvent, so the other streams' work this one must follow
@@ -2597,12 +2610,18 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     else
       Kind = hipMemcpyHostToHost;
   }
+  // Both sides in VkBuffers: copy in stream order (explicit H2H stays sync).
+  if (!InCallbackThread && Kind != hipMemcpyHostToHost &&
+      DstBuf != VK_NULL_HANDLE && SrcBuf != VK_NULL_HANDLE)
+    Kind = hipMemcpyDeviceToDevice;
 
-  // Copy on the host, and submit an empty command buffer for the event.
+  // Host side copy, then an empty command buffer for the event. The callback
+  // thread's finish() does not wait, so it also copies mapped to mapped here.
   if (Kind == hipMemcpyHostToHost ||
       (Kind == hipMemcpyHostToDevice && DstIsMapped) ||
       (Kind == hipMemcpyDeviceToHost && SrcIsMapped) ||
-      (Kind == hipMemcpyDeviceToDevice && DstIsMapped && SrcIsMapped)) {
+      (InCallbackThread && Kind == hipMemcpyDeviceToDevice && DstIsMapped &&
+       SrcIsMapped)) {
     logTrace("CHIPQueueVulkan::memCopyAsync host-side memcpy {} -> {} / {} B",
              Src, Dst, Size);
     waitSubmitted();
@@ -2712,8 +2731,8 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
 }
 
 // ----------------------------------------------------------------------------
-// memFillAsyncImpl: vkCmdFillBuffer for an aligned 4-byte pattern, else a copy
-// from a staging buffer holding the repeated pattern.
+// memFillAsyncImpl: vkCmdFillBuffer for an aligned 1 or 4 byte pattern, else a
+// copy from a staging buffer holding the repeated pattern.
 // ----------------------------------------------------------------------------
 std::shared_ptr<chipstar::Event>
 CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
@@ -2736,8 +2755,8 @@ CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   VkBuffer DstBuf = i8LookupVkBuffer(Ctx, Dst, DstIsMapped, DstOffset);
   i8CheckFitsAllocation(Ctx, Dst, Size);
 
-  // A host mapped allocation's pointer is its host address.
-  if (DstBuf == VK_NULL_HANDLE || DstIsMapped) {
+  // Unregistered host memory, or mapped memory on the callback thread.
+  if (DstBuf == VK_NULL_HANDLE || (InCallbackThread && DstIsMapped)) {
     waitSubmitted();
     logTrace("CHIPQueueVulkan::memFillAsync host-side fill {} / {} B (pat {})",
              Dst, Size, PatternSize);
@@ -2759,9 +2778,14 @@ CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   VkCommandBuffer Cmd = i8BeginCmdBuffer(this);
 
   // vkCmdFillBuffer requires dstOffset and size to be multiples of 4.
-  if (PatternSize == 4 && (Size % 4) == 0 && (DstOffset % 4) == 0) {
+  if ((PatternSize == 4 || PatternSize == 1) && (Size % 4) == 0 &&
+      (DstOffset % 4) == 0) {
     uint32_t Value = 0;
-    std::memcpy(&Value, Pattern, sizeof(Value));
+    std::memcpy(&Value, Pattern, PatternSize);
+    if (PatternSize == 1) {
+      Value |= Value << 8;
+      Value |= Value << 16;
+    }
     vkCmdFillBuffer(Cmd, DstBuf, DstOffset, Size, Value);
     i8EndCmdBuffer(Cmd);
     auto Ev = submitWithEvent(Cmd, {});
@@ -2832,7 +2856,7 @@ void CHIPQueueVulkan::memFillAsync2D(void *Dst, size_t Pitch, int Value,
   VkDeviceSize DstOffset = 0;
   VkBuffer DstBuf = i8LookupVkBuffer(Ctx, Dst, DstIsMapped, DstOffset);
 
-  if (DstBuf == VK_NULL_HANDLE || DstIsMapped) {
+  if (DstBuf == VK_NULL_HANDLE || (InCallbackThread && DstIsMapped)) {
     waitSubmitted();
     unsigned char Byte = static_cast<unsigned char>(Value);
     for (size_t R = 0; R < Height; ++R) {
@@ -2923,7 +2947,7 @@ void CHIPQueueVulkan::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
   VkDeviceSize DstOffset = 0;
   VkBuffer DstBuf = i8LookupVkBuffer(Ctx, Dst, DstIsMapped, DstOffset);
 
-  if (DstBuf == VK_NULL_HANDLE || DstIsMapped) {
+  if (DstBuf == VK_NULL_HANDLE || (InCallbackThread && DstIsMapped)) {
     waitSubmitted();
     unsigned char Byte = static_cast<unsigned char>(Value);
     for (size_t S = 0; S < Depth; ++S)
@@ -3046,7 +3070,7 @@ CHIPQueueVulkan::launchImpl(chipstar::ExecItem *ExecItem) {
 
   VkDevice Device = ChipDevice_->getLogicalDevice();
 
-  if (DescPool_ == VK_NULL_HANDLE) {
+  auto CreateDescPool = [&] {
     VkDescriptorPoolSize PoolSize{};
     PoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     PoolSize.descriptorCount = 32 * 1024;
@@ -3055,33 +3079,43 @@ CHIPQueueVulkan::launchImpl(chipstar::ExecItem *ExecItem) {
     PoolInfo.maxSets = 1024;
     PoolInfo.poolSizeCount = 1;
     PoolInfo.pPoolSizes = &PoolSize;
-    checkVk(vkCreateDescriptorPool(Device, &PoolInfo, nullptr, &DescPool_),
+    VkDescriptorPool NewPool = VK_NULL_HANDLE;
+    checkVk(vkCreateDescriptorPool(Device, &PoolInfo, nullptr, &NewPool),
             "vkCreateDescriptorPool failed in launchImpl", hipErrorOutOfMemory);
-  }
-  VkDescriptorPool DescPool = DescPool_;
+    DescPool_ = NewPool;
+  };
+  if (DescPool_ == VK_NULL_HANDLE)
+    CreateDescPool();
   VkDescriptorSet DescSet = VK_NULL_HANDLE;
   {
     VkDescriptorSetAllocateInfo AllocInfo{};
     AllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    AllocInfo.descriptorPool = DescPool;
+    AllocInfo.descriptorPool = DescPool_;
     AllocInfo.descriptorSetCount = 1;
     AllocInfo.pSetLayouts = &DSLayout;
     VkResult R = vkAllocateDescriptorSets(Device, &AllocInfo, &DescSet);
     if (R == VK_ERROR_OUT_OF_POOL_MEMORY || R == VK_ERROR_FRAGMENTED_POOL) {
-      // Pool exhausted: once this queue's submitted work (the only user of
-      // its pool) has finished, every set can be recycled.
+      // No wait: it would hold ApiMtx against a callback gating this work.
       uint64_t Target;
       {
         std::lock_guard<std::mutex> Lock(QueueOpMtx_);
         Target = TimelineValue_;
       }
-      VkSemaphoreWaitInfo WI{};
-      WI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-      WI.semaphoreCount = 1;
-      WI.pSemaphores = &TimelineSemaphore_;
-      WI.pValues = &Target;
-      vkWaitSemaphores(Device, &WI, UINT64_MAX);
-      vkResetDescriptorPool(Device, DescPool, 0);
+      RetiredDescPools_.emplace_back(DescPool_, Target);
+      DescPool_ = VK_NULL_HANDLE;
+      uint64_t Done = 0;
+      vkGetSemaphoreCounterValue(Device, TimelineSemaphore_, &Done);
+      auto Idle = std::find_if(
+          RetiredDescPools_.begin(), RetiredDescPools_.end(),
+          [&](const auto &Pool) { return Pool.second <= Done; });
+      if (Idle != RetiredDescPools_.end()) {
+        DescPool_ = Idle->first;
+        RetiredDescPools_.erase(Idle);
+        vkResetDescriptorPool(Device, DescPool_, 0);
+      } else {
+        CreateDescPool();
+      }
+      AllocInfo.descriptorPool = DescPool_;
       DescSet = VK_NULL_HANDLE;
       R = vkAllocateDescriptorSets(Device, &AllocInfo, &DescSet);
     }
