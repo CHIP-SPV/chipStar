@@ -2110,8 +2110,27 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
   mapHostAlloc(this, DstAllocInfo);
 }
 
+void *chipstar::Queue::resolveRegisteredFillDst(void *Dst, size_t Size,
+                                                const void *Pattern,
+                                                size_t PatternSize) {
+  auto *Info = getDevice()->AllocTracker->getAllocInfo(Dst);
+  if (!Info || !Info->IsHostRegistered || !Info->DevPtr)
+    return Dst;
+  char *Host = (char *)Info->HostPtr, *D = (char *)Dst;
+  bool IsHost = D >= Host && D < Host + Info->Size;
+  size_t Offset = D - (IsHost ? Host : (char *)Info->DevPtr);
+  if (Size > Info->Size - Offset)
+    CHIPERR_LOG_AND_THROW("Fill runs past the registered range",
+                          hipErrorInvalidValue);
+  finish(); // a queued device-to-host sync must not overwrite these bytes
+  for (size_t i = 0; i < Size; i++)
+    Host[Offset + i] = ((const char *)Pattern)[i % PatternSize];
+  return (char *)Info->DevPtr + Offset;
+}
+
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
                               size_t PatternSize) {
+  Dst = resolveRegisteredFillDst(Dst, Size, Pattern, PatternSize);
   {
     std::shared_ptr<chipstar::Event> ChipEvent =
         memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
@@ -2123,7 +2142,7 @@ void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
 
 void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
                                    size_t PatternSize) {
-
+  Dst = resolveRegisteredFillDst(Dst, Size, Pattern, PatternSize);
   std::shared_ptr<chipstar::Event> ChipEvent =
       memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
   ChipEvent->Msg = "memFillAsync";
@@ -2136,19 +2155,15 @@ void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
   if (SizeBytes < 1)
     return;
 
-  std::shared_ptr<chipstar::Event> ChipEvent;
   for (size_t i = 0; i < Height; i++) {
     auto Offset = Pitch * i;
     char *DstP = (char *)Dst;
-    ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
-    ChipEvent->Msg = "memFillAsync2D";
+    memFillAsync(DstP + Offset, SizeBytes, &Value, 1);
   }
 }
 
 void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
                                      hipExtent Extent) {
-
-  std::shared_ptr<chipstar::Event> ChipEvent;
 
   size_t Width = Extent.width;
   size_t Height = Extent.height;
@@ -2161,8 +2176,7 @@ void chipstar::Queue::memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
       size_t SizeBytes = Width;
       auto Offset = i * (Pitch * PitchedDevPtr.ysize) + j * Pitch;
       char *DstP = (char *)Dst;
-      ChipEvent = memFillAsyncImpl(DstP + Offset, SizeBytes, &Value, 1);
-      ChipEvent->Msg = "memFillAsync3D";
+      memFillAsync(DstP + Offset, SizeBytes, &Value, 1);
     }
 }
 

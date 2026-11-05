@@ -2508,6 +2508,11 @@ public:
   virtual void memFill(void *Dst, size_t Size, const void *Pattern,
                        size_t PatternSize);
 
+  /// Writes a fill on a host-registered record to its host range and returns
+  /// the device address to submit.
+  void *resolveRegisteredFillDst(void *Dst, size_t Size, const void *Pattern,
+                                 size_t PatternSize);
+
   /**
    * @brief Non-blocking mem set
    *
