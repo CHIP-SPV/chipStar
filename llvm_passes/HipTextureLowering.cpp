@@ -18,8 +18,9 @@
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -157,6 +158,55 @@ void TextureUseGroup::dump() const {
 using TextureUseGroupList = std::vector<TextureUseGroup>;
 using TextureUseGroupMap = std::map<Value *, TextureUseGroup *>;
 
+// Find local stores based on a memory address. If the base address turns
+// out to be another load, recurse through the nested loads.
+static void collectLocalStoresToAddress(Value *Addr, const DataLayout &DL,
+                                        SmallPtrSetImpl<Value *> &VisitedBases,
+                                        SmallVectorImpl<StoreInst *> &Out) {
+  APInt Offset(DL.getIndexTypeSizeInBits(Addr->getType()), 0);
+  Value *Base = Addr->stripAndAccumulateConstantOffsets(DL, Offset, true);
+
+  if (!VisitedBases.insert(Base).second)
+    return; // already explored
+
+  if (!isa<AllocaInst>(Base) && !isa<LoadInst>(Base))
+    return; // not a location we can account for locally
+
+  // Check every pointer value derived from Base looking for stores that
+  // target the same byte offset as Addr.
+  SmallVector<Value *, 8> Worklist{Base};
+  SmallPtrSet<Value *, 8> SeenDerived;
+  while (!Worklist.empty()) {
+    Value *V = Worklist.pop_back_val();
+    if (!SeenDerived.insert(V).second)
+      continue;
+    for (User *U : V->users()) {
+      if (isa<GetElementPtrInst>(U) || isa<BitCastInst>(U) ||
+          isa<AddrSpaceCastInst>(U)) {
+        Worklist.push_back(cast<Instruction>(U));
+        continue;
+      }
+      auto *SI = dyn_cast<StoreInst>(U);
+      if (!SI || SI->getPointerOperand() != V)
+        continue;
+      APInt StoreOffset(DL.getIndexTypeSizeInBits(V->getType()), 0);
+      Value *StoreBase = V->stripAndAccumulateConstantOffsets(DL, StoreOffset, true);
+      if (StoreBase == Base && StoreOffset == Offset)
+        Out.push_back(SI);
+    }
+  }
+
+  // If Base is another load, find more local stores recursively.
+  if (auto *BaseLI = dyn_cast<LoadInst>(Base)) {
+    SmallVector<StoreInst *, 4> OuterStores;
+    collectLocalStoresToAddress(BaseLI->getPointerOperand(), DL, VisitedBases,
+                                OuterStores);
+    for (auto *OuterSI : OuterStores)
+      collectLocalStoresToAddress(OuterSI->getValueOperand(), DL,
+                                  VisitedBases, Out);
+  }
+}
+
 /// Consider 'V' as a texture object. This analysis method searches its users
 /// and sources and records them in the 'TexUseGroup'.
 ///
@@ -245,24 +295,21 @@ static void analyze(Value *V, TextureUseGroup &TexUseGroup,
     return;
   case Instruction::Load:
     // Look through local store+load pairs and fan out to avoid orphaned
-    // sibling calls
+    // sibling calls.
     auto *LI = cast<LoadInst>(I);
-    Value *Ptr = LI->getPointerOperand();
-    if (isa<AllocaInst>(getUnderlyingObject(Ptr))) {
-      bool FoundStore = false;
-      for (auto *U : Ptr->users()) {
-        auto *SI = dyn_cast<StoreInst>(U);
-        if (!SI || SI->getPointerOperand() != Ptr)
-          continue;
-        FoundStore = true;
+    const DataLayout &DL = LI->getModule()->getDataLayout();
+    SmallPtrSet<Value *, 8> VisitedBases;
+    SmallVector<StoreInst *, 4> Stores;
+    collectLocalStoresToAddress(LI->getPointerOperand(), DL, VisitedBases,
+                                Stores);
+    if (!Stores.empty()) {
+      for (auto *SI : Stores) {
         LLVM_DEBUG(dbgs() << "  Look through local store: " << *SI << "\n");
         analyze(SI->getValueOperand(), TexUseGroup, TexUseGroupMap,
                 &SI->getOperandUse(0));
       }
-      if (FoundStore) {
-        VisitUses(I);
-        return;
-      }
+      VisitUses(I);
+      return;
     }
     break;
   }
