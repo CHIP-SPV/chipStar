@@ -5236,6 +5236,9 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
   const auto *AllocInfo = AllocTracker->getAllocInfo(Dst);
   if (!AllocInfo || !AllocInfo->isDeviceAccessible())
     CHIPERR_LOG_AND_THROW("Invalid destination pointer!", hipErrorInvalidValue);
+  // Pitch is unused for one row; the allocation size keeps the checks below bounding it.
+  if (Height == 1)
+    Pitch = AllocInfo->Size;
   if (Width > Pitch)
     CHIPERR_LOG_AND_THROW("Width exceeds pitch value!", hipErrorInvalidValue);
   int size = Pitch * Height - Pitch - Width;
