@@ -1394,6 +1394,14 @@ chipstar::Module *chipstar::Device::getOrCreateModule(HostPtr Ptr) {
   // Found the source module, now compile it.
   auto *Mod = getOrCreateModule(*SrcMod);
 
+  // Before binding: a bound kernel takes the early return on later launches.
+  for (const auto &Info : SrcMod->Kernels)
+    if (!Mod->hasKernel(Info.Name))
+      CHIPERR_LOG_AND_THROW(
+          "Module lacks kernel of the source module (unresolved device "
+          "function?): " + Info.Name,
+          hipErrorSharedObjectInitFailed);
+
   // Bind host pointers to their backend counterparts.
   for (const auto &Info : SrcMod->Kernels) {
     std::string NameTmp(Info.Name.begin(), Info.Name.end());
