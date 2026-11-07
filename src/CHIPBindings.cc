@@ -5518,7 +5518,7 @@ hipError_t hipMemsetD16Async(hipDeviceptr_t Dest, unsigned short Value,
       /* pitch */ 1,
       /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for
                                           memset unsigned? */
-      /* width */ 2 * Count};
+      /* width */ Count};
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
     RETURN(hipSuccess);
 
@@ -5559,7 +5559,7 @@ hipError_t hipMemsetD32Async(hipDeviceptr_t Dst, int Value, size_t Count,
       /* pitch */ 1,
       /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for
                                           memset unsigned? */
-      /* width */ 4 * Count};
+      /* width */ Count};
   if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
     RETURN(hipSuccess);
 
