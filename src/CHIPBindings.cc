@@ -37,6 +37,7 @@
  */
 #ifndef CHIP_BINDINGS_H
 #define CHIP_BINDINGS_H
+#include <atomic>
 #include <cstddef> // for size_t
 #include <errno.h>
 #include <fstream>
@@ -57,6 +58,9 @@
 #include "macros.hh"
 
 #include "spirv-extractor.hh"
+
+// Graphs, graph execs and modules held by the application.
+static std::atomic<size_t> LiveReinitBlockers{0};
 
 #define SVM_ALIGNMENT 128 // TODO Pass as CMAKE Define?
 
@@ -1247,6 +1251,7 @@ hipError_t hipGraphCreate(hipGraph_t *pGraph, unsigned int flags) {
     RETURN(hipErrorInvalidValue);
   CHIPGraph *Graph = new CHIPGraph();
   *pGraph = Graph;
+  LiveReinitBlockers++;
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1255,6 +1260,8 @@ hipError_t hipGraphDestroy(hipGraph_t graph) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
+  if (graph)
+    LiveReinitBlockers--;
   delete graph;
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1512,6 +1519,7 @@ hipError_t hipGraphClone(hipGraph_t *pGraphClone, hipGraph_t originalGraph) {
 
   CHIPGraph *CloneGraph = new CHIPGraph(*GRAPH(originalGraph));
   *pGraphClone = CloneGraph;
+  LiveReinitBlockers++;
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -1557,6 +1565,7 @@ hipError_t hipGraphInstantiate(hipGraphExec_t *pGraphExec, hipGraph_t graph,
     throw;
   }
   *pGraphExec = GraphExec;
+  LiveReinitBlockers++;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -1601,6 +1610,7 @@ hipError_t hipGraphExecDestroy(hipGraphExec_t graphExec) {
   CHIPInitialize();
   if (!graphExec)
     RETURN(hipErrorInvalidValue);
+  LiveReinitBlockers--;
   delete graphExec;
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -2664,6 +2674,7 @@ hipError_t hipStreamEndCapture(hipStream_t stream, hipGraph_t *pGraph) {
 
   ChipQueue->endCapture();
   *pGraph = Graph;
+  LiveReinitBlockers++;
   RETURN(hipSuccess);
   CHIP_CATCH
 }
@@ -6275,6 +6286,7 @@ static inline hipError_t hipModuleLoadDataInternal(hipModule_t *ModuleHandle,
   Backend->getActiveDevice()->registerModuleVariables(ChipModule, SrcMod);
   
   *ModuleHandle = ChipModule;
+  LiveReinitBlockers++;
 
   return hipSuccess;
 }
@@ -6523,6 +6535,7 @@ hipError_t hipModuleUnload(hipModule_t Module) {
   const auto &SrcMod = ChipModule->getSourceModule();
   Backend->getActiveDevice()->eraseModule(ChipModule);
   getSPVRegister().unregisterSource(&SrcMod);
+  LiveReinitBlockers--;
 
   RETURN(hipSuccess);
   CHIP_CATCH
@@ -7506,6 +7519,11 @@ int hipGetBackendNativeHandles(uintptr_t Stream, uintptr_t *NativeHandles,
 int hipInitFromNativeHandles(const uintptr_t *NativeHandles, int NumHandles) {
   CHIP_TRY
   logDebug("hipInitFromNativeHandles");
+  if (LiveReinitBlockers) {
+    logError("hipInitFromNativeHandles: destroy all graphs and graph execs "
+             "and unload all modules first");
+    RETURN(hipErrorIllegalState);
+  }
   RETURN(CHIPReinitialize(NativeHandles, NumHandles));
   CHIP_CATCH
 }

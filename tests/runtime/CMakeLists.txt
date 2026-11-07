@@ -129,6 +129,8 @@ if(CHIP_USE_NATIVE_VULKAN_SPIRV)
     TestDeviceVirtualDispatch.hip TestFix1691SharedAddrLocalInit.hip
     TestSubwordAtomics.hip TestAlignAttrRuntime.hip
     TestNegativeHasNoIGBAs2.hip TestFixRuntimeWarpSize.hip)
+  # Vulkan does not support initializing from native handles.
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2283ReinitLiveHandles.hip)
 endif()
 # Checks the native Vulkan lowering of division, which Vulkan does not round.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
