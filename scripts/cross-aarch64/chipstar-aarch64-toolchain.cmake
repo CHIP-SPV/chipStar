@@ -25,9 +25,8 @@ set(CMAKE_EXE_LINKER_FLAGS_INIT    "${_ld}")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "${_ld}")
 set(CMAKE_MODULE_LINKER_FLAGS_INIT "${_ld}")
 # The prebuilt aarch64 SPIRV-Tools lives outside the compiler's default
-# include search, and chipStar's found-package branch relies on the default
-# path rather than propagating one. Applied at the toolchain level so
-# chipStar's own CMAKE_CXX_FLAGS assignments cannot drop it.
+# include search. Applied at the toolchain level so chipStar's own
+# CMAKE_CXX_FLAGS assignments cannot drop it.
 set(CMAKE_C_STANDARD_INCLUDE_DIRECTORIES   /opt/spirv-tools-aarch64/include)
 set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES /opt/spirv-tools-aarch64/include)
 set(CMAKE_FIND_ROOT_PATH /usr/aarch64-linux-gnu /opt/spirv-tools-aarch64)
