@@ -78,7 +78,6 @@ ANY:
     'Unit_hipFreeNegativeHost_MemoryTest2': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipHostMalloc_AllocateMoreThanAvailGPUMemory_MemoryTest2': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipHostMalloc_AllocateUseMoreThanAvailGPUMemory_MemoryTest2': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
-    'Unit_hipHostGetDevicePointer_Negative_MemoryTest1': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipHostGetFlags_DifferentThreads_MemoryTest1': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipHostGetFlags_flagCombos_MemoryTest1': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipHostGetFlags_InvalidArgs_MemoryTest1': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
