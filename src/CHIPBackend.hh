@@ -1805,7 +1805,7 @@ protected:
 class Context : public ihipCtx_t {
 protected:
   int RefCount_;
-  chipstar::Device *ChipDevice_;
+  chipstar::Device *ChipDevice_ = nullptr;
   std::vector<void *> AllocatedPtrs_;
 
   unsigned int Flags_;
