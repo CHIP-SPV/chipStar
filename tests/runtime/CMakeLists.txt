@@ -130,9 +130,10 @@ if(CHIP_USE_NATIVE_VULKAN_SPIRV)
     TestSubwordAtomics.hip TestAlignAttrRuntime.hip
     TestNegativeHasNoIGBAs2.hip TestFixRuntimeWarpSize.hip)
 endif()
-# Checks the native Vulkan lowering of division, which Vulkan does not round.
+# Native Vulkan only: its lowering of division, and the #2264 teardown path.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
-  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip
+    TestFix2264VulkanTimeoutPrintfRelock.hip)
 endif()
 # Warp votes link the device library, and Mali's clLinkProgram fails (-59).
 if(CHIP_MALI_GPU_WORKAROUNDS)
