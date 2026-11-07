@@ -2127,7 +2127,6 @@ public:
    * @param ctx_in
    */
   void addContext(chipstar::Context *ChipContext);
-  void removeContext(chipstar::Context *ChipContext);
 
   /**
    * @brief Call checkEvents for all contexts

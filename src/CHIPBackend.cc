@@ -24,6 +24,7 @@
 #include "ModuleCache.hh"
 #include <atomic>
 #include <algorithm>
+#include <utility>
 
 // Definition of thread_local static member (required when not using 'inline')
 thread_local std::unique_ptr<chipstar::Queue> chipstar::Device::PerThreadDefaultQueue;
@@ -1683,10 +1684,8 @@ chipstar::Backend::Backend() {
 
 chipstar::Backend::~Backend() {
   logDebug("Backend Destructor. Deleting all pointers.");
-  for (auto &Ctx : ChipContexts) {
-    ::Backend->removeContext(Ctx);
+  for (auto *Ctx : std::exchange(ChipContexts, {}))
     delete Ctx;
-  }
 }
 
 void chipstar::Backend::trackEvent(
@@ -1825,14 +1824,6 @@ std::vector<chipstar::Device *> chipstar::Backend::getDevices() {
 }
 
 size_t chipstar::Backend::getNumDevices() { return ChipContexts.size(); }
-
-void chipstar::Backend::removeContext(chipstar::Context *ChipContext) {
-  auto ContextFound =
-      std::find(ChipContexts.begin(), ChipContexts.end(), ChipContext);
-  if (ContextFound != ChipContexts.end()) {
-    ChipContexts.erase(ContextFound);
-  }
-}
 
 void chipstar::Backend::addContext(chipstar::Context *ChipContext) {
   ChipContexts.push_back(ChipContext);
