@@ -153,3 +153,7 @@ set_tests_properties(TestFix1889SinfAccuracy PROPERTIES
 add_hip_test(TestFix1736Float2HalfRd.cpp)
 set_tests_properties(TestFix1736Float2HalfRd PROPERTIES
   PASS_REGULAR_EXPRESSION "PASSED")
+
+add_hip_test(TestFix2015DsqrtDouble.cpp)
+set_tests_properties(TestFix2015DsqrtDouble PROPERTIES
+  PASS_REGULAR_EXPRESSION "PASSED")

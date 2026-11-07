@@ -697,7 +697,7 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
     abort2: 'Failed'
     Unit_Device___ddiv_rn_Accuracy_Positive_MathsTest: 'no fp64 on rusticl (#1802)'
     Unit_Device___drcp_rn_Accuracy_Positive_MathsTest: 'no fp64 on rusticl (#1802)'
-    Unit_Device___dsqrt_rn_Accuracy_Positive_MathsTest: '__dsqrt_* computed in half precision (#2015)'
+    Unit_Device___dsqrt_rn_Accuracy_Positive_MathsTest: 'no fp64 on rusticl (#1802)'
     Unit_Device___exp10f_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___expf_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___fadd_rn_Accuracy_Positive_MathsTest: 'rusticl flushes float denormals (#2036)'
@@ -859,12 +859,6 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     # these two entries when the PoCL side is fixed.
     'Unit_Device_Complex_hipCfma_Device_Sanity_Positive - hipFloatComplex_ComplexTest': 'SEGFAULT in PoCL pocl_svm_memcpy_common, null dereference reached from hipMemcpy (#1594)'
     'Unit_Device_Complex_hipCfma_Device_Sanity_Positive - hipDoubleComplex_ComplexTest': 'SEGFAULT in PoCL pocl_svm_memcpy_common, null dereference reached from hipMemcpy (#1594)'
-    Unit_Device___dadd_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
-    Unit_Device___ddiv_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
-    Unit_Device___dmul_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
-    Unit_Device___drcp_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
-    Unit_Device___dsqrt_rn_Accuracy_Positive_MathsTest: '__dsqrt_* computed in half precision (#2015)'
-    Unit_Device___dsub_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___exp10f_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___expf_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___float2half_rd_Accuracy_Limited_Positive_MathsTest: '__float2half_rd rounds to nearest (#1736)'
@@ -877,7 +871,6 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     Unit_Device___float2uint_rn_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     Unit_Device___float2uint_ru_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     Unit_Device___float2uint_rz_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
-    Unit_Device___fma_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___h2div_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___habs2_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___habs_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
@@ -1055,7 +1048,6 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
   OPENCL_GPU:
   OPENCL_POCL:
     Unit_Device___cosf_Accuracy_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
-    Unit_Device___dsqrt_rn_Accuracy_Positive_MathsTest: '__dsqrt_* computed in half precision (#2015)'
     Unit_Device___exp10f_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___expf_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___float2half_Accuracy_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
@@ -1231,9 +1223,6 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
   OPENCL_CPU:
   OPENCL_GPU:
   OPENCL_POCL:
-    Unit_Device___dadd_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
-    Unit_Device___ddiv_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
-    Unit_Device___dmul_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___double2int_rd_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
     Unit_Device___double2int_rn_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
     Unit_Device___double2int_ru_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
@@ -1242,9 +1231,6 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     Unit_Device___double2uint_rn_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
     Unit_Device___double2uint_ru_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
     Unit_Device___double2uint_rz_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
-    Unit_Device___drcp_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
-    Unit_Device___dsqrt_rn_Accuracy_Positive_MathsTest: '__dsqrt_* computed in half precision (#2015)'
-    Unit_Device___dsub_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___exp10f_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___expf_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___float2half_rd_Accuracy_Limited_Positive_MathsTest: '__float2half_rd rounds to nearest (#1736)'
@@ -1257,7 +1243,6 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     Unit_Device___float2uint_rn_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     Unit_Device___float2uint_ru_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
     Unit_Device___float2uint_rz_Positive_MathsTest: 'Timeout: exhaustive sweep exceeds the ctest timeout on this device'
-    Unit_Device___fma_rn_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___h2div_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___habs2_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
     Unit_Device___habs_Accuracy_Positive_MathsTest: 'PoCL kernel library lacks half builtins (#784)'
@@ -1424,7 +1409,6 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
     Unit_Device___double2int_rn_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
     Unit_Device___double2int_ru_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
     Unit_Device___double2int_rz_Positive_MathsTest: 'out of range input, test reference clamps (#2035)'
-    Unit_Device___dsqrt_rn_Accuracy_Positive_MathsTest: '__dsqrt_* computed in half precision (#2015)'
     Unit_Device___exp10f_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___expf_Accuracy_Positive_MathsTest: 'ULP tolerance exceeds the Catch2 limit, std::domain_error terminates the test (#1831)'
     Unit_Device___fdiv_rn_Accuracy_Positive_MathsTest: 'not correctly rounded, within OpenCL ULP bounds (#428)'
