@@ -154,6 +154,9 @@ foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
 endforeach()
 # The fold to sitofp i1 that #1891 miscompiles only happens with optimization.
 target_compile_options(TestFix1891SitofpBool PRIVATE -O2)
+# Exports its vkBeginCommandBuffer/vkQueueWaitIdle interposers so libCHIP binds to them.
+set_target_properties(TestFix2333VulkanDrainThrow PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(TestFix2333VulkanDrainThrow ${CMAKE_DL_LIBS})
 # Exports its vkCreatePipelineCache interposers so libCHIP binds to them.
 set_target_properties(TestFix2164VulkanFailedModuleLeak PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2164VulkanFailedModuleLeak ${CMAKE_DL_LIBS})
