@@ -5309,7 +5309,8 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
       /* value */ (unsigned int)Value, /* TODO Graphs - why is the arg for
                                           memset unsigned? */
       /* width */ Extent.width};
-  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params))
+  if (ChipQueue->captureIntoGraph<CHIPGraphNodeMemset>(Params, Extent.depth,
+                                                       PitchedDevPtr.ysize))
     return hipSuccess;
 
   if (Extent.height * Extent.width * Extent.depth == 0)
