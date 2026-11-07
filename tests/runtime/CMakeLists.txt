@@ -98,6 +98,7 @@ set(RUNTIME_TESTS_MANUAL
   TestEnvVars.hip                 # driven by ../run_testenvvars.sh, not by ctest
   TestFix1393ExitDuringModuleBuild.hip # run under an interposer by a driver script
   TestFix1962PooledResidencyEviction.hip # guarded on LevelZero_LIBRARY
+  TestFix2282ReinitPerThreadQueue.hip # guarded on LevelZero_LIBRARY
   TestFix315PlatformOutOfRange.hip # run under env -u CHIP_DEVICE_TYPE, registered below
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix2008ClSetEventCallbackErrorMap.hip # links an interposer
@@ -207,6 +208,7 @@ if(OpenCL_LIBRARY) # Depends on OpenCL
 endif()
 if(LevelZero_LIBRARY) # Depends on Level Zero
   add_hip_runtime_test(TestFix1962PooledResidencyEviction.hip)
+  add_hip_runtime_test(TestFix2282ReinitPerThreadQueue.hip)
 endif()
 # String literals are initialized program-scope globals, which rusticl/Mesa
 # rejects ("Initializer for CrossWorkgroup variable not yet supported"), and
