@@ -946,6 +946,41 @@ list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_
   ${CHIP_BUILD_SYSROOT_LINK_OPTIONS_}
   "-L${CMAKE_BINARY_DIR}" "-lCHIP" "-no-hip-rt -Wl,-locml_host_math_funcs")
 
+if(NOT CHIP_BUILD_SHARED_LIBS)
+  # libCHIP.a has no link dependencies of its own; hipcc must link them after it.
+  # -Wl, stops clang compiling a *.so under -xhip or unbundling an archive under -fgpu-rdc,
+  # which includes libCHIP.a itself.
+  list(TRANSFORM HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ REPLACE "^-lCHIP$" "-Wl,-lCHIP")
+  list(TRANSFORM HIP_OFFLOAD_LINK_OPTIONS_BUILD_ REPLACE "^-lCHIP$" "-Wl,-lCHIP")
+  set(_chip_static_deps -Wl,-lSPIRV-Tools -pthread)
+  foreach(_lib OpenCL_LIBRARY LevelZero_LIBRARY Vulkan_LIBRARY)
+    if(${_lib})
+      list(APPEND _chip_static_deps -Wl,${${_lib}})
+    endif()
+  endforeach()
+  if(HAS_EXPERIMENTAL_FILESYSTEM)
+    list(APPEND _chip_static_deps -Wl,-lstdc++fs)
+  endif()
+  if(OpenCL_LIBRARY AND CHIP_SET_RPATH_OCL)
+    list(APPEND _chip_static_deps -Wl,-rpath,${OpenCL_DIR})
+  endif()
+  if(LevelZero_LIBRARY AND CHIP_SET_RPATH_L0)
+    list(APPEND _chip_static_deps -Wl,-rpath,${LevelZeroLib_DIR})
+  endif()
+  if(SPIRV-Tools_FOUND) # the package lives in <libdir>/cmake/SPIRV-Tools
+    get_filename_component(_spirv_lib_dir "${SPIRV-Tools_DIR}/../.." ABSOLUTE)
+    list(APPEND _chip_static_deps -L${_spirv_lib_dir} -Wl,-rpath,${_spirv_lib_dir})
+    target_link_directories(CHIP INTERFACE ${_spirv_lib_dir})
+    target_link_options(CHIP INTERFACE -Wl,-rpath,${_spirv_lib_dir})
+  else() # built from source: only its archive is needed
+    list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ -L${SPIRV_TOOLS_INSTALL_DIR}/lib)
+    install(FILES $<TARGET_FILE:SPIRV-Tools> DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    target_link_directories(CHIP INTERFACE $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
+  endif()
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_INSTALL_ ${_chip_static_deps})
+  list(APPEND HIP_OFFLOAD_LINK_OPTIONS_BUILD_ ${_chip_static_deps})
+endif()
+
 if(OpenCL_LIBRARY)
   if(CHIP_SET_RPATH_OCL)
     target_link_options(CHIP INTERFACE -Wl,-rpath,${OpenCL_DIR})

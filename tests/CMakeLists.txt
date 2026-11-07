@@ -175,3 +175,10 @@ add_test(NAME TestFix2216VulkanConsumer
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2216VulkanConsumer.cmake)
 set_tests_properties(TestFix2216VulkanConsumer PROPERTIES RUN_SERIAL TRUE)
 endif()
+
+if(NOT CHIP_BUILD_SHARED_LIBS)
+  # Reproduce #2203: hipcc links libCHIP.a, whose own dependencies .hipInfo must also list.
+  add_test(NAME TestFix2203StaticHipccLink
+    COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc ${CMAKE_SOURCE_DIR}/samples/hipInfo/hipInfo.cpp
+      -o ${CMAKE_CURRENT_BINARY_DIR}/TestFix2203StaticHipccLink)
+endif()
