@@ -1580,8 +1580,7 @@ void CHIPContextOpenCL::mapManagedForHost() {
   for (auto *Q : ChipDevice_->getQueuesNoLockCopy())
     AddMarkers(Q);
   AddMarkers(ChipDevice_->getLegacyDefaultQueue());
-  if (ChipDevice_->isPerThreadStreamUsedNoLock())
-    AddMarkers(ChipDevice_->getPerThreadDefaultQueueNoLock());
+  ChipDevice_->forEachPerThreadQueue(AddMarkers);
 
   cl_command_queue MapQueue = getManagedMapQueue()();
   cl_int Err = CL_SUCCESS;
