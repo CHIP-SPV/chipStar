@@ -2116,6 +2116,11 @@ void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
   // WORKAROUND(CHIP-SPV/chipStar#2389): rusticl loses host stores when a fill
   // follows the unmap, so fill a mapped host allocation on the host.
   if (AllocInfo && AllocInfo->isMappedHostAllocation()) {
+    size_t Offset =
+        static_cast<char *>(Dst) - static_cast<char *>(AllocInfo->HostPtr);
+    if (Size > AllocInfo->Size - Offset)
+      CHIPERR_LOG_AND_THROW("Access exceeds the allocation",
+                            hipErrorInvalidValue);
     enqueueBarrier();
     finish();
     for (size_t i = 0; i < Size; i++)
