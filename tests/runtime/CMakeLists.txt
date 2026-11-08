@@ -101,6 +101,7 @@ set(RUNTIME_TESTS_MANUAL
   TestFix315PlatformOutOfRange.hip # run under env -u CHIP_DEVICE_TYPE, registered below
   TestFix1604ClFlushErrorMap.hip  # run under an interposer by a driver script
   TestFix2008ClSetEventCallbackErrorMap.hip # links an interposer
+  TestFix2362CoarseMapHostPointer.hip # links an interposer
   TestFix1543SwitchModeEventLeak.hip # run under an interposer by a driver script
   TestFixFunctionLocalStaticDeviceVar.hip # multi-TU, second TU under inputs/
   TestFix1601ExtractorMultiTUDoubles.hip # multi-TU, compiled by its .bash, not a test
@@ -567,6 +568,17 @@ if(UNIX AND NOT APPLE)
     COMMAND TestFix2008ClSetEventCallbackErrorMap)
   set_tests_properties(TestFix2008ClSetEventCallbackErrorMap PROPERTIES
     SKIP_RETURN_CODE ${CHIP_SKIP_TEST})
+endif()
+
+# hipMemset on a hipHostRegister'ed pointer must not SVM map it on coarse grain
+# SVM (#2362); the test links an interposer that reports coarse-only SVM.
+if(UNIX AND NOT APPLE)
+  add_hip_runtime_test(TestFix2362CoarseMapHostPointer.hip)
+  target_sources(TestFix2362CoarseMapHostPointer PRIVATE
+    CoarseSvmMapInterposer.cpp)
+  target_link_libraries(TestFix2362CoarseMapHostPointer ${CMAKE_DL_LIBS})
+  set_tests_properties(TestFix2362CoarseMapHostPointer PROPERTIES
+    ENVIRONMENT "CHIP_OCL_USE_ALLOC_STRATEGY=svm")
 endif()
 
 # A failed device-side assertion must report its message on stderr, where ROCm
