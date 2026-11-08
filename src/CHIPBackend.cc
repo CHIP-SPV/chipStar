@@ -1672,10 +1672,7 @@ hipError_t chipstar::Context::free(void *Ptr) {
 
 // Backend
 //*************************************************************************************
-int chipstar::Backend::getQueuePriorityRange() {
-  assert(MinQueuePriority_);
-  return MinQueuePriority_;
-}
+int chipstar::Backend::getQueuePriorityRange() { return MinQueuePriority_; }
 
 chipstar::Backend::Backend() {
   logDebug("Backend Base Constructor");
