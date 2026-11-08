@@ -5892,6 +5892,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   void *SrcPtr;
   void *DstPtr;
   size_t YSize;
+  size_t DstYSize;
   size_t XSize;
 
   bool ArrayDst = Params->dstArray != nullptr ? true : false;
@@ -5928,6 +5929,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     SrcPitch = PDrv->srcPitch;
     SrcPtr = (void *)PDrv->srcHost;
     YSize = PDrv->srcHeight;
+    DstYSize = PDrv->dstArray->height;
     XSize = PDrv->srcXInBytes / ByteSize;
     DstPtr = PDrv->dstArray->data;
   } else { // non Drc params
@@ -5954,9 +5956,11 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
 
     if (ArrayDst) {
       DstPitch = Params->dstArray->width * ByteSize;
+      DstYSize = Params->dstArray->height;
       DstPtr = Params->dstArray->data;
     } else {
       DstPitch = Params->dstPtr.pitch;
+      DstYSize = Params->dstPtr.ysize;
       DstPtr = Params->dstPtr.ptr;
     }
   }
@@ -5971,8 +5975,9 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     return hipSuccess;
 
   size_t srcSlicePitch = SrcPitch * YSize;
-  size_t dstSlicePitch = DstPitch * YSize;
-  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch))
+  size_t dstSlicePitch = DstPitch * DstYSize;
+  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch) &&
+      Height == YSize && Height == DstYSize)
     ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth,
                             Params->kind);
   else {
@@ -5984,7 +5989,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
         unsigned char *Src =
             (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
         unsigned char *Dst =
-            (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
+            (unsigned char *)DstPtr + i * DstYSize * DstPitch + j * DstPitch;
         if (Params->kind == hipMemcpyHostToHost)
           memcpy(Dst, Src, WidthInBytes);
         else
