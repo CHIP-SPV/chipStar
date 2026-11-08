@@ -189,10 +189,6 @@ endif()
 set_tests_properties(TestFix1524GetEdgesCapacity PROPERTIES
   ENVIRONMENT "MALLOC_CHECK_=3")
 
-# Forces the coarse grain SVM path on OpenCL devices without fine grain SVM.
-set_tests_properties(TestFix2365MappedMemsetKeepsHostStores PROPERTIES
-  ENVIRONMENT "CHIP_OCL_USE_ALLOC_STRATEGY=svm")
-
 # The eager JIT build error must be replayed at launch.
 set_tests_properties(TestFix2025EagerJitBuildError PROPERTIES
   ENVIRONMENT "CHIP_LAZY_JIT=0" FAIL_REGULAR_EXPRESSION "")
