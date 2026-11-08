@@ -294,7 +294,6 @@ ANY:
     Unit_hipGraphMemcpyNodeSetParamsToSymbol_Positive_Basic_GraphsTest1: 'All HIP graph API and stream capture tests'
     Unit_hipGraphMemcpyNodeSetParams_Negative_Parameters_GraphsTest2: 'All HIP graph API and stream capture tests'
     Unit_hipGraphMemcpyNodeSetParams_Positive_Basic_GraphsTest2: 'All HIP graph API and stream capture tests'
-    Unit_hipGraphMemsetNodeSetParams_Negative_Parameters_GraphsTest1: 'All HIP graph API and stream capture tests'
     Unit_hipGraphNodeFindInClone_Negative_GraphsTest1: 'All HIP graph API and stream capture tests'
     Unit_hipGraphNodeGetDependencies_Functional_GraphsTest2: 'All HIP graph API and stream capture tests'
     Unit_hipGraphNodeGetDependencies_Positive_Functional_GraphsTest2: 'All HIP graph API and stream capture tests'
