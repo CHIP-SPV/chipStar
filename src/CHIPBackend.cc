@@ -2112,10 +2112,13 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
 
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
                               size_t PatternSize) {
+  auto *AllocInfo = getDevice()->AllocTracker->getAllocInfo(Dst);
+  unmapHostAlloc(this, AllocInfo);
   {
     std::shared_ptr<chipstar::Event> ChipEvent =
         memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
     ChipEvent->Msg = "memFill";
+    mapHostAlloc(this, AllocInfo);
     this->finish();
   }
   return;

@@ -5404,7 +5404,7 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
                                                          &CharVal, 1);
 
-  if (AllocInfo->HostPtr) {
+  if (AllocInfo->HostPtr && !AllocInfo->isMappedHostAllocation()) {
     logDebug("DevPtr {} is associated with HostPtr {}", AllocInfo->DevPtr,
              AllocInfo->HostPtr);
     if (AllocInfo->MemoryType == hipMemoryTypeUnified) {
