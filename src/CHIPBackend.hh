@@ -348,7 +348,6 @@ public:
   chipstar::Queue *ChipQueue;
   std::shared_ptr<chipstar::Event> GpuReady;
   std::shared_ptr<chipstar::Event> CpuCallbackComplete;
-  std::shared_ptr<chipstar::Event> GpuAck;
 
   hipError_t CallbackStatus;
   void *CallbackArgs;
@@ -2577,6 +2576,9 @@ public:
    */
 
   virtual void finish() = 0;
+  /// Wait for callbacks enqueued on this stream; they do not hold the stream's
+  /// command list while pending.
+  virtual void waitForCallbacks() {}
 
   /**
    * @brief Wait for this queue to finish, assuming EventsMtx is already held
