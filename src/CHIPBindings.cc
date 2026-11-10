@@ -4697,15 +4697,18 @@ static inline hipError_t hipMallocPitch3DInternal(void **Ptr, size_t *Pitch,
   if (!Ptr || !Pitch)
     return hipErrorInvalidValue;
 
-  if (Width * Height == 0) {
+  if (Width == 0 || Height == 0) {
     *Ptr = nullptr;
     return hipSuccess;
   }
 
+  ERROR_IF(Width > SIZE_MAX - (SVM_ALIGNMENT - 1), hipErrorInvalidValue);
   size_t CandidatePitch = roundUp(Width, SVM_ALIGNMENT);
-  const size_t SizeBytes = std::max<size_t>(1, CandidatePitch) *
-                           std::max<size_t>(1, Height) *
-                           std::max<size_t>(1, Depth);
+  size_t SizeBytes;
+  ERROR_IF(__builtin_mul_overflow(CandidatePitch, Height, &SizeBytes) ||
+               __builtin_mul_overflow(SizeBytes, std::max<size_t>(1, Depth),
+                                      &SizeBytes),
+           hipErrorOutOfMemory);
 
   void *RetVal = Backend->getActiveContext()->allocate(
       SizeBytes, hipMemoryType::hipMemoryTypeDevice);
@@ -5031,13 +5034,10 @@ hipError_t hipMalloc3D(hipPitchedPtr *PitchedDevPtr, hipExtent Extent) {
   if ((Extent.width == 0) || (Extent.height == 0 && Extent.depth > 0))
     RETURN(hipErrorInvalidValue);
 
-  size_t Pitch;
+  size_t Pitch = 0;
 
   hipError_t HipStatus = hipMallocPitch3DInternal(
       &PitchedDevPtr->ptr, &Pitch, Extent.width, Extent.height, Extent.depth);
-
-  if (Pitch == 0)
-    RETURN(hipErrorInvalidValue);
 
   if (HipStatus == hipSuccess) {
     PitchedDevPtr->pitch = Pitch;
