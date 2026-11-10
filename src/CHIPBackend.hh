@@ -44,6 +44,7 @@
 #include "logging.hh"
 #include "macros.hh"
 #include "CHIPException.hh"
+#include <atomic>
 #include <memory>
 #include <utility>
 #include <unordered_set>
@@ -1968,6 +1969,10 @@ public:
  * @brief Primary object to interact with the backend
  */
 class Backend {
+public:
+  // uninitialize() left this alive for threads still in HIP; do not delete it.
+  std::atomic<bool> Abandoned{false};
+
 protected:
   bool ReinitializeFlag_ = false;
   chipstar::EventMonitor *EventMonitor_ = nullptr;
@@ -2090,7 +2095,7 @@ public:
    * atomically and each Queue destructor decrementing it.
    *
    */
-  void waitForThreadExit();
+  void waitForThreadExit(bool Leak = false);
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.

@@ -2407,6 +2407,9 @@ chipstar::Event *CHIPBackendLevel0::createEvent(chipstar::Context *ChipCtx,
 }
 
 void CHIPBackendLevel0::uninitialize() {
+  // An earlier timeout already joined the event monitor.
+  if (Abandoned)
+    return;
   /**
    * chipstar::Event Monitor expects to collect all events. To do this,
    * all events must reach the refcount of 0. At this point, all queues should
@@ -2415,7 +2418,7 @@ void CHIPBackendLevel0::uninitialize() {
    *
    * To be safe, we iterate through all the queues and update their last event.
    */
-  waitForThreadExit();
+  waitForThreadExit(/*Leak=*/true);
   logTrace("Backend::uninitialize(): Setting the LastEvent to null for all "
            "user-created queues");
 
@@ -2425,6 +2428,9 @@ void CHIPBackendLevel0::uninitialize() {
     EventMonitor_->Stop = true;
   }
   EventMonitor_->join();
+  // Surviving threads still use the queues; clearing would race them.
+  if (Abandoned)
+    return;
   ActiveCmdLists.clear();
   return;
 }
