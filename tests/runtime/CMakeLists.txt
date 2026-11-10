@@ -135,9 +135,10 @@ endif()
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2263VulkanCallbackTeardownHang.hip)
 endif()
-# Checks the native Vulkan lowering of division, which Vulkan does not round.
+# Native Vulkan only: its lowering of division, and the #2264 teardown path.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
-  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFloatDivisionRounding.hip
+    TestFix2264VulkanTimeoutPrintfRelock.hip)
   # Exhausts the native Vulkan command buffer ring from a stream callback.
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2313VulkanCallbackManySubmits.hip)
 endif()
@@ -200,6 +201,12 @@ target_link_libraries(TestFix2242VulkanLostDeviceStagingLeak ${CMAKE_DL_LIBS})
 if(TEST TestFixRuntimeWarpSize)
   set_tests_properties(TestFixRuntimeWarpSize PROPERTIES
     ENVIRONMENT "IGC_ForceOCLSIMDWidth=16;CHIP_LAZY_JIT=1")
+endif()
+
+# The printf pending at teardown must be delivered by the timeout path.
+if(TEST TestFix2264VulkanTimeoutPrintfRelock)
+  set_tests_properties(TestFix2264VulkanTimeoutPrintfRelock PROPERTIES
+    PASS_REGULAR_EXPRESSION "drained.*PASS")
 endif()
 
 # The staleness probe needs several work-groups to make progress against each
