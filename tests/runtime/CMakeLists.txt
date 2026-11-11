@@ -196,6 +196,9 @@ set_target_properties(TestFix2243OpenCLExitFinishError PROPERTIES ENABLE_EXPORTS
 target_link_libraries(TestFix2243OpenCLExitFinishError ${CMAKE_DL_LIBS})
 # The verdict must be the exit code: PASS would print before teardown.
 set_tests_properties(TestFix2243OpenCLExitFinishError PROPERTIES PASS_REGULAR_EXPRESSION "")
+# Exports its vkQueueSubmit interposer so libCHIP binds to it.
+set_target_properties(TestFix2273VulkanFailedSubmitTimeline PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(TestFix2273VulkanFailedSubmitTimeline ${CMAKE_DL_LIBS})
 if(TARGET TestFix2307VulkanTimeoutSyncLockOrder)
   set_target_properties(TestFix2307VulkanTimeoutSyncLockOrder PROPERTIES ENABLE_EXPORTS ON)
   target_link_libraries(TestFix2307VulkanTimeoutSyncLockOrder ${CMAKE_DL_LIBS})
