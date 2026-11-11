@@ -133,7 +133,8 @@ if(CHIP_USE_NATIVE_VULKAN_SPIRV)
 endif()
 # The interposers rely on ELF symbol interposition, so native Vulkan on ELF only.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
-  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2263VulkanCallbackTeardownHang.hip)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2263VulkanCallbackTeardownHang.hip
+    TestFix2231VulkanEventFreedContext.hip)
 endif()
 # Native Vulkan only: its lowering of division, and the #2264 teardown path.
 if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
@@ -208,6 +209,10 @@ target_link_libraries(TestFix2257VulkanOrphanedStaging ${CMAKE_DL_LIBS})
 if(CHIP_USE_NATIVE_VULKAN_SPIRV AND NOT APPLE)
   set_target_properties(TestFix2263VulkanCallbackTeardownHang PROPERTIES ENABLE_EXPORTS ON)
   target_link_libraries(TestFix2263VulkanCallbackTeardownHang ${CMAKE_DL_LIBS})
+endif()
+if(CHIP_USE_NATIVE_VULKAN_SPIRV AND NOT APPLE)
+  set_target_properties(TestFix2231VulkanEventFreedContext PROPERTIES ENABLE_EXPORTS ON)
+  target_link_libraries(TestFix2231VulkanEventFreedContext ${CMAKE_DL_LIBS})
 endif()
 # Exports its Vulkan interposers so libCHIP binds to them.
 set_target_properties(TestFix2242VulkanLostDeviceStagingLeak PROPERTIES ENABLE_EXPORTS ON)
