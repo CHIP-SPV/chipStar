@@ -426,7 +426,6 @@ ANY:
     Unit_hipManagedKeyword_SingleGpu_TypeQualifiers: 'Failed'
     Unit_hipMemsetAsync_QueueJobsMultithreaded_MultiThreadTest: 'Timeout'
     Unit_hipMultiStream_multimeDevice_StreamTest: 'Timeout'
-    Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'Timeout'
     Unit_hipStreamQuery_WithFinishedWork_StreamTest: 'Timeout'
     Unit_Thread_Block_Getters_Positive_Basic_coopGrpTest: 'Timeout'
     Unit_Thread_Block_Getters_Via_Base_Type_Positive_Basic_coopGrpTest: 'Timeout'
@@ -464,7 +463,6 @@ ANY:
     Unit_hipEventRecord_Negative_EventTest: 'Failed'
     Unit_hipEventIpc_EventTest: 'Failed'
     Unit_hipEventQuery_DifferentDevice_EventTest: 'Failed'
-    Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'SEGFAULT'
     Unit_hipClassKernel_Value_CompilerTest: 'Subprocess aborted'
     Unit_hipGetLastError_with_hipMemsetAsync_ErrorHandlingTest: 'SEGFAULT'
     Unit_ballot_UnitDeviceTests: 'Failed'
@@ -588,7 +586,6 @@ ANY:
     Unit_hipMemset_Negative_OutOfBoundsSize_MemoryTest1: 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     Unit_hipMultiThreadStreams1_AsyncAsync_MultiThreadTest: 'Multi-thread tests fail on PoCL'
     Unit_hipMultiThreadStreams2_MultiThreadTest: 'Multi-thread tests fail on PoCL'
-    Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'Stream-per-thread tests fail on PoCL'
     Unit_hipStreamPerThread_ChildProc_StreamPerThreadTest: 'Failed'
     abort: 'Works only on dGPU, otherwise, things being printed out of order'
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
@@ -838,7 +835,6 @@ chipstar-rusticl: # AMD Radeon Pro W6400 via rusticl/radeonsi (self-hosted runne
     Unit_hipStreamAddCallback_WithDefaultStream: 'timeout'
     Unit_hipMemcpy2DAsync_Positive_Basic_MemoryTest1: 'Failed'
     Unit_hipEventQuery_DifferentDevice_EventTest: 'Timeout'
-    Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'Failed'
     syncthreadsExitedThreads: 'Timeout'
   OPENCL_POCL:
 'x1921.*b0n0': # sunspot
@@ -1547,7 +1543,6 @@ pastrami: # macOS on Apple silicon, PoCL 7.2
   OPENCL_GPU:
     TestTypeCastIntrinsics: 'iGPU failure'
     Unit_hipEventQuery_DifferentDevice_EventTest: 'calling hipEventGetElapsed time on (start, start) and (stop, stop) causes subsequent call to be ready instread of hipErrorNotReady'
-    Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'Failed'
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
     Unit_Device_j0_Accuracy_Limited_Positive_MathsTest: 'double Bessel j0/j1/jn/y0/y1/yn return NaN for large arguments, native_rsqrt is float only (#1814)'
     Unit_Device_jn_Accuracy_Limited_Positive_MathsTest: 'double Bessel j0/j1/jn/y0/y1/yn return NaN for large arguments, native_rsqrt is float only (#1814)'
