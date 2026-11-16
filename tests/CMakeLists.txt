@@ -42,6 +42,7 @@ add_subdirectory(runtime)
 add_subdirectory(libraries)
 add_subdirectory(benchmarks)
 add_subdirectory(regression)
+add_subdirectory(canaries)
 
 # Reproducer for CHIP-SPV/chipStar#1488. clang loads lib/libLLVMHipSpvPasses.so
 # as a pass plugin (through --hip-path) while compiling HIP device code, so
