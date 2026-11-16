@@ -2109,12 +2109,28 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
   mapHostAlloc(this, DstAllocInfo);
 }
 
+// Queues the copy that keeps a registered buffer's host copy in step with a fill on its device range.
+void chipstar::Queue::copyFillToHost(void *Dst, size_t Size) {
+  auto *Info = getDevice()->AllocTracker->getAllocInfo(Dst);
+  if (!Info || Info->MemoryType != hipMemoryTypeManaged || !Info->HostPtr ||
+      !Info->DevPtr)
+    return;
+  char *Dev = static_cast<char *>(Info->DevPtr);
+  char *D = static_cast<char *>(Dst);
+  if (D < Dev || D >= Dev + Info->Size)
+    return; // a fill on the host range is https://github.com/CHIP-SPV/chipStar/issues/2325
+  size_t Offset = D - Dev;
+  memCopyAsyncImpl(static_cast<char *>(Info->HostPtr) + Offset, Dst,
+                   std::min(Size, Info->Size - Offset), hipMemcpyDeviceToHost);
+}
+
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
                               size_t PatternSize) {
   {
     std::shared_ptr<chipstar::Event> ChipEvent =
         memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
     ChipEvent->Msg = "memFill";
+    copyFillToHost(Dst, Size);
     this->finish();
   }
   return;
@@ -2126,6 +2142,7 @@ void chipstar::Queue::memFillAsync(void *Dst, size_t Size, const void *Pattern,
   std::shared_ptr<chipstar::Event> ChipEvent =
       memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
   ChipEvent->Msg = "memFillAsync";
+  copyFillToHost(Dst, Size);
 }
 
 void chipstar::Queue::memFillAsync2D(void *Dst, size_t Pitch, int Value,
