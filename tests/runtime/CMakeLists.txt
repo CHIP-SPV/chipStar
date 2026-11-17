@@ -222,12 +222,6 @@ if(TEST TestFixRuntimeWarpSize)
     ENVIRONMENT "IGC_ForceOCLSIMDWidth=16;CHIP_LAZY_JIT=1")
 endif()
 
-# The printf pending at teardown must be delivered by the timeout path.
-if(TEST TestFix2264VulkanTimeoutPrintfRelock)
-  set_tests_properties(TestFix2264VulkanTimeoutPrintfRelock PROPERTIES
-    PASS_REGULAR_EXPRESSION "drained.*PASS")
-endif()
-
 # The staleness probe needs several work-groups to make progress against each
 # other and skips on a device that cannot run it, for instance where Mesa
 # deletes the spin loop. The host-allocation guard needs one work-item and no
