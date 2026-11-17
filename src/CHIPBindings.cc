@@ -5989,7 +5989,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     return hipSuccess;
 
   size_t srcSlicePitch = SrcPitch * YSize;
-  size_t dstSlicePitch = DstPitch * DstYSize;
+  size_t dstSlicePitch = DstPitch * YSize;
   if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch) &&
       (Depth == 1 || (Height == YSize && Height == DstYSize)))
     ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth,
