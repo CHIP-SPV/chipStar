@@ -318,6 +318,11 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   if (Backend) {
     logDebug("uninitializing existing Backend object.");
     Backend->uninitialize();
+    // A thread that began HIP calls during the wait makes uninitialize abandon.
+    if (Backend->Abandoned)
+      CHIPERR_LOG_AND_THROW("Cannot reinitialize while other HIP threads are "
+                            "active",
+                            hipErrorNotSupported);
     delete Backend;
     Backend = nullptr;
   }
