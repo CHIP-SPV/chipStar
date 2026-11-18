@@ -855,6 +855,10 @@ hipError_t hipArray3DCreate(hipArray **array,
   CHIP_CATCH
 }
 
+static inline hipError_t hipMallocPitch3DInternal(void **Ptr, size_t *Pitch,
+                                                  size_t Width, size_t Height,
+                                                  size_t Depth);
+
 hipError_t hipMemAllocPitch(hipDeviceptr_t *dptr, size_t *pitch,
                             size_t widthInBytes, size_t height,
                             unsigned int elementSizeBytes) {
@@ -871,7 +875,7 @@ hipError_t hipMemAllocPitch(hipDeviceptr_t *dptr, size_t *pitch,
   if (height == std::numeric_limits<size_t>::max())
     RETURN(hipErrorOutOfMemory);
 
-  UNIMPLEMENTED(hipErrorNotSupported);
+  RETURN(hipMallocPitch3DInternal(dptr, pitch, widthInBytes, height, 0));
   CHIP_CATCH
 }
 hipError_t hipDeviceSetMemPool(int device, hipMemPool_t mem_pool) {
