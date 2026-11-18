@@ -90,6 +90,45 @@ static int arrayCase(const char *Name, size_t CopyWidth) {
   return 0;
 }
 
+// An 8 bit array is sized by its channel bits, not by a 4 byte element.
+static int byteArrayCase() {
+  const size_t W = 16, Hgt = 3, Dp = 2;
+  hipChannelFormatDesc Desc =
+      hipCreateChannelDesc(8, 0, 0, 0, hipChannelFormatKindUnsigned);
+  hipArray_t A;
+  CHECK(hipMalloc3DArray(&A, &Desc, make_hipExtent(W, Hgt, Dp), 0));
+  std::vector<unsigned char> Src(W * Hgt * Dp, 0x3C), Zero(W * Hgt * Dp, 0),
+      H(W * Hgt * Dp, 0xAA);
+  hipMemcpy3DParms P = {};
+  P.srcPtr = make_hipPitchedPtr(Zero.data(), W, W, Hgt);
+  P.dstArray = A;
+  P.extent = make_hipExtent(W, Hgt, Dp);
+  P.kind = hipMemcpyHostToDevice;
+  CHECK(hipMemcpy3D(&P));
+  P = {};
+  P.srcPtr = make_hipPitchedPtr(Src.data(), W, W, Hgt);
+  P.dstArray = A;
+  P.extent = make_hipExtent(4, 1, Dp);
+  P.kind = hipMemcpyHostToDevice;
+  CHECK(hipMemcpy3D(&P));
+  P = {};
+  P.srcArray = A;
+  P.dstPtr = make_hipPitchedPtr(H.data(), W, W, Hgt);
+  P.extent = make_hipExtent(W, Hgt, Dp);
+  P.kind = hipMemcpyDeviceToHost;
+  CHECK(hipMemcpy3D(&P));
+  for (size_t Off = 0; Off < H.size(); Off++) {
+    unsigned char Want = (Off % W < 4 && Off / W % Hgt < 1) ? 0x3C : 0;
+    if (H[Off] != Want) {
+      printf("FAIL: 8 bit array: byte %zu = 0x%02x, expected 0x%02x\n", Off,
+             H[Off], Want);
+      return 1;
+    }
+  }
+  CHECK(hipFreeArray(A));
+  return 0;
+}
+
 // A layered array may have height 0, which allocates one row per layer.
 static int layeredCase() {
   const size_t W = 16, Dp = 2, Pitch = W * sizeof(unsigned int);
@@ -162,6 +201,7 @@ int main() {
     Fail |= R;
     Fail |= arrayCase("array narrow", 15);
     Fail |= layeredCase();
+    Fail |= byteArrayCase();
   }
   Fail |= hostOrderCase();
   if (Fail)
