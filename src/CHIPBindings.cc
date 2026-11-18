@@ -5912,21 +5912,8 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     DrvSrc = Params->dstArray->isDrv;
 
   if (ArrayDst || ArraySrc) {
-    auto Desc = ArrayDst ? Params->dstArray->desc.f : Params->srcArray->desc.f;
-    switch (Desc) {
-    case hipChannelFormatKindSigned:
-      ByteSize = sizeof(int);
-      break;
-    case hipChannelFormatKindUnsigned:
-      ByteSize = sizeof(unsigned int);
-      break;
-    case hipChannelFormatKindFloat:
-      ByteSize = sizeof(float);
-      break;
-    case hipChannelFormatKindNone:
-      ByteSize = sizeof(size_t);
-      break;
-    }
+    auto *A = ArrayDst ? Params->dstArray : Params->srcArray;
+    ByteSize = A->isDrv ? sizeof(int) : getChannelByteSize(A->desc);
   }
 
   if (ArrayDst && DrvSrc) {
