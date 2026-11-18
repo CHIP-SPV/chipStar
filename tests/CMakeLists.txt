@@ -157,7 +157,7 @@ add_test(NAME TestFix2042CMakeCuda
     -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2042CMakeCuda
     -DCONSUMER_DIR=${CMAKE_CURRENT_SOURCE_DIR}/TestFix2042CMakeCuda
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2042CMakeCuda.cmake)
-set_tests_properties(TestFix2042CMakeCuda PROPERTIES TIMEOUT 900 RESOURCE_LOCK chipStarInstall)
+set_tests_properties(TestFix2042CMakeCuda PROPERTIES TIMEOUT 900)
 # Reproduce #2046: CUDA_SEPARABLE_COMPILATION needs cucc -rdc and -dlink.
 if(NOT APPLE)
 add_test(NAME TestFix2046CMakeCudaRdc
@@ -167,7 +167,7 @@ add_test(NAME TestFix2046CMakeCudaRdc
     -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2046CMakeCudaRdc
     -DCONSUMER_DIR=${CMAKE_CURRENT_SOURCE_DIR}/TestFix2046CMakeCudaRdc
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2042CMakeCuda.cmake)
-set_tests_properties(TestFix2046CMakeCudaRdc PROPERTIES TIMEOUT 900 RESOURCE_LOCK chipStarInstall)
+set_tests_properties(TestFix2046CMakeCudaRdc PROPERTIES TIMEOUT 900)
 endif()
 endif()
 
@@ -176,7 +176,6 @@ add_test(NAME TestFix2047InstallPrefixSpace
     -DBUILD_DIR=${CMAKE_BINARY_DIR}
     -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/TestFix2047InstallPrefixSpace
     -P ${CMAKE_CURRENT_SOURCE_DIR}/TestFix2047InstallPrefixSpace.cmake)
-set_tests_properties(TestFix2047InstallPrefixSpace PROPERTIES RESOURCE_LOCK chipStarInstall)
 
 if(CHIP_USE_NATIVE_VULKAN_SPIRV)
 # Reproduce #2216: find_package(hip) must find Vulkan::Vulkan, which hip::CHIP links.
