@@ -1,10 +1,16 @@
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <hip/hip_runtime.h>
 #include "CHIPDriver.hh"
 #include <iostream>
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <type_traits>
+
+extern char **environ;
 
 // Helper function to set environment variables
 void setEnvVar(const char* name, const char* value) {
@@ -192,7 +198,7 @@ void testDefaultValues() {
         assertEqual(0, envVars.getPlatformIdx(), "Default CHIP_PLATFORM");
         assertEqual(static_cast<int>(DeviceType::GPU), static_cast<int>(envVars.getDevice().getType()), "Default CHIP_DEVICE_TYPE");
         assertEqual(0, envVars.getDeviceIdx(), "Default CHIP_DEVICE");
-        assertEqual(BackendType::OpenCL, envVars.getBackend().getType(), "Default CHIP_BE");
+        assertEqual(BackendType::Default, envVars.getBackend().getType(), "Default CHIP_BE");
         assertEqual(false, envVars.getDumpSpirv(), "Default CHIP_DUMP_SPIRV");
         assertEqual(false, envVars.getSkipUninit(), "Default CHIP_SKIP_UNINIT");
         assertEqual(true, envVars.getLazyJit(), "Default CHIP_LAZY_JIT");
@@ -389,10 +395,23 @@ int main() {
     try {
         // Refactor test cases into separate functions for better clarity
         testEnvironmentVariableParsing();
+        // The checks below construct EnvVars themselves and must not see the caller's CHIP_*.
+        for (char **E = environ; *E;)
+            if (!strncmp(*E, "CHIP_", 5))
+                unsetenv(std::string(*E, strchr(*E, '=')).c_str());
+            else
+                ++E;
+        // BackendType asserts when given a backend this build lacks.
+#ifdef HAVE_OPENCL
         testDeviceTypeFilteringWithOpenCL();
+#endif
+#ifdef HAVE_LEVEL0
         testManualDeviceSelection();
+#endif
         testDefaultValues();
+#ifdef HAVE_OPENCL
         testPartialEnvironmentVariableSetting();
+#endif
         testEnvironmentVariableOverriding();
         testManualDeviceSelectionOverriding();
         testInvalidValues();
