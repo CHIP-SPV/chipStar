@@ -1494,6 +1494,12 @@ def main():
     succeeded = []
     
     for comp in components_to_install:
+        failed_deps = [d.name for d in failed if d.name in comp.depends_on]
+        if failed_deps:
+            print(f"{Colors.RED}[FAILED]{Colors.NC} {comp.display_name}: "
+                  f"dependency failed: {', '.join(failed_deps)}")
+            failed.append(comp)
+            continue
         try:
             builder.build(comp)
             succeeded.append(comp)
