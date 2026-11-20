@@ -142,7 +142,8 @@ int main(int argc, char *argv[]) {
   file.close();
 
   std::string errorMsg;
-  std::string_view spirvBinary = extractSPIRVModule(buffer.data(), errorMsg);
+  std::string_view spirvBinary =
+      extractSPIRVModule(buffer.data(), errorMsg, buffer.size());
 
   if (spirvBinary.empty()) {
     if (checkForDoubles) {
