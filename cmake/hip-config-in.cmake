@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.5)
+# A maximum below 3.21 leaves CMP0126 unset, so a consumer's normal HIP_PLATFORM does not shadow the cache values below.
+cmake_policy(VERSION 3.5...3.20)
 
 @PACKAGE_INIT@
 include(CheckCXXCompilerFlag)
