@@ -173,9 +173,12 @@ std::shared_ptr<void> MemoryManager::allocateUSM(size_t Size, size_t Alignment,
   if (!RawPtr || Err != CL_SUCCESS)
     return Result;
 
-  auto Deleter =
-      [Ctx = this->Context_(), clMemFreeINTEL = this->USM_.clMemFreeINTEL](
-          void *PtrToFree) -> void { clMemFreeINTEL(Ctx, PtrToFree); };
+  auto Deleter = [Ctx = this->Context_(), Mtx = ChipCtxCl->UsmFreeMtx,
+                  clMemFreeINTEL = this->USM_.clMemFreeINTEL](
+                     void *PtrToFree) -> void {
+    std::lock_guard<std::recursive_mutex> Lock(*Mtx);
+    clMemFreeINTEL(Ctx, PtrToFree);
+  };
 
   Result.reset(RawPtr, Deleter);
   return Result;
