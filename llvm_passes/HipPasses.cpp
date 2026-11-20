@@ -2663,11 +2663,48 @@ class HipVulkanRetypeArraysPass
         I->setOperand(pointerIndex(I), Elt(0));
         continue;
       }
-      // A wider access: one per element, through an integer of its width.
+      unsigned N = DL.getTypeAllocSize(A) / Size;
+      // A wider vector whose lanes tile T (L of them, a shader vector): each
+      // element moves as L lanes, so no integer is wider than T.
+      auto *VT = dyn_cast<FixedVectorType>(A);
+      Type *LaneTy = VT ? VT->getElementType() : nullptr;
+      uint64_t LaneSize = LaneTy ? DL.getTypeAllocSize(LaneTy) : 0;
+      unsigned L = LaneSize ? Size / LaneSize : 0;
+      if (L && L <= 4 && Size % LaneSize == 0 &&
+          DL.getTypeSizeInBits(LaneTy) == LaneSize * 8) {
+        Type *PartTy = L == 1 ? LaneTy : FixedVectorType::get(LaneTy, L);
+        if (auto *St = dyn_cast<StoreInst>(I)) {
+          for (unsigned K = 0; K < N; ++K) {
+            Value *Part = PoisonValue::get(PartTy);
+            for (unsigned J = 0; J < L; ++J) {
+              Value *Lane =
+                  B.CreateExtractElement(St->getValueOperand(), K * L + J);
+              Part = L == 1 ? Lane : B.CreateInsertElement(Part, Lane, J);
+            }
+            B.CreateAlignedStore(B.CreateBitCast(Part, T), Elt(K),
+                                 commonAlignment(St->getAlign(), K * Size));
+          }
+        } else {
+          auto *Ld = cast<LoadInst>(I);
+          Value *V = PoisonValue::get(VT);
+          for (unsigned K = 0; K < N; ++K) {
+            Value *Part = B.CreateBitCast(
+                B.CreateAlignedLoad(T, Elt(K),
+                                    commonAlignment(Ld->getAlign(), K * Size)),
+                PartTy);
+            for (unsigned J = 0; J < L; ++J)
+              V = B.CreateInsertElement(
+                  V, L == 1 ? Part : B.CreateExtractElement(Part, J), K * L + J);
+          }
+          Ld->replaceAllUsesWith(V);
+        }
+        I->eraseFromParent();
+        continue;
+      }
+      // Other wider accesses: one per element, through an integer of its width.
       // WORKAROUND(CHIP-SPV/chipStar#1742, no upstream report): GlobalISel
       // asserts on a scalar to vector bitcast wider than a shader vector.
       // Remove the integer detour when CanaryVulkanBitcastFewerElements fires.
-      unsigned N = DL.getTypeAllocSize(A) / Size;
       Type *WideTy = B.getIntNTy(N * Size * 8), *EltTy = B.getIntNTy(Size * 8);
       if (auto *St = dyn_cast<StoreInst>(I)) {
         Value *V = B.CreateBitCast(St->getValueOperand(), WideTy);
