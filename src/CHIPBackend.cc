@@ -635,8 +635,6 @@ void chipstar::Module::invalidateDeviceVariablesNoLock() {
 
 void chipstar::Module::deallocateDeviceVariablesNoLock(
     chipstar::Device *Device) {
-  if (!DeviceVariablesAllocated_)
-    return;
   invalidateDeviceVariablesNoLock();
   for (auto *Var : ChipVars_) {
     if (!::Backend->getReinitializeFlag()) {
