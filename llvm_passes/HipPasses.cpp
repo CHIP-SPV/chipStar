@@ -2639,7 +2639,8 @@ class HipVulkanRetypeArraysPass
       if (A != T && (!(L ? L->isSimple() : S && S->isSimple()) ||
                      A->isAggregateType() ||
                      A->isPtrOrPtrVectorTy() || T->isPtrOrPtrVectorTy() ||
-                     ASize % Size || DL.getTypeSizeInBits(A) != ASize * 8))
+                     ASize % Size || DL.getTypeSizeInBits(A) != ASize * 8 ||
+                     DL.getTypeSizeInBits(T) != Size * 8))
         return nullptr;
     }
     return T;
