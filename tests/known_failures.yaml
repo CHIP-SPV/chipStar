@@ -107,6 +107,7 @@ ANY:
     'Unit_hipMemcpyParam2D_Positive_Basic_MemoryTest1': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipMemcpyParam2D_Positive_Synchronization_Behavior_MemoryTest1': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipMemcpy_Positive_Synchronization_Behavior_MemoryTest2': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
+    'Unit_hipMemAllocPitch_ValidatePitch_MemoryTest2': 'hipMemAllocPitch is unimplemented (returns hipErrorNotSupported), https://github.com/CHIP-SPV/chipStar/issues/2558'
     'Unit_hipMemGetAddressRange_Negative_MemoryTest2': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipMemPoolGetAccess_Negative_Parameters_MemoryTest2': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
     'Unit_hipMemPoolGetAttribute_Negative_Parameters_MemoryTest2': 'memory test fails on chipStar (Aurora L0+OCL); narrowed from over-broad _MemoryTest exclusion'
