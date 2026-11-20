@@ -163,6 +163,11 @@ if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2307VulkanTimeoutSyncLockOrder.hip
     TestFix2337VulkanTimeoutCopyLockOrder.hip)
 endif()
+# Native Vulkan only: its lowering of shared float atomics.
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES
+    TestFix2563VulkanContendedSharedFloatAtomic.hip)
+endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
 list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
