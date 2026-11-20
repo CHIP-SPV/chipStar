@@ -311,6 +311,37 @@ public:
 };
 #endif
 
+#ifndef CHIP_LLVM_USE_INTERGRATED_SPIRV
+// WORKAROUND(CHIP-SPV/chipStar#2247, KhronosGroup/SPIRV-LLVM-Translator#4090): llvm-spirv creates functions named in global initializers before declarations. Remove when https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/4092 lands.
+// Names the __chip_ declarations in a leading global so they are emitted first.
+class HipDeclOrderPass : public HipRequiredPassInfoMixin<HipDeclOrderPass> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    auto NamedByConstant = [](const Function &F) {
+      return !F.isDeclaration() &&
+             any_of(F.users(), [](const User *U) { return isa<Constant>(U); });
+    };
+    if (none_of(M, NamedByConstant))
+      return PreservedAnalyses::all();
+    SmallVector<Constant *, 4> Decls;
+    for (Function &F : M)
+      if (F.isDeclaration() && !F.isIntrinsic() &&
+          F.getName().contains("__chip_"))
+        Decls.push_back(&F);
+    if (Decls.empty())
+      return PreservedAnalyses::all();
+    auto *Ty = ArrayType::get(PointerType::getUnqual(M.getContext()),
+                              Decls.size());
+    new GlobalVariable(M, Ty, true, GlobalValue::InternalLinkage,
+                       ConstantArray::get(Ty, Decls), "__chip_decl_order",
+                       M.global_empty() ? nullptr : &*M.global_begin(),
+                       GlobalValue::NotThreadLocal, 1);
+    return PreservedAnalyses::none();
+  }
+  static bool isRequired() { return true; }
+};
+#endif
+
 // WORKAROUND(CHIP-SPV/chipStar#1891, KhronosGroup/SPIRV-LLVM-Translator#3918): translator lowers sitofp i1 true to +1.0. Remove when the fix is in the translator release branch chipStar builds.
 // WORKAROUND(CHIP-SPV/chipStar#1891, llvm/llvm-project#209232): the in-tree
 // backend does the same. Remove when the fix is in the LLVM release chipStar
@@ -939,6 +970,12 @@ static void addFullLinkTimePasses(ModulePassManager &MPM) {
   addPassWithVerification(
       MPM, createModuleToFunctionPassAdaptor(HipCoalesceDuplicatePhiPredsPass()),
       "HipCoalesceDuplicatePhiPredsPass");
+
+#ifndef CHIP_LLVM_USE_INTERGRATED_SPIRV
+  // WORKAROUND(CHIP-SPV/chipStar#2247, KhronosGroup/SPIRV-LLVM-Translator#4090): see the pass.
+  // Last, so nothing can delete the leading global.
+  addPassWithVerification(MPM, HipDeclOrderPass(), "HipDeclOrderPass");
+#endif
 
   // Final verification pass with summary printing
   MPM.addPass(HipVerifyPass("Post-HIP passes", true)); // true = print final summary
