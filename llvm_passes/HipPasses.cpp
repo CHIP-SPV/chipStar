@@ -1229,8 +1229,9 @@ public:
 };
 
 // Mesa's ANV on Intel Arc has neither shaderSharedFloat{32,64}AtomicAdd nor
-// shaderSharedInt64Atomics, so a shared float atomic add cannot be a native
-// atomic or a compare-and-swap loop: a work-group lock serializes it. Each lane
+// shaderSharedInt64Atomics, so a shared float atomic cannot be native: a float
+// becomes a compare-and-swap loop on its bits, and wider or narrower types,
+// which have no integer atomic of their width, a work-group lock. Each lane
 // retries the lock from a loop rather than spinning in the branch, which would
 // deadlock the lanes of one subgroup.
 class HipVulkanLockSharedFloatAtomicsPass
@@ -1257,10 +1258,39 @@ public:
     SmallSetVector<Function *, 4> Kernels;
     for (AtomicRMWInst *RMW : Work) {
       Function *F = RMW->getFunction();
-      Kernels.insert(F);
       BasicBlock *Pre = RMW->getParent();
       BasicBlock *Exit = Pre->splitBasicBlock(RMW, "fatomic.exit");
       Pre->getTerminator()->eraseFromParent();
+      auto *GV = dyn_cast<GlobalVariable>(
+          getUnderlyingObject(RMW->getPointerOperand()));
+      // Only storage the retype can make integer: a scalar float or an array.
+      if (RMW->getType()->isFloatTy() && GV &&
+          (GV->getValueType()->isFloatTy() ||
+           isa<ArrayType>(GV->getValueType()))) {
+        // Lock free: a lane only retries because another one's swap landed.
+        IRBuilder<> B(Pre);
+        Value *Ptr = RMW->getPointerOperand();
+        Value *Init = B.CreateAlignedLoad(I32, Ptr, RMW->getAlign());
+        auto *Loop = BasicBlock::Create(C, "fatomic.cas", F, Exit);
+        B.CreateBr(Loop);
+        B.SetInsertPoint(Loop);
+        PHINode *Cur = B.CreatePHI(I32, 2);
+        Value *Old = B.CreateBitCast(Cur, RMW->getType());
+        Value *New = B.CreateBitCast(
+            buildAtomicRMWValue(RMW->getOperation(), B, Old,
+                                RMW->getValOperand()),
+            I32);
+        Value *Pair = B.CreateAtomicCmpXchg(Ptr, Cur, New, RMW->getAlign(),
+                                            RMW->getOrdering(),
+                                            AtomicOrdering::Monotonic, WG);
+        Cur->addIncoming(Init, Pre);
+        Cur->addIncoming(B.CreateExtractValue(Pair, 0), Loop);
+        B.CreateCondBr(B.CreateExtractValue(Pair, 1), Exit, Loop);
+        RMW->replaceAllUsesWith(Old);
+        RMW->eraseFromParent();
+        continue;
+      }
+      Kernels.insert(F);
       auto *Try = BasicBlock::Create(C, "fatomic.try", F, Exit);
       auto *Crit = BasicBlock::Create(C, "fatomic.crit", F, Exit);
       auto *Next = BasicBlock::Create(C, "fatomic.next", F, Exit);
@@ -1292,6 +1322,8 @@ public:
       RMW->replaceAllUsesWith(Res);
       RMW->eraseFromParent();
     }
+    if (Kernels.empty())
+      Lock->eraseFromParent();
     // The first work item clears the lock before anyone takes it.
     for (Function *F : Kernels) {
       IRBuilder<> B(&*F->getEntryBlock().getFirstInsertionPt());
@@ -2623,10 +2655,14 @@ class HipVulkanRetypeArraysPass
   // a whole number of it (which are split) and Total bytes are too.
   static Type *uniformType(ArrayRef<Instruction *> Is, uint64_t Total,
                            const DataLayout &DL) {
+    // The smallest access type; of equal ones an atomic's, which cannot change.
     Type *T = accessType(Is[0]);
-    for (Instruction *I : Is)
-      if (DL.getTypeAllocSize(accessType(I)) < DL.getTypeAllocSize(T))
+    for (Instruction *I : Is) {
+      TypeSize S = DL.getTypeAllocSize(accessType(I));
+      if (S < DL.getTypeAllocSize(T) ||
+          (S == DL.getTypeAllocSize(T) && !isa<LoadInst, StoreInst>(I)))
         T = accessType(I);
+    }
     uint64_t Size = DL.getTypeAllocSize(T);
     if (!isPowerOf2_64(Size) || Total % Size || T->isAggregateType())
       return nullptr;
@@ -2797,12 +2833,18 @@ public:
     const DataLayout &DL = M.getDataLayout();
     bool Changed = false;
     for (GlobalVariable &GV : make_early_inc_range(M.globals())) {
+      Type *VT = GV.getValueType();
       if (GV.getAddressSpace() != SPIRV_WORKGROUP_AS || GV.isDeclaration() ||
-          !isa<ArrayType>(GV.getValueType()))
+          !(isa<ArrayType>(VT) || VT->isIntOrIntVectorTy() ||
+            VT->isFPOrFPVectorTy()))
         continue;
       SmallVector<Instruction *, 8> Accesses, Markers;
       SetVector<Value *> Derived;
       if (!collectAll(&GV, Accesses, Markers, Derived) || Accesses.empty())
+        continue;
+      // A scalar accessed only as its own type needs nothing.
+      if (!isa<ArrayType>(VT) &&
+          all_of(Accesses, [&](Instruction *I) { return accessType(I) == VT; }))
         continue;
       // Each function gets its own array: the kernels of a module may use
       // their dynamic shared memory as different types.
@@ -2818,9 +2860,13 @@ public:
       for (auto &[F, Is] : ByFunction) {
         Type *T = uniformType(Is, Total, DL);
         auto *ArrTy = ArrayType::get(T, Total / DL.getTypeAllocSize(T));
+        // A scalar stays one: its accesses' zero index folds to it.
+        Type *NewTy = isa<ArrayType>(VT) || ArrTy->getNumElements() != 1
+                          ? ArrTy
+                          : T;
         auto *NewGV = new GlobalVariable(
-            M, ArrTy, false, GlobalValue::InternalLinkage,
-            PoisonValue::get(ArrTy), GV.getName() + "." + F->getName(), &GV,
+            M, NewTy, false, GlobalValue::InternalLinkage,
+            PoisonValue::get(NewTy), GV.getName() + "." + F->getName(), &GV,
             GlobalValue::NotThreadLocal, SPIRV_WORKGROUP_AS);
         NewGV->setAlignment(
             std::max(GV.getAlign().valueOrOne(), DL.getABITypeAlign(T)));
@@ -3707,11 +3753,12 @@ static void addVulkanLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(createModuleToFunctionPassAdaptor(HipLowerMemsetPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanSplitBufferChoicesPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanSplitMixedPointersPass()));
+  // Before the retype, which gives its compare-and-swap loops integer storage.
+  MPM.addPass(HipVulkanLockSharedFloatAtomicsPass());
   MPM.addPass(HipVulkanRetypeArraysPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::ModifyCFG)));
   // SROA leaves the integer bits of split pointer fields dead.
   MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
-  MPM.addPass(HipVulkanLockSharedFloatAtomicsPass());
   // Devices need not support floating-point atomic min/max (the B570 has none
   // for double).
   MPM.addPass(createModuleToFunctionPassAdaptor(HipLowerFPAtomicMinMaxPass()));
