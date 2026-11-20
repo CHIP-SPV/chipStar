@@ -481,7 +481,7 @@ std::vector<uint32_t> HipVerifyPass::convertIRToSPIRV(Module &M, std::string &er
     "-mllvm", "-spirv-ext=" CHIP_HIPVERIFY_BACKEND_EXT,
 #else
     "--spirv-max-version=1.2",
-    "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add",
+    "--spirv-ext=-all,+SPV_INTEL_function_pointers,+SPV_INTEL_subgroups,+SPV_EXT_shader_atomic_float_add,+SPV_INTEL_cache_controls",
 #endif
     "-o", SPVTempFile,
     BCTempFile
