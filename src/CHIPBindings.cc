@@ -5994,10 +5994,10 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
         ChipQueue->memCopyAsync(Dst, Src, WidthInBytes, Params->kind);
       }
     }
-    // Host to host copies are complete on return, as in HIP.
-    if (Params->kind == hipMemcpyHostToHost)
-      ChipQueue->finish();
   }
+  // Host to host copies are complete on return, as in HIP.
+  if (Params->kind == hipMemcpyHostToHost)
+    ChipQueue->finish();
   return hipSuccess;
 }
 
