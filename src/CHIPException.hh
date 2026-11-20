@@ -41,6 +41,8 @@
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <atomic>
+#include <exception>
+#include <new>
 
 class CHIPError {
   std::string Msg_;
@@ -113,18 +115,34 @@ inline void trackThreadEntry() {
   catch (CHIPError _status) {                                                  \
     logError("Caught Error: {}", _status.getErrStr());                         \
     RETURN(_status.toHIPError());                                              \
+  }                                                                            \
+  catch (const std::bad_alloc &) {                                             \
+    logError("Caught std::bad_alloc");                                         \
+    RETURN(hipErrorOutOfMemory);                                               \
+  }                                                                            \
+  catch (const std::exception &_e) {                                           \
+    logError("Caught exception: {}", _e.what());                               \
+    RETURN(hipErrorUnknown);                                                   \
   }
 
 #define CHIP_CATCH_NO_RETURN                                                   \
   }                                                                            \
   catch (CHIPError _status) {                                                  \
     logError(hipGetErrorNameInternal(_status.toHIPError()));                   \
+  }                                                                            \
+  catch (const std::exception &_e) {                                           \
+    logError("Caught exception: {}", _e.what());                               \
   }
 
 #define CHIP_CATCH_RETURN_CODE(code)                                           \
   }                                                                            \
   catch (CHIPError _status) {                                                  \
     logError("Caught Error: {} Returned: {}", _status.getErrStr(),             \
+             hipGetErrorNameInternal(code));                                   \
+    RETURN(code);                                                              \
+  }                                                                            \
+  catch (const std::exception &_e) {                                           \
+    logError("Caught exception: {} Returned: {}", _e.what(),                   \
              hipGetErrorNameInternal(code));                                   \
     RETURN(code);                                                              \
   }
