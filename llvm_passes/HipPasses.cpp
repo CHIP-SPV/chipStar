@@ -2554,6 +2554,8 @@ class HipVulkanRetypeArraysPass
            U.getOperandNo() == 0)) {
         if (Derived.insert(Usr) && !collect(Usr, Accesses, Markers, Derived))
           return false;
+      } else if (isa<ICmpInst>(Usr)) {
+        Derived.insert(Usr); // Compared as byte offsets.
       } else if (isa<LoadInst, StoreInst, AtomicRMWInst, AtomicCmpXchgInst>(
                      Usr) &&
                  U.getOperandNo() == pointerIndex(cast<Instruction>(Usr))) {
@@ -2567,15 +2569,15 @@ class HipVulkanRetypeArraysPass
     }
     return true;
   }
-  // As collect, and also false if a phi or select takes a pointer that does
-  // not come from Obj.
+  // As collect, and also false if a phi, select or compare takes a pointer
+  // that does not come from Obj.
   static bool collectAll(Value *Obj, SmallVectorImpl<Instruction *> &Accesses,
                          SmallVectorImpl<Instruction *> &Markers,
                          SetVector<Value *> &Derived) {
     if (!collect(Obj, Accesses, Markers, Derived))
       return false;
     for (Value *D : Derived)
-      if (isa<PHINode, SelectInst>(D))
+      if (isa<PHINode, SelectInst, ICmpInst>(D))
         for (Value *W : cast<User>(D)->operands())
           if (W->getType()->isPointerTy() && W != Obj &&
               !isa<PoisonValue, UndefValue>(W) && !Derived.count(W))
@@ -2729,6 +2731,18 @@ class HipVulkanRetypeArraysPass
   }
 
   // The derived pointers are now used only among themselves.
+  // Compares pointers into Obj by their byte offsets.
+  static void rewriteCompares(Value *Obj, SetVector<Value *> &Derived,
+                              const DataLayout &DL,
+                              DenseMap<Value *, Value *> &Memo) {
+    for (Value *D : Derived)
+      if (auto *Cmp = dyn_cast<ICmpInst>(D)) {
+        Value *L = byteOffset(Cmp->getOperand(0), Obj, DL, Memo);
+        Value *R = byteOffset(Cmp->getOperand(1), Obj, DL, Memo);
+        Cmp->replaceAllUsesWith(
+            new ICmpInst(Cmp->getIterator(), Cmp->getPredicate(), L, R));
+      }
+  }
   static void eraseDerived(SetVector<Value *> &Derived) {
     SmallVector<Instruction *, 8> Dead;
     for (Value *D : Derived)
@@ -2774,6 +2788,7 @@ public:
             std::max(GV.getAlign().valueOrOne(), DL.getABITypeAlign(T)));
         rewrite(&GV, NewGV, ArrTy, Is, DL, Memo);
       }
+      rewriteCompares(&GV, Derived, DL, Memo);
       eraseDerived(Derived);
       // Only dead address computations still use it.
       GV.replaceAllUsesWith(PoisonValue::get(GV.getType()));
@@ -2803,6 +2818,7 @@ public:
         NewAI->takeName(AI);
         DenseMap<Value *, Value *> Memo;
         rewrite(AI, NewAI, ArrTy, Accesses, DL, Memo);
+        rewriteCompares(AI, Derived, DL, Memo);
         eraseDerived(Derived);
         for (Instruction *Marker : Markers)
           Marker->eraseFromParent();
