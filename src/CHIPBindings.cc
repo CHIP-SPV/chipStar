@@ -3172,7 +3172,20 @@ hipError_t hipDeviceSynchronize(void) {
   CHIP_TRY
   LOCK(ApiMtx);
   CHIPInitialize();
-  RETURN(hipDeviceSynchronizeInternal());
+  hipError_t Err = hipDeviceSynchronizeInternal();
+  // Queues after the first failure keep theirs for their next synchronize.
+  auto Take = [&Err](chipstar::Queue *Q) {
+    if (Err == hipSuccess)
+      Err = Q->takeCommandError();
+  };
+  auto Dev = Backend->getActiveDevice();
+  LOCK(Dev->QueueAddRemoveMtx);
+  Take(Dev->getLegacyDefaultQueue());
+  for (auto Q : Dev->getQueuesNoLock())
+    Take(Q);
+  if (Dev->isPerThreadStreamUsed())
+    Take(Dev->getPerThreadDefaultQueue());
+  RETURN(Err);
   CHIP_CATCH
 }
 
@@ -3838,13 +3851,17 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
   // If this is a blocking stream (not the default stream), also sync with
   // the default stream per HIP/CUDA implicit synchronization semantics.
   // Blocking streams implicitly synchronize with the NULL/default stream.
+  hipError_t Err = hipSuccess;
   if (ChipQueue->getQueueFlags().isBlocking() &&
       !ChipQueue->isDefaultLegacyQueue() &&
       !ChipQueue->isDefaultPerThreadQueue()) {
     auto Dev = Backend->getActiveDevice();
     Dev->getLegacyDefaultQueue()->finish();
+    Err = Dev->getLegacyDefaultQueue()->takeCommandError();
     if (Dev->isPerThreadStreamUsed()) {
       Dev->getPerThreadDefaultQueue()->finish();
+      if (Err == hipSuccess)
+        Err = Dev->getPerThreadDefaultQueue()->takeCommandError();
     }
   }
 
@@ -3861,7 +3878,7 @@ static inline hipError_t hipStreamSynchronizeInternal(hipStream_t Stream) {
   }
 
   ChipQueue->finish();
-  return hipSuccess;
+  return Err == hipSuccess ? ChipQueue->takeCommandError() : Err;
 }
 
 hipError_t hipStreamSynchronize(hipStream_t Stream) {
