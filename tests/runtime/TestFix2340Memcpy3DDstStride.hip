@@ -1,10 +1,12 @@
 // Reproduces #2340: hipMemcpy3D steps destination slices by the extent height.
 #include <hip/hip_runtime.h>
-#include <chrono>
 #include <cstdio>
 #include <cstring>
-#include <thread>
 #include <vector>
+
+#ifndef FILL_ITERS
+#define FILL_ITERS 12000000u
+#endif
 
 #define CHECK(X)                                                               \
   do {                                                                         \
@@ -158,16 +160,24 @@ static int layeredCase() {
 }
 
 // A host to host copy waits for earlier stream work and is complete on return.
-static void fillSrc(hipStream_t, hipError_t, void *Src) {
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
-  memset(Src, 0x3C, 16 * 2 * 2);
+__global__ void fillSrc(unsigned char *Src, unsigned N, unsigned *Sink) {
+  unsigned X = N;
+  for (unsigned I = 0; I < N; I++)
+    X = X * 1664525u + 1013904223u;
+  for (int I = 0; I < 16 * 2 * 2; I++)
+    Src[I] = 0x3C;
+  *Sink = X;
 }
 
 static int hostOrderCase() {
   hipStream_t Stream;
   CHECK(hipStreamCreate(&Stream));
-  unsigned char Src[16 * 2 * 2] = {}, Dst[16 * 1 * 2] = {};
-  CHECK(hipStreamAddCallback(Stream, fillSrc, Src, 0));
+  unsigned char *Src, Dst[16 * 1 * 2] = {};
+  unsigned *Sink;
+  CHECK(hipHostMalloc(&Src, 16 * 2 * 2));
+  CHECK(hipHostMalloc(&Sink, sizeof(unsigned)));
+  memset(Src, 0, 16 * 2 * 2);
+  fillSrc<<<1, 1, 0, Stream>>>(Src, FILL_ITERS, Sink);
   hipMemcpy3DParms P = {};
   P.srcPtr = make_hipPitchedPtr(Src, 16, 16, 2);
   P.dstPtr = make_hipPitchedPtr(Dst, 16, 16, 1);
@@ -183,6 +193,8 @@ static int hostOrderCase() {
     }
   CHECK(hipStreamSynchronize(Stream));
   CHECK(hipStreamDestroy(Stream));
+  CHECK(hipHostFree(Src));
+  CHECK(hipHostFree(Sink));
   return R;
 }
 
