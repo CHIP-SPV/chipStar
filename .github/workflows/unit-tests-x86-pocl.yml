@@ -45,7 +45,7 @@ jobs:
           submodules: 'recursive'
 
       # ninja cannot see a rebuilt toolchain, a new file shadowing an included one, nor a
-      # changed CMake default, which only seeds a fresh cache; any change wipes both lanes.
+      # changed CMake default, which only seeds a fresh cache; any change wipes every lane.
       - name: Reset build dirs on configuration change
         run: |
           set -eo pipefail
@@ -92,6 +92,31 @@ jobs:
       - name: Test translator, pocl opencl
         if: ${{ !cancelled() && steps.translator-build.outcome == 'success' }}
         run: ulimit -c 0 && cd $BUILD_ROOT/translator && $GITHUB_WORKSPACE/scripts/check.py ./ pocl opencl ${{ inputs.math_tests && '--math-tests' || '' }}
+        timeout-minutes: 60
+
+      # hipcc links via .hipInfo, find_package(HIP) via the exported targets.
+      - name: Static chipStar, run samples against the install
+        if: ${{ !cancelled() && !inputs.math_tests }}
+        run: |
+          set -e
+          B=$BUILD_ROOT/static
+          P=$B/install
+          rm -rf $P $B/consumer
+          cmake -S . -B $B -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCHIP_BUILD_SHARED_LIBS=OFF \
+            -DCHIP_BUILD_TESTS=OFF \
+            -DCHIP_BUILD_SAMPLES=OFF \
+            -DCHIP_LLVM_USE_INTERGRATED_SPIRV=ON \
+            -DCMAKE_INSTALL_PREFIX=$P \
+            -DLLVM_CONFIG_BIN=$LLVM_DIR/bin/llvm-config
+          ninja -C $B -j$(nproc) install
+          export CHIP_BE=opencl CHIP_DEVICE_TYPE=pocl
+          $P/bin/hipcc samples/0_MatrixMultiply/MatrixMultiply.cpp -o $B/MatrixMultiply
+          $B/MatrixMultiply
+          cmake -S tests/post-install/HipDeviceTarget -B $B/consumer -G Ninja \
+            -DCMAKE_PREFIX_PATH=$P -DCMAKE_CXX_COMPILER=$LLVM_DIR/bin/clang++
+          ninja -C $B/consumer
+          $B/consumer/foo
         timeout-minutes: 60
 
       - uses: actions/upload-artifact@v4
