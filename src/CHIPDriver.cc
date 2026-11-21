@@ -108,8 +108,12 @@ void __attribute__((destructor)) uninitializeBackend() {
   // there won't be hip(Un)registerFatBinary() calls if the HIP
   // program does not have embedded kernels. This makes sure we
   // uninitialize the backend at exit.
-  if (Backend && CHIPNumRegisteredFatBinaries == 0)
-    CHIPUninitialize();
+  try {
+    if (Backend && CHIPNumRegisteredFatBinaries == 0)
+      CHIPUninitialize();
+  } catch (CHIPError &E) {
+    logError("{}", E.getErrStr());
+  }
 }
 
 static void createBackendObject() {
