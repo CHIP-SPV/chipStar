@@ -275,7 +275,12 @@ public:
   BackendType getBackend() const { return Backend_; }
   bool getDumpSpirv() const { return DumpSpirv_; }
   bool getSaveTemps() const { return SaveTemps_; }
-  bool getSkipUninit() const { return SkipUninit_; }
+  bool getSkipUninit() const {
+    return __atomic_load_n(&SkipUninit_, __ATOMIC_ACQUIRE);
+  }
+  void setSkipUninit() {
+    __atomic_store_n(&SkipUninit_, true, __ATOMIC_RELEASE);
+  }
   const std::string &getJitFlags() const { return JitFlags_; }
   const std::string &getJitFlagsOverride() const { return JitFlagsOverride_; }
   bool hasJitOverride() const { return !JitFlagsOverride_.empty(); }

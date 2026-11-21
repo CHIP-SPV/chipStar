@@ -225,6 +225,9 @@ target_link_libraries(TestFix2242VulkanLostDeviceStagingLeak ${CMAKE_DL_LIBS})
 # Exports its vkGetFenceStatus interposers so libCHIP binds to them.
 set_target_properties(TestFix2214VulkanMonitorHardError PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(TestFix2214VulkanMonitorHardError ${CMAKE_DL_LIBS})
+# Exports its vkSignalSemaphore interposer so libCHIP binds to it.
+set_target_properties(TestFix2224VulkanMonitorSignalFail PROPERTIES ENABLE_EXPORTS ON)
+target_link_libraries(TestFix2224VulkanMonitorSignalFail ${CMAKE_DL_LIBS})
 # Makes IGC compile the test's unpinned kernel at SIMD16; ignored elsewhere.
 # Lazy JIT lets the test skip before PoCL compiles its indirect call.
 if(TEST TestFixRuntimeWarpSize)

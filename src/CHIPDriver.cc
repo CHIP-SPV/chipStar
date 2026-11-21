@@ -285,6 +285,8 @@ void CHIPUninitializeCallOnce() {
     // Exit has no caller to report to; the OS reclaims what a failed teardown leaves.
     try {
       Backend->uninitialize();
+      if (ChipEnvVars.getSkipUninit())
+        return;
       delete Backend;
       Backend = nullptr;
     } catch (CHIPError &Err) {

@@ -47,6 +47,10 @@
 #include <unistd.h>
 
 namespace {
+// How often a host wait re-checks for a failed signal; a signal wakes it at
+// once, so this only bounds how soon a failure is noticed.
+constexpr uint64_t FailurePollNs = 100000000;
+
 // Throws Err with Msg unless R is VK_SUCCESS.
 inline void checkVk(VkResult R, const char *Msg, hipError_t Err) {
   if (R != VK_SUCCESS) {
@@ -121,20 +125,24 @@ CHIPEventVulkan::~CHIPEventVulkan() {
   if (ChipContext_) {
     auto *VkCtx = static_cast<CHIPContextVulkan *>(ChipContext_);
     if (auto *Dev = VkCtx->getVulkanDevice()) {
-      if (Fence_ != VK_NULL_HANDLE) {
-        // A user event may be destroyed while its recording is pending.
-        if (EventStatus_ == EVENT_STATUS_RECORDING)
-          vkWaitForFences(Dev->getLogicalDevice(), 1, &Fence_, VK_TRUE,
-                          UINT64_MAX);
-        Dev->releaseFence(Fence_);
-        Fence_ = VK_NULL_HANDLE;
+      // A user event may be destroyed while its recording is pending. Once a
+      // signal has failed that submit cannot be proven finished, so it may
+      // still own the fence, slot and semaphore.
+      bool Stuck = Fence_ != VK_NULL_HANDLE &&
+                   EventStatus_ == EVENT_STATUS_RECORDING &&
+                   Dev->waitFence(Fence_) == VK_TIMEOUT;
+      if (!Stuck) {
+        if (Fence_ != VK_NULL_HANDLE) {
+          Dev->releaseFence(Fence_);
+          Fence_ = VK_NULL_HANDLE;
+        }
+        if (TimestampSlot_ >= 0) {
+          Dev->releaseTimestampSlot(TimestampSlot_);
+          TimestampSlot_ = -1;
+        }
+        if (IpcSem_ != VK_NULL_HANDLE)
+          vkDestroySemaphore(Dev->getLogicalDevice(), IpcSem_, nullptr);
       }
-      if (TimestampSlot_ >= 0) {
-        Dev->releaseTimestampSlot(TimestampSlot_);
-        TimestampSlot_ = -1;
-      }
-      if (IpcSem_ != VK_NULL_HANDLE)
-        vkDestroySemaphore(Dev->getLogicalDevice(), IpcSem_, nullptr);
     }
   }
   if (IpcTarget_)
@@ -338,8 +346,11 @@ bool CHIPEventVulkan::updateFinishStatus(bool ThrowErrorIfNotReady) {
     return true;
   }
   if (Status == VK_NOT_READY) {
-    if (ThrowErrorIfNotReady)
+    if (ThrowErrorIfNotReady) {
+      if (CHIPBackendVulkan::SignalFailed_)
+        CHIPERR_LOG_AND_THROW("a timeline signal failed", hipErrorTbd);
       CHIPERR_LOG_AND_THROW("chipstar::Event Not Ready", hipErrorNotReady);
+    }
     return false;
   }
   if (ThrowErrorIfNotReady)
@@ -385,8 +396,7 @@ bool CHIPEventVulkan::wait() {
     return true;
   }
 
-  VkResult Status =
-      vkWaitForFences(Dev->getLogicalDevice(), 1, &Fence_, VK_TRUE, UINT64_MAX);
+  VkResult Status = Dev->waitFence(Fence_);
   if (Status != VK_SUCCESS) {
     CHIPERR_LOG_AND_THROW("vkWaitForFences failed", hipErrorTbd);
   }
@@ -599,6 +609,9 @@ void EventMonitorVulkan::monitor() {
         Q->signalTimelineValue(
             static_cast<CHIPCallbackDataVulkan *>(CbData)->DoneValue);
         delete static_cast<CHIPCallbackDataVulkan *>(CbData);
+        // Nothing behind a failed signal completes; stop polling.
+        if (CHIPBackendVulkan::SignalFailed_)
+          return;
       }
     }
 
@@ -1689,6 +1702,15 @@ CHIPDeviceVulkan::~CHIPDeviceVulkan() {
     LogicalDevice_ = VK_NULL_HANDLE;
   }
 }
+VkResult CHIPDeviceVulkan::waitFence(VkFence F) {
+  VkResult R;
+  while ((R = vkWaitForFences(LogicalDevice_, 1, &F, VK_TRUE, FailurePollNs)) ==
+         VK_TIMEOUT)
+    if (CHIPBackendVulkan::SignalFailed_)
+      break;
+  return R;
+}
+
 CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
                                            VkPhysicalDevice PhysDev, int Idx) {
   CHIPDeviceVulkan *Dev = new CHIPDeviceVulkan(ChipContext, PhysDev, Idx);
@@ -2284,7 +2306,8 @@ CHIPQueueVulkan::~CHIPQueueVulkan() {
       ChipDevice_ ? ChipDevice_->getLogicalDevice() : VK_NULL_HANDLE;
   if (Dev == VK_NULL_HANDLE)
     return;
-  if (CHIPBackendVulkan::ShuttingDown_.load(std::memory_order_acquire)) {
+  if (CHIPBackendVulkan::ShuttingDown_.load(std::memory_order_acquire) ||
+      CHIPBackendVulkan::SignalFailed_) {
     FinishFence_ = VK_NULL_HANDLE;
     TimelineSemaphore_ = VK_NULL_HANDLE;
     CommandPool_ = VK_NULL_HANDLE;
@@ -2328,6 +2351,9 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
                           hipErrorNotSupported);
   auto CmdLock = lockCmdRecord();
 
+  // Acquire first: its wait can throw, which must not follow a state change.
+  VkCommandBuffer Cb = acquireCmdBuffer();
+
   // Re-recording: the previous recording's fence and slot must be free.
   if (EvVk->getEventStatus() != EVENT_STATUS_INIT) {
     EvVk->wait();
@@ -2355,7 +2381,6 @@ void CHIPQueueVulkan::recordEvent(chipstar::Event *Event) {
           std::chrono::steady_clock::now().time_since_epoch())
           .count());
 
-  VkCommandBuffer Cb = acquireCmdBuffer();
   VkCommandBufferBeginInfo BI{};
   BI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   BI.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -2755,11 +2780,13 @@ CHIPQueueVulkan::memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
     auto *EvVk = static_cast<CHIPEventVulkan *>(Ev.get());
     VkFence F = EvVk ? EvVk->getFence() : VK_NULL_HANDLE;
     if (F != VK_NULL_HANDLE && VkDev != VK_NULL_HANDLE) {
-      VkResult WaitRes = vkWaitForFences(VkDev, 1, &F, VK_TRUE, UINT64_MAX);
+      VkResult WaitRes = Dev->waitFence(F);
       if (WaitRes != VK_SUCCESS) {
         // Only device loss ends the device's use of the buffer.
         if (WaitRes != VK_ERROR_DEVICE_LOST)
           Guard.handOver(Ev);
+        if (WaitRes == VK_TIMEOUT)
+          throwIfSignalFailed();
         CHIPERR_LOG_AND_THROW(
             std::string("memCopyAsync D2H: vkWaitForFences failed VkResult=") +
                 std::to_string(static_cast<int>(WaitRes)),
@@ -3396,7 +3423,7 @@ void CHIPQueueVulkan::drainDevicePrintf() {
   auto *Dev = static_cast<CHIPDeviceVulkan *>(ChipDevice_);
   auto Buffers = Dev->getDevicePrintfBuffers();
   // A callback waiting for the queue would wait on itself.
-  if (Buffers.empty() || InCallbackThread)
+  if (Buffers.empty() || InCallbackThread || CHIPBackendVulkan::SignalFailed_)
     return;
   {
     // Kernels of every stream write the same buffers.
@@ -3430,8 +3457,7 @@ void CHIPQueueVulkan::drainDevicePrintf() {
                                hipMemcpyHostToDevice);
     if (auto *EvVk = static_cast<CHIPEventVulkan *>(Ev.get()))
       if (VkFence F = EvVk->getFence())
-        vkWaitForFences(ChipDevice_->getLogicalDevice(), 1, &F, VK_TRUE,
-                        UINT64_MAX);
+        (void)ChipDevice_->waitFence(F);
     for (size_t I = 0; I < Used;) {
       uint32_t NW = Data[I];
       if (NW < 2 || I + NW > Used)
@@ -3461,13 +3487,7 @@ void CHIPQueueVulkan::finishWithoutEventsMtx() {
       std::lock_guard<std::mutex> Lock(QueueOpMtx_);
       Target = TimelineValue_;
     }
-    VkSemaphoreWaitInfo WI{};
-    WI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-    WI.semaphoreCount = 1;
-    WI.pSemaphores = &TimelineSemaphore_;
-    WI.pValues = &Target;
-    checkVk(vkWaitSemaphores(ChipDevice_->getLogicalDevice(), &WI, UINT64_MAX),
-            "CHIPQueueVulkan::finish: vkWaitSemaphores failed", hipErrorTbd);
+    waitTimelineValue(Target);
   }
   IsEmptyQueue_.store(true);
 }
@@ -3482,8 +3502,32 @@ void CHIPQueueVulkan::signalTimelineValue(uint64_t Value) {
   SI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
   SI.semaphore = TimelineSemaphore_;
   SI.value = Value;
-  checkVk(vkSignalSemaphore(ChipDevice_->getLogicalDevice(), &SI),
-          "CHIPQueueVulkan: vkSignalSemaphore failed", hipErrorTbd);
+  VkResult R = vkSignalSemaphore(ChipDevice_->getLogicalDevice(), &SI);
+  if (R != VK_SUCCESS) {
+    logError("CHIPQueueVulkan: vkSignalSemaphore failed VkResult={}", (int)R);
+    ChipEnvVars.setSkipUninit();
+    CHIPBackendVulkan::SignalFailed_ = true;
+  }
+}
+
+void CHIPQueueVulkan::throwIfSignalFailed() const {
+  if (CHIPBackendVulkan::SignalFailed_)
+    CHIPERR_LOG_AND_THROW("CHIPQueueVulkan: a timeline signal failed",
+                          hipErrorTbd);
+}
+
+void CHIPQueueVulkan::waitTimelineValue(uint64_t Value) {
+  VkSemaphoreWaitInfo WI{};
+  WI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+  WI.semaphoreCount = 1;
+  WI.pSemaphores = &TimelineSemaphore_;
+  WI.pValues = &Value;
+  VkResult R;
+  while ((R = vkWaitSemaphores(ChipDevice_->getLogicalDevice(), &WI,
+                               FailurePollNs)) == VK_TIMEOUT)
+    throwIfSignalFailed();
+  checkVk(R, "CHIPQueueVulkan::waitTimelineValue: vkWaitSemaphores failed",
+          hipErrorTbd);
 }
 
 bool CHIPQueueVulkan::query() {
@@ -3500,6 +3544,8 @@ bool CHIPQueueVulkan::query() {
     std::lock_guard<std::mutex> Lock(QueueOpMtx_);
     Target = TimelineValue_;
   }
+  if (Current < Target)
+    throwIfSignalFailed();
   return Current >= Target;
 }
 
@@ -3511,8 +3557,9 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::enqueueBarrierImpl(
     auto *Ev = static_cast<CHIPEventVulkan *>(E.get());
     if (Ev && Ev->getFence() != VK_NULL_HANDLE) {
       VkFence Wf = Ev->getFence();
-      (void)vkWaitForFences(ChipDevice_->getLogicalDevice(), 1, &Wf,
-                            VK_TRUE, UINT64_MAX);
+      if (static_cast<CHIPDeviceVulkan *>(ChipDevice_)->waitFence(Wf) ==
+          VK_TIMEOUT)
+        throwIfSignalFailed();
     }
   }
 
@@ -3625,12 +3672,7 @@ VkCommandBuffer CHIPQueueVulkan::acquireCmdBuffer() {
   }
   // Resetting a command buffer that is still pending drops its commands.
   if (Pending > 0 && TimelineSemaphore_ != VK_NULL_HANDLE) {
-    VkSemaphoreWaitInfo WI{};
-    WI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-    WI.semaphoreCount = 1;
-    WI.pSemaphores = &TimelineSemaphore_;
-    WI.pValues = &Pending;
-    (void)vkWaitSemaphores(ChipDevice_->getLogicalDevice(), &WI, UINT64_MAX);
+    waitTimelineValue(Pending);
   }
   if (Cb != VK_NULL_HANDLE) {
     (void)vkResetCommandBuffer(Cb, /*flags=*/0);
@@ -3772,6 +3814,7 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
 // ============================================================================
 
 std::atomic<bool> CHIPBackendVulkan::ShuttingDown_{false};
+std::atomic<bool> CHIPBackendVulkan::SignalFailed_{false};
 std::recursive_mutex CHIPBackendVulkan::TeardownMtx_;
 CHIPBackendVulkan::CHIPBackendVulkan() = default;
 
@@ -4013,6 +4056,9 @@ void CHIPBackendVulkan::uninitialize() {
     EventMonitor_->join();
     EventMonitor_ = nullptr;
   }
+  // No failure can be published after the join.
+  if (SignalFailed_)
+    return;
 
   std::lock_guard<std::recursive_mutex> TeardownLock(TeardownMtx_);
 

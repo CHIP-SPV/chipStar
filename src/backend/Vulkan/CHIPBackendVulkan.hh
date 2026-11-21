@@ -430,6 +430,9 @@ public:
   VkQueryPool getTimestampQueryPool() const { return TimestampQueryPool_; }
 
 
+  /// vkWaitForFences that returns VK_TIMEOUT once a signal has failed.
+  VkResult waitFence(VkFence F);
+
   VkFence acquireFence();
   void releaseFence(VkFence F);
   /// A timestamp slot, or -1 when the pool is exhausted.
@@ -536,6 +539,9 @@ public:
   /// Later submits on this queue wait for the value until it is signaled.
   uint64_t reserveTimelineValue();
   void signalTimelineValue(uint64_t Value);
+  /// Wait for this queue's timeline to reach Value; throws if a signal failed.
+  void waitTimelineValue(uint64_t Value);
+  void throwIfSignalFailed() const;
   virtual bool query() override;
   virtual std::shared_ptr<chipstar::Event> enqueueBarrierImpl(
       const std::vector<std::shared_ptr<chipstar::Event>> &EventsToWaitFor)
@@ -582,6 +588,8 @@ public:
   /// Set by uninitialize(); queue destructors running later in other threads
   /// then skip Vulkan calls on the device being destroyed.
   static std::atomic<bool> ShuttingDown_;
+  /// A signal failed: the monitor stopped, and work behind it never finishes.
+  static std::atomic<bool> SignalFailed_;
   static std::recursive_mutex TeardownMtx_;
 
   virtual chipstar::ExecItem *createExecItem(dim3 GridDim, dim3 BlockDim,
