@@ -529,8 +529,11 @@ public:
   launchImpl(chipstar::ExecItem *ExecItem) override;
   virtual void finish() override;
   void finishWithoutEventsMtx() override;
+  virtual void
+  finishUnlockingApiMtx(std::unique_lock<std::mutex> &ApiLock) override;
   /// Print and clear device printf records; aborts on a device-side abort.
   void drainDevicePrintf();
+  void waitTimeline(uint64_t Target);
   /// Block until all work this queue must follow has finished.
   void waitSubmitted();
   /// Later submits on this queue wait for the value until it is signaled.
