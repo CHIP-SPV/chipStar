@@ -23,6 +23,7 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
+#include "chipStarConfig.hh"
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
