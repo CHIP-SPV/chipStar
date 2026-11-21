@@ -3676,22 +3676,10 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
   // blocking stream, and a blocking stream waits for the default stream.
   // This thread's drain runs inside finish(), whose callers may hold
   // QueueAddRemoveMtx; its copies need no cross-stream ordering.
+  std::unique_lock<std::mutex> PTLock;
   if (getQueueFlags().isBlocking() && !InDrain) {
     std::lock_guard<std::mutex> QLock(ChipDevice_->QueueAddRemoveMtx);
-    std::vector<chipstar::Queue *> Others;
-    if (isDefaultLegacyQueue()) {
-      for (auto *Q : ChipDevice_->getQueuesNoLock())
-        if (Q != this && Q->getQueueFlags().isBlocking())
-          Others.push_back(Q);
-      // The calling thread's per-thread default stream, which is not listed.
-      auto *PT = chipstar::Device::PerThreadDefaultQueue.get();
-      if (PT && PT->getDevice() == ChipDevice_)
-        Others.push_back(PT);
-    } else if (auto *Def = ChipDevice_->getLegacyDefaultQueue()) {
-      if (Def != this)
-        Others.push_back(Def);
-    }
-    for (auto *Q : Others) {
+    auto AddWait = [&](chipstar::Queue *Q) {
       auto *QV = static_cast<CHIPQueueVulkan *>(Q);
       uint64_t V;
       {
@@ -3702,6 +3690,18 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
         WaitSems.push_back(QV->TimelineSemaphore_);
         WaitVals.push_back(V);
       }
+    };
+    if (isDefaultLegacyQueue()) {
+      for (auto *Q : ChipDevice_->getQueuesNoLock())
+        if (Q != this && Q->getQueueFlags().isBlocking())
+          AddWait(Q);
+      // Held through the submit: an exiting thread destroys these semaphores.
+      PTLock = std::unique_lock<std::mutex>(ChipDevice_->PerThreadQueues_->Mtx);
+      for (auto *Q : ChipDevice_->PerThreadQueues_->Queues)
+        AddWait(Q);
+    } else if (auto *Def = ChipDevice_->getLegacyDefaultQueue()) {
+      if (Def != this)
+        AddWait(Def);
     }
   }
   std::vector<VkPipelineStageFlags> WaitStages(
@@ -3747,6 +3747,8 @@ std::shared_ptr<chipstar::Event> CHIPQueueVulkan::submitWithEvent(
     checkVk(Res, "CHIPQueueVulkan::submitWithEvent: vkQueueSubmit failed",
             hipErrorTbd);
   }
+  if (PTLock)
+    PTLock.unlock();
 
   IsEmptyQueue_.store(false);
   if (SignalVk)
