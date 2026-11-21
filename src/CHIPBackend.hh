@@ -1968,6 +1968,13 @@ public:
  * @brief Primary object to interact with the backend
  */
 class Backend {
+public:
+  // Left alive by uninitialize() for threads in HIP; new work gets an error.
+  std::atomic<bool> Abandoned{false};
+
+  // Whether CHIPReinitialize may tear this backend down now.
+  virtual bool canReinitialize() const { return true; }
+
 protected:
   bool ReinitializeFlag_ = false;
   chipstar::EventMonitor *EventMonitor_ = nullptr;
@@ -2090,7 +2097,7 @@ public:
    * atomically and each Queue destructor decrementing it.
    *
    */
-  void waitForThreadExit();
+  void waitForThreadExit(bool RemoveQueuesOnTimeout = true);
   /**
    * @brief Get the Active Context object. Returns the context of the active
    * queue.

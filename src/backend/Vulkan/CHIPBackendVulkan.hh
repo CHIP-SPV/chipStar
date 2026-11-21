@@ -593,6 +593,8 @@ public:
   virtual void initializeFromNative(const uintptr_t *NativeHandles,
                                     int NumHandles) override;
   virtual void uninitialize() override;
+  // A thread in flight would outlive the backend it is using.
+  bool canReinitialize() const override { return otherActiveThreads() == 0; }
   virtual chipstar::Queue *createCHIPQueue(chipstar::Device *ChipDev) override;
   virtual std::shared_ptr<chipstar::Event>
   createEventShared(chipstar::Context *ChipCtx, chipstar::EventFlags Flags,

@@ -53,5 +53,5 @@ int main() {
   REQUIRE(hipInitFromNativeHandles(H, 4) == hipErrorNotSupported);
   printf("PASS\n");
   fflush(stdout);
-  _exit(0); // skips teardown; the parked thread holds a deleted queue's lock
+  _exit(0); // skips teardown; the parked thread still holds the queue's lock
 }

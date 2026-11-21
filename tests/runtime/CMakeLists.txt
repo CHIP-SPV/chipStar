@@ -163,7 +163,7 @@ if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV OR APPLE)
 endif()
 list(SORT RUNTIME_TEST_SOURCES)
 # Registered per mode below, not by the glob.
-list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix1508VolatileGlobalStaleness.hip)
+list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2261VulkanTeardown.hip TestFix1508VolatileGlobalStaleness.hip)
 
 foreach(RUNTIME_TEST_SOURCE IN LISTS RUNTIME_TEST_SOURCES)
   add_hip_runtime_test(${RUNTIME_TEST_SOURCE})
@@ -234,6 +234,16 @@ endif()
 # Allocates over 8 GiB, so it must not run beside other tests.
 set_tests_properties(TestFix2312Memset3DSlicePitchTruncation PROPERTIES
   ENVIRONMENT "CHIP_UNRESTRICTED_ALLOC_SIZE=1" RUN_SERIAL TRUE)
+
+# The interposers rely on ELF symbol interposition, so native Vulkan on ELF only.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV AND NOT APPLE AND CHIP_BUILD_SHARED_LIBS)
+  add_hip_runtime_test(TestFix2261VulkanTeardown.hip MODES reinit exit)
+  # Exports its interposers so libCHIP binds to them.
+  set_target_properties(TestFix2261VulkanTeardown PROPERTIES ENABLE_EXPORTS ON)
+  target_link_libraries(TestFix2261VulkanTeardown ${CMAKE_DL_LIBS})
+  set_tests_properties(TestFix2261VulkanTeardown_reinit TestFix2261VulkanTeardown_exit
+                       PROPERTIES TIMEOUT 120)
+endif()
 
 # The staleness probe needs several work-groups to make progress against each
 # other and skips on a device that cannot run it, for instance where Mesa
