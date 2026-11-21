@@ -144,6 +144,8 @@ if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2313VulkanCallbackManySubmits.hip)
   # Native Vulkan only: it exercises that queue's waits on submitted work.
   list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2364VulkanCallbackWaits.hip)
+  # Native Vulkan only: its atomic helper lowering.
+  list(REMOVE_ITEM RUNTIME_TEST_SOURCES TestFix2412VulkanSharedScalarAtomic.hip)
 endif()
 # Warp votes link the device library, and Mali's clLinkProgram fails (-59).
 if(CHIP_MALI_GPU_WORKAROUNDS)

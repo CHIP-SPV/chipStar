@@ -1480,7 +1480,7 @@ public:
       SyncScope::ID Device = C.getOrInsertSyncScopeID("device");
       Replace(F.getName(), [&, RMW, Device](IRBuilder<> &B, CallInst *CI) -> Value * {
         Value *Addr = CI->getArgOperand(0);
-        if (auto *PTI = dyn_cast<PtrToIntInst>(Addr))
+        if (auto *PTI = dyn_cast<PtrToIntOperator>(Addr))
           Addr = PTI->getPointerOperand();
         else if (!Addr->getType()->isPointerTy())
           Addr = B.CreateIntToPtr(Addr, B.getPtrTy(4));
