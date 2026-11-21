@@ -138,7 +138,7 @@ chipStar_script_test_llvm22:
   script:
     - cd ${WRK_DIR}/chipStar_llvm22/build
     - module use /soft/modulefiles/chipStar/.chipStar-clang
-    - module load cmake llvm22/20260926-22-next-eval/release
+    - module load cmake llvm22/20260926-22-next-eval/release python/3.12.12
     - CHIP_BE=level0 make build_tests -j
     - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
 
@@ -151,7 +151,7 @@ chipStar_aurora_script_test_run:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
     - cd ${WRK_DIR}/script_llvm_23/chipStar/build
-    - module load cmake
+    - module load cmake python/3.12.12
     - CHIP_BE=level0 make build_tests -j
     - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
 
@@ -164,7 +164,7 @@ chipStar_aurora_script_test_llvm22_run:
     - hostname
     - echo "Running on $(hostname) with setuid shell runner"
     - cd ${WRK_DIR}/script_llvm_22/chipStar/build
-    - module load cmake
+    - module load cmake python/3.12.12
     - CHIP_BE=level0 make build_tests -j
     - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
 
