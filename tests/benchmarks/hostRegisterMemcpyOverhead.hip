@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
-#include <numeric>
 #include <algorithm>
 #include "hip/hip_runtime.h"
 
@@ -17,7 +16,8 @@
     }                                                                          \
   } while (0)
 
-static constexpr int N_ITERS = 1000;
+static constexpr int N_ROUNDS = 10;
+static constexpr int N_ITERS = 100;
 static constexpr size_t BUF_SIZE = 1024 * 1024 * 4; // 4 MB
 
 int main() {
@@ -29,44 +29,35 @@ int main() {
   double *DevBuf;
   CHECK(hipMalloc(&DevBuf, BUF_SIZE));
 
-  auto bench = [&](const char *label) {
-    std::vector<double> timings(N_ITERS);
+  auto bench = [&]() {
+    std::vector<double> t(N_ITERS);
     CHECK(hipDeviceSynchronize());
     for (int i = 0; i < N_ITERS; ++i) {
       auto t0 = std::chrono::high_resolution_clock::now();
       CHECK(hipMemcpy(DevBuf, HostBuf, BUF_SIZE, hipMemcpyHostToDevice));
       CHECK(hipDeviceSynchronize());
       auto t1 = std::chrono::high_resolution_clock::now();
-      timings[i] = std::chrono::duration<double, std::milli>(t1 - t0).count();
+      t[i] = std::chrono::duration<double, std::milli>(t1 - t0).count();
     }
-    double total = std::accumulate(timings.begin(), timings.end(), 0.0);
-    double avg   = total / N_ITERS;
-    double mn    = *std::min_element(timings.begin(), timings.end());
-    double mx    = *std::max_element(timings.begin(), timings.end());
-    // Use the MINIMUM for the pass/fail comparison. A 4 MB H2D copy is
-    // bandwidth-bound, so its fastest observed time is a true physical floor:
-    // OS-scheduling noise and the cold-start of whichever bench runs first
-    // can only ADD time (see how avg/median/max blow up while min stays put),
-    // so both the average and the median make the with/without ratio flaky on
-    // shared CI runners -- taking the min removes the need for a warmup pass.
-    // hipHostRegister adding a real per-copy cost would raise even the floor,
-    // so the minimum still catches a genuine regression.
-    std::sort(timings.begin(), timings.end());
-    double med   = timings[N_ITERS / 2];
-    std::cout << N_ITERS << " hipMemcpy H2D (" << BUF_SIZE / (1024 * 1024)
-              << " MB) " << label << ": "
-              << "median=" << med << " ms  avg=" << avg << " ms  min=" << mn
-              << " ms  max=" << mx << " ms\n";
-    return mn;
+    std::sort(t.begin(), t.end());
+    return t[N_ITERS / 2];
   };
 
-  CHECK(hipHostRegister(HostBuf, BUF_SIZE, 0));
-  double min_with = bench("WITH    hipHostRegister");
-  CHECK(hipHostUnregister(HostBuf));
-
-  double min_without = bench("WITHOUT hipHostRegister");
-
-  std::cout << "overhead factor (min): " << min_with / min_without << "x\n";
+  // Compare WITH/WITHOUT within each short round; a load change then skews at most one round's ratio.
+  std::vector<double> ratios;
+  for (int r = 0; r < N_ROUNDS; ++r) {
+    CHECK(hipHostRegister(HostBuf, BUF_SIZE, 0));
+    double with = bench();
+    CHECK(hipHostUnregister(HostBuf));
+    double without = bench();
+    ratios.push_back(with / without);
+    std::cout << "round " << r << ": median WITH=" << with
+              << " ms  WITHOUT=" << without << " ms  ratio=" << with / without
+              << "\n";
+  }
+  std::sort(ratios.begin(), ratios.end());
+  double ratio = ratios[N_ROUNDS / 2];
+  std::cout << "overhead factor (median of per-round ratios): " << ratio << "x\n";
 
   free(HostBuf);
   CHECK(hipFree(DevBuf));
@@ -76,7 +67,7 @@ int main() {
 // driver behavior, confirmed with a pure Level Zero reproducer across PVC/A380/
 // B570 (see CHIP-SPV/chipStar#1324), not a chipStar or measurement artifact. So a
 // modest slowdown is expected here; only fail on a pathological regression (>30%).
-  if (min_with / min_without > 1.3) {
+  if (ratio > 1.3) {
     printf("Fail\n");
     return 1;
   }
