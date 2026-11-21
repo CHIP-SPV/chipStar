@@ -5417,6 +5417,12 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
   if (AllocInfo->HostPtr) {
     logDebug("DevPtr {} is associated with HostPtr {}", AllocInfo->DevPtr,
              AllocInfo->HostPtr);
+    char *HostBase = static_cast<char *>(AllocInfo->HostPtr);
+    char *D = static_cast<char *>(Dst);
+    // Dst may be in the host range or the device range of the record.
+    char *HostDst = D >= HostBase && D < HostBase + AllocInfo->Size
+                        ? D
+                        : HostBase + (D - static_cast<char *>(AllocInfo->DevPtr));
     if (AllocInfo->MemoryType == hipMemoryTypeUnified) {
       logDebug("AllocInfo->MemoryType == hipMemoryTypeUnified - skipping "
                "memset on host");
@@ -5425,7 +5431,7 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
                "on host");
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
           AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
-      memset(AllocInfo->HostPtr, Value, SizeBytes);
+      memset(HostDst, Value, SizeBytes);
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
     } else if (AllocInfo->MemoryType == hipMemoryTypeManaged && AllocInfo->DevPtr) {
       // For managed memory (from hipHostRegister), we need to memset both
@@ -5437,7 +5443,7 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
                "memset on host");
       Backend->getActiveDevice()->getDefaultQueue()->MemMap(
           AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
-      memset(AllocInfo->HostPtr, Value, SizeBytes);
+      memset(HostDst, Value, SizeBytes);
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
     } else if (AllocInfo->MemoryType == hipMemoryTypeDevice) {
       CHIPERR_LOG_AND_THROW(
