@@ -2111,6 +2111,22 @@ void chipstar::Queue::memCopyAsync2D(void *Dst, size_t DPitch, const void *Src,
 
 void chipstar::Queue::memFill(void *Dst, size_t Size, const void *Pattern,
                               size_t PatternSize) {
+  auto *AllocInfo = getDevice()->AllocTracker->getAllocInfo(Dst);
+  // WORKAROUND(CHIP-SPV/chipStar#2389): rusticl loses host stores when a fill
+  // follows the unmap, so fill a mapped host allocation on the host.
+  if (AllocInfo && AllocInfo->isMappedHostAllocation()) {
+    size_t Offset =
+        static_cast<char *>(Dst) - static_cast<char *>(AllocInfo->HostPtr);
+    if (Size > AllocInfo->Size - Offset)
+      CHIPERR_LOG_AND_THROW("Access exceeds the allocation",
+                            hipErrorInvalidValue);
+    enqueueBarrier();
+    finish();
+    for (size_t i = 0; i < Size; i++)
+      static_cast<char *>(Dst)[i] =
+          static_cast<const char *>(Pattern)[i % PatternSize];
+    return;
+  }
   {
     std::shared_ptr<chipstar::Event> ChipEvent =
         memFillAsyncImpl(Dst, Size, Pattern, PatternSize);
