@@ -123,6 +123,7 @@ add_hipcc_test(TestFix1909VectorTypesCxx11.cpp
 add_shell_test(TestFix1679DynMemCloneMemoryAttr.bash)
 
 add_hipcc_test(TestAtomicAddNoRet.hip HIPCC_OPTIONS -fsyntax-only)
+add_hipcc_test(TestFix2158StaticLocalDebugInfo.hip HIPCC_OPTIONS -c -g)
 add_hipcc_test(TestFloat128Macros.hip TEST_NAME TestFloat128gnupp14
   HIPCC_OPTIONS -std=gnu++14 -fsyntax-only)
 
