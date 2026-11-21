@@ -5902,6 +5902,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
   void *SrcPtr;
   void *DstPtr;
   size_t YSize;
+  size_t DstYSize;
   size_t XSize;
 
   bool ArrayDst = Params->dstArray != nullptr ? true : false;
@@ -5911,21 +5912,8 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     DrvSrc = Params->dstArray->isDrv;
 
   if (ArrayDst || ArraySrc) {
-    auto Desc = ArrayDst ? Params->dstArray->desc.f : Params->srcArray->desc.f;
-    switch (Desc) {
-    case hipChannelFormatKindSigned:
-      ByteSize = sizeof(int);
-      break;
-    case hipChannelFormatKindUnsigned:
-      ByteSize = sizeof(unsigned int);
-      break;
-    case hipChannelFormatKindFloat:
-      ByteSize = sizeof(float);
-      break;
-    case hipChannelFormatKindNone:
-      ByteSize = sizeof(size_t);
-      break;
-    }
+    auto *A = ArrayDst ? Params->dstArray : Params->srcArray;
+    ByteSize = A->isDrv ? sizeof(int) : getChannelByteSize(A->desc);
   }
 
   if (ArrayDst && DrvSrc) {
@@ -5938,6 +5926,7 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
     SrcPitch = PDrv->srcPitch;
     SrcPtr = (void *)PDrv->srcHost;
     YSize = PDrv->srcHeight;
+    DstYSize = PDrv->dstArray->height;
     XSize = PDrv->srcXInBytes / ByteSize;
     DstPtr = PDrv->dstArray->data;
   } else { // non Drc params
@@ -5964,12 +5953,18 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
 
     if (ArrayDst) {
       DstPitch = Params->dstArray->width * ByteSize;
+      DstYSize = Params->dstArray->height;
       DstPtr = Params->dstArray->data;
     } else {
       DstPitch = Params->dstPtr.pitch;
+      DstYSize = Params->dstPtr.ysize;
       DstPtr = Params->dstPtr.ptr;
     }
   }
+
+  // An unset height, as on a layered array, means contiguous rows.
+  if (DstYSize == 0)
+    DstYSize = Height;
 
   if (YSize * XSize == 0)
     return hipSuccess;
@@ -5982,7 +5977,8 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
 
   size_t srcSlicePitch = SrcPitch * YSize;
   size_t dstSlicePitch = DstPitch * YSize;
-  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch))
+  if ((WidthInBytes == DstPitch) && (WidthInBytes == SrcPitch) &&
+      (Depth == 1 || (Height == YSize && Height == DstYSize)))
     ChipQueue->memCopyAsync(DstPtr, SrcPtr, WidthInBytes * Height * Depth,
                             Params->kind);
   else {
@@ -5994,13 +5990,13 @@ hipError_t hipMemcpy3DAsyncInternal(const struct hipMemcpy3DParms *Params,
         unsigned char *Src =
             (unsigned char *)SrcPtr + i * YSize * SrcPitch + j * SrcPitch;
         unsigned char *Dst =
-            (unsigned char *)DstPtr + i * Height * DstPitch + j * DstPitch;
-        if (Params->kind == hipMemcpyHostToHost)
-          memcpy(Dst, Src, WidthInBytes);
-        else
-          ChipQueue->memCopyAsync(Dst, Src, WidthInBytes, Params->kind);
+            (unsigned char *)DstPtr + i * DstYSize * DstPitch + j * DstPitch;
+        ChipQueue->memCopyAsync(Dst, Src, WidthInBytes, Params->kind);
       }
     }
+    // Host to host copies are complete on return, as in HIP.
+    if (Params->kind == hipMemcpyHostToHost)
+      ChipQueue->finish();
   }
   return hipSuccess;
 }
