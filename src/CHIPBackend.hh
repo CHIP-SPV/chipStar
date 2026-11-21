@@ -1972,7 +1972,7 @@ protected:
   bool ReinitializeFlag_ = false;
   chipstar::EventMonitor *EventMonitor_ = nullptr;
 
-  int MinQueuePriority_;
+  int MinQueuePriority_ = 0;
   int MaxQueuePriority_ = 0;
 
   chipstar::Context *ActiveCtx_;
