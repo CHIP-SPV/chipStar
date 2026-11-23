@@ -2521,6 +2521,7 @@ public:
 
   virtual void memFillAsync(void *Dst, size_t Size, const void *Pattern,
                             size_t PatternSize);
+  void copyFillToHost(void *Dst, size_t Size);
   virtual void memFillAsync2D(void *Dst, size_t Pitch, int Value, size_t Width,
                               size_t Height);
   virtual void memFillAsync3D(hipPitchedPtr PitchedDevPtr, int Value,
