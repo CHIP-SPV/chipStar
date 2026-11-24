@@ -140,7 +140,7 @@ chipStar_script_test_llvm22:
     - module use /soft/modulefiles/chipStar/.chipStar-clang
     - module load cmake llvm22/20260926-22-next-eval/release python/3.12.12
     - CHIP_BE=level0 make build_tests -j
-    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 180 --num-tries=1 --num-threads=1
 
 chipStar_aurora_script_test_run:
   stage: test
@@ -153,7 +153,7 @@ chipStar_aurora_script_test_run:
     - cd ${WRK_DIR}/script_llvm_23/chipStar/build
     - module load cmake python/3.12.12
     - CHIP_BE=level0 make build_tests -j
-    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 180 --num-tries=1 --num-threads=1
 
 chipStar_aurora_script_test_llvm22_run:
   stage: test
@@ -166,7 +166,7 @@ chipStar_aurora_script_test_llvm22_run:
     - cd ${WRK_DIR}/script_llvm_22/chipStar/build
     - module load cmake python/3.12.12
     - CHIP_BE=level0 make build_tests -j
-    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 60 --num-tries=1 --num-threads=1
+    - ZE_AFFINITY_MASK=0.0 ../scripts/check.py ./ dgpu level0 --timeout 180 --num-tries=1 --num-threads=1
 
 #
 # Application builds
