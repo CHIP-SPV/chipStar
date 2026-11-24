@@ -1456,10 +1456,29 @@ public:
   size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
 
   chipstar::Queue *LegacyDefaultQueue;
+  // Live per-thread queues of this device, for work that must see every
+  // thread's queue. Shared ownership keeps the list alive through
+  // thread-local queue removal.
+  struct PerThreadQueueList {
+    std::mutex Mtx;
+    std::vector<chipstar::Queue *> Queues;
+  };
+  struct PerThreadQueueDeleter {
+    std::shared_ptr<PerThreadQueueList> List;
+    void operator()(chipstar::Queue *Q) const;
+  };
+  std::shared_ptr<PerThreadQueueList> PerThreadQueues_ =
+      std::make_shared<PerThreadQueueList>();
   // Note: On macOS, inline static thread_local has issues with TLS wrapper
   // symbol export in shared libraries. Define in CHIPBackend.cc instead.
-  static thread_local std::unique_ptr<chipstar::Queue>
+  static thread_local std::unique_ptr<chipstar::Queue, PerThreadQueueDeleter>
       PerThreadDefaultQueue;
+  // Queues stay alive during Fn: the deleter erases under Mtx before deleting.
+  template <class F> void forEachPerThreadQueue(F Fn) {
+    std::lock_guard<std::mutex> Lock(PerThreadQueues_->Mtx);
+    for (auto *Q : PerThreadQueues_->Queues)
+      Fn(Q);
+  }
 
   /**
    * @brief Get the Legacy Default Queue object.
@@ -2311,22 +2330,29 @@ protected:
     // If this is a default stream (legacy or per-thread), create markers for all blocking queues
     if (this->isDefaultLegacyQueue() || this->isDefaultPerThreadQueue()) {
       // Create markers for all blocking queues
+      auto AddMarker = [&](chipstar::Queue *q) {
+        // Create a marker event in the other queue
+        std::shared_ptr<chipstar::Event> ChipMarkerEvent;
+        EventHandle handle = CreateMarkerInQueue(q, ChipMarkerEvent);
+
+        // Add the marker to the list of events to wait on
+        EventHandles.push_back(handle);
+
+        // Track the marker event so it gets properly managed by the event monitor
+        BackendPtr->trackEvent(ChipMarkerEvent);
+        MarkerEvents.push_back(ChipMarkerEvent);
+      };
       for (auto &q : ChipDevice_->getQueuesNoLock()) {
 	// only do this if it's blocking and there's anything in the other queue.
-        if (q->getQueueFlags().isBlocking() && !q->isEmptyQueue()) {
-          // Create a marker event in the other queue
-          std::shared_ptr<chipstar::Event> ChipMarkerEvent;
-          EventHandle handle = CreateMarkerInQueue(q, ChipMarkerEvent);
-
-          // Add the marker to the list of events to wait on
-          EventHandles.push_back(handle);
-
-          // Track the marker event so it gets properly managed by the event monitor
-          BackendPtr->trackEvent(ChipMarkerEvent);
-          MarkerEvents.push_back(ChipMarkerEvent);
-
-	}
+        if (q->getQueueFlags().isBlocking() && !q->isEmptyQueue())
+          AddMarker(q);
       }
+      // The legacy stream also waits for every thread's per-thread stream.
+      if (this->isDefaultLegacyQueue())
+        ChipDevice_->forEachPerThreadQueue([&](chipstar::Queue *q) {
+          if (!q->isEmptyQueue())
+            AddMarker(q);
+        });
     } else if (this->getQueueFlags().isBlocking()) {
       // This is a blocking queue, sync with default streams
       // Create marker for legacy default stream
