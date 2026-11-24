@@ -1687,6 +1687,29 @@ void CHIPQueueOpenCL::MemUnmap(const chipstar::AllocationInfo *AllocInfo) {
   noteWorkEnqueued();
 }
 
+void CHIPQueueOpenCL::memFill(void *Dst, size_t Size, const void *Pattern,
+                              size_t PatternSize) {
+  auto *AllocInfo = getDevice()->AllocTracker->getAllocInfo(Dst);
+  // WORKAROUND(CHIP-SPV/chipStar#2389, no Mesa report yet): rusticl loses host
+  // stores when an SVM fill follows the unmap. Remove when rusticl keeps them.
+  if (AllocInfo && AllocInfo->isMappedHostAllocation() &&
+      getContext()->isRusticl() &&
+      getContext()->getAllocStrategy() == AllocationStrategy::CoarseGrainSVM) {
+    size_t Offset =
+        static_cast<char *>(Dst) - static_cast<char *>(AllocInfo->HostPtr);
+    if (Size > AllocInfo->Size - Offset)
+      CHIPERR_LOG_AND_THROW("Access exceeds the allocation",
+                            hipErrorInvalidValue);
+    enqueueBarrier();
+    finish();
+    for (size_t i = 0; i < Size; i++)
+      static_cast<char *>(Dst)[i] =
+          static_cast<const char *>(Pattern)[i % PatternSize];
+    return;
+  }
+  chipstar::Queue::memFill(Dst, Size, Pattern, PatternSize);
+}
+
 cl::CommandQueue *CHIPQueueOpenCL::get() {
   switch (QueueMode_) {
   default:
