@@ -5232,6 +5232,15 @@ hipError_t hipMemsetAsync(void *Dst, int Value, size_t SizeBytes,
   CHIP_CATCH
 }
 
+static void checkDeferredFootprint(const chipstar::AllocationInfo *Info,
+                                   const void *Dst, double Footprint) {
+  // double cannot wrap and is exact below 2^53.
+  if (Info->isDeferredRegistration() &&
+      Footprint > (double)(Info->Size - ((const char *)Dst - (const char *)Info->HostPtr)))
+    CHIPERR_LOG_AND_THROW("Fill runs past the registered range",
+                          hipErrorInvalidValue);
+}
+
 static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
                                                   int Value, size_t Width,
                                                   size_t Height,
@@ -5255,6 +5264,8 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
   if (Height > TrueHeight)
     CHIPERR_LOG_AND_THROW("Height requested exceeds allocations!",
                           hipErrorInvalidValue);
+  if (Width && Height)
+    checkDeferredFootprint(AllocInfo, Dst, (double)Pitch * (Height - 1) + Width);
 
   const hipMemsetParams Params = {
       /* Dst */ Dst,
@@ -5268,7 +5279,10 @@ static inline hipError_t hipMemset2DAsyncInternal(void *Dst, size_t Pitch,
     return hipSuccess;
   }
 
-  ChipQueue->memFillAsync2D(Dst, Pitch, Value, Width, Height);
+  if (AllocInfo->isDeferredRegistration()) // the base version host-fills
+    ChipQueue->chipstar::Queue::memFillAsync2D(Dst, Pitch, Value, Width, Height);
+  else
+    ChipQueue->memFillAsync2D(Dst, Pitch, Value, Width, Height);
 
   return hipSuccess;
 }
@@ -5336,6 +5350,10 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   if (!AllocInfo)
     CHIPERR_LOG_AND_THROW("PitchedDevPointer not found in allocation ranges",
                           hipErrorInvalidValue);
+  checkDeferredFootprint(
+      AllocInfo, PitchedDevPtr.ptr,
+      (double)(Extent.depth - 1) * PitchedDevPtr.pitch * PitchedDevPtr.ysize +
+          (double)(Extent.height - 1) * PitchedDevPtr.pitch + Extent.width);
 
   // Check if extents don't overextend the allocation?
 
@@ -5343,7 +5361,9 @@ static inline hipError_t hipMemset3DAsyncInternal(hipPitchedPtr PitchedDevPtr,
   size_t Height = Extent.height;
   size_t Depth = Extent.depth;
 
-  if (PitchedDevPtr.pitch == Extent.width)
+  if (AllocInfo->isDeferredRegistration()) // the base version host-fills
+    ChipQueue->chipstar::Queue::memFillAsync3D(PitchedDevPtr, Value, Extent);
+  else if (PitchedDevPtr.pitch == Extent.width)
     ChipQueue->memFillAsync(PitchedDevPtr.ptr, Width * Height * Depth, &Value,
                             1);
   else
@@ -5414,6 +5434,10 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
   Backend->getActiveDevice()->getDefaultQueue()->memFill(Dst, SizeBytes,
                                                          &CharVal, 1);
 
+  // A deferred record has no device side; memFill wrote the host range.
+  if (AllocInfo->isDeferredRegistration())
+    return hipSuccess;
+
   if (AllocInfo->HostPtr) {
     logDebug("DevPtr {} is associated with HostPtr {}", AllocInfo->DevPtr,
              AllocInfo->HostPtr);
@@ -5427,12 +5451,10 @@ static inline hipError_t hipMemsetInternal(void *Dst, int Value,
           AllocInfo, chipstar::Queue::MEM_MAP_TYPE::HOST_WRITE);
       memset(AllocInfo->HostPtr, Value, SizeBytes);
       Backend->getActiveDevice()->getDefaultQueue()->MemUnmap(AllocInfo);
-    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged && AllocInfo->DevPtr) {
+    } else if (AllocInfo->MemoryType == hipMemoryTypeManaged) {
       // For managed memory (from hipHostRegister), we need to memset both
       // device and host sides. Device memset is already done above.
       // Host memset ensures the host-accessible memory is also updated.
-      // DevPtr will be null if hipHostGetDevicePointer was never called, in
-      // which case there is no device backing and only the host side exists.
       logDebug("AllocInfo->MemoryType == hipMemoryTypeManaged - executing "
                "memset on host");
       // No SVM map: HostPtr is host memory the caller registered.
