@@ -4000,7 +4000,7 @@ void CHIPBackendVulkan::uninitialize() {
   logTrace("CHIPBackendVulkan::uninitialize");
 
   // Detached threads may still be in HIP calls using the VkDevice.
-  waitForThreadExit();
+  waitForThreadExit(/*RemoveQueuesOnTimeout=*/false);
 
   // Flag before locking, so a queue destructor waiting on the lock sees it.
   ShuttingDown_.store(true, std::memory_order_release);
@@ -4012,6 +4012,13 @@ void CHIPBackendVulkan::uninitialize() {
     }
     EventMonitor_->join();
     EventMonitor_ = nullptr;
+  }
+
+  // Threads still in HIP would use freed objects; leave everything to exit.
+  if (int Others = otherActiveThreads(); Others > 0) {
+    logDebug("{} HIP threads still active; not destroying the backend", Others);
+    Abandoned = true;
+    return;
   }
 
   std::lock_guard<std::recursive_mutex> TeardownLock(TeardownMtx_);

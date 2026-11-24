@@ -1708,7 +1708,7 @@ void chipstar::Backend::trackEvent(
   Event->markTracked();
 }
 
-void chipstar::Backend::waitForThreadExit() {
+void chipstar::Backend::waitForThreadExit(bool RemoveQueuesOnTimeout) {
   // Check if any threads called HIP APIs
   usleep(100000);
   int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
@@ -1745,7 +1745,7 @@ void chipstar::Backend::waitForThreadExit() {
       activeThreads - 1);
 
   // Cleanup all queues
-  {
+  if (RemoveQueuesOnTimeout) {
     LOCK(::Backend->BackendMtx); // prevent devices from being destrpyed
     LOCK(::Backend->EventsMtx);  // CHIPBackend::Events
     for (auto Dev : ::Backend->getDevices()) {
@@ -1814,7 +1814,8 @@ chipstar::Context *chipstar::Backend::getActiveContext() {
 };
 
 chipstar::Device *chipstar::Backend::getActiveDevice() {
-  if (!::Backend) {
+  // A backend abandoned at teardown takes no new work: same error as a null one.
+  if (!::Backend || ::Backend->Abandoned) {
     CHIPERR_LOG_AND_THROW("Backend not initialized",
                           hipErrorInitializationError);
   }

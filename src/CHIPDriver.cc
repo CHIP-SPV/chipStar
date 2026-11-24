@@ -285,6 +285,8 @@ void CHIPUninitializeCallOnce() {
     // Exit has no caller to report to; the OS reclaims what a failed teardown leaves.
     try {
       Backend->uninitialize();
+      if (Backend->Abandoned)
+        return;
       delete Backend;
       Backend = nullptr;
     } catch (CHIPError &Err) {
@@ -301,6 +303,14 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
                                    int NumHandles) {
   logDebug("CHIPDriver REInitialize");
 
+  if (!Backend)
+    CHIPERR_LOG_AND_THROW("Backend not initialized",
+                          hipErrorInitializationError);
+  if (!Backend->canReinitialize())
+    CHIPERR_LOG_AND_THROW("Cannot reinitialize while other HIP threads are "
+                          "active",
+                          hipErrorNotSupported);
+
   // chipstar::Kernel compilation may have already taken place so we need save
   // these modules and pass them to re-initialization function
   auto ModuleState = Backend->getActiveDevice()->getModuleState();
@@ -308,6 +318,11 @@ extern hipError_t CHIPReinitialize(const uintptr_t *NativeHandles,
   if (Backend) {
     logDebug("uninitializing existing Backend object.");
     Backend->uninitialize();
+    // A thread that began HIP calls during the wait makes uninitialize abandon.
+    if (Backend->Abandoned)
+      CHIPERR_LOG_AND_THROW("Cannot reinitialize while other HIP threads are "
+                            "active",
+                            hipErrorNotSupported);
     delete Backend;
     Backend = nullptr;
   }
