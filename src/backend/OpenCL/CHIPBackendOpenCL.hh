@@ -254,6 +254,7 @@ private:
   cl::Platform Platform_;
   cl::Context ClContext;
   cl::Device ClDevice_;
+  const bool IsRusticl_ = Platform_.getInfo<CL_PLATFORM_NAME>() == "rusticl";
   mutable clSetKernelArgDevicePointerEXT_fn clSetKernelArgDevicePointerEXT_ =
       nullptr;
 
@@ -336,6 +337,7 @@ public:
   }
 
   const cl::Platform &getPlatform() const { return Platform_; }
+  bool isRusticl() const noexcept { return IsRusticl_; }
 
   /// True when managed allocations need explicit SVM map/unmap for host
   /// access (AllocationStrategy::CoarseGrainSVM).
@@ -543,6 +545,8 @@ public:
   virtual void addCallback(hipStreamCallback_t Callback,
                            void *UserData) override;
   virtual void finish() override;
+  void memFill(void *Dst, size_t Size, const void *Pattern,
+               size_t PatternSize) override;
   virtual std::shared_ptr<chipstar::Event>
   memCopyAsyncImpl(void *Dst, const void *Src, size_t Size,
                    hipMemcpyKind Kind) override;
