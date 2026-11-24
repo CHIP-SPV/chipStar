@@ -45,7 +45,10 @@
 #include "macros.hh"
 #include "CHIPException.hh"
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <utility>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "SPVRegister.hh"
@@ -1436,6 +1439,16 @@ protected:
   bool PerThreadStreamUsed_ = false;
 
 public:
+  struct PerThreadQueues {
+    std::mutex Mtx;
+    std::unordered_map<std::thread::id, std::unique_ptr<chipstar::Queue>> Map;
+  };
+
+private:
+  std::shared_ptr<PerThreadQueues> PerThreadQueues_ =
+      std::make_shared<PerThreadQueues>();
+
+public:
   // atomic int for counting number of threads that were created
   // for this device
   std::atomic<int> NumQueuesAlive = 0;
@@ -1456,10 +1469,10 @@ public:
   size_t getNumUserQueues() const noexcept { return UserQueues_.size(); }
 
   chipstar::Queue *LegacyDefaultQueue;
-  // Note: On macOS, inline static thread_local has issues with TLS wrapper
-  // symbol export in shared libraries. Define in CHIPBackend.cc instead.
-  static thread_local std::unique_ptr<chipstar::Queue>
-      PerThreadDefaultQueue;
+  /// Destroy the calling thread's per-thread queue.
+  void destroyCallerPerThreadQueue();
+  /// The calling thread's per-thread queue, or null; never creates one.
+  chipstar::Queue *findPerThreadQueue();
 
   /**
    * @brief Get the Legacy Default Queue object.
@@ -2343,7 +2356,7 @@ protected:
 
       // Create marker for per-thread default stream if used
       if (ChipDevice_->isPerThreadStreamUsedNoLock()) {
-        auto PerThreadDefaultQueue = ChipDevice_->getPerThreadDefaultQueueNoLock();
+        auto PerThreadDefaultQueue = ChipDevice_->findPerThreadQueue();
         if (PerThreadDefaultQueue && !PerThreadDefaultQueue->isEmptyQueue() ) {
           std::shared_ptr<chipstar::Event> ChipMarkerEvent;
           EventHandle handle = CreateMarkerInQueue(PerThreadDefaultQueue, ChipMarkerEvent);
@@ -2440,8 +2453,6 @@ public:
     CaptureMode_ = CaptureMode;
   }
   CHIPGraph *getCaptureGraph() const;
-
-  chipstar::Device *PerThreadQueueForDevice = nullptr;
 
   // I want others to be able to lock this queue?
   std::mutex QueueMtx;
