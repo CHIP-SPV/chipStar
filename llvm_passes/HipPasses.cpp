@@ -2158,6 +2158,90 @@ public:
   }
 };
 
+// Logical SPIR-V cannot pick a variable through a phi either. A load or store
+// through a phi of pointers (or a GEP of one), with no other memory access in
+// the block before it, moves into the predecessors: lud-hip's sunk copy of
+// peri_row or peri_col into m.
+class HipVulkanSplitPhiAccessesPass
+    : public HipRequiredPassInfoMixin<HipVulkanSplitPhiAccessesPass> {
+  // The phi I's pointer comes from, or null if I cannot move.
+  static PHINode *movablePhi(Instruction &I) {
+    auto *L = dyn_cast<LoadInst>(&I);
+    auto *St = dyn_cast<StoreInst>(&I);
+    if (!(L && L->isSimple()) && !(St && St->isSimple()))
+      return nullptr;
+    BasicBlock *BB = I.getParent();
+    auto InBB = [&](Value *V) {
+      auto *J = dyn_cast<Instruction>(V);
+      return J && J->getParent() == BB;
+    };
+    Value *Ptr = getLoadStorePointerOperand(&I);
+    auto *G = dyn_cast<GetElementPtrInst>(Ptr);
+    auto *P = dyn_cast<PHINode>(G ? G->getPointerOperand() : Ptr);
+    if (!P || P->getParent() != BB ||
+        (G && (G->getParent() != BB || any_of(G->indices(), InBB))) ||
+        (St && InBB(St->getValueOperand()) &&
+         !isa<PHINode>(St->getValueOperand())) ||
+        any_of(make_range(BB->getFirstNonPHIIt(), I.getIterator()),
+               [](Instruction &J) { return J.mayReadOrWriteMemory(); }))
+      return nullptr;
+    return P;
+  }
+
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &) {
+    bool Changed = false;
+    for (BasicBlock &BB : F)
+      for (Instruction &I : make_early_inc_range(BB)) {
+        PHINode *P = movablePhi(I);
+        if (!P)
+          continue;
+        // The access moves to the end of each predecessor, so one that also
+        // leads elsewhere gets a block of its own on the edge.
+        for (BasicBlock *Pred : SmallSetVector<BasicBlock *, 4>(
+                 P->block_begin(), P->block_end()))
+          if (Pred->getSingleSuccessor() != &BB)
+            SplitEdge(Pred, &BB);
+        auto *G = dyn_cast<GetElementPtrInst>(getLoadStorePointerOperand(&I));
+        auto *L = dyn_cast<LoadInst>(&I);
+        PHINode *NP = L ? PHINode::Create(L->getType(), P->getNumIncomingValues(),
+                                          "", BB.begin())
+                        : nullptr;
+        DenseMap<BasicBlock *, Value *> Done;
+        for (auto [V, Pred] : zip(P->incoming_values(), P->blocks())) {
+          Value *&R = Done[Pred];
+          if (!R) {
+            IRBuilder<> B(Pred->getTerminator());
+            Value *Ptr = V;
+            if (G)
+              Ptr = B.CreateGEP(G->getSourceElementType(), V,
+                                SmallVector<Value *, 4>(G->indices()), "",
+                                G->getNoWrapFlags());
+            if (L) {
+              R = B.CreateAlignedLoad(L->getType(), Ptr, L->getAlign());
+            } else {
+              auto *St = cast<StoreInst>(&I);
+              Value *Val = St->getValueOperand();
+              if (auto *VP = dyn_cast<PHINode>(Val); VP && VP->getParent() == &BB)
+                Val = VP->getIncomingValueForBlock(Pred);
+              R = B.CreateAlignedStore(Val, Ptr, St->getAlign());
+            }
+          }
+          if (NP)
+            NP->addIncoming(R, Pred);
+        }
+        if (NP)
+          I.replaceAllUsesWith(NP);
+        Value *Old = getLoadStorePointerOperand(&I);
+        I.eraseFromParent();
+        // A dead pointer phi left behind would stop the array retype.
+        RecursivelyDeleteTriviallyDeadInstructions(Old);
+        Changed = true;
+      }
+    return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  }
+};
+
 // A pointer known to be global is not local and vice versa: to_local and
 // to_global of it, casts between the two address spaces, are null. Folds the
 // branches on them, whose other side Vulkan could not express.
@@ -3794,6 +3878,8 @@ static void addVulkanLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanPointerTablesPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(InferAddressSpacesPass(4u)));
   MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanResolveAddrSpaceCastsPass()));
+  // Before the retype, which cannot follow a pointer phi.
+  MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanSplitPhiAccessesPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanExpandMemTransfersPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(HipLowerMemsetPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanSplitBufferChoicesPass()));

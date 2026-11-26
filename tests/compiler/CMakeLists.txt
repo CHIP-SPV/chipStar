@@ -215,6 +215,10 @@ add_hipcc_test(TestRocmVersionHeader.hip HIPCC_OPTIONS -fsyntax-only)
 
 # A call rewritten for shared memory must keep how it calls the callee (#1673).
 add_shell_test(TestFix1673DynMemCallConv.bash)
+# A load or store behind a phi of pointers moves into the branches (#2496).
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestVulkanPhiAccess.bash)
+endif()
 
 add_hipcc_test(TestZeroLenArrayTypes.hip TEST_NAME TestZeroLenArrayTypes-O0
   HIPCC_OPTIONS -O0 -c)
