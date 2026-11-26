@@ -165,6 +165,10 @@ add_hipcc_test(Test513Regression.hip HIPCC_OPTIONS)
 
 # The spilled kernel must call the original one the way it is declared.
 add_shell_test(TestFix1678SpillerCallConv.bash)
+# A large copy out of a constant table folds to constant stores (spm-hip).
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestVulkanConstTableCopy.bash)
+endif()
 
 # Kernels whose lanes exchange data are pinned to the warp size (#1409).
 add_shell_test(TestFix1409WarpsPin.bash)
