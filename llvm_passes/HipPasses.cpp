@@ -2021,10 +2021,10 @@ public:
     auto &TTI = AM.getResult<TargetIRAnalysis>(F);
     for (IntrinsicInst *II : Work) {
       auto *Len = dyn_cast<ConstantInt>(II->getArgOperand(2));
-      if (auto *Cpy = dyn_cast<MemCpyInst>(II);
+      if (auto *Cpy = dyn_cast<MemTransferInst>(II);
           Cpy && Len && Len->getZExtValue() <= 256) {
         // Constant offsets, which a loop's byte index into a local struct is
-        // not: SROA then resolves the copy.
+        // not: SROA then resolves the copy. Loads come first, for memmove.
         uint64_t N = Len->getZExtValue();
         uint64_t Chunk = std::min<uint64_t>(
             {8, Cpy->getSourceAlign().valueOrOne().value(),
@@ -2033,6 +2033,7 @@ public:
           Chunk /= 2;
         IRBuilder<> B(Cpy);
         Type *T = B.getIntNTy(Chunk * 8);
+        SmallVector<Value *, 32> Vals;
         for (uint64_t Off = 0; Off < N; Off += Chunk) {
           Value *Src =
               B.CreateConstInBoundsGEP1_64(B.getInt8Ty(), Cpy->getSource(), Off);
@@ -2045,10 +2046,13 @@ public:
           Value *V = Folded;
           if (!V)
             V = B.CreateAlignedLoad(T, Src, Align(Chunk), Cpy->isVolatile());
-          B.CreateAlignedStore(
-              V, B.CreateConstInBoundsGEP1_64(B.getInt8Ty(), Cpy->getDest(), Off),
-              Align(Chunk), Cpy->isVolatile());
+          Vals.push_back(V);
         }
+        for (uint64_t Off = 0; Off < N; Off += Chunk)
+          B.CreateAlignedStore(
+              Vals[Off / Chunk],
+              B.CreateConstInBoundsGEP1_64(B.getInt8Ty(), Cpy->getDest(), Off),
+              Align(Chunk), Cpy->isVolatile());
       } else if (auto *Cpy = dyn_cast<MemCpyInst>(II))
         expandMemCpyAsLoop(Cpy, TTI);
       else if (auto *Mov = dyn_cast<MemMoveInst>(II);

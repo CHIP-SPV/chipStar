@@ -142,6 +142,10 @@ if(CHIP_LLVM_USE_INTERGRATED_SPIRV)
   add_shell_test(CanaryMemmoveCopyMemorySized.bash)
   add_shell_test(TestFix1958MemmoveOverlap.bash)
 endif()
+# A small Vulkan memmove must not compare pointers (#2394).
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestVulkanSmallMemmove.bash)
+endif()
 
 add_hipcc_test(TestHipccAcceptCcFiles.cc HIPCC_OPTIONS)
 add_hipcc_test(TestHipccAcceptCppFiles.cpp HIPCC_OPTIONS)
