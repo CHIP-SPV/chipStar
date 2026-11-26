@@ -3276,6 +3276,9 @@ class HipVulkanLowerOpenCLBuiltinsPass
       return false;
     Name = Mangled.take_front(Len);
     StringRef Rest = Mangled.drop_front(Len);
+    // A template instance, fma<__hip_bfloat162> say, is no OpenCL builtin.
+    if (Rest.starts_with("I"))
+      return false;
     while (Rest.consume_front("Dv")) // vector: Dv<N>_<elem>
       Rest = Rest.drop_until([](char C) { return C == '_'; }).drop_front();
     while (Rest.consume_front("PU3AS") || Rest.consume_front("P") ||
