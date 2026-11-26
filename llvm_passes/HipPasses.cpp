@@ -1231,9 +1231,8 @@ public:
 // Mesa's ANV on Intel Arc has neither shaderSharedFloat{32,64}AtomicAdd nor
 // shaderSharedInt64Atomics, so a shared float atomic cannot be native: a float
 // becomes a compare-and-swap loop on its bits, and wider or narrower types,
-// which have no integer atomic of their width, a work-group lock. Each lane
-// retries the lock from a loop rather than spinning in the branch, which would
-// deadlock the lanes of one subgroup.
+// which have no integer atomic of their width, a work-group lock that one
+// elected lane of a subgroup at a time takes.
 class HipVulkanLockSharedFloatAtomicsPass
     : public HipRequiredPassInfoMixin<HipVulkanLockSharedFloatAtomicsPass> {
 public:
@@ -1292,17 +1291,23 @@ public:
       }
       Kernels.insert(F);
       auto *Try = BasicBlock::Create(C, "fatomic.try", F, Exit);
+      auto *Elected = BasicBlock::Create(C, "fatomic.elected", F, Exit);
       auto *Crit = BasicBlock::Create(C, "fatomic.crit", F, Exit);
       auto *Next = BasicBlock::Create(C, "fatomic.next", F, Exit);
       IRBuilder<> B(Pre);
       B.CreateBr(Try);
       B.SetInsertPoint(Try);
+      // One elected lane of a subgroup spins alone, so it never waits on a
+      // lane of its own subgroup that holds the lock.
+      B.CreateCondBr(B.CreateIntrinsic(Intrinsic::spv_wave_is_first_lane, {}),
+                     Elected, Next);
+      B.SetInsertPoint(Elected);
       Value *Got = B.CreateExtractValue(
           B.CreateAtomicCmpXchg(Lock, B.getInt32(0), B.getInt32(1), Align(4),
                                 AtomicOrdering::Acquire,
                                 AtomicOrdering::Monotonic, WG),
           1);
-      B.CreateCondBr(Got, Crit, Next);
+      B.CreateCondBr(Got, Crit, Elected);
       B.SetInsertPoint(Crit);
       Value *Old = B.CreateLoad(RMW->getType(), RMW->getPointerOperand());
       Value *New = buildAtomicRMWValue(RMW->getOperation(), B, Old,
