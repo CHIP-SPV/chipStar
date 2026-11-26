@@ -3975,10 +3975,11 @@ void CHIPBackendVulkan::initializeImpl() {
             VK_API_VERSION_MINOR(Props.apiVersion),
             VK_API_VERSION_PATCH(Props.apiVersion));
 
-    CHIPDeviceVulkan *Dev = CHIPDeviceVulkan::create(Ctx, Phys[i], Accepted);
+    // Only the suitable device CHIP_DEVICE names is used, as HIP device 0.
+    if (Accepted++ != ChipEnvVars.getDeviceIdx())
+      continue;
+    CHIPDeviceVulkan *Dev = CHIPDeviceVulkan::create(Ctx, Phys[i], 0);
     (void)Dev; // create() registers it with the context.
-    ++Accepted;
-    // Only the first suitable device is used.
     break;
   }
   if (Accepted == 0) {
@@ -3988,6 +3989,11 @@ void CHIPBackendVulkan::initializeImpl() {
         "subgroup ops)",
         hipErrorInitializationError);
   }
+  if (Accepted <= ChipEnvVars.getDeviceIdx())
+    CHIPERR_LOG_AND_THROW("Selected Vulkan device " +
+                              std::to_string(ChipEnvVars.getDeviceIdx()) +
+                              " is out of range",
+                          hipErrorInitializationError);
 
   EventMonitor_ = ::Backend->createEventMonitor_();
 }
