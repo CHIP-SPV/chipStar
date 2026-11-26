@@ -225,6 +225,10 @@ add_hipcc_test(inputs/testIssue606.cpp HIPCC_OPTIONS -D__HIP_PLATFORM_SPIRV__ -x
 
 # Lowering a module with many shared memory users must be reproducible (#1661).
 add_shell_test(TestFix1661DynMemOrder.bash)
+# A template instance named like an OpenCL builtin is not one (#2390).
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestVulkanTemplateNotBuiltin.bash)
+endif()
 
 add_shell_test(TestHipccCompileAndLink.bash)
 add_shell_test(TestHipccCompileThenLink.bash)
