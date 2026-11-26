@@ -357,6 +357,8 @@ add_shell_test(TestFix1746BallotWarp64.bash)
 if(NOT CHIP_MALI_GPU_WORKAROUNDS)
   add_shell_test(TestFix2128ConstMemset.bash)
 endif()
+# A Vulkan zero memset of a whole variable must be a typed store (#2391).
+add_shell_test(TestFix2391VulkanZeroMemset.bash)
 
 # Add the promoteInt tests
 add_subdirectory(promoteInt)

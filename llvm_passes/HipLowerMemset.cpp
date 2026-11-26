@@ -49,11 +49,27 @@ static constexpr bool ExpandAll = true;
 static constexpr bool ExpandAll = false;
 #endif
 
+static bool zeroWholeVariable(MemSetInst *MemSet) {
+  auto *Val = dyn_cast<ConstantInt>(MemSet->getValue());
+  auto *Len = dyn_cast<ConstantInt>(MemSet->getLength());
+  if (!Val || !Val->isZero() || !Len || MemSet->isVolatile())
+    return false;
+  auto *GV = dyn_cast<GlobalVariable>(MemSet->getDest()->stripPointerCasts());
+  const DataLayout &DL = MemSet->getModule()->getDataLayout();
+  if (!GV || DL.getTypeAllocSize(GV->getValueType()) != Len->getZExtValue())
+    return false;
+  IRBuilder<> B(MemSet);
+  B.CreateAlignedStore(Constant::getNullValue(GV->getValueType()), GV,
+                       MemSet->getDestAlign());
+  return true;
+}
+
 static bool lowerMemsets(Function &F) {
   SmallPtrSet<MemSetInst *, 8> WorkList;
   // Vulkan's logical pointers cannot take a memset; expand them all.
-  bool All = ExpandAll || Triple(F.getParent()->getTargetTriple())
-                                  .getEnvironmentName() == "shadervulkan";
+  bool Vulkan = Triple(F.getParent()->getTargetTriple()).getEnvironmentName() ==
+                "shadervulkan";
+  bool All = ExpandAll || Vulkan;
   for (auto &BB : F)
     for (auto &I : BB)
       if (auto *MemSet = dyn_cast<MemSetInst>(&I)) {
@@ -66,6 +82,11 @@ static bool lowerMemsets(Function &F) {
       }
 
   for (auto *MemSet : WorkList) {
+    // Logical SPIR-V cannot store bytes into a typed global; zero it whole.
+    if (Vulkan && zeroWholeVariable(MemSet)) {
+      MemSet->eraseFromParent();
+      continue;
+    }
     expandMemSetAsLoop(MemSet);
     MemSet->eraseFromParent();
   }
