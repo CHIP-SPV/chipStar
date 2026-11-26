@@ -194,6 +194,10 @@ add_hipcc_test(TestFix1248HalfHostOps.hip HIPCC_OPTIONS -fsyntax-only)
 
 # A call to a shared memory user must pass the caller's argument (#1670).
 add_shell_test(TestFix1670DynMemCallArgs.bash)
+# Loops get one exit before StructurizeCFG (mr-hip).
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestVulkanLoopExits.bash)
+endif()
 
 # A local array initialized with shared memory addresses must compile (#1692).
 add_hipcc_test(TestFix1692DynSharedLocalInit.hip HIPCC_OPTIONS -O2 -c)
