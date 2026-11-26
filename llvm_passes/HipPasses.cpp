@@ -69,6 +69,8 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/StructurizeCFG.h"
+#include "llvm/Transforms/Utils/FixIrreducible.h"
+#include "llvm/Transforms/Utils/UnifyLoopExits.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Scalar/SROA.h"
@@ -3910,6 +3912,10 @@ static void addVulkanLinkTimePasses(ModulePassManager &MPM) {
   // their selection header does not dominate. Remove when
   // CanaryVulkanStructurizerMergeDominance fires.
   MPM.addPass(createModuleToFunctionPassAdaptor(LowerSwitchPass()));
+  // StructurizeCFG miscompiles a loop with several exits (mr-hip); give each
+  // loop one exit first, as AMDGPU does.
+  MPM.addPass(createModuleToFunctionPassAdaptor(FixIrreduciblePass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(UnifyLoopExitsPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(StructurizeCFGPass()));
 }
 #endif
