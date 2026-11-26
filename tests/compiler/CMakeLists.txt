@@ -164,6 +164,10 @@ add_shell_test(TestFix1678SpillerCallConv.bash)
 
 # Kernels whose lanes exchange data are pinned to the warp size (#1409).
 add_shell_test(TestFix1409WarpsPin.bash)
+# One elected lane per subgroup tries a shared float atomic's lock.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestVulkanFloatAtomicLockElect.bash)
+endif()
 
 add_test(NAME "TestHipccNeedsDashO"
   COMMAND ${CMAKE_BINARY_DIR}/bin/hipcc
