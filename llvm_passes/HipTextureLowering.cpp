@@ -335,6 +335,8 @@ static void analyze(Value *V, TextureUseGroup &TexUseGroup,
     break;
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
+  case Instruction::IntToPtr:
+  case Instruction::PtrToInt:
     VisitDefsAndUses(I, {0});
     return;
   case Instruction::Select:
