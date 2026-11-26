@@ -2029,8 +2029,14 @@ public:
     auto &TTI = AM.getResult<TargetIRAnalysis>(F);
     for (IntrinsicInst *II : Work) {
       auto *Len = dyn_cast<ConstantInt>(II->getArgOperand(2));
+      // A copy out of a constant table folds to constant stores whatever its
+      // size (spm-hip's 388 byte ran[] initializer).
+      auto *Table = dyn_cast<GlobalVariable>(
+          getUnderlyingObject(II->getArgOperand(1)));
+      bool Folds = Table && Table->isConstant() &&
+                   Table->hasDefinitiveInitializer();
       if (auto *Cpy = dyn_cast<MemTransferInst>(II);
-          Cpy && Len && Len->getZExtValue() <= 256) {
+          Cpy && Len && Len->getZExtValue() <= (Folds ? 4096 : 256)) {
         // Constant offsets, which a loop's byte index into a local struct is
         // not: SROA then resolves the copy. Loads come first, for memmove.
         uint64_t N = Len->getZExtValue();
