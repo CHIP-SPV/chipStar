@@ -62,6 +62,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LowerAtomic.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -2116,6 +2117,38 @@ public:
   }
 };
 
+// Logical SPIR-V cannot select between variables, so a load through a select
+// of two pointers that are safe to load becomes a select of two loads.
+class HipVulkanSpeculateSelectLoadsPass
+    : public HipRequiredPassInfoMixin<HipVulkanSpeculateSelectLoadsPass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &) {
+    const DataLayout &DL = F.getDataLayout();
+    SmallVector<LoadInst *, 8> Work;
+    for (Instruction &I : instructions(F))
+      if (auto *L = dyn_cast<LoadInst>(&I); L && L->isSimple())
+        if (auto *S = dyn_cast<SelectInst>(L->getPointerOperand());
+            S && all_of(ArrayRef<Value *>{S->getTrueValue(),
+                                          S->getFalseValue()},
+                        [&](Value *P) {
+                          return isDereferenceableAndAlignedPointer(
+                              P, L->getType(), L->getAlign(), DL);
+                        }))
+          Work.push_back(L);
+    for (LoadInst *L : Work) {
+      auto *S = cast<SelectInst>(L->getPointerOperand());
+      IRBuilder<> B(L);
+      auto Load = [&](Value *P) {
+        return B.CreateAlignedLoad(L->getType(), P, L->getAlign());
+      };
+      L->replaceAllUsesWith(B.CreateSelect(
+          S->getCondition(), Load(S->getTrueValue()), Load(S->getFalseValue())));
+      L->eraseFromParent();
+    }
+    return Work.empty() ? PreservedAnalyses::all() : PreservedAnalyses::none();
+  }
+};
+
 // A pointer known to be global is not local and vice versa: to_local and
 // to_global of it, casts between the two address spaces, are null. Folds the
 // branches on them, whose other side Vulkan could not express.
@@ -3756,6 +3789,7 @@ static void addVulkanLinkTimePasses(ModulePassManager &MPM) {
   // Before the retype, which gives its compare-and-swap loops integer storage.
   MPM.addPass(HipVulkanLockSharedFloatAtomicsPass());
   MPM.addPass(HipVulkanRetypeArraysPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanSpeculateSelectLoadsPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::ModifyCFG)));
   // SROA leaves the integer bits of split pointer fields dead.
   MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));
