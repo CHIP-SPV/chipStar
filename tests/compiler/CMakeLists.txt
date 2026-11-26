@@ -255,6 +255,10 @@ add_shell_test(TestFix1680DuplicatePhiPreds.bash)
 # SPIR-V and runs spirv-val; skips when LLVM_SPIRV is NOT_NEEDED.
 add_shell_test(TestSpirvDuplicatePhiHip.bash)
 add_shell_test(TestFix1577PointerVectors.bash)
+# Vulkan cannot select between private variables a load goes through.
+if(CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestVulkanSelectLoad.bash)
+endif()
 # A constant zero length copy must not reach SPIR-V emission.
 add_shell_test(TestFix1634ZeroLengthCopy.bash)
 add_shell_test(TestFix2110GlobalVarUsedList.bash)
