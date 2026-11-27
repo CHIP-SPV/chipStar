@@ -884,6 +884,34 @@ static void decorateStorageBuffersCoherent(std::vector<uint32_t> &W) {
     W.insert(W.begin() + After, Deco.begin(), Deco.end());
 }
 
+// OpReadClockKHR at Device scope: RADV's subgroup clock is 20 bits and wraps.
+static void useDeviceClock(std::vector<uint32_t> &W) {
+  uint32_t UInt = 0, One = 0;
+  size_t FirstFn = W.size();
+  for (size_t I = 5; I < W.size();) {
+    uint32_t Op = W[I] & 0xffff, N = W[I] >> 16;
+    if (Op == 21 && N == 4 && W[I + 2] == 32 && W[I + 3] == 0 && !UInt)
+      UInt = W[I + 1];
+    if (Op == 43 && N == 4 && W[I + 1] == UInt && W[I + 3] == 1 && !One)
+      One = W[I + 2];
+    if (Op == 54 && FirstFn == W.size())
+      FirstFn = I;
+    I += N;
+  }
+  bool Any = false;
+  for (size_t I = 5; I < W.size(); I += W[I] >> 16)
+    Any |= (W[I] & 0xffff) == 5056;
+  if (!Any || !UInt)
+    return;
+  if (!One) {
+    One = W[3]++;
+    W.insert(W.begin() + FirstFn, {(4u << 16) | 43, UInt, One, 1});
+  }
+  for (size_t I = 5; I < W.size(); I += W[I] >> 16)
+    if ((W[I] & 0xffff) == 5056)
+      W[I + 3] = One;
+}
+
 // Replaces a storage buffer OpAtomicFAddEXT the device cannot run (RADV on the
 // W6400 has no shaderBufferFloat32AtomicAdd) by a compare-and-swap loop on an
 // Aliased unsigned view of the same binding, which Vulkan allows for variables
@@ -1302,6 +1330,8 @@ void CHIPModuleVulkan::compile(chipstar::Device *ChipDev) {
     dropExportLinkage(Words);
     lowerUnsupportedBufferFAdds(Words, *ChipDevice_);
     decorateStorageBuffersCoherent(Words);
+    if (ChipDevice_->hasDeviceClock())
+      useDeviceClock(Words);
     // WORKAROUND(CHIP-SPV/chipStar#1817, no public NVIDIA tracker): the NVIDIA
     // driver gets wrong results from calls to DontInline functions; the hint is
     // optional. Remove when NVIDIA drivers compute them correctly.
@@ -2241,11 +2271,11 @@ CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
     *Tail = &SizeCtl;
     Tail = &SizeCtl.pNext;
   }
-  // For __builtin_readcyclecounter, which reads the subgroup clock.
+  // For __builtin_readcyclecounter, which reads the device clock if it can.
   if (HasExt(VK_KHR_SHADER_CLOCK_EXTENSION_NAME) && Clock.shaderSubgroupClock) {
     DevExts.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
     Clock.pNext = nullptr;
-    Clock.shaderDeviceClock = VK_FALSE;
+    Dev->DeviceClock_ = Clock.shaderDeviceClock == VK_TRUE;
     *Tail = &Clock;
   }
 
@@ -2372,6 +2402,10 @@ void CHIPDeviceVulkan::populateDevicePropertiesImpl() {
   HipDeviceProps_.memoryClockRate = 1000;
   HipDeviceProps_.memoryBusWidth = 256;
   HipDeviceProps_.clockInstructionRate = 1000 * 1000;
+  // clock64() reads the device clock, which ticks with the timestamps on RADV and NVIDIA.
+  if (DeviceClock_ && Limits.timestampPeriod > 0.0f)
+    HipDeviceProps_.clockRate = HipDeviceProps_.clockInstructionRate =
+        static_cast<int>(1e6 / Limits.timestampPeriod);
 
   HipDeviceProps_.totalConstMem = Limits.maxStorageBufferRange;
   HipDeviceProps_.l2CacheSize = 0;
