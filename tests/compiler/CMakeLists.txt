@@ -301,6 +301,8 @@ endif()
 if(CHIP_USE_NATIVE_VULKAN_SPIRV)
   add_shell_test(CanaryVulkanStructurizerMergeDominance.bash)
   add_shell_test(CanaryVulkanBitcastFewerElements.bash)
+  add_shell_test(CanaryVulkanByteStrideGEPDominance.bash)
+  add_shell_test(TestVulkanByteStrideGEP.bash)
 endif()
 # Fails the day upstream stops rejecting <N x ptr>, which is the signal to
 # delete the hip-lower-pointer-vectors pass. Read its header before acting.

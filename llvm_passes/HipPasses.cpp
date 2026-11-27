@@ -2166,6 +2166,61 @@ public:
   }
 };
 
+// WORKAROUND(CHIP-SPV/chipStar#2398, no upstream report): SPIRVEmitIntrinsics
+// emits a GEP that steps through an [N x i8] stride before the GEP its base
+// comes from (flame-hip). A stride GEP whose accesses, direct or at constant
+// byte offsets, all use one type steps in that type or an array of it
+// instead. Remove when CanaryVulkanByteStrideGEPDominance fires.
+class HipVulkanTypeByteStrideGEPsPass
+    : public HipRequiredPassInfoMixin<HipVulkanTypeByteStrideGEPsPass> {
+  // The one type V's loads and stores access, directly or through constant
+  // byte offsets; null if they disagree or V has another use.
+  static bool accessType(Value *V, Type *&T) {
+    return all_of(V->users(), [&](User *U) {
+      if (auto *G = dyn_cast<GetElementPtrInst>(U);
+          G && G->getSourceElementType()->isIntegerTy(8) &&
+          G->hasAllConstantIndices())
+        return accessType(G, T);
+      Type *A = isa<LoadInst>(U) ? U->getType()
+                : isa<StoreInst>(U) && U->getOperand(1) == V
+                    ? U->getOperand(0)->getType()
+                    : nullptr;
+      if (!A || (T && A != T))
+        return false;
+      T = A;
+      return true;
+    });
+  }
+
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &) {
+    const DataLayout &DL = F.getDataLayout();
+    bool Changed = false;
+    for (Instruction &I : instructions(F)) {
+      auto *G = dyn_cast<GetElementPtrInst>(&I);
+      auto *AT = G ? dyn_cast<ArrayType>(G->getSourceElementType()) : nullptr;
+      // Only into a by-value argument, which the backend copies to a typed
+      // local; buffers and byte-retyped arrays are lowered by byte offset.
+      if (!AT || !AT->getElementType()->isIntegerTy(8) || G->getNumIndices() != 1)
+        continue;
+      // Stepping from the argument itself is fine; from a field of it is not.
+      auto *A = dyn_cast<Argument>(getUnderlyingObject(G->getPointerOperand()));
+      if (!A || !A->hasByValAttr() || G->getPointerOperand() == A)
+        continue;
+      Type *T = nullptr;
+      uint64_t N = AT->getNumElements();
+      if (!accessType(G, T) || !T || N % DL.getTypeAllocSize(T))
+        continue;
+      uint64_t K = N / DL.getTypeAllocSize(T);
+      Type *Stride = K == 1 ? T : ArrayType::get(T, K);
+      G->setSourceElementType(Stride);
+      G->setResultElementType(Stride);
+      Changed = true;
+    }
+    return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  }
+};
+
 // Logical SPIR-V cannot pick a variable through a phi either. A load or store
 // through a phi of pointers (or a GEP of one), with no other memory access in
 // the block before it, moves into the predecessors: lud-hip's sunk copy of
@@ -3913,6 +3968,7 @@ static void addVulkanLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(GlobalDCEPass());
   MPM.addPass(HipDropUnusedGlobalsPass());
   MPM.addPass(HipVulkanDropDeadHiddenArgsPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanTypeByteStrideGEPsPass()));
   // WORKAROUND(CHIP-SPV/chipStar#1738, no upstream report): the SPIR-V
   // structurizer gives a branch and a switch sharing a target a merge block
   // their selection header does not dominate. Remove when
