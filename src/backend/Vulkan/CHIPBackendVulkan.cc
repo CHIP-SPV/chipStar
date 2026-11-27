@@ -3571,6 +3571,15 @@ CHIPQueueVulkan::launchImpl(chipstar::ExecItem *ExecItem) {
 
   vkCmdDispatch(Cmd, Grid.x, Grid.y, Grid.z);
 
+  // A fence or semaphore wait does not make device writes visible to the host.
+  VkMemoryBarrier HostMB{};
+  HostMB.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  HostMB.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  HostMB.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+  vkCmdPipelineBarrier(Cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &HostMB, 0, nullptr,
+                       0, nullptr);
+
   if (vkEndCommandBuffer(Cmd) != VK_SUCCESS)
     CHIPERR_LOG_AND_THROW("vkEndCommandBuffer failed in launchImpl",
                           hipErrorTbd);
