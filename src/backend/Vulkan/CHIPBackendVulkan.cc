@@ -867,6 +867,23 @@ specializeDynamicShared(std::vector<uint32_t> &W,
   return MaxElem;
 }
 
+// Without the Vulkan memory model only Coherent accesses are made available
+// and visible to other invocations, which __syncthreads needs for global memory.
+static void decorateStorageBuffersCoherent(std::vector<uint32_t> &W) {
+  std::vector<uint32_t> Deco;
+  size_t After = 0;
+  for (size_t I = 5; I < W.size();) {
+    uint32_t Op = W[I] & 0xffff, N = W[I] >> 16;
+    if (Op == 71 || Op == 72 || Op == 332) // OpDecorate, OpMemberDecorate, OpDecorateString
+      After = I + N;
+    if (Op == 59 && W[I + 3] == 12) // OpVariable StorageBuffer
+      Deco.insert(Deco.end(), {(3u << 16) | 71, W[I + 2], 23}); // Coherent
+    I += N;
+  }
+  if (After)
+    W.insert(W.begin() + After, Deco.begin(), Deco.end());
+}
+
 // Replaces a storage buffer OpAtomicFAddEXT the device cannot run (RADV on the
 // W6400 has no shaderBufferFloat32AtomicAdd) by a compare-and-swap loop on an
 // Aliased unsigned view of the same binding, which Vulkan allows for variables
@@ -1284,6 +1301,7 @@ void CHIPModuleVulkan::compile(chipstar::Device *ChipDev) {
     dropUnsupportedFloatModes(Words, ChipDevice_->getFloatControls());
     dropExportLinkage(Words);
     lowerUnsupportedBufferFAdds(Words, *ChipDevice_);
+    decorateStorageBuffersCoherent(Words);
     // WORKAROUND(CHIP-SPV/chipStar#1817, no public NVIDIA tracker): the NVIDIA
     // driver gets wrong results from calls to DontInline functions; the hint is
     // optional. Remove when NVIDIA drivers compute them correctly.
