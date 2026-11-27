@@ -77,13 +77,14 @@ endfunction()
 # add_shell_test(<script-file>)
 # These inspect the OpenCL-path *-lower.bc, which the native Vulkan build
 # does not produce, or OpenCL-path texture diagnostics (Vulkan has no textures).
+# CanarySitofpI1Backend probes upstream LLVM, which the Vulkan fork is not.
 set(NATIVE_VULKAN_NA_SCRIPTS TestFix1677PrintfCallConv.bash
   TestFix1662DynMemUserCallsUser.bash TestFix1670DynMemCallArgs.bash
   TestFix1673DynMemCallConv.bash TestFix1680DuplicatePhiPreds.bash
   TestSpirvDuplicatePhiHip.bash TestFix1634ZeroLengthCopy.bash
   TestDeadVTableVirtualBase.bash TestFix582VarInitWorkItems.bash
   TestPrefetchLowering.bash TestFix1911SyncwarpLocalFence.bash
-  TestTextureUnsupportedMixedDim.bash)
+  TestTextureUnsupportedMixedDim.bash CanarySitofpI1Backend.bash)
 
 function(add_shell_test SCRIPT)
   if(CHIP_USE_NATIVE_VULKAN_SPIRV AND SCRIPT IN_LIST NATIVE_VULKAN_NA_SCRIPTS)
