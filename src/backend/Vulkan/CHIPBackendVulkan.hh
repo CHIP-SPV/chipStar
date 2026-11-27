@@ -378,6 +378,7 @@ class CHIPDeviceVulkan : public chipstar::Device {
   bool HasShaderInt64_ = false;
   // Native float atomic add on storage buffers, by width; 64-bit buffer atomics.
   bool BufferFAdd32_ = false, BufferFAdd64_ = false, BufferInt64Atomics_ = false;
+  bool DeviceClock_ = false; // shaderDeviceClock enabled.
 
   /// Timeline semaphores export and import as opaque fds (IPC events).
   bool HasIpcSemaphore_ = false;
@@ -426,6 +427,7 @@ public:
     return Width == 32 ? BufferFAdd32_ : BufferFAdd64_;
   }
   bool hasBufferInt64Atomics() const { return BufferInt64Atomics_; }
+  bool hasDeviceClock() const { return DeviceClock_; }
   const VkPhysicalDeviceFloatControlsProperties &getFloatControls() const {
     return FloatControls_;
   }

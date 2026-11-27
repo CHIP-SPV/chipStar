@@ -602,7 +602,6 @@ chipstar-vk-b570: # Arc B570 via Mesa ANV, native Vulkan backend (self-hosted ru
     Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'https://github.com/CHIP-SPV/chipStar/issues/2150'
 chipstar-vk-w6400: # Radeon Pro W6400 via Mesa RADV, native Vulkan backend (self-hosted runner)
   VULKAN_GPU:
-    '^clock': 'https://github.com/CHIP-SPV/chipStar/issues/2154'
 kosmickrisp-m4: # Apple M4 via Mesa KosmicKrisp (Vulkan on Metal), native Vulkan backend on pastrami
   VULKAN_GPU:
     '^clock': 'https://github.com/CHIP-SPV/chipStar/issues/2183'
