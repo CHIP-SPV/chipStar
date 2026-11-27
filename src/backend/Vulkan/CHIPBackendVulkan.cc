@@ -2590,6 +2590,8 @@ CHIPQueueVulkan::~CHIPQueueVulkan() {
 
   VkQueue Q = ChipDevice_->getComputeQueue();
   if (Q != VK_NULL_HANDLE) {
+    // vkQueueWaitIdle requires external synchronization of the VkQueue.
+    std::lock_guard<std::mutex> SubmitLock(ChipDevice_->getSubmitMtx());
     // Ignore the result; the device may already be lost.
     (void)vkQueueWaitIdle(Q);
   }
