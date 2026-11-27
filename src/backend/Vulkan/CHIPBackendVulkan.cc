@@ -3096,8 +3096,11 @@ CHIPQueueVulkan::memFillAsyncImpl(void *Dst, size_t Size, const void *Pattern,
   VkBuffer DstBuf = i8LookupVkBuffer(Ctx, Dst, DstIsMapped, DstOffset);
   i8CheckFitsAllocation(Ctx, Dst, Size);
 
-  // Unregistered host memory, or mapped memory on the callback thread.
+  // Host memory, or mapped memory on the callback thread.
   if (DstBuf == VK_NULL_HANDLE || (InCallbackThread && DstIsMapped)) {
+    if (DstBuf == VK_NULL_HANDLE && !Dev->AllocTracker->getAllocInfo(Dst))
+      CHIPERR_LOG_AND_THROW("memFillAsync: pointer is not a HIP allocation",
+                            hipErrorInvalidValue);
     waitSubmitted();
     logTrace("CHIPQueueVulkan::memFillAsync host-side fill {} / {} B (pat {})",
              Dst, Size, PatternSize);
