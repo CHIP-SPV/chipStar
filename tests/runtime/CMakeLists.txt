@@ -373,7 +373,9 @@ if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
 endif()
 
 # They must also exit 0 when the module uses fp64 (#1770).
-add_shell_test(TestFix1770ExtractorFp64ExitStatus.bash)
+if(NOT CHIP_USE_NATIVE_VULKAN_SPIRV)
+  add_shell_test(TestFix1770ExtractorFp64ExitStatus.bash)
+endif()
 
 # The two volatile reproducers above are deliberately not registered as ctests:
 # both PASS on a chipStar built without HipLowerVolatileAccessesPass, so neither

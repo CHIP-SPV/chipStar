@@ -589,7 +589,6 @@ ANY:
     abort: 'Works only on dGPU, otherwise, things being printed out of order'
     syncthreadsExitedThreads: 'Exited threads calling __syncthreads'
   VULKAN_GPU:
-    TestFix1770ExtractorFp64ExitStatus: 'https://github.com/CHIP-SPV/chipStar/issues/2146'
     Unit_hipManagedKeyword_SingleGpu_TypeQualifiers: 'https://github.com/CHIP-SPV/chipStar/issues/2138'
     Unit_hipMemcpyToSymbolAsync_ToNFrom_UnitDeviceTests: 'https://github.com/CHIP-SPV/chipStar/issues/2143'
     Unit_hipStreamPerThread_ChildProc_StreamPerThreadTest: 'https://github.com/CHIP-SPV/chipStar/issues/2144'
