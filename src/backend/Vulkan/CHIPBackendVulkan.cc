@@ -4107,6 +4107,10 @@ int CHIPBackendVulkan::ReqNumHandles() { return 4; }
 
 void CHIPBackendVulkan::initializeImpl() {
   logTrace("CHIPBackendVulkan Initialize");
+  // The Vulkan instance is the one platform.
+  if (ChipEnvVars.getPlatformIdx() != 0)
+    CHIPERR_LOG_AND_THROW("CHIP_PLATFORM for the Vulkan backend must be 0",
+                          hipErrorInitializationError);
 
   VkApplicationInfo App{};
   App.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
