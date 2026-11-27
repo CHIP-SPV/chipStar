@@ -15,3 +15,14 @@ define spir_kernel void @k(i1 %c, ptr addrspace(1) %o) {
   store i64 %v, ptr addrspace(1) %o, align 8
   ret void
 }
+
+; A volatile store through a select of two shared variables (merge-hip) must
+; become a store on each side of a branch.
+@x = internal addrspace(3) global i32 undef, align 4
+@y = internal addrspace(3) global i32 undef, align 4
+
+define spir_kernel void @s(i1 %c, i32 %v) {
+  %p = select i1 %c, ptr addrspace(3) @x, ptr addrspace(3) @y
+  store volatile i32 %v, ptr addrspace(3) %p, align 4
+  ret void
+}

@@ -2135,7 +2135,8 @@ public:
 };
 
 // Logical SPIR-V cannot select between variables, so a load through a select
-// of two pointers that are safe to load becomes a select of two loads.
+// of two pointers that are safe to load becomes a select of two loads, and a
+// store through one becomes a store on each side of a branch.
 class HipVulkanSpeculateSelectLoadsPass
     : public HipRequiredPassInfoMixin<HipVulkanSpeculateSelectLoadsPass> {
 public:
@@ -2162,7 +2163,25 @@ public:
           S->getCondition(), Load(S->getTrueValue()), Load(S->getFalseValue())));
       L->eraseFromParent();
     }
-    return Work.empty() ? PreservedAnalyses::all() : PreservedAnalyses::none();
+    SmallVector<StoreInst *, 8> Stores;
+    for (Instruction &I : instructions(F))
+      if (auto *St = dyn_cast<StoreInst>(&I))
+        if (isa<SelectInst>(St->getPointerOperand()))
+          Stores.push_back(St);
+    for (StoreInst *St : Stores) {
+      auto *S = cast<SelectInst>(St->getPointerOperand());
+      Instruction *Then, *Else;
+      SplitBlockAndInsertIfThenElse(S->getCondition(), St, &Then, &Else);
+      for (auto [At, P] : {std::pair{Then, S->getTrueValue()},
+                           std::pair{Else, S->getFalseValue()}}) {
+        auto *C = cast<StoreInst>(St->clone());
+        C->setOperand(1, P);
+        C->insertBefore(At->getIterator());
+      }
+      St->eraseFromParent();
+    }
+    return Work.empty() && Stores.empty() ? PreservedAnalyses::all()
+                                          : PreservedAnalyses::none();
   }
 };
 
