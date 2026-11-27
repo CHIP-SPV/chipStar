@@ -245,6 +245,14 @@ void CHIPUninitializeCallOnce() {
       logInfo("Unloaded module count: {}", getSPVRegister().getNumSources());
     }
 
+    // Exit has no caller to report to, so a failed sync is only logged.
+    auto FinishAtExit = [](chipstar::Queue *Q) {
+      try {
+        Q->finish();
+      } catch (CHIPError &Err) {
+        logError("Queue sync at exit failed: {}", Err.getMsgStr());
+      }
+    };
     // Synchronize all devices before cleanup to ensure any pending operations
     // (especially JIT compilation) complete before tearing down resources
     for (auto Dev : Backend->getDevices()) {
@@ -252,13 +260,13 @@ void CHIPUninitializeCallOnce() {
       {
         std::lock_guard<std::mutex> Lock(Dev->QueueAddRemoveMtx);
         for (auto Q : Dev->getQueuesNoLock()) {
-          Q->finish();
+          FinishAtExit(Q);
         }
       }
       // Sync default queues
       auto LegacyQueue = Dev->getLegacyDefaultQueue();
       if (LegacyQueue) {
-        LegacyQueue->finish();
+        FinishAtExit(LegacyQueue);
       }
       // Note: the per-thread default queue is deliberately NOT synced here.
       // PerThreadDefaultQueue is a thread_local unique_ptr whose destructor
