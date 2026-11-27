@@ -1159,6 +1159,27 @@ lowerUnsupportedBufferFAdds(std::vector<uint32_t> &W,
   W = std::move(R);
 }
 
+// Vulkan has no Linkage capability; the SPIR-V backend still exports helpers it
+// emits (spirv.llvm_bswap_i32), and nothing links against a loaded module.
+static void dropExportLinkage(std::vector<uint32_t> &W) {
+  std::vector<uint32_t> Out(W.begin(), W.begin() + std::min<size_t>(5, W.size()));
+  bool Import = false;
+  for (size_t I = 5; I < W.size(); I += W[I] >> 16)
+    if ((W[I] >> 16) == 0 || I + (W[I] >> 16) > W.size())
+      return;
+    else if ((W[I] & 0xffff) == 71 && W[I + 2] == 41 && // LinkageAttributes
+             W[I + (W[I] >> 16) - 1] != 0)              // not Export
+      Import = true;
+  for (size_t I = 5; I < W.size(); I += W[I] >> 16) {
+    uint32_t Op = W[I] & 0xffff, Wc = W[I] >> 16;
+    if ((Op == 71 && W[I + 2] == 41) || (Op == 17 && Wc == 2 && W[I + 1] == 5))
+      if (!Import)
+        continue;
+    Out.insert(Out.end(), W.begin() + I, W.begin() + I + Wc);
+  }
+  W = std::move(Out);
+}
+
 // Removes the float-controls execution modes the device does not support,
 // which must not be used (VUID-RuntimeSpirv-shaderDenormPreserveFloat32-06297).
 static void
@@ -1261,6 +1282,7 @@ void CHIPModuleVulkan::compile(chipstar::Device *ChipDev) {
     DynSharedElemBytes_ = specializeDynamicShared(Words, StaticSharedBytes_,
                                                   DynElemBytes_, DynSpecId_);
     dropUnsupportedFloatModes(Words, ChipDevice_->getFloatControls());
+    dropExportLinkage(Words);
     lowerUnsupportedBufferFAdds(Words, *ChipDevice_);
     // WORKAROUND(CHIP-SPV/chipStar#1817, no public NVIDIA tracker): the NVIDIA
     // driver gets wrong results from calls to DontInline functions; the hint is
