@@ -1,5 +1,5 @@
 #!/bin/bash
-# A load through a select of private variables must not select pointers.
+# A load or store through a select of variables must not select pointers.
 set -eu
 OUT="@CMAKE_CURRENT_BINARY_DIR@/@TEST_NAME@.out.ll"
 "@LLVM_TOOLS_BINARY_DIR@/opt" -load-pass-plugin "@CMAKE_BINARY_DIR@/lib/libLLVMHipSpvPasses.so" \
