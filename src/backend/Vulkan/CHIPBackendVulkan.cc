@@ -867,6 +867,298 @@ specializeDynamicShared(std::vector<uint32_t> &W,
   return MaxElem;
 }
 
+// Replaces a storage buffer OpAtomicFAddEXT the device cannot run (RADV on the
+// W6400 has no shaderBufferFloat32AtomicAdd) by a compare-and-swap loop on an
+// Aliased unsigned view of the same binding, which Vulkan allows for variables
+// sharing a set and binding.
+static void
+lowerUnsupportedBufferFAdds(std::vector<uint32_t> &W,
+                            const CHIPDeviceVulkan &Dev) {
+  using Inst = std::vector<uint32_t>;
+  if (W.size() < 5)
+    return;
+  std::vector<Inst> In;
+  for (size_t I = 5; I < W.size();) {
+    uint32_t Wc = W[I] >> 16;
+    if (!Wc || I + Wc > W.size())
+      return;
+    In.emplace_back(W.begin() + I, W.begin() + I + Wc);
+    I += Wc;
+  }
+  auto Op = [](const Inst &X) { return X[0] & 0xffff; };
+  auto Mk = [](uint32_t O, std::initializer_list<uint32_t> Args) {
+    Inst X{0};
+    X.insert(X.end(), Args);
+    X[0] = (uint32_t(X.size()) << 16) | O;
+    return X;
+  };
+  // Definitions of the ids the lowering looks through.
+  std::unordered_map<uint32_t, size_t> Def;
+  auto DefOf = [&](uint32_t Id) -> const Inst * {
+    auto It = Def.find(Id);
+    return It == Def.end() ? nullptr : &In[It->second];
+  };
+  // The buffer variable and float width of a lowerable atomic, or {0, 0}.
+  auto Target = [&](const Inst &A) -> std::pair<uint32_t, uint32_t> {
+    const Inst *RT = DefOf(A[1]), *Chain = DefOf(A[3]), *Sem = DefOf(A[5]);
+    if (!RT || Op(*RT) != 22 || !Chain || (Op(*Chain) != 65 && Op(*Chain) != 66) ||
+        Chain->size() != 6 || !Sem ||
+        !(Op(*Sem) == 46 || (Op(*Sem) == 43 && (*Sem)[3] == 0)))
+      return {0, 0};
+    uint32_t Width = (*RT)[2];
+    if (Dev.hasBufferFAdd(Width) || (Width == 64 && !Dev.hasBufferInt64Atomics()))
+      return {0, 0};
+    const Inst *Base = DefOf((*Chain)[3]);
+    if (Base && Op(*Base) == 83)
+      Base = DefOf((*Base)[3]);
+    if (!Base || Op(*Base) != 59 || (*Base)[3] != 12 /*StorageBuffer*/)
+      return {0, 0};
+    const Inst *PT = DefOf((*Base)[1]);
+    const Inst *ST = PT && Op(*PT) == 32 ? DefOf((*PT)[3]) : nullptr;
+    const Inst *AT = ST && Op(*ST) == 30 && ST->size() == 3 ? DefOf((*ST)[2]) : nullptr;
+    if (!AT || Op(*AT) != 29 || (*AT)[2] != A[1])
+      return {0, 0};
+    return {(*Base)[2], Width};
+  };
+  std::vector<std::pair<uint32_t, uint32_t>> Targets;
+  auto Index = [&] {
+    Def.clear();
+    for (size_t K = 0; K < In.size(); ++K) {
+      uint32_t O = Op(In[K]);
+      if ((O >= 19 && O <= 32) && In[K].size() > 1) // OpType*
+        Def[In[K][1]] = K;
+      else if ((O == 43 || O == 46 || O == 59 || O == 65 || O == 66 ||
+                O == 83) && In[K].size() > 2)
+        Def[In[K][2]] = K;
+    }
+    bool Any = false;
+    Targets.assign(In.size(), {0, 0});
+    for (size_t K = 0; K < In.size(); ++K)
+      if (Op(In[K]) == 6035 && In[K].size() == 7)
+        Any |= (Targets[K] = Target(In[K])).first != 0;
+    return Any;
+  };
+  if (!Index())
+    return;
+
+  uint32_t Next = W[3];
+  // A loop header holding an atomic becomes a pure header, its phis, merge
+  // and a branch to a new block with the rest, so the atomic's block can split.
+  {
+    std::vector<Inst> Re;
+    for (size_t K = 0; K < In.size();) {
+      if (Op(In[K]) != 248) {
+        Re.push_back(In[K++]);
+        continue;
+      }
+      size_t End = K + 1;
+      while (End < In.size() && Op(In[End]) != 248 && Op(In[End]) != 56)
+        ++End;
+      size_t Merge = 0, LastPhi = K, Atomic = 0;
+      for (size_t J = K + 1; J < End; ++J) {
+        if (Op(In[J]) == 246)
+          Merge = J;
+        if (Op(In[J]) == 245)
+          LastPhi = J;
+        if (Op(In[J]) == 6035 && Targets[J].first)
+          Atomic = J;
+      }
+      if (!Merge || !Atomic) {
+        Re.insert(Re.end(), In.begin() + K, In.begin() + End);
+        K = End;
+        continue;
+      }
+      uint32_t Body = Next++;
+      Re.insert(Re.end(), In.begin() + K, In.begin() + LastPhi + 1);
+      Re.push_back(In[Merge]);
+      Re.push_back(Mk(249, {Body}));
+      Re.push_back(Mk(248, {Body}));
+      for (size_t J = LastPhi + 1; J < End; ++J)
+        if (J != Merge)
+          Re.push_back(In[J]);
+      K = End;
+    }
+    In = std::move(Re);
+    Index();
+  }
+  std::vector<Inst> Types, Annots;
+  auto FindType = [&](auto Pred) -> uint32_t {
+    for (const Inst &X : In)
+      if (Pred(X))
+        return X[1];
+    for (const Inst &X : Types)
+      if (Pred(X))
+        return X[1];
+    return 0;
+  };
+  uint32_t Bool = FindType([&](const Inst &X) { return Op(X) == 20; });
+  if (!Bool)
+    Types.push_back(Mk(20, {Bool = Next++}));
+  struct View { uint32_t U, PtrU, PtrS; };
+  std::unordered_map<uint32_t, View> Views; // by width
+  auto ViewFor = [&](uint32_t Width) -> View & {
+    auto It = Views.find(Width);
+    if (It != Views.end())
+      return It->second;
+    View V{};
+    V.U = FindType([&](const Inst &X) {
+      return Op(X) == 21 && X[2] == Width && X[3] == 0;
+    });
+    if (!V.U)
+      Types.push_back(Mk(21, {V.U = Next++, Width, 0}));
+    uint32_t Arr = Next++, St = Next++;
+    Types.push_back(Mk(29, {Arr, V.U}));
+    Types.push_back(Mk(30, {St, Arr}));
+    Annots.push_back(Mk(71, {Arr, 6 /*ArrayStride*/, Width / 8}));
+    Annots.push_back(Mk(71, {St, 2 /*Block*/}));
+    Annots.push_back(Mk(72, {St, 0, 35 /*Offset*/, 0}));
+    Types.push_back(Mk(32, {V.PtrS = Next++, 12, St}));
+    V.PtrU = FindType([&](const Inst &X) {
+      return Op(X) == 32 && X[2] == 12 && X[3] == V.U;
+    });
+    if (!V.PtrU)
+      Types.push_back(Mk(32, {V.PtrU = Next++, 12, V.U}));
+    return Views[Width] = V;
+  };
+  std::unordered_map<uint64_t, uint32_t> Alias; // (var, width) -> alias var
+  std::vector<std::pair<uint32_t, uint32_t>> AliasOf; // (var, alias)
+  auto AliasFor = [&](uint32_t Var, uint32_t Width) {
+    uint64_t Key = (uint64_t(Var) << 32) | Width;
+    auto It = Alias.find(Key);
+    if (It != Alias.end())
+      return It->second;
+    View &V = ViewFor(Width);
+    uint32_t A = Next++;
+    Types.push_back(Mk(59, {V.PtrS, A, 12}));
+    for (const Inst &X : In)
+      if (Op(X) == 71 && X.size() == 4 && X[1] == Var && (X[2] == 33 || X[2] == 34))
+        Annots.push_back(Mk(71, {A, X[2], X[3]}));
+    Annots.push_back(Mk(71, {A, 20 /*Aliased*/}));
+    auto IsAliased = [&](const Inst &X) {
+      return Op(X) == 71 && X.size() == 3 && X[1] == Var && X[2] == 20;
+    };
+    if (std::none_of(In.begin(), In.end(), IsAliased) &&
+        std::none_of(Annots.begin(), Annots.end(), IsAliased))
+      Annots.push_back(Mk(71, {Var, 20 /*Aliased*/}));
+    AliasOf.emplace_back(Var, A);
+    return Alias[Key] = A;
+  };
+
+  // Rewrite the atomics, splitting their blocks around the loop.
+  static const std::unordered_set<uint32_t> Terminators = {
+      249, 250, 251, 252, 253, 254, 255, 4416};
+  std::vector<Inst> Out;
+  std::unordered_map<uint32_t, uint32_t> Final; // block -> its last split part
+  std::unordered_set<uint32_t> Ours;
+  uint32_t Block = 0, Cur = 0;
+  size_t FnStart = 0;
+  bool Lowered32 = false, Lowered64 = false, Kept32 = false, Kept64 = false;
+  for (size_t K = 0; K < In.size(); ++K) {
+    const Inst &X = In[K];
+    uint32_t O = Op(X);
+    if (O == 54)
+      FnStart = Out.size();
+    if (O == 248)
+      Block = Cur = X[1];
+    bool Split = false;
+    if (O == 6035 && Targets[K].first) {
+      Split = true; // No loop header after it in this block.
+      for (size_t J = K + 1; J < In.size() && !Terminators.count(Op(In[J])); ++J)
+        if (Op(In[J]) == 246)
+          Split = false;
+    }
+    if (O == 6035)
+      (X.size() == 7 && DefOf(X[1]) && (*DefOf(X[1]))[2] == 64
+           ? (Split ? Lowered64 : Kept64)
+           : (Split ? Lowered32 : Kept32)) = true;
+    if (!Split) {
+      Out.push_back(X);
+      if (Terminators.count(O) && Block)
+        Final[Block] = Cur;
+      if (O == 56) { // Retarget phis that named a split block.
+        for (size_t J = FnStart; J < Out.size(); ++J)
+          if (Op(Out[J]) == 245 && !Ours.count(Out[J][2]))
+            for (size_t P = 4; P < Out[J].size(); P += 2)
+              if (auto F = Final.find(Out[J][P]); F != Final.end())
+                Out[J][P] = F->second;
+        Final.clear();
+      }
+      continue;
+    }
+    auto [Var, Width] = Targets[K];
+    View &V = ViewFor(Width);
+    uint32_t A = AliasFor(Var, Width);
+    const Inst &Chain = *DefOf(X[3]);
+    uint32_t RT = X[1], Res = X[2], Scope = X[4], Sem = X[5], Val = X[6];
+    uint32_t Pu = Next++, Init = Next++, H = Next++, Body = Next++, C = Next++,
+             M = Next++, Phi = Next++, F = Next++, NF = Next++, NU = Next++,
+             Old = Next++, Eq = Next++;
+    Ours.insert(Phi);
+    Out.push_back(Mk(65, {V.PtrU, Pu, A, Chain[4], Chain[5]}));
+    Out.push_back(Mk(227, {V.U, Init, Pu, Scope, Sem}));
+    Out.push_back(Mk(249, {H}));
+    Out.push_back(Mk(248, {H}));
+    Out.push_back(Mk(245, {V.U, Phi, Init, Cur, Old, C}));
+    Out.push_back(Mk(246, {M, C, 0}));
+    Out.push_back(Mk(249, {Body}));
+    Out.push_back(Mk(248, {Body}));
+    Out.push_back(Mk(124, {RT, F, Phi}));
+    Out.push_back(Mk(129, {RT, NF, F, Val}));
+    Out.push_back(Mk(124, {V.U, NU, NF}));
+    Out.push_back(Mk(230, {V.U, Old, Pu, Scope, Sem, Sem, NU, Phi}));
+    Out.push_back(Mk(170, {Bool, Eq, Old, Phi}));
+    Out.push_back(Mk(250, {Eq, M, C}));
+    Out.push_back(Mk(248, {C}));
+    Out.push_back(Mk(249, {H}));
+    Out.push_back(Mk(248, {M}));
+    Out.push_back(Mk(124, {RT, Res, Old}));
+    Cur = M;
+  }
+
+  // Capabilities: drop float add ones nothing uses, add 64-bit atomics.
+  auto IsExt = [](const Inst &X) {
+    static const char Name[] = "SPV_EXT_shader_atomic_float_add";
+    return (X[0] & 0xffff) == 10 && X.size() >= 2 &&
+           !std::strncmp(reinterpret_cast<const char *>(&X[1]), Name, sizeof(Name));
+  };
+  std::vector<Inst> Final2;
+  bool HasI64Atomics = false;
+  for (const Inst &X : Out) {
+    uint32_t O = Op(X);
+    if (O == 17 && ((X[1] == 6033 && !Kept32) || (X[1] == 6034 && !Kept64)))
+      continue;
+    if (IsExt(X) && !Kept32 && !Kept64)
+      continue;
+    HasI64Atomics |= O == 17 && X[1] == 12;
+    Final2.push_back(X);
+  }
+  for (Inst &X : Final2) // Every entry point using a buffer lists its aliases.
+    for (auto [Var, A] : AliasOf)
+      if (Op(X) == 15 && std::find(X.begin() + 3, X.end(), Var) != X.end()) {
+        X.push_back(A);
+        X[0] = (uint32_t(X.size()) << 16) | 15;
+      }
+  if (Lowered64 && !HasI64Atomics)
+    Final2.insert(Final2.begin(), Mk(17, {12 /*Int64Atomics*/}));
+  // Annotations go after the last existing one, types and the aliases before
+  // the first function.
+  size_t LastAnnot = 0, FirstFn = Final2.size();
+  for (size_t K = 0; K < Final2.size(); ++K) {
+    uint32_t O = Op(Final2[K]);
+    if (O == 71 || O == 72)
+      LastAnnot = K + 1;
+    if (O == 54 && FirstFn == Final2.size())
+      FirstFn = K;
+  }
+  Final2.insert(Final2.begin() + FirstFn, Types.begin(), Types.end());
+  Final2.insert(Final2.begin() + LastAnnot, Annots.begin(), Annots.end());
+  std::vector<uint32_t> R(W.begin(), W.begin() + 5);
+  R[3] = Next;
+  for (const Inst &X : Final2)
+    R.insert(R.end(), X.begin(), X.end());
+  W = std::move(R);
+}
+
 // Removes the float-controls execution modes the device does not support,
 // which must not be used (VUID-RuntimeSpirv-shaderDenormPreserveFloat32-06297).
 static void
@@ -969,6 +1261,7 @@ void CHIPModuleVulkan::compile(chipstar::Device *ChipDev) {
     DynSharedElemBytes_ = specializeDynamicShared(Words, StaticSharedBytes_,
                                                   DynElemBytes_, DynSpecId_);
     dropUnsupportedFloatModes(Words, ChipDevice_->getFloatControls());
+    lowerUnsupportedBufferFAdds(Words, *ChipDevice_);
     // WORKAROUND(CHIP-SPV/chipStar#1817, no public NVIDIA tracker): the NVIDIA
     // driver gets wrong results from calls to DontInline functions; the hint is
     // optional. Remove when NVIDIA drivers compute them correctly.
@@ -1854,7 +2147,10 @@ CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
                                   &VkExtensionProperties::extensionName, Name);
   };
   void **Tail = &V11Features.pNext;
+  Dev->BufferInt64Atomics_ = V12Features.shaderBufferInt64Atomics == VK_TRUE;
   if (HasExt(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME)) {
+    Dev->BufferFAdd32_ = AtomicFloat.shaderBufferFloat32AtomicAdd == VK_TRUE;
+    Dev->BufferFAdd64_ = AtomicFloat.shaderBufferFloat64AtomicAdd == VK_TRUE;
     DevExts.push_back(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
     AtomicFloat.pNext = nullptr;
     *Tail = &AtomicFloat;

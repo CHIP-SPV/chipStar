@@ -376,6 +376,8 @@ class CHIPDeviceVulkan : public chipstar::Device {
 
   bool HasShaderInt8_ = false;
   bool HasShaderInt64_ = false;
+  // Native float atomic add on storage buffers, by width; 64-bit buffer atomics.
+  bool BufferFAdd32_ = false, BufferFAdd64_ = false, BufferInt64Atomics_ = false;
 
   /// Timeline semaphores export and import as opaque fds (IPC events).
   bool HasIpcSemaphore_ = false;
@@ -420,6 +422,10 @@ public:
   const VkPhysicalDeviceSubgroupProperties &getSubgroupProperties() const {
     return SubgroupProperties_;
   }
+  bool hasBufferFAdd(unsigned Width) const {
+    return Width == 32 ? BufferFAdd32_ : BufferFAdd64_;
+  }
+  bool hasBufferInt64Atomics() const { return BufferInt64Atomics_; }
   const VkPhysicalDeviceFloatControlsProperties &getFloatControls() const {
     return FloatControls_;
   }
