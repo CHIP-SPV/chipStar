@@ -2186,12 +2186,16 @@ CHIPDeviceVulkan *CHIPDeviceVulkan::create(CHIPContextVulkan *ChipContext,
   }
   // SPIR-V 1.6 lets the driver pick any subgroup size in [min, max]; warp
   // intrinsics need it to be warpSize (the reported subgroupSize).
-  const uint32_t SgSize = Dev->SubgroupProperties_.subgroupSize;
+  // Prefer 32, HIP's warpSize on RDNA as on NVIDIA and Intel.
+  uint32_t SgSize = Dev->SubgroupProperties_.subgroupSize;
+  if (SizeCtlProps.minSubgroupSize <= 32 && SizeCtlProps.maxSubgroupSize >= 32)
+    SgSize = 32;
   if (SizeCtl.subgroupSizeControl &&
       (SizeCtlProps.requiredSubgroupSizeStages & VK_SHADER_STAGE_COMPUTE_BIT) &&
       SgSize * SizeCtlProps.maxComputeWorkgroupSubgroups >=
           Dev->Properties_.limits.maxComputeWorkGroupInvocations) {
     Dev->RequiredSubgroupSize_ = SgSize;
+    Dev->SubgroupProperties_.subgroupSize = SgSize; // Reported as warpSize.
     SizeCtl.pNext = nullptr;
     SizeCtl.computeFullSubgroups = VK_FALSE;
     *Tail = &SizeCtl;
