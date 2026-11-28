@@ -2393,9 +2393,10 @@ void CHIPDeviceVulkan::populateDevicePropertiesImpl() {
   HipDeviceProps_.maxThreadsDim[0] = Limits.maxComputeWorkGroupSize[0];
   HipDeviceProps_.maxThreadsDim[1] = Limits.maxComputeWorkGroupSize[1];
   HipDeviceProps_.maxThreadsDim[2] = Limits.maxComputeWorkGroupSize[2];
-  HipDeviceProps_.maxGridSize[0] = Limits.maxComputeWorkGroupCount[0];
-  HipDeviceProps_.maxGridSize[1] = Limits.maxComputeWorkGroupCount[1];
-  HipDeviceProps_.maxGridSize[2] = Limits.maxComputeWorkGroupCount[2];
+  // int fields; RADV reports UINT32_MAX, which would read as -1.
+  for (int D = 0; D < 3; ++D)
+    HipDeviceProps_.maxGridSize[D] = static_cast<int>(std::min<uint32_t>(
+        Limits.maxComputeWorkGroupCount[D], INT32_MAX));
 
   // Vulkan does not report clock rates; use placeholders.
   HipDeviceProps_.clockRate = 1000 * 1000; // 1 GHz, kHz units.
