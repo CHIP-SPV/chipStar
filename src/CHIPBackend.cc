@@ -1523,9 +1523,9 @@ chipstar::Module *chipstar::Device::getOrCreateModule(const SPVModule &SrcMod) {
   }
 
   LOCK(DeviceVarMtx); // chipstar::Device::SrcModToCompiledMod_
-  // Every HIP entry point holds ApiMtx for the whole call, so compilation is
-  // single-entry per device and nothing can have inserted this source while
-  // DeviceVarMtx was released above.
+  // Every HIP entry point that can compile holds ApiMtx for the whole call, so
+  // compilation is single-entry per device and nothing can have inserted this
+  // source while DeviceVarMtx was released above.
   auto Insertion = SrcModToCompiledMod_.insert(std::make_pair(&SrcMod, Module));
   assert(Insertion.second && "ApiMtx should keep module compilation single-entry");
   (void)Insertion; // Only read by the assert, which NDEBUG compiles away.

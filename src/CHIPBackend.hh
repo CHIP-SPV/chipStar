@@ -2578,6 +2578,11 @@ public:
    */
 
   virtual void finish() = 0;
+  /// finish() for a caller holding ApiMtx; a backend whose wait may need a
+  /// stream callback to return releases it during the wait.
+  virtual void finishUnlockingApiMtx(std::unique_lock<std::mutex> &) {
+    finish();
+  }
 
   /**
    * @brief Wait for this queue to finish, assuming EventsMtx is already held
