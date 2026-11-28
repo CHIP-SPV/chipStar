@@ -18,7 +18,9 @@
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -88,6 +90,15 @@ class TextureUseGroup {
 
   std::set<User *> UnknownTexUsers_;
 
+  // Texture handles read directly out of byval kernel arguments at a fixed byte
+  // offset.
+  struct ByvalFieldSource {
+    LoadInst *TheLoad;
+    Argument *ByvalArg;
+    uint64_t Offset;
+  };
+  std::vector<ByvalFieldSource> ByvalFieldSources_;
+
 public:
   void recordDirectTexSource(Argument *V) {
     assert(!IndirectTexSources_.count(V));
@@ -103,6 +114,9 @@ public:
     assert(!IndirectTexSources_.count(V));
     UnknownTexUsers_.insert(V);
   }
+  void recordByvalFieldSource(LoadInst *LI, Argument *Arg, uint64_t Offset) {
+    ByvalFieldSources_.push_back({LI, Arg, Offset});
+  }
 
   void dump() const;
 
@@ -111,6 +125,9 @@ public:
   }
   const std::set<CallInst *> &getTexFunctionCalls() const {
     return TexFunctionCalls_;
+  }
+  const std::vector<ByvalFieldSource> &getByvalFieldSources() const {
+    return ByvalFieldSources_;
   }
 
   bool hasIndirectTexSources() const { return !IndirectTexSources_.empty(); }
@@ -150,11 +167,92 @@ void TextureUseGroup::dump() const {
   DOIT(IndirectTexSources_, "Indirect tex sources");
   DOIT(TexFunctionCalls_, "Tex function calls");
   DOIT(UnknownTexUsers_, "Unknown tex users");
+  dbgs() << "Byval field tex sources:"
+         << (ByvalFieldSources_.empty() ? " none" : "") << "\n";
+  for (auto &F : ByvalFieldSources_) {
+    dbgs() << "- arg '" << F.ByvalArg->getName() << "' offset " << F.Offset
+           << ": ";
+    F.TheLoad->dump();
+  }
 #undef DOIT
 }
 
 using TextureUseGroupList = std::vector<TextureUseGroup>;
 using TextureUseGroupMap = std::map<Value *, TextureUseGroup *>;
+
+// Strips pure address computations off Addr, returning the base object it was
+// computed from and the constant byte offset from that base to Addr.
+static Value *stripToBase(Value *Addr, const DataLayout &DL, APInt &Offset) {
+  Offset = APInt(DL.getIndexTypeSizeInBits(Addr->getType()), 0);
+  Value *Base = Addr->stripAndAccumulateConstantOffsets(
+          DL, Offset, /*AllowNonInbounds=*/true);
+  while (auto *ASC = dyn_cast<AddrSpaceCastInst>(Base))
+    Base = ASC->getPointerOperand();
+  return Base;
+}
+
+// Find local stores based on a memory address. If the base address turns
+// out to be another load, recurse through the nested loads.
+static void collectLocalStoresToAddress(Value *Addr, const DataLayout &DL,
+                                        SmallPtrSetImpl<Value *> &VisitedBases,
+                                        SmallVectorImpl<StoreInst *> &Out) {
+  APInt Offset;
+  Value *Base = stripToBase(Addr, DL, Offset);
+
+  if (!VisitedBases.insert(Base).second)
+    return; // already explored
+
+  if (!isa<AllocaInst>(Base) && !isa<LoadInst>(Base))
+    return; // not a location we can account for locally
+
+  // Check every pointer value derived from Base looking for stores that
+  // target the same byte offset as Addr.
+  SmallVector<Value *, 8> Worklist{Base};
+  SmallPtrSet<Value *, 8> SeenDerived;
+  while (!Worklist.empty()) {
+    Value *V = Worklist.pop_back_val();
+    if (!SeenDerived.insert(V).second)
+      continue;
+    for (User *U : V->users()) {
+      if (isa<GetElementPtrInst>(U) || isa<BitCastInst>(U) ||
+          isa<AddrSpaceCastInst>(U)) {
+        Worklist.push_back(cast<Instruction>(U));
+        continue;
+      }
+      auto *SI = dyn_cast<StoreInst>(U);
+      if (!SI || SI->getPointerOperand() != V)
+        continue;
+      APInt StoreOffset;
+      Value *StoreBase = stripToBase(V, DL, StoreOffset);
+      if (StoreBase == Base && StoreOffset == Offset)
+        Out.push_back(SI);
+    }
+  }
+
+  // If Base is another load, find more local stores recursively.
+  if (auto *BaseLI = dyn_cast<LoadInst>(Base)) {
+    SmallVector<StoreInst *, 4> OuterStores;
+    collectLocalStoresToAddress(BaseLI->getPointerOperand(), DL, VisitedBases,
+                                OuterStores);
+    for (auto *OuterSI : OuterStores)
+      collectLocalStoresToAddress(OuterSI->getValueOperand(), DL,
+                                  VisitedBases, Out);
+  }
+}
+
+// Checks whether Addr is at base a texture object field embedded directly
+// inside a byval kernel argument.
+static bool resolveByvalFieldSource(Value *Addr, const DataLayout &DL,
+                                    Argument *&OutArg, uint64_t &OutOffset) {
+  APInt Offset;
+  Value *Base = stripToBase(Addr, DL, Offset);
+  auto *Arg = dyn_cast<Argument>(Base);
+  if (!Arg || !Arg->hasByValAttr())
+    return false;
+  OutArg = Arg;
+  OutOffset = Offset.getZExtValue();
+  return true;
+}
 
 /// Consider 'V' as a texture object. This analysis method searches its users
 /// and sources and records them in the 'TexUseGroup'.
@@ -237,15 +335,48 @@ static void analyze(Value *V, TextureUseGroup &TexUseGroup,
     break;
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
+  case Instruction::IntToPtr:
+  case Instruction::PtrToInt:
     VisitDefsAndUses(I, {0});
     return;
   case Instruction::Select:
     VisitDefsAndUses(I, {1, 2});
     return;
-  }
+  case Instruction::Load:
+    // Look through local store+load pairs and fan out to avoid orphaned
+    // sibling calls.
+    auto *LI = cast<LoadInst>(I);
+    const DataLayout &DL = LI->getModule()->getDataLayout();
+    Value *Ptr = LI->getPointerOperand();
 
-  // TODO: Look through loads and stores of local variables? These cases would
-  // occur on -O0 (unless SROA pass is forced).
+    SmallPtrSet<Value *, 8> VisitedBases;
+    SmallVector<StoreInst *, 4> Stores;
+    collectLocalStoresToAddress(Ptr, DL, VisitedBases, Stores);
+    if (!Stores.empty()) {
+      for (auto *SI : Stores) {
+        LLVM_DEBUG(dbgs() << "  Look through local store: " << *SI << "\n");
+        analyze(SI->getValueOperand(), TexUseGroup, TexUseGroupMap,
+                &SI->getOperandUse(0));
+      }
+      VisitUses(I);
+      return;
+    }
+
+    // Not a locally-introduced copy. Check whether this is instead a
+    // read of a texture object field embedded directly inside a byval
+    // kernel argument.
+    Argument *ByvalArg;
+    uint64_t ByvalOffset;
+    if (resolveByvalFieldSource(Ptr, DL, ByvalArg, ByvalOffset)) {
+      LLVM_DEBUG(dbgs() << "  Byval struct field tex source (arg '"
+                         << ByvalArg->getName() << "', offset " << ByvalOffset
+                         << ")\n");
+      TexUseGroup.recordByvalFieldSource(LI, ByvalArg, ByvalOffset);
+      VisitUses(I);
+      return;
+    }
+    break;
+  }
 
   // A texture object is received from or passed to an unrecognized
   // instruction.
@@ -353,6 +484,7 @@ static void lowerTextureObjectUses(Function *F,
   auto *M = F->getParent();
   auto &C = M->getContext();
   std::map<Argument *, std::vector<Value *>> ArgsToExpand;
+  SmallVector<Value *, 8> ExtraArgs;
   SmallVector<Instruction *, 4> EraseList;
   for (const auto &TexUseGroup : TexUseGroups) {
     TexTypeSet TexTy;
@@ -395,6 +527,38 @@ static void lowerTextureObjectUses(Function *F,
       continue;
     }
 
+    if (!TexUseGroup.hasIndirectTexSources() &&
+        !TexUseGroup.hasUnknownTexUsers() &&
+        TexUseGroup.getNumTextureSources() == 0 &&
+        TexUseGroup.getByvalFieldSources().size() == 1 &&
+        TexUseGroup.hasSingleOpenCLSupportedTexType(TexTy)) {
+      // A texture handle read out of one field of a byval struct argument.
+      LLVM_DEBUG(dbgs() << "Lower a byval-struct-field texture use case\n");
+
+      Type *ImgArgTy = getImageType(C, TexTy);
+      Type *SplArgTy = getSamplerType(C);
+      Value *ImgArgPlaceholder = getPlaceholder(ImgArgTy, F);
+      Value *SplArgPlaceholder = getPlaceholder(SplArgTy, F);
+      ExtraArgs.push_back(ImgArgPlaceholder);
+      ExtraArgs.push_back(SplArgPlaceholder);
+
+      for (auto *CI : TexUseGroup.getTexFunctionCalls()) {
+        auto *ImplF = M->getFunction(
+            (CI->getCalledFunction()->getName() + "_impl").str());
+        assert(ImplF);
+        SmallVector<Value *, 4> CallArgs{ImgArgPlaceholder, SplArgPlaceholder};
+        for (unsigned I = 1, E = CI->arg_size(); I != E; I++)
+          CallArgs.push_back(CI->getArgOperand(I));
+        auto *NewCI =
+            CallInst::Create(ImplF->getFunctionType(), ImplF, CallArgs, "",
+                             CI->getIterator());
+        NewCI->setCallingConv(CallingConv::SPIR_FUNC);
+        CI->replaceAllUsesWith(NewCI);
+        EraseList.push_back(CI);
+      }
+      continue;
+    }
+
     // If we reach here it means:
     //
     // 1) the texture use case, which could be lowered to use OpenCL
@@ -413,7 +577,7 @@ static void lowerTextureObjectUses(Function *F,
     ToErase->eraseFromParent();
 
   // Clone the kernel if needed for changing its parameter list.
-  if (ArgsToExpand.empty())
+  if (ArgsToExpand.empty() && ExtraArgs.empty())
     return;
 
   // Prepare new kernel function and its parameters to clone the current kernel
@@ -428,6 +592,8 @@ static void lowerTextureObjectUses(Function *F,
     else
       NewArgTys.push_back(Arg.getType());
   }
+  for (auto *V : ExtraArgs)
+    NewArgTys.push_back(V->getType());
 
   // Create new kernel function.
   auto *NewFnTy =
@@ -449,6 +615,8 @@ static void lowerTextureObjectUses(Function *F,
     } else
       VMap[&Arg] = &(*NewFArgIt++);
   }
+  for (auto *ArgPlaceholder : ExtraArgs)
+    PlaceholderToArg[ArgPlaceholder] = &(*NewFArgIt++);
 
   // Clone the function.
   SmallVector<ReturnInst *, 8> Ignored;
