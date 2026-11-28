@@ -1714,13 +1714,19 @@ void chipstar::Backend::trackEvent(
   Event->markTracked();
 }
 
+// Live HIP threads other than the caller.
+static int otherActiveThreads() {
+  return GlobalActiveThreads.load(std::memory_order_relaxed) -
+         (ThreadCounted ? 1 : 0);
+}
+
 void chipstar::Backend::waitForThreadExit() {
   // Check if any threads called HIP APIs
   usleep(100000);
-  int activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
+  int activeThreads = otherActiveThreads();
 
-  if (activeThreads <= 1) {
-    // Only main thread or no threads called HIP APIs
+  if (activeThreads <= 0) {
+    // No other live HIP threads
     logDebug("waitForThreadExit: No additional threads detected (count: {})",
              activeThreads);
     return;
@@ -1728,7 +1734,7 @@ void chipstar::Backend::waitForThreadExit() {
 
   // Wait for threads to exit by polling the counter
   logDebug("waitForThreadExit: Waiting for {} threads to exit",
-           activeThreads - 1);
+           activeThreads);
 
   for (int i = 0; i < 50; i++) { // Max 5 seconds
 #ifdef __APPLE__
@@ -1738,8 +1744,8 @@ void chipstar::Backend::waitForThreadExit() {
 #endif
     usleep(100000); // 100ms per iteration
 
-    activeThreads = GlobalActiveThreads.load(std::memory_order_relaxed);
-    if (activeThreads <= 1) {
+    activeThreads = otherActiveThreads();
+    if (activeThreads <= 0) {
       logDebug("waitForThreadExit: All threads exited (count: {})",
                activeThreads);
       return;
@@ -1748,7 +1754,7 @@ void chipstar::Backend::waitForThreadExit() {
 
   logWarn(
       "waitForThreadExit: Timeout waiting for threads to exit (remaining: {})",
-      activeThreads - 1);
+      activeThreads);
 
   // Cleanup all queues
   {
