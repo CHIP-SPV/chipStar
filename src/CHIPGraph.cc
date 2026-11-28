@@ -117,7 +117,7 @@ void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);
   size_t Width = std::max<size_t>(1, Params_.width);
-  size_t Size = Height * Width; //  TODO Graphs Pitch?
+  size_t Size = Height * Width * Params_.elementSize; //  TODO Graphs Pitch?
   Queue->memFillAsync(Params_.dst, Size, (void *)&Val, Params_.elementSize);
 }
 
