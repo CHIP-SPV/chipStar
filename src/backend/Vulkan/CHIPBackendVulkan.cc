@@ -2528,7 +2528,7 @@ void CHIPDeviceVulkan::releaseTimestampSlot(int32_t Slot) {
 
 CHIPQueueVulkan::CHIPQueueVulkan(chipstar::Device *ChipDevice,
                                  chipstar::QueueFlags Flags, int Priority)
-    : chipstar::Queue(ChipDevice, Flags, Priority),
+    : chipstar::Queue(ChipDevice, Flags, /*Priority=*/0),
       ChipDevice_(static_cast<CHIPDeviceVulkan *>(ChipDevice)),
       CmdBufferRing_(RingCapacity_, VK_NULL_HANDLE) {
   VkDevice Dev = ChipDevice_->getLogicalDevice();
@@ -2592,7 +2592,7 @@ CHIPQueueVulkan::CHIPQueueVulkan(chipstar::Device *ChipDevice,
             hipErrorTbd);
   }
 
-  // Every stream shares one VkQueue, so the priority is only reported.
+  // Every stream shares one VkQueue, so there is only one priority.
   (void)Priority;
 }
 
