@@ -592,9 +592,6 @@ ANY:
     Unit_hipManagedKeyword_SingleGpu_TypeQualifiers: 'https://github.com/CHIP-SPV/chipStar/issues/2138'
     Unit_hipMemcpyToSymbolAsync_ToNFrom_UnitDeviceTests: 'https://github.com/CHIP-SPV/chipStar/issues/2143'
     Unit_hipStreamPerThread_ChildProc_StreamPerThreadTest: 'https://github.com/CHIP-SPV/chipStar/issues/2144'
-'chipstar-vk-': # every GPU of the native Vulkan lane on cupcake, a loaded shared host
-  VULKAN_GPU:
-    manyMallocMemcopies: 'https://github.com/CHIP-SPV/chipStar/issues/2151'
 chipstar-vk-b570: # Arc B570 via Mesa ANV, native Vulkan backend (self-hosted runner)
   VULKAN_GPU:
     Unit_hipStreamPerThread_Basic_StreamPerThreadTest: 'https://github.com/CHIP-SPV/chipStar/issues/2150'
