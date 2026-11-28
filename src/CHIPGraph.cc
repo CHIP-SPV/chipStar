@@ -114,6 +114,20 @@ std::string CHIPGraphNodeKernel::getKernelName() const {
 CHIPGraphNodeKernel::~CHIPGraphNodeKernel() { delete ExecItem_; }
 
 void CHIPGraphNodeMemset::execute(chipstar::Queue *Queue) const {
+  // Only a new value keeps the 3D replay; depth and ysize do not fit other
+  // params.
+  if (Is3D_ && Params_.dst == Captured_.dst &&
+      Params_.elementSize == Captured_.elementSize &&
+      Params_.height == Captured_.height && Params_.pitch == Captured_.pitch &&
+      Params_.width == Captured_.width) {
+    if (!Params_.width || !Params_.height || !Depth_)
+      return;
+    Queue->memFillAsync3D(
+        make_hipPitchedPtr(Params_.dst, Params_.pitch, Params_.width, YSize_),
+        (int)Params_.value,
+        make_hipExtent(Params_.width, Params_.height, Depth_));
+    return;
+  }
   const unsigned int Val = Params_.value;
   size_t Height = std::max<size_t>(1, Params_.height);
   size_t Width = std::max<size_t>(1, Params_.width);
