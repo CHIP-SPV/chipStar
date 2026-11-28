@@ -63,6 +63,9 @@
 #include "llvm/Transforms/Utils/LowerAtomic.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Loads.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -405,6 +408,7 @@ public:
 // function entry otherwise. The rtdevlib defines both per device.
 class HipShuffleShiftPass
     : public HipRequiredPassInfoMixin<HipShuffleShiftPass> {
+public:
   // An OpenCL work-item query, e.g. _Z12get_local_idj.
   static bool isWorkItemQuery(const Value *V, bool SizeOnly = false) {
     auto *CI = dyn_cast<CallInst>(V);
@@ -424,6 +428,8 @@ class HipShuffleShiftPass
            N.starts_with("get_max_sub_group_size") ||
            N.starts_with("get_num_sub_groups");
   }
+
+private:
 
   // True if V can be recomputed at the function entry: it reads only
   // work-item queries, constants and arguments, and cannot divide by zero.
@@ -2182,6 +2188,157 @@ public:
     }
     return Work.empty() && Stores.empty() ? PreservedAnalyses::all()
                                           : PreservedAnalyses::none();
+  }
+};
+
+// Workgroup barriers need every invocation, but some devices wait forever for
+// invocations that already returned. A thread that returns early before a
+// barrier instead sets a flag, runs on without memory effects and keeps
+// arriving at the barriers.
+class HipVulkanEarlyReturnBarrierPass
+    : public HipRequiredPassInfoMixin<HipVulkanEarlyReturnBarrierPass> {
+  static bool isBarrier(const Instruction &I) {
+    const auto *CI = dyn_cast<CallInst>(&I);
+    const Function *Callee = CI ? CI->getCalledFunction() : nullptr;
+    return Callee && Callee->isIntrinsic() &&
+           Callee->getName().contains("barrier.with.group.sync");
+  }
+  // Only returns, perhaps through blocks that only branch.
+  static bool isReturnBlock(const BasicBlock *BB) {
+    for (unsigned N = 0; N < 8 && BB->size() == 1; ++N) {
+      if (isa<ReturnInst>(BB->front()))
+        return true;
+      auto *Br = dyn_cast<UncondBrInst>(&BB->front());
+      if (!Br)
+        return false;
+      BB = Br->getSuccessor(0);
+    }
+    return false;
+  }
+  // Instructions an exited thread must not run.
+  static bool mustGuard(const Instruction &I) {
+    if (I.isTerminator() || isa<PHINode>(I) || isa<AllocaInst>(I) ||
+        isBarrier(I) || HipShuffleShiftPass::isWorkItemQuery(&I) || !(I.mayReadOrWriteMemory() || I.mayHaveSideEffects()))
+      return false;
+    if (const Value *Ptr = getLoadStorePointerOperand(&I))
+      return !isa<AllocaInst>(getUnderlyingObject(Ptr));
+    return true;
+  }
+
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM) {
+    if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
+      return PreservedAnalyses::all();
+    auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    auto &LI = FAM.getResult<LoopAnalysis>(F);
+
+    auto ReachesBarrier = [&](BasicBlock *S) {
+      for (BasicBlock *BB : depth_first(S))
+        if (any_of(*BB, isBarrier))
+          return true;
+      return false;
+    };
+    struct Edge {
+      CondBrInst *Br;
+      BasicBlock *X, *S;
+    };
+    SmallVector<Edge, 4> Edges;
+    for (BasicBlock &BB : F)
+      if (auto *Br = dyn_cast<CondBrInst>(BB.getTerminator()))
+        for (unsigned Idx = 0; Idx < 2; ++Idx) {
+          BasicBlock *X = Br->getSuccessor(Idx), *S = Br->getSuccessor(1 - Idx);
+          if (isReturnBlock(X) && X != S && !DT.dominates(S, &BB) &&
+              ReachesBarrier(S))
+            Edges.push_back({Br, X, S});
+        }
+    // A loop whose only exits are early returns would never end.
+    auto IsEdge = [&](const BasicBlock *From, const BasicBlock *To) {
+      return any_of(Edges, [&](const Edge &E) {
+        return E.Br->getParent() == From && E.X == To;
+      });
+    };
+    llvm::erase_if(Edges, [&](const Edge &E) {
+      for (Loop *L = LI.getLoopFor(E.Br->getParent()); L && !L->contains(E.X);
+           L = L->getParentLoop()) {
+        bool OtherExit = false;
+        for (BasicBlock *BB : L->blocks())
+          for (BasicBlock *Succ : successors(BB))
+            OtherExit |= !L->contains(Succ) && !IsEdge(BB, Succ);
+        if (!OtherExit)
+          return true;
+      }
+      return false;
+    });
+    if (Edges.empty())
+      return PreservedAnalyses::all();
+
+    // The blocks an exited thread still passes through.
+    SmallPtrSet<BasicBlock *, 16> Area;
+    for (const Edge &E : Edges)
+      for (BasicBlock *BB : depth_first(E.S))
+        Area.insert(BB);
+    SmallVector<Instruction *, 16> Guarded;
+    for (BasicBlock *BB : Area)
+      for (Instruction &I : *BB)
+        if (mustGuard(I))
+          Guarded.push_back(&I);
+
+    // Control flow decided by a guarded value would differ per thread.
+    SmallVector<const Value *, 16> Work;
+    SmallPtrSet<const Value *, 16> Seen;
+    for (BasicBlock *BB : Area) {
+      Instruction *T = BB->getTerminator();
+      if (auto *Br = dyn_cast<CondBrInst>(T))
+        Work.push_back(Br->getCondition());
+      else if (auto *Sw = dyn_cast<SwitchInst>(T))
+        Work.push_back(Sw->getCondition());
+    }
+    while (!Work.empty()) {
+      const Value *V = Work.pop_back_val();
+      auto *I = dyn_cast<Instruction>(V);
+      if (!I || !Seen.insert(I).second)
+        continue;
+      if (!Area.contains(I->getParent()))
+        continue;
+      if (mustGuard(*I))
+        return PreservedAnalyses::all();
+      Work.append(I->value_op_begin(), I->value_op_end());
+    }
+
+    IRBuilder<> B(&*F.getEntryBlock().getFirstInsertionPt());
+    auto *Exited = B.CreateAlloca(B.getInt1Ty());
+    B.CreateStore(B.getFalse(), Exited);
+    for (const Edge &E : Edges) {
+      B.SetInsertPoint(E.Br);
+      Value *Cond = E.Br->getCondition();
+      if (E.Br->getSuccessor(0) != E.X)
+        Cond = B.CreateNot(Cond);
+      B.CreateStore(B.CreateOr(B.CreateLoad(B.getInt1Ty(), Exited), Cond),
+                    Exited);
+      B.CreateBr(E.S);
+      E.X->removePredecessor(E.Br->getParent());
+      E.Br->eraseFromParent();
+    }
+    for (const Edge &E : Edges)
+      if (pred_empty(E.X) && E.X->size() == 1 && isa<UncondBrInst>(E.X->front()))
+        DeleteDeadBlock(E.X);
+
+    // Each guarded instruction runs only where the thread has not exited.
+    for (Instruction *I : Guarded) {
+      B.SetInsertPoint(I);
+      Value *Live = B.CreateNot(B.CreateLoad(B.getInt1Ty(), Exited));
+      BasicBlock *Head = I->getParent();
+      Instruction *Then = SplitBlockAndInsertIfThen(Live, I, false);
+      I->moveBefore(Then->getIterator());
+      if (I->getType()->isVoidTy())
+        continue;
+      BasicBlock *Tail = Then->getParent()->getSingleSuccessor();
+      auto *Phi = PHINode::Create(I->getType(), 2, "", Tail->begin());
+      I->replaceAllUsesWith(Phi);
+      Phi->addIncoming(I, Then->getParent());
+      Phi->addIncoming(Constant::getNullValue(I->getType()), Head);
+    }
+    return PreservedAnalyses::none();
   }
 };
 
@@ -3970,6 +4127,7 @@ static void addVulkanLinkTimePasses(ModulePassManager &MPM) {
   MPM.addPass(HipVulkanLockSharedFloatAtomicsPass());
   MPM.addPass(HipVulkanRetypeArraysPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanSpeculateSelectLoadsPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(HipVulkanEarlyReturnBarrierPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::ModifyCFG)));
   // SROA leaves the integer bits of split pointer fields dead.
   MPM.addPass(createModuleToFunctionPassAdaptor(DCEPass()));

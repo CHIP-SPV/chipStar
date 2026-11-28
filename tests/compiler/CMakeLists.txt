@@ -279,6 +279,7 @@ add_shell_test(TestFix1577PointerVectors.bash)
 # Vulkan cannot select between private variables a load goes through.
 if(CHIP_USE_NATIVE_VULKAN_SPIRV)
   add_shell_test(TestVulkanSelectLoad.bash)
+  add_shell_test(TestVulkanEarlyReturnBarrier.bash)
 endif()
 # A constant zero length copy must not reach SPIR-V emission.
 add_shell_test(TestFix1634ZeroLengthCopy.bash)
